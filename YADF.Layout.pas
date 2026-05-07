@@ -849,10 +849,98 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
       Result := True;
   end;
 
+  function HasLineCommentOrOpenBlock(const ALine: string): Boolean;
+  var
+    i:                        Integer;
+    InString, InBrace, InPar: Boolean;
+  begin
+    InString := False;
+    InBrace  := False;
+    InPar    := False;
+    i        := 1;
+    while i <= Length(ALine) do
+    begin
+      if InBrace then
+      begin
+        if ALine[i] = '}' then InBrace := False;
+        Inc(i);
+        Continue;
+      end;
+      if InPar then
+      begin
+        if (i + 1 <= Length(ALine)) and (ALine[i] = '*') and (ALine[i + 1] = ')') then
+        begin
+          InPar := False;
+          Inc(i, 2);
+          Continue;
+        end;
+        Inc(i);
+        Continue;
+      end;
+      if InString then
+      begin
+        if ALine[i] = '''' then
+        begin
+          if (i + 1 <= Length(ALine)) and (ALine[i + 1] = '''') then
+            Inc(i, 2)
+          else
+          begin
+            InString := False;
+            Inc(i);
+          end;
+        end
+        else
+          Inc(i);
+        Continue;
+      end;
+      if ALine[i] = '''' then begin InString := True; Inc(i); Continue; end;
+      if ALine[i] = '{' then begin InBrace := True; Inc(i); Continue; end;
+      if (i + 1 <= Length(ALine)) and (ALine[i] = '(') and (ALine[i + 1] = '*') then
+      begin
+        InPar := True;
+        Inc(i, 2);
+        Continue;
+      end;
+      if (i + 1 <= Length(ALine)) and (ALine[i] = '/') and (ALine[i + 1] = '/') then
+        Exit(True);
+      Inc(i);
+    end;
+    Result := InBrace or InPar;
+  end;
+
+  function EndsWithTypeAncestorList(const ALine: string): Boolean;
+  var
+    R, Head: string;
+    i, Level: Integer;
+  begin
+    R := TrimRight(ALine);
+    if (R = '') or (R[Length(R)] <> ')') then Exit(False);
+    Level := 0;
+    i := Length(R);
+    while i > 0 do
+    begin
+      if R[i] = ')' then Inc(Level)
+      else if R[i] = '(' then
+      begin
+        Dec(Level);
+        if Level = 0 then Break;
+      end;
+      Dec(i);
+    end;
+    if i <= 1 then Exit(False);
+    Head := TrimRight(Copy(R, 1, i - 1));
+    Result := EndsWordCI(Head, 'class')
+           or EndsWordCI(Head, 'object')
+           or EndsWordCI(Head, 'interface')
+           or EndsWordCI(Head, 'dispinterface');
+  end;
+
   function CurBlocksMerge(const ALine, ANext: string): Boolean;
   var
     R: string;
   begin
+    if HasLineCommentOrOpenBlock(ALine) then Exit(True);
+    if EndsWithTypeAncestorList(ALine) then Exit(True);
     R := TrimRight(ALine);
     if R = '' then Exit(True);
     if R[Length(R)] = ';' then Exit(True);
@@ -866,8 +954,11 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     if EndsWordCI(R, 'except') then Exit(True);
     if EndsWordCI(R, 'repeat') then Exit(True);
     if EndsWordCI(R, 'of') then Exit(True);
+    if EndsWordCI(R, 'class') then Exit(True);
+    if EndsWordCI(R, 'object') then Exit(True);
     if EndsWordCI(R, 'record') then Exit(True);
     if EndsWordCI(R, 'interface') then Exit(True);
+    if EndsWordCI(R, 'dispinterface') then Exit(True);
     if EndsWordCI(R, 'implementation') then Exit(True);
     if EndsWordCI(R, 'initialization') then Exit(True);
     if EndsWordCI(R, 'finalization') then Exit(True);

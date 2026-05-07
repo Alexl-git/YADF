@@ -155,6 +155,7 @@ implementation
 
 uses
   Winapi.Windows,
+  Winapi.ShlObj,
   System.SysUtils,
   System.Classes,
   System.IOUtils,
@@ -269,22 +270,67 @@ begin
 end;
 
 procedure SaveFile(const AFileName, AContent: string; const AOpts: TYadfOptions);
+
+  procedure WriteAllBytesFlushed(const AFile: string; const ABytes: TBytes);
+  var
+    Stream: TFileStream;
+  begin
+    Stream := TFileStream.Create(AFile, fmCreate or fmShareDenyWrite);
+    try
+      if Length(ABytes) > 0 then
+        Stream.WriteBuffer(ABytes[0], Length(ABytes));
+      FlushFileBuffers(Stream.Handle);
+    finally
+      Stream.Free;
+    end;
+  end;
+
+  procedure BumpModifiedTime(const AFile: string);
+  var
+    H:  THandle;
+    Ft: TFileTime;
+  begin
+    H := CreateFileW(PWideChar(AFile), GENERIC_WRITE,
+                     FILE_SHARE_READ or FILE_SHARE_WRITE,
+                     nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if H = INVALID_HANDLE_VALUE then Exit;
+    try
+      GetSystemTimeAsFileTime(Ft);
+      SetFileTime(H, nil, nil, @Ft);
+    finally
+      CloseHandle(H);
+    end;
+  end;
+
 var
-  Enc:                TEncoding;
+  Enc:                  TEncoding;
   Preamble, Bytes, All: TBytes;
+  Tmp:                  string;
 begin
-  Enc := ResolveEncoding(AOpts);
+  Enc      := ResolveEncoding(AOpts);
   Preamble := Enc.GetPreamble;
-  Bytes := Enc.GetBytes(AContent);
+  Bytes    := Enc.GetBytes(AContent);
   if Length(Preamble) > 0 then
   begin
     SetLength(All, Length(Preamble) + Length(Bytes));
     Move(Preamble[0], All[0], Length(Preamble));
     Move(Bytes[0], All[Length(Preamble)], Length(Bytes));
-    TFile.WriteAllBytes(AFileName, All);
   end
   else
-    TFile.WriteAllBytes(AFileName, Bytes);
+    All := Bytes;
+
+  Tmp := AFileName + '.yadf-tmp';
+  try
+    WriteAllBytesFlushed(Tmp, All);
+    if not MoveFileExW(PWideChar(Tmp), PWideChar(AFileName),
+                       MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then
+      RaiseLastOSError;
+  except
+    DeleteFileW(PWideChar(Tmp));
+    raise;
+  end;
+  BumpModifiedTime(AFileName);
+  SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW, PWideChar(AFileName), nil);
 end;
 
 function RoundTrip(const ASource: string): string;
