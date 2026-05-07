@@ -1,0 +1,18 @@
+unit trailing_line_comment;
+
+interface
+
+implementation
+
+procedure P;
+var
+  X: Integer;
+begin
+  X := 1; // trailing comment that must stay glued to its line
+  X := X + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 11; // long expression then comment
+  X := 0;
+  // standalone comment on its own line
+  X := 1;
+end;
+
+end.

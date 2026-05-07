@@ -1,0 +1,34 @@
+unit nested_formula;
+
+interface
+
+implementation
+
+function VeryLongFunctionNameOne(A, B: Integer): Integer;
+begin
+  Result := A + B;
+end;
+
+function VeryLongFunctionNameTwo(A: Integer): Integer;
+begin
+  Result := A * 2;
+end;
+
+function VeryLongFunctionNameThree(A, B, C: Integer): Integer;
+begin
+  Result := A + B + C;
+end;
+
+function VeryLongFunctionNameFour(A: Integer): Integer;
+begin
+  Result := A + 1;
+end;
+
+procedure Test;
+var
+  X: Integer;
+begin
+  X := VeryLongFunctionNameOne(VeryLongFunctionNameTwo(VeryLongFunctionNameThree(VeryLongFunctionNameFour(100), VeryLongFunctionNameFour(200), VeryLongFunctionNameFour(300))) + VeryLongFunctionNameTwo(VeryLongFunctionNameThree(VeryLongFunctionNameFour(400), VeryLongFunctionNameFour(500), VeryLongFunctionNameFour(600))), 99) + VeryLongFunctionNameOne(VeryLongFunctionNameTwo(VeryLongFunctionNameFour(700)), VeryLongFunctionNameTwo(VeryLongFunctionNameFour(800)));
+end;
+
+end.

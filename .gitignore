@@ -1,0 +1,52 @@
+# Compiled outputs
+Win32/
+Win64/
+*.dcu
+*.dcp
+*.exe
+*.dll
+*.bpl
+*.lib
+*.o
+*.map
+*.tds
+*.drc
+
+# Delphi IDE state (per-user, not part of project)
+__history/
+__recovery/
+*.identcache
+*.local
+*.dsv
+*.~*
+*.delphilsp.json
+*.stat
+*.skincfg
+
+# YADF runtime artifacts
+Result/
+BACKUP/
+*.BCK[0-9]
+*.BCK[0-9][0-9]
+*.BCK[0-9][0-9][0-9]
+*.bak
+yadf-startup.log
+yadf.log
+
+# Private notes (local only — not for upload)
+.private/
+.clinerules
+
+# Upstream samples kept locally for reference (clone DelphiAST for these)
+Demo/
+
+# Proprietary test inputs (do not redistribute)
+Test/uPLANLIST.PAS
+Test/uStyles_formatted.pas
+Test/__*.pas
+Test/YADF.TXT
+
+# OS junk
+Thumbs.db
+.DS_Store
+desktop.ini
