@@ -36,6 +36,7 @@ yadf.log
 # Private notes (local only — not for upload)
 .private/
 .clinerules
+.claude/
 
 # Upstream samples kept locally for reference (clone DelphiAST for these)
 Demo/
