@@ -483,8 +483,8 @@ end; // procedure
 
 function ParseDprUnits(const ADprFile: string; const AOpts: TYadfOptions): TArray<string>;
 var
-  CurName: string;
-  EndIdx: Integer;
+  CurName    : string;
+  EndIdx     : Integer;
   FilePath   : string;
   i          : Integer;
   InInClause : Boolean;

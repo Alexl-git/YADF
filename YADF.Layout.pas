@@ -485,20 +485,37 @@ end;
 function StartsBlockBoundary(const ALine: string): Boolean;
 var
   T: string;
+
+  function StartsKW(const AKeyword: string): Boolean;
+  var
+    L: Integer;
+    C: Char;
+  begin
+    L:= Length(AKeyword);
+    if Length(T) < L then Exit(False);
+    if not SameText(Copy(T, 1, L), AKeyword) then Exit(False);
+    if Length(T) = L then Exit(True);
+    C:= T[L + 1];
+    Result:= not (((C >= 'a') and (C <= 'z')) or
+                  ((C >= 'A') and (C <= 'Z')) or
+                  ((C >= '0') and (C <= '9')) or
+                  (C = '_'));
+  end;
+
 begin
   T:= TrimLeft(ALine);
   if T = '' then Exit(True);
-  if SameText(Copy(T, 1, 5), 'begin') then Exit(True);
-  if SameText(Copy(T, 1, 3), 'end') then Exit(True);
-  if SameText(Copy(T, 1, 4), 'type') then Exit(True);
-  if SameText(Copy(T, 1, 4), 'var ') then Exit(True);
-  if SameText(Copy(T, 1, 6), 'const ') then Exit(True);
-  if SameText(Copy(T, 1, 9), 'procedure') then Exit(True);
-  if SameText(Copy(T, 1, 8), 'function') then Exit(True);
-  if SameText(Copy(T, 1, 11), 'constructor') then Exit(True);
-  if SameText(Copy(T, 1, 10), 'destructor') then Exit(True);
-  if SameText(Copy(T, 1, 9), 'interface') then Exit(True);
-  if SameText(Copy(T, 1, 14), 'implementation') then Exit(True);
+  if StartsKW('begin') then Exit(True);
+  if StartsKW('end') then Exit(True);
+  if StartsKW('type') then Exit(True);
+  if StartsKW('var') then Exit(True);
+  if StartsKW('const') then Exit(True);
+  if StartsKW('procedure') then Exit(True);
+  if StartsKW('function') then Exit(True);
+  if StartsKW('constructor') then Exit(True);
+  if StartsKW('destructor') then Exit(True);
+  if StartsKW('interface') then Exit(True);
+  if StartsKW('implementation') then Exit(True);
   Result:= False;
 end; // function
 
