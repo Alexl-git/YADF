@@ -154,27 +154,28 @@ procedure RunYadf;
 implementation
 
 uses
-  Winapi.Windows,
-  Winapi.ShlObj,
-  System.SysUtils,
-  System.Classes,
-  System.IOUtils,
-  System.IniFiles,
-  System.Generics.Collections,
-  SimpleParser.Lexer.Types,
-  YADF.Tokens,
-  YADF.Options,
-  YADF.Groups,
-  YADF.Layout,
-  YADF.Debug;
+  Winapi.Windows
+  , Winapi.ShlObj
+  , System.SysUtils
+  , System.Classes
+  , System.IOUtils
+  , System.IniFiles
+  , System.Generics.Collections
+  , SimpleParser.Lexer.Types
+  , YADF.Tokens
+  , YADF.Options
+  , YADF.Groups
+  , YADF.Layout
+  , YADF.Debug
+  ;
 
 procedure WriteStdoutRaw(const S: string);
 var
-  Bytes:   TBytes;
+  Bytes  : TBytes;
   Written: DWORD;
 begin
   if S = '' then Exit;
-  Bytes := TEncoding.ANSI.GetBytes(S);
+  Bytes:= TEncoding.ANSI.GetBytes(S);
   WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), Bytes[0], Length(Bytes), Written, nil);
 end;
 
@@ -184,14 +185,14 @@ begin
 end;
 
 var
-  GLogPath:    string;
+  GLogPath   : string;
   GLogEnabled: Boolean;
 
 function LogFilePath: string;
 begin
   if GLogPath = '' then
-    GLogPath := TPath.Combine(ExtractFilePath(ParamStr(0)), 'yadf-startup.log');
-  Result := GLogPath;
+    GLogPath:= TPath.Combine(ExtractFilePath(ParamStr(0)), 'yadf-startup.log');
+  Result:= GLogPath;
 end;
 
 procedure LogMsg(const S: string);
@@ -199,7 +200,7 @@ var
   Line: string;
 begin
   if not GLogEnabled then Exit;
-  Line := FormatDateTime('hh:nn:ss.zzz ', Now) + S;
+  Line:= FormatDateTime('hh:nn:ss.zzz ', Now) + S;
   OutputDebugString(PChar('[YADF] ' + Line));
   try
     TFile.AppendAllText(LogFilePath, Line + sLineBreak, TEncoding.ANSI);
@@ -208,23 +209,21 @@ begin
   end;
 end;
 
-procedure LogStartup(const AArgs: TArray<string>;
-                     const AOpts: TYadfOptions;
-                     const AIniPath: string);
+procedure LogStartup(const AArgs: TArray<string>; const AOpts: TYadfOptions; const AIniPath: string);
 
   function EncStr(E: TYadfEncoding): string;
   begin
     case E of
-      encUTF8BOM:  Result := 'UTF-8-BOM';
-      encUTF16BOM: Result := 'UTF-16-BOM';
-    else
-      Result := 'ANSI';
+      encUTF8BOM : Result:= 'UTF-8-BOM' ;
+      encUTF16BOM: Result:= 'UTF-16-BOM';
+      else
+        Result:= 'ANSI';
     end;
   end;
 
   function BoolStr(B: Boolean): string;
   begin
-    if B then Result := 'true' else Result := 'false';
+    if B then Result:= 'true' else Result:= 'false';
   end;
 
 var
@@ -237,36 +236,35 @@ begin
   LogMsg('  INI:       ' + AIniPath);
   LogMsg('  RawCmd:    ' + GetCommandLine);
   LogMsg('  Args[' + IntToStr(Length(AArgs)) + ']:');
-  for i := 0 to High(AArgs) do
-    LogMsg('    [' + IntToStr(i) + '] ' + AArgs[i]);
+  for i:= 0 to High(AArgs) do LogMsg('    [' + IntToStr(i) + '] ' + AArgs[i]);
   LogMsg('  Resolved options:');
   LogMsg('    ResultDir       = ' + AOpts.ResultDir);
   LogMsg('    Backup          = ' + BoolStr(AOpts.Backup));
   LogMsg('    BackupDir       = ' + AOpts.BackupDir);
   LogMsg('    Encoding        = ' + EncStr(AOpts.Encoding));
   LogMsg('    UsesAlwaysBreak = ' + BoolStr(AOpts.UsesAlwaysBreak));
-end;
+end; // begin
 
 function ResolveEncoding(const AOpts: TYadfOptions): TEncoding;
 begin
   case AOpts.Encoding of
-    encUTF8BOM:  Result := TEncoding.UTF8;
-    encUTF16BOM: Result := TEncoding.Unicode;
-  else
-    Result := TEncoding.ANSI;
+    encUTF8BOM : Result:= TEncoding.UTF8   ;
+    encUTF16BOM: Result:= TEncoding.Unicode;
+    else
+      Result:= TEncoding.ANSI;
   end;
 end;
 
 function LoadFile(const AFileName: string; const AOpts: TYadfOptions): string;
 var
-  Bytes:    TBytes;
+  Bytes   : TBytes;
   Detected: TEncoding;
-  PreLen:   Integer;
+  PreLen  : Integer;
 begin
-  Bytes := TFile.ReadAllBytes(AFileName);
-  Detected := nil;
-  PreLen := TEncoding.GetBufferEncoding(Bytes, Detected, ResolveEncoding(AOpts));
-  Result := Detected.GetString(Bytes, PreLen, Length(Bytes) - PreLen);
+  Bytes:= TFile.ReadAllBytes(AFileName);
+  Detected:= nil;
+  PreLen:= TEncoding.GetBufferEncoding(Bytes, Detected, ResolveEncoding(AOpts));
+  Result:= Detected.GetString(Bytes, PreLen, Length(Bytes) - PreLen);
 end;
 
 procedure SaveFile(const AFileName, AContent: string; const AOpts: TYadfOptions);
@@ -275,7 +273,7 @@ procedure SaveFile(const AFileName, AContent: string; const AOpts: TYadfOptions)
   var
     Stream: TFileStream;
   begin
-    Stream := TFileStream.Create(AFile, fmCreate or fmShareDenyWrite);
+    Stream:= TFileStream.Create(AFile, fmCreate or fmShareDenyWrite);
     try
       if Length(ABytes) > 0 then
         Stream.WriteBuffer(ABytes[0], Length(ABytes));
@@ -287,12 +285,10 @@ procedure SaveFile(const AFileName, AContent: string; const AOpts: TYadfOptions)
 
   procedure BumpModifiedTime(const AFile: string);
   var
-    H:  THandle;
+    H : THandle;
     Ft: TFileTime;
   begin
-    H := CreateFileW(PWideChar(AFile), GENERIC_WRITE,
-                     FILE_SHARE_READ or FILE_SHARE_WRITE,
-                     nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    H:= CreateFileW(PWideChar(AFile), GENERIC_WRITE, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     if H = INVALID_HANDLE_VALUE then Exit;
     try
       GetSystemTimeAsFileTime(Ft);
@@ -303,13 +299,15 @@ procedure SaveFile(const AFileName, AContent: string; const AOpts: TYadfOptions)
   end;
 
 var
-  Enc:                  TEncoding;
-  Preamble, Bytes, All: TBytes;
-  Tmp:                  string;
+  All     : TBytes;
+  Bytes   : TBytes;
+  Enc     : TEncoding;
+  Preamble: TBytes;
+  Tmp     : string;
 begin
-  Enc      := ResolveEncoding(AOpts);
-  Preamble := Enc.GetPreamble;
-  Bytes    := Enc.GetBytes(AContent);
+  Enc:= ResolveEncoding(AOpts);
+  Preamble:= Enc.GetPreamble;
+  Bytes:= Enc.GetBytes(AContent);
   if Length(Preamble) > 0 then
   begin
     SetLength(All, Length(Preamble) + Length(Bytes));
@@ -317,13 +315,12 @@ begin
     Move(Bytes[0], All[Length(Preamble)], Length(Bytes));
   end
   else
-    All := Bytes;
+    All:= Bytes;
 
-  Tmp := AFileName + '.yadf-tmp';
+  Tmp:= AFileName + '.yadf-tmp';
   try
     WriteAllBytesFlushed(Tmp, All);
-    if not MoveFileExW(PWideChar(Tmp), PWideChar(AFileName),
-                       MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then
+    if not MoveFileExW(PWideChar(Tmp), PWideChar(AFileName), MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then
       RaiseLastOSError;
   except
     DeleteFileW(PWideChar(Tmp));
@@ -331,15 +328,15 @@ begin
   end;
   BumpModifiedTime(AFileName);
   SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW, PWideChar(AFileName), nil);
-end;
+end; // begin
 
 function RoundTrip(const ASource: string): string;
 var
   Tokens: TTokenList;
 begin
-  Tokens := LoadTokensFromString(ASource);
+  Tokens:= LoadTokensFromString(ASource);
   try
-    Result := EmitTokens(Tokens);
+    Result:= EmitTokens(Tokens);
   finally
     Tokens.Free;
   end;
@@ -347,43 +344,44 @@ end;
 
 function FirstDiffIndex(const A, B: string): Integer;
 var
-  i, n: Integer;
+  i: Integer;
+  n: Integer;
 begin
-  n := Length(A);
-  if Length(B) < n then n := Length(B);
-  for i := 1 to n do
-    if A[i] <> B[i] then
-      Exit(i);
+  n:= Length(A);
+  if Length(B) < n then n:= Length(B);
+  for i:= 1 to n do if A[i] <> B[i] then
+    Exit(i);
   if Length(A) <> Length(B) then
     Exit(n + 1);
-  Result := 0;
+  Result:= 0;
 end;
 
 function CheckFile(const AFileName: string; const AOpts: TYadfOptions; out FirstDiff: Integer): Boolean;
 var
-  Source, Output: string;
+  Output: string;
+  Source: string;
 begin
-  Source    := LoadFile(AFileName, AOpts);
-  Output    := RoundTrip(Source);
-  FirstDiff := FirstDiffIndex(Source, Output);
-  Result    := FirstDiff = 0;
+  Source:= LoadFile(AFileName, AOpts);
+  Output:= RoundTrip(Source);
+  FirstDiff:= FirstDiffIndex(Source, Output);
+  Result:= FirstDiff = 0;
 end;
 
 procedure FormatToStdout(const AFileName: string; const AOpts: TYadfOptions);
 var
   Source: string;
 begin
-  Source := LoadFile(AFileName, AOpts);
+  Source:= LoadFile(AFileName, AOpts);
   WriteStdoutRaw(FormatSource(Source, AOpts));
 end;
 
 procedure FormatToFile(const AInFile, AOutFile: string; const AOpts: TYadfOptions);
 var
+  Dir   : string;
   Source: string;
-  Dir:    string;
 begin
-  Source := LoadFile(AInFile, AOpts);
-  Dir := TPath.GetDirectoryName(AOutFile);
+  Source:= LoadFile(AInFile, AOpts);
+  Dir:= TPath.GetDirectoryName(AOutFile);
   if Dir <> '' then
     TDirectory.CreateDirectory(Dir);
   SaveFile(AOutFile, FormatSource(Source, AOpts), AOpts);
@@ -392,48 +390,49 @@ end;
 
 function NextSiblingBackupName(const AFile: string): string;
 var
-  Dir, Base: string;
-  N:         Integer;
+  Base: string;
+  Dir : string;
+  n   : Integer;
 begin
-  Dir  := ExtractFilePath(AFile);
-  Base := ExtractFileName(AFile);
-  N := 1;
+  Dir := ExtractFilePath(AFile);
+  Base:= ExtractFileName(AFile);
+  n:= 1;
   repeat
-    Result := TPath.Combine(Dir, Base + '.BCK' + IntToStr(N));
+    Result:= TPath.Combine(Dir, Base + '.BCK' + IntToStr(n));
     if not TFile.Exists(Result) then Exit;
-    Inc(N);
+    Inc(n);
   until False;
 end;
 
 procedure BackupOriginalFile(const AFile: string; const ABackupDir: string);
 var
-  Stamp:  string;
+  Stamp : string;
   Target: string;
 begin
   if Trim(ABackupDir) = '' then
   begin
-    Target := NextSiblingBackupName(AFile);
+    Target:= NextSiblingBackupName(AFile);
     TFile.Copy(AFile, Target, True);
     Exit;
   end;
   if not TDirectory.Exists(ABackupDir) then
     TDirectory.CreateDirectory(ABackupDir);
-  Stamp  := FormatDateTime('yyyymmdd-hhnnss', Now);
-  Target := TPath.Combine(ABackupDir,
-              ExtractFileName(AFile) + '.' + Stamp + '.bak');
+  Stamp:= FormatDateTime('yyyymmdd-hhnnss', Now);
+  Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '.bak');
   TFile.Copy(AFile, Target, True);
 end;
 
 procedure CheckDir(const ADir: string; const AOpts: TYadfOptions);
 var
-  Files:      TArray<string>;
-  F:          string;
-  Pass, Fail: Integer;
-  Diff:       Integer;
+  Diff : Integer;
+  F    : string;
+  Fail : Integer;
+  Files: TArray<string>;
+  Pass : Integer;
 begin
-  Files := TDirectory.GetFiles(ADir, '*.pas', TSearchOption.soAllDirectories);
-  Pass := 0;
-  Fail := 0;
+  Files:= TDirectory.GetFiles(ADir, '*.pas', TSearchOption.soAllDirectories);
+  Pass:= 0;
+  Fail:= 0;
   for F in Files do
   begin
     if CheckFile(F, AOpts, Diff) then
@@ -449,199 +448,206 @@ begin
   end;
   WriteStdoutLine(Format('--- %d pass, %d fail ---', [Pass, Fail]));
   if Fail > 0 then
-    ExitCode := 1;
-end;
+    ExitCode:= 1;
+end; // procedure
 
 procedure BatchFormat(const AInDir, AOutDir: string; const AOpts: TYadfOptions);
 var
-  Files:    TArray<string>;
-  F, Out_:  string;
-  Source:   string;
-  RelName:  string;
-  Count:    Integer;
+  Count  : Integer;
+  F      : string;
+  Files  : TArray<string>;
+  Out_   : string;
+  RelName: string;
+  Source : string;
 begin
   if not TDirectory.Exists(AInDir) then
   begin
     WriteStdoutLine('error: input directory not found: ' + AInDir);
-    ExitCode := 1;
+    ExitCode:= 1;
     Exit;
   end;
   TDirectory.CreateDirectory(AOutDir);
-  Files := TDirectory.GetFiles(AInDir, '*.pas', TSearchOption.soTopDirectoryOnly);
-  Count := 0;
+  Files:= TDirectory.GetFiles(AInDir, '*.pas', TSearchOption.soTopDirectoryOnly);
+  Count:= 0;
   for F in Files do
   begin
-    Source  := LoadFile(F, AOpts);
-    RelName := ExtractFileName(F);
-    Out_    := TPath.Combine(AOutDir, RelName);
+    Source:= LoadFile(F, AOpts);
+    RelName:= ExtractFileName(F);
+    Out_:= TPath.Combine(AOutDir, RelName);
     SaveFile(Out_, FormatSource(Source, AOpts), AOpts);
     WriteStdoutLine(Format('wrote %s', [Out_]));
     Inc(Count);
   end;
   WriteStdoutLine(Format('--- %d file(s) formatted into %s ---', [Count, AOutDir]));
-end;
+end; // procedure
 
 function ParseDprUnits(const ADprFile: string; const AOpts: TYadfOptions): TArray<string>;
 var
-  Source, ResolvedDir, FilePath, CurName, Raw: string;
-  Tokens: TTokenList;
-  Items:  TList<string>;
-  i, UsesIdx, EndIdx: Integer;
-  T: TToken;
-  InInClause: Boolean;
+  CurName: string;
+  EndIdx: Integer;
+  FilePath   : string;
+  i          : Integer;
+  InInClause : Boolean;
+  Items      : TList<string>;
+  Raw        : string;
+  ResolvedDir: string;
+  Source     : string;
+  T          : TToken;
+  Tokens     : TTokenList;
+  UsesIdx    : Integer;
 begin
-  Source := LoadFile(ADprFile, AOpts);
-  ResolvedDir := ExtractFilePath(ADprFile);
-  Tokens := LoadTokensFromString(Source);
-  Items := TList<string>.Create;
+  Source:= LoadFile(ADprFile, AOpts);
+  ResolvedDir:= ExtractFilePath     (ADprFile);
+  Tokens     := LoadTokensFromString(Source  );
+  Items:= TList<string>.Create;
   try
     Items.Add(ADprFile);
-    UsesIdx := -1;
-    for i := 0 to Tokens.Count - 1 do
-      if Tokens[i].Kind = ptUses then
-      begin
-        UsesIdx := i;
-        Break;
-      end;
+    UsesIdx:= -1;
+    for i:= 0 to Tokens.Count - 1 do if Tokens[i].Kind = ptUses then
+    begin
+      UsesIdx:= i;
+      Break;
+    end;
     if UsesIdx < 0 then
       Exit(Items.ToArray);
-    EndIdx := Tokens.Count - 1;
-    for i := UsesIdx + 1 to Tokens.Count - 1 do
-      if Tokens[i].Kind = ptSemiColon then
-      begin
-        EndIdx := i;
-        Break;
-      end;
-    CurName := '';
-    FilePath := '';
-    InInClause := False;
-    for i := UsesIdx + 1 to EndIdx do
+    EndIdx:= Tokens.Count - 1;
+    for i:= UsesIdx + 1 to Tokens.Count - 1 do if Tokens[i].Kind = ptSemiColon then
     begin
-      T := Tokens[i];
-      case T.Kind of
-        ptIdentifier:
-          if not InInClause then
-            CurName := CurName + T.Text;
-        ptPoint:
-          if not InInClause then
-            CurName := CurName + '.';
-        ptIn:
-          InInClause := True;
-        ptStringConst:
-          if InInClause then
-          begin
-            Raw := T.Text;
-            if (Length(Raw) >= 2) and (Raw[1] = '''') and (Raw[Length(Raw)] = '''') then
-              FilePath := Copy(Raw, 2, Length(Raw) - 2)
-            else
-              FilePath := Raw;
-          end;
-        ptComma, ptSemiColon:
-          begin
-            if Trim(CurName) <> '' then
-            begin
-              if FilePath = '' then
-              begin
-                FilePath := TPath.Combine(ResolvedDir, CurName + '.pas');
-                if TFile.Exists(FilePath) then
-                  Items.Add(FilePath);
-              end
-              else
-              begin
-                if not TPath.IsPathRooted(FilePath) then
-                  FilePath := TPath.Combine(ResolvedDir, FilePath);
-                Items.Add(FilePath);
-              end;
-            end;
-            CurName    := '';
-            FilePath   := '';
-            InInClause := False;
-          end;
-      end;
+      EndIdx:= i;
+      Break;
     end;
-    Result := Items.ToArray;
+    CurName   := ''   ;
+    FilePath  := ''   ;
+    InInClause:= False;
+    for i:= UsesIdx + 1 to EndIdx do
+    begin
+      T:= Tokens[i];
+      case T.Kind of
+        ptIdentifier: if not InInClause then
+          CurName:= CurName + T.Text;
+        ptPoint: if not InInClause then
+          CurName:= CurName + '.';
+        ptIn         : InInClause:= True;
+        ptStringConst: if InInClause then
+        begin
+          Raw:= T.Text;
+          if (Length(Raw) >= 2) and (Raw[1] = '''') and (Raw[Length(Raw)] = '''') then
+            FilePath:= Copy(Raw, 2, Length(Raw) - 2)
+          else
+            FilePath:= Raw;
+        end;
+        ptComma, ptSemiColon:
+        begin
+          if Trim(CurName) <> '' then
+          begin
+            if FilePath = '' then
+            begin
+              FilePath:= TPath.Combine(ResolvedDir, CurName + '.pas');
+              if TFile.Exists(FilePath) then
+                Items.Add(FilePath);
+            end
+            else
+            begin
+              if not TPath.IsPathRooted(FilePath) then
+                FilePath:= TPath.Combine(ResolvedDir, FilePath);
+              Items.Add(FilePath);
+            end;
+          end;
+          CurName   := ''   ;
+          FilePath  := ''   ;
+          InInClause:= False;
+        end; // begin
+      end; // case
+    end; // for
+    Result:= Items.ToArray;
   finally
     Items.Free;
     Tokens.Free;
-  end;
-end;
+  end; // try
+end; // function
 
 function ParseDprojUnits(const ADprojFile: string; const AOpts: TYadfOptions): TArray<string>;
 var
-  Source, Resolved, AttrVal: string;
-  Items: TList<string>;
-  P, Q:  Integer;
+  AttrVal : string;
+  Items   : TList<string>;
+  P       : Integer;
+  Q       : Integer;
+  Resolved: string;
+  Source  : string;
 const
   Marker = '<DCCReference Include="';
 begin
-  Source := LoadFile(ADprojFile, AOpts);
-  Resolved := ExtractFilePath(ADprojFile);
-  Items := TList<string>.Create;
+  Source:= LoadFile(ADprojFile, AOpts);
+  Resolved:= ExtractFilePath(ADprojFile);
+  Items:= TList<string>.Create;
   try
-    P := 1;
+    P:= 1;
     while P <= Length(Source) do
     begin
-      P := Pos(Marker, Source, P);
+      P:= Pos(Marker, Source, P);
       if P = 0 then Break;
       Inc(P, Length(Marker));
-      Q := Pos('"', Source, P);
+      Q:= Pos('"', Source, P);
       if Q = 0 then Break;
-      AttrVal := Copy(Source, P, Q - P);
+      AttrVal:= Copy(Source, P, Q - P);
       if SameText(ExtractFileExt(AttrVal), '.pas') then
       begin
         if not TPath.IsPathRooted(AttrVal) then
-          AttrVal := TPath.Combine(Resolved, AttrVal);
+          AttrVal:= TPath.Combine(Resolved, AttrVal);
         Items.Add(AttrVal);
       end;
-      P := Q + 1;
+      P:= Q + 1;
     end;
-    Result := Items.ToArray;
+    Result:= Items.ToArray;
   finally
     Items.Free;
-  end;
-end;
+  end; // try
+end; // function
 
 function ExpandFileSpec(const ASpec: string; const AOpts: TYadfOptions): TArray<string>;
 var
-  Ext, Dir, Pat: string;
+  Dir: string;
+  Ext: string;
+  Pat: string;
 begin
   if (Pos('*', ASpec) > 0) or (Pos('?', ASpec) > 0) then
   begin
-    Dir := ExtractFilePath(ASpec);
-    if Dir = '' then Dir := GetCurrentDir;
-    Pat := ExtractFileName(ASpec);
+    Dir:= ExtractFilePath(ASpec);
+    if Dir = '' then Dir:= GetCurrentDir;
+    Pat:= ExtractFileName(ASpec);
     if not TDirectory.Exists(Dir) then
       raise Exception.Create('Directory not found: ' + Dir);
-    Result := TDirectory.GetFiles(Dir, Pat, TSearchOption.soTopDirectoryOnly);
+    Result:= TDirectory.GetFiles(Dir, Pat, TSearchOption.soTopDirectoryOnly);
     Exit;
   end;
-  Ext := LowerCase(ExtractFileExt(ASpec));
+  Ext:= LowerCase(ExtractFileExt(ASpec));
   if Ext = '.dpr' then
-    Result := ParseDprUnits(ASpec, AOpts)
+    Result:= ParseDprUnits(ASpec, AOpts)
   else if Ext = '.dproj' then
-    Result := ParseDprojUnits(ASpec, AOpts)
+    Result:= ParseDprojUnits(ASpec, AOpts)
   else
   begin
     SetLength(Result, 1);
-    Result[0] := ASpec;
+    Result[0]:= ASpec;
   end;
-end;
+end; // function
 
-function ProcessOneFile(const AFile: string;
-                        const AOpts: TYadfOptions): Boolean;
+function ProcessOneFile(const AFile: string; const AOpts: TYadfOptions): Boolean;
 var
-  Source, Output, OutFile: string;
+  OutFile: string;
+  Output : string;
+  Source : string;
 begin
-  Result := True;
+  Result:= True;
   LogMsg('  ProcessOneFile: ' + AFile);
   try
-    Source := LoadFile(AFile, AOpts);
-    Output := FormatSource(Source, AOpts);
+    Source:= LoadFile    (AFile , AOpts);
+    Output:= FormatSource(Source, AOpts);
     if Trim(AOpts.ResultDir) <> '' then
     begin
       if not TDirectory.Exists(AOpts.ResultDir) then
         TDirectory.CreateDirectory(AOpts.ResultDir);
-      OutFile := TPath.Combine(AOpts.ResultDir, ExtractFileName(AFile));
+      OutFile:= TPath.Combine(AOpts.ResultDir, ExtractFileName(AFile));
       LogMsg('    mode = result-dir, writing to ' + OutFile);
       SaveFile(OutFile, Output, AOpts);
       WriteStdoutLine('wrote ' + OutFile);
@@ -663,46 +669,45 @@ begin
         LogMsg('    backup off, writing in-place');
       SaveFile(AFile, Output, AOpts);
       WriteStdoutLine('wrote ' + AFile);
-    end;
+    end; // else
   except
     on E: Exception do
     begin
       LogMsg('    FAIL ' + E.ClassName + ': ' + E.Message);
       WriteStdoutLine(Format('FAIL  %s  (%s: %s)', [AFile, E.ClassName, E.Message]));
-      Result := False;
+      Result:= False;
     end;
-  end;
-end;
+  end; // try
+end; // function
 
-procedure ProcessFiles(const AFiles: TArray<string>;
-                       const AOpts: TYadfOptions);
+procedure ProcessFiles(const AFiles: TArray<string>; const AOpts: TYadfOptions);
 var
-  F: string;
-  Pass, Fail: Integer;
+  F   : string;
+  Fail: Integer;
+  Pass: Integer;
 begin
-  Pass := 0;
-  Fail := 0;
-  for F in AFiles do
-    if ProcessOneFile(F, AOpts) then
-      Inc(Pass)
-    else
-      Inc(Fail);
+  Pass:= 0;
+  Fail:= 0;
+  for F in AFiles do if ProcessOneFile(F, AOpts) then
+    Inc(Pass)
+  else
+    Inc(Fail);
   if Length(AFiles) > 1 then
     WriteStdoutLine(Format('--- %d ok, %d failed ---', [Pass, Fail]));
   if Fail > 0 then
-    ExitCode := Fail;
+    ExitCode:= Fail;
 end;
 
 procedure DebugTree(const AFileName: string; const AOpts: TYadfOptions);
 var
+  Root  : TGroup;
   Source: string;
   Tokens: TTokenList;
-  Root:   TGroup;
 begin
-  Source := LoadFile(AFileName, AOpts);
-  Tokens := LoadTokensFromString(Source);
+  Source:= LoadFile(AFileName, AOpts);
+  Tokens:= LoadTokensFromString(Source);
   try
-    Root := ParseGroups(Tokens);
+    Root:= ParseGroups(Tokens);
     try
       WriteStdoutRaw(RenderGroupTree(Tokens, Root));
     finally
@@ -717,21 +722,21 @@ procedure ShowUsage(const AOpts: TYadfOptions);
 
   function OnOff(B: Boolean): string;
   begin
-    if B then Result := 'on' else Result := 'off';
+    if B then Result:= 'on' else Result:= 'off';
   end;
 
   function Quoted(const S: string): string;
   begin
-    if S = '' then Result := '(none)' else Result := S;
+    if S = '' then Result:= '(none)' else Result:= S;
   end;
 
   function EncName(E: TYadfEncoding): string;
   begin
     case E of
-      encUTF8BOM:  Result := 'UTF-8-BOM';
-      encUTF16BOM: Result := 'UTF-16-BOM';
-    else
-      Result := 'ANSI';
+      encUTF8BOM : Result:= 'UTF-8-BOM' ;
+      encUTF16BOM: Result:= 'UTF-16-BOM';
+      else
+        Result:= 'ANSI';
     end;
   end;
 
@@ -802,38 +807,40 @@ begin
   WriteStdoutLine(Format('Pass-2 alignment max column (INI: AlignMaxColumn): %d', [AOpts.AlignMaxColumn]));
   WriteStdoutLine('');
   WriteStdoutLine('Precedence: CLI flags > INI values > compiled-in defaults.');
-end;
+end; // begin
 
 function ParseEncoding(const S: string; const ADefault: TYadfEncoding): TYadfEncoding;
 var
   L: string;
 begin
-  L := UpperCase(Trim(S));
+  L:= UpperCase(Trim(S));
   if (L = 'UTF-8') or (L = 'UTF8') or (L = 'UTF-8-BOM') or (L = 'UTF8BOM') then
-    Result := encUTF8BOM
+    Result:= encUTF8BOM
   else if (L = 'UTF-16') or (L = 'UTF16') or (L = 'UTF-16-BOM') or (L = 'UTF16BOM') or (L = 'UTF-16-LE') then
-    Result := encUTF16BOM
+    Result:= encUTF16BOM
   else if (L = 'ANSI') then
-    Result := encANSI
+    Result:= encANSI
   else
-    Result := ADefault;
+    Result:= ADefault;
 end;
 
 function DefaultIniPath: string;
 var
-  Dir, Candidate, Parent: string;
-  i: Integer;
+  Candidate: string;
+  Dir      : string;
+  i        : Integer;
+  Parent   : string;
 begin
-  Dir := ExtractFilePath(ParamStr(0));
-  for i := 0 to 5 do
+  Dir:= ExtractFilePath(ParamStr(0));
+  for i:= 0 to 5 do
   begin
-    Candidate := TPath.Combine(Dir, 'yadf.ini');
+    Candidate:= TPath.Combine(Dir, 'yadf.ini');
     if TFile.Exists(Candidate) then Exit(Candidate);
-    Parent := ExtractFileDir(ExcludeTrailingPathDelimiter(Dir));
+    Parent:= ExtractFileDir(ExcludeTrailingPathDelimiter(Dir));
     if (Parent = '') or SameText(Parent, ExcludeTrailingPathDelimiter(Dir)) then Break;
-    Dir := IncludeTrailingPathDelimiter(Parent);
+    Dir:= IncludeTrailingPathDelimiter(Parent);
   end;
-  Result := TPath.Combine(ExtractFilePath(ParamStr(0)), 'yadf.ini');
+  Result:= TPath.Combine(ExtractFilePath(ParamStr(0)), 'yadf.ini');
 end;
 
 procedure LoadIniDefaults(var AOpts: TYadfOptions; const AIniPath: string);
@@ -841,61 +848,60 @@ var
   Ini: TIniFile;
 begin
   if not FileExists(AIniPath) then Exit;
-  Ini := TIniFile.Create(AIniPath);
+  Ini:= TIniFile.Create(AIniPath);
   try
-    AOpts.MaxLen              := Ini.ReadInteger('Format', 'MaxLen',              AOpts.MaxLen);
-    AOpts.Indent              := Ini.ReadInteger('Format', 'Indent',              AOpts.Indent);
-    AOpts.TabWidth            := Ini.ReadInteger('Format', 'TabWidth',            AOpts.TabWidth);
-    AOpts.MaxBlankLines       := Ini.ReadInteger('Format', 'MaxBlankLines',       AOpts.MaxBlankLines);
-    AOpts.LabelMinLines       := Ini.ReadInteger('Format', 'LabelMinLines',       AOpts.LabelMinLines);
-    AOpts.LabelLongBlocks     := Ini.ReadBool   ('Format', 'LabelLongBlocks',     AOpts.LabelLongBlocks);
-    AOpts.MarkUnclosed        := Ini.ReadBool   ('Format', 'MarkUnclosed',        AOpts.MarkUnclosed);
-    AOpts.TrimTrailing        := Ini.ReadBool   ('Format', 'TrimTrailing',        AOpts.TrimTrailing);
-    AOpts.ReflowLines         := Ini.ReadBool   ('Format', 'ReflowLines',         AOpts.ReflowLines);
-    AOpts.LowercaseKeywords   := Ini.ReadBool   ('Format', 'LowercaseKeywords',   AOpts.LowercaseKeywords);
-    AOpts.UpperHexNumbers     := Ini.ReadBool   ('Format', 'UpperHexNumbers',     AOpts.UpperHexNumbers);
-    AOpts.UpperDirectives     := Ini.ReadBool   ('Format', 'UpperDirectives',     AOpts.UpperDirectives);
-    AOpts.FirstOccCasing      := Ini.ReadBool   ('Format', 'FirstOccCasing',      AOpts.FirstOccCasing);
-    AOpts.BlanksBeforeSection := Ini.ReadInteger('Format', 'BlanksBeforeSection', AOpts.BlanksBeforeSection);
-    AOpts.BlanksBeforeMethod  := Ini.ReadInteger('Format', 'BlanksBeforeMethod',  AOpts.BlanksBeforeMethod);
-    AOpts.BlanksBeforeType    := Ini.ReadInteger('Format', 'BlanksBeforeType',    AOpts.BlanksBeforeType);
-    AOpts.AssignNoSpaceBefore := Ini.ReadBool   ('Format', 'AssignNoSpaceBefore', AOpts.AssignNoSpaceBefore);
-    AOpts.AssignSpaceAfter    := Ini.ReadBool   ('Format', 'AssignSpaceAfter',    AOpts.AssignSpaceAfter);
-    AOpts.AlignConstEquals    := Ini.ReadBool   ('Format', 'AlignConstEquals',    AOpts.AlignConstEquals);
-    AOpts.AlignTypeColon      := Ini.ReadBool   ('Format', 'AlignTypeColon',      AOpts.AlignTypeColon);
-    AOpts.AlignSmartAssign    := Ini.ReadBool   ('Format', 'AlignSmartAssign',    AOpts.AlignSmartAssign);
-    AOpts.AlignMaxColumn      := Ini.ReadInteger('Format', 'AlignMaxColumn',      AOpts.AlignMaxColumn);
-    AOpts.UsesAlwaysBreak     := Ini.ReadBool   ('Format', 'UsesAlwaysBreak',     AOpts.UsesAlwaysBreak);
-    AOpts.Backup              := Ini.ReadBool   ('Format', 'Backup',              AOpts.Backup);
-    AOpts.BackupDir           := Ini.ReadString ('Format', 'BackupDir',           AOpts.BackupDir);
-    AOpts.ResultDir           := Ini.ReadString ('Format', 'ResultDir',           AOpts.ResultDir);
-    AOpts.Encoding            := ParseEncoding  (Ini.ReadString('Format', 'Encoding', ''), AOpts.Encoding);
-    AOpts.Logging             := Ini.ReadBool   ('Format', 'Logging',             AOpts.Logging);
+    AOpts.MaxLen:= Ini.ReadInteger('Format', 'MaxLen', AOpts.MaxLen);
+    AOpts.Indent:= Ini.ReadInteger('Format', 'Indent', AOpts.Indent);
+    AOpts.TabWidth:= Ini.ReadInteger('Format', 'TabWidth', AOpts.TabWidth);
+    AOpts.MaxBlankLines:= Ini.ReadInteger('Format', 'MaxBlankLines', AOpts.MaxBlankLines);
+    AOpts.LabelMinLines:= Ini.ReadInteger('Format', 'LabelMinLines', AOpts.LabelMinLines);
+    AOpts.LabelLongBlocks:= Ini.ReadBool ('Format', 'LabelLongBlocks', AOpts.LabelLongBlocks);
+    AOpts.MarkUnclosed:= Ini.ReadBool ('Format', 'MarkUnclosed', AOpts.MarkUnclosed);
+    AOpts.TrimTrailing:= Ini.ReadBool ('Format', 'TrimTrailing', AOpts.TrimTrailing);
+    AOpts.ReflowLines:= Ini.ReadBool ('Format', 'ReflowLines', AOpts.ReflowLines);
+    AOpts.LowercaseKeywords:= Ini.ReadBool ('Format', 'LowercaseKeywords', AOpts.LowercaseKeywords);
+    AOpts.UpperHexNumbers:= Ini.ReadBool ('Format', 'UpperHexNumbers', AOpts.UpperHexNumbers);
+    AOpts.UpperDirectives:= Ini.ReadBool ('Format', 'UpperDirectives', AOpts.UpperDirectives);
+    AOpts.FirstOccCasing:= Ini.ReadBool ('Format', 'FirstOccCasing', AOpts.FirstOccCasing);
+    AOpts.BlanksBeforeSection:= Ini.ReadInteger('Format', 'BlanksBeforeSection', AOpts.BlanksBeforeSection);
+    AOpts.BlanksBeforeMethod:= Ini.ReadInteger('Format', 'BlanksBeforeMethod', AOpts.BlanksBeforeMethod);
+    AOpts.BlanksBeforeType:= Ini.ReadInteger('Format', 'BlanksBeforeType', AOpts.BlanksBeforeType);
+    AOpts.AssignNoSpaceBefore:= Ini.ReadBool ('Format', 'AssignNoSpaceBefore', AOpts.AssignNoSpaceBefore);
+    AOpts.AssignSpaceAfter:= Ini.ReadBool ('Format', 'AssignSpaceAfter', AOpts.AssignSpaceAfter);
+    AOpts.AlignConstEquals:= Ini.ReadBool ('Format', 'AlignConstEquals', AOpts.AlignConstEquals);
+    AOpts.AlignTypeColon:= Ini.ReadBool ('Format', 'AlignTypeColon', AOpts.AlignTypeColon);
+    AOpts.AlignSmartAssign:= Ini.ReadBool ('Format', 'AlignSmartAssign', AOpts.AlignSmartAssign);
+    AOpts.AlignMaxColumn:= Ini.ReadInteger('Format', 'AlignMaxColumn', AOpts.AlignMaxColumn);
+    AOpts.UsesAlwaysBreak:= Ini.ReadBool ('Format', 'UsesAlwaysBreak', AOpts.UsesAlwaysBreak);
+    AOpts.Backup:= Ini.ReadBool ('Format', 'Backup', AOpts.Backup);
+    AOpts.BackupDir:= Ini.ReadString ('Format', 'BackupDir', AOpts.BackupDir);
+    AOpts.ResultDir:= Ini.ReadString ('Format', 'ResultDir', AOpts.ResultDir);
+    AOpts.Encoding:= ParseEncoding (Ini.ReadString('Format', 'Encoding', ''), AOpts.Encoding);
+    AOpts.Logging:= Ini.ReadBool ('Format', 'Logging', AOpts.Logging);
   finally
     Ini.Free;
-  end;
-end;
+  end; // try
+end; // procedure
 
 function IsHelpArg(const A: string): Boolean;
 begin
-  Result := (A = '-h') or (A = '/h') or (A = '/H') or (A = '/?')
-        or (A = '-?') or (A = '--help') or (A = '/help');
+  Result:= (A = '-h') or (A = '/h') or (A = '/H') or (A = '/?') or (A = '-?') or (A = '--help') or (A = '/help');
 end;
 
 function ExtractIniPath(var AArgs: TArray<string>): string;
 var
   Filtered: TList<string>;
-  i:        Integer;
+  i       : Integer;
 begin
-  Result := DefaultIniPath;
-  Filtered := TList<string>.Create;
+  Result:= DefaultIniPath;
+  Filtered:= TList<string>.Create;
   try
-    i := 0;
+    i:= 0;
     while i <= High(AArgs) do
     begin
       if (AArgs[i] = '--ini') and (i + 1 <= High(AArgs)) then
       begin
-        Result := AArgs[i + 1];
+        Result:= AArgs[i + 1];
         Inc(i, 2);
       end
       else
@@ -904,192 +910,189 @@ begin
         Inc(i);
       end;
     end;
-    AArgs := Filtered.ToArray;
+    AArgs:= Filtered.ToArray;
   finally
     Filtered.Free;
-  end;
-end;
+  end; // try
+end; // function
 
-procedure ParseFlags(var AArgs: TArray<string>;
-                     var AOpts: TYadfOptions;
-                     out AOutFile: string;
-                     out AStdoutMode: Boolean);
+procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);
 var
+  i   : Integer;
   Out_: TList<string>;
-  i:    Integer;
 begin
-  AOutFile := '';
-  AStdoutMode := False;
-  Out_ := TList<string>.Create;
+  AOutFile   := ''   ;
+  AStdoutMode:= False;
+  Out_:= TList<string>.Create;
   try
-    i := 0;
+    i:= 0;
     while i <= High(AArgs) do
     begin
       if AArgs[i] = '--max-len' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--max-len requires a value');
-        AOpts.MaxLen := StrToInt(AArgs[i + 1]);
+        AOpts.MaxLen:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--indent' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--indent requires a value');
-        AOpts.Indent := StrToInt(AArgs[i + 1]);
+        AOpts.Indent:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--tab-width' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--tab-width requires a value');
-        AOpts.TabWidth := StrToInt(AArgs[i + 1]);
+        AOpts.TabWidth:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--o' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--o requires a file path');
-        AOutFile := AArgs[i + 1];
+        AOutFile:= AArgs[i + 1];
         Inc(i, 2);
       end
       else if AArgs[i] = '--of' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--of requires a folder path');
-        AOpts.ResultDir := AArgs[i + 1];
+        AOpts.ResultDir:= AArgs[i + 1];
         Inc(i, 2);
       end
       else if AArgs[i] = '--no-o' then
       begin
-        AOpts.ResultDir := '';
-        AOutFile := '';
+        AOpts.ResultDir:= '';
+        AOutFile:= '';
         Inc(i);
       end
       else if AArgs[i] = '--b' then
       begin
-        AOpts.Backup := True;
+        AOpts.Backup:= True;
         if (i + 1 <= High(AArgs)) and not AArgs[i + 1].StartsWith('--') then
         begin
-          AOpts.BackupDir := AArgs[i + 1];
+          AOpts.BackupDir:= AArgs[i + 1];
           Inc(i, 2);
         end
         else
         begin
-          AOpts.BackupDir := '';
+          AOpts.BackupDir:= '';
           Inc(i);
         end;
       end
       else if AArgs[i] = '--no-b' then
       begin
-        AOpts.Backup := False;
+        AOpts.Backup:= False;
         Inc(i);
       end
       else if AArgs[i] = '--mark-unclosed' then
       begin
-        AOpts.MarkUnclosed := True;
+        AOpts.MarkUnclosed:= True;
         Inc(i);
       end
       else if AArgs[i] = '--no-label-blocks' then
       begin
-        AOpts.LabelLongBlocks := False;
+        AOpts.LabelLongBlocks:= False;
         Inc(i);
       end
       else if AArgs[i] = '--label-min-lines' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--label-min-lines requires a value');
-        AOpts.LabelMinLines := StrToInt(AArgs[i + 1]);
+        AOpts.LabelMinLines:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--max-blank-lines' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--max-blank-lines requires a value');
-        AOpts.MaxBlankLines := StrToInt(AArgs[i + 1]);
+        AOpts.MaxBlankLines:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--no-trim-trailing' then
       begin
-        AOpts.TrimTrailing := False;
+        AOpts.TrimTrailing:= False;
         Inc(i);
       end
       else if AArgs[i] = '--no-reflow' then
       begin
-        AOpts.ReflowLines := False;
+        AOpts.ReflowLines:= False;
         Inc(i);
       end
       else if AArgs[i] = '--no-lowercase-keywords' then
       begin
-        AOpts.LowercaseKeywords := False;
+        AOpts.LowercaseKeywords:= False;
         Inc(i);
       end
       else if AArgs[i] = '--no-upper-hex' then
       begin
-        AOpts.UpperHexNumbers := False;
+        AOpts.UpperHexNumbers:= False;
         Inc(i);
       end
       else if AArgs[i] = '--no-upper-directives' then
       begin
-        AOpts.UpperDirectives := False;
+        AOpts.UpperDirectives:= False;
         Inc(i);
       end
       else if AArgs[i] = '--no-first-occ' then
       begin
-        AOpts.FirstOccCasing := False;
+        AOpts.FirstOccCasing:= False;
         Inc(i);
       end
       else if AArgs[i] = '--blanks-before-section' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--blanks-before-section requires a value');
-        AOpts.BlanksBeforeSection := StrToInt(AArgs[i + 1]);
+        AOpts.BlanksBeforeSection:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--blanks-before-method' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--blanks-before-method requires a value');
-        AOpts.BlanksBeforeMethod := StrToInt(AArgs[i + 1]);
+        AOpts.BlanksBeforeMethod:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--blanks-before-type' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--blanks-before-type requires a value');
-        AOpts.BlanksBeforeType := StrToInt(AArgs[i + 1]);
+        AOpts.BlanksBeforeType:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--stdout' then
       begin
-        AStdoutMode := True;
+        AStdoutMode:= True;
         Inc(i);
       end
       else if AArgs[i] = '--encoding' then
       begin
         if i + 1 > High(AArgs) then
           raise Exception.Create('--encoding requires ansi|utf8|utf16');
-        AOpts.Encoding := ParseEncoding(AArgs[i + 1], AOpts.Encoding);
+        AOpts.Encoding:= ParseEncoding(AArgs[i + 1], AOpts.Encoding);
         Inc(i, 2);
       end
       else if AArgs[i] = '--log' then
       begin
-        AOpts.Logging := True;
+        AOpts.Logging:= True;
         Inc(i);
       end
       else if AArgs[i] = '--no-log' then
       begin
-        AOpts.Logging := False;
+        AOpts.Logging:= False;
         Inc(i);
       end
       else if AArgs[i] = '--uses-break' then
       begin
-        AOpts.UsesAlwaysBreak := True;
+        AOpts.UsesAlwaysBreak:= True;
         Inc(i);
       end
       else if AArgs[i] = '--no-uses-break' then
       begin
-        AOpts.UsesAlwaysBreak := False;
+        AOpts.UsesAlwaysBreak:= False;
         Inc(i);
       end
       else
@@ -1097,45 +1100,43 @@ begin
         Out_.Add(AArgs[i]);
         Inc(i);
       end;
-    end;
-    AArgs := Out_.ToArray;
+    end; // while
+    AArgs:= Out_.ToArray;
   finally
     Out_.Free;
-  end;
-end;
+  end; // try
+end; // procedure
 
 procedure RunYadf;
 var
-  Args:       TArray<string>;
-  i:          Integer;
-  Opts:       TYadfOptions;
-  Diff:       Integer;
-  OutFile:    string;
+  AllFiles  : TList<string>;
+  Args      : TArray<string>;
+  Diff      : Integer;
+  F         : string;
+  Files     : TArray<string>;
+  i         : Integer;
+  IniPath   : string;
+  Opts      : TYadfOptions;
+  OutFile   : string;
+  Spec      : string;
   StdoutMode: Boolean;
-  IniPath:    string;
-  Spec:       string;
-  Files:      TArray<string>;
-  AllFiles:   TList<string>;
-  F:          string;
 begin
   SetLength(Args, ParamCount);
-  for i := 1 to ParamCount do
-    Args[i - 1] := ParamStr(i);
+  for i:= 1 to ParamCount do Args[i - 1]:= ParamStr(i);
 
-  for i := 0 to High(Args) do
-    if IsHelpArg(Args[i]) then
-    begin
-      Opts := DefaultOptions;
-      LoadIniDefaults(Opts, DefaultIniPath);
-      ShowUsage(Opts);
-      Exit;
-    end;
+  for i:= 0 to High(Args) do if IsHelpArg(Args[i]) then
+  begin
+    Opts:= DefaultOptions;
+    LoadIniDefaults(Opts, DefaultIniPath);
+    ShowUsage(Opts);
+    Exit;
+  end;
 
-  IniPath := ExtractIniPath(Args);
-  Opts := DefaultOptions;
+  IniPath:= ExtractIniPath(Args);
+  Opts:= DefaultOptions;
   LoadIniDefaults(Opts, IniPath);
   ParseFlags(Args, Opts, OutFile, StdoutMode);
-  GLogEnabled := Opts.Logging;
+  GLogEnabled:= Opts.Logging;
   LogStartup(Args, Opts, IniPath);
 
   if Length(Args) = 0 then
@@ -1149,7 +1150,7 @@ begin
     if Length(Args) <> 2 then
     begin
       ShowUsage(Opts);
-      ExitCode := 1;
+      ExitCode:= 1;
       Exit;
     end;
     if CheckFile(Args[1], Opts, Diff) then
@@ -1157,17 +1158,17 @@ begin
     else
     begin
       WriteStdoutLine(Format('FAIL  %s  (first diff at byte %d)', [Args[1], Diff]));
-      ExitCode := 1;
+      ExitCode:= 1;
     end;
     Exit;
-  end;
+  end; // if
 
   if Args[0] = '--check-dir' then
   begin
     if Length(Args) <> 2 then
     begin
       ShowUsage(Opts);
-      ExitCode := 1;
+      ExitCode:= 1;
       Exit;
     end;
     CheckDir(Args[1], Opts);
@@ -1179,7 +1180,7 @@ begin
     if Length(Args) <> 3 then
     begin
       ShowUsage(Opts);
-      ExitCode := 1;
+      ExitCode:= 1;
       Exit;
     end;
     BatchFormat(Args[1], Args[2], Opts);
@@ -1191,33 +1192,32 @@ begin
     if Length(Args) <> 2 then
     begin
       ShowUsage(Opts);
-      ExitCode := 1;
+      ExitCode:= 1;
       Exit;
     end;
     DebugTree(Args[1], Opts);
     Exit;
   end;
 
-  AllFiles := TList<string>.Create;
+  AllFiles:= TList<string>.Create;
   try
     for Spec in Args do
     begin
-      Files := ExpandFileSpec(Spec, Opts);
-      for F in Files do
-        AllFiles.Add(F);
+      Files:= ExpandFileSpec(Spec, Opts);
+      for F in Files do AllFiles.Add(F);
     end;
 
     if AllFiles.Count = 0 then
     begin
       WriteStdoutLine('error: no .pas files matched');
-      ExitCode := 1;
+      ExitCode:= 1;
       Exit;
     end;
 
     if (OutFile <> '') and (AllFiles.Count > 1) then
     begin
       WriteStdoutLine('error: --out only valid with a single input file');
-      ExitCode := 1;
+      ExitCode:= 1;
       Exit;
     end;
 
@@ -1229,7 +1229,7 @@ begin
 
     if StdoutMode then
     begin
-      for i := 0 to AllFiles.Count - 1 do
+      for i:= 0 to AllFiles.Count - 1 do
       begin
         if AllFiles.Count > 1 then
           WriteStdoutLine(Format('--- %s ---', [AllFiles[i]]));
@@ -1241,7 +1241,7 @@ begin
     ProcessFiles(AllFiles.ToArray, Opts);
   finally
     AllFiles.Free;
-  end;
-end;
+  end; // try
+end; // procedure
 
 end.

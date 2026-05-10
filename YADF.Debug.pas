@@ -17,84 +17,83 @@ unit YADF.Debug;
 interface
 
 uses
-  YADF.Tokens,
-  YADF.Groups;
+  YADF.Tokens
+  , YADF.Groups
+  ;
 
 function RenderGroupTree(const ATokens: TTokenList; ARoot: TGroup): string;
 
 implementation
 
 uses
-  System.SysUtils,
-  System.Classes;
+  System.SysUtils
+  , System.Classes
+  ;
 
 function KindName(K: TGroupKind): string;
 begin
   case K of
-    gkRoot:     Result := 'ROOT';
-    gkParens:   Result := 'PARENS';
-    gkBrackets: Result := 'BRACKETS';
-    gkBlock:    Result := 'BLOCK';
-    gkUses:     Result := 'USES';
-  else
-    Result := 'UNKNOWN';
+    gkRoot    : Result:= 'ROOT'    ;
+    gkParens  : Result:= 'PARENS'  ;
+    gkBrackets: Result:= 'BRACKETS';
+    gkBlock   : Result:= 'BLOCK'   ;
+    gkUses    : Result:= 'USES'    ;
+    else
+      Result:= 'UNKNOWN';
   end;
 end;
 
 function PreviewSpan(const ATokens: TTokenList; AStart, AEnd: Integer): string;
 var
-  i:   Integer;
-  Sb:  TStringBuilder;
+  i  : Integer;
+  Sb : TStringBuilder;
   Lim: Integer;
 begin
-  Lim := AEnd;
+  Lim:= AEnd;
   if Lim - AStart > 6 then
-    Lim := AStart + 6;
-  Sb := TStringBuilder.Create;
+    Lim:= AStart + 6;
+  Sb:= TStringBuilder.Create;
   try
-    for i := AStart to Lim do
-      if i >= 0 then
-        Sb.Append(ATokens[i].Text + ' ');
+    for i:= AStart to Lim do if i >= 0 then
+      Sb.Append(ATokens[i].Text + ' ');
     if Lim < AEnd then
       Sb.Append('...');
-    Result := StringReplace(StringReplace(Sb.ToString.Trim, #13, '', [rfReplaceAll]), #10, ' ', [rfReplaceAll]);
+    Result:= StringReplace(StringReplace(Sb.ToString.Trim, #13, '', [rfReplaceAll]), #10, ' ', [rfReplaceAll]);
   finally
     Sb.Free;
   end;
-end;
+end; // function
 
 procedure WalkGroup(const ATokens: TTokenList; G: TGroup; ADepth: Integer; ALines: TStringList);
 var
-  Indent:   string;
-  Line:     string;
+  Indent  : string;
+  Line    : string;
   StartTok: Integer;
-  EndTok:   Integer;
-  Child:    TGroup;
+  EndTok: Integer;
+  Child: TGroup;
 begin
-  Indent := StringOfChar(' ', ADepth * 2);
-  StartTok := G.OpenIdx;
-  EndTok := G.CloseIdx;
+  Indent:= StringOfChar(' ', ADepth * 2);
+  StartTok:= G.OpenIdx ;
+  EndTok  := G.CloseIdx;
   if G.Kind = gkRoot then
-    Line := Indent + Format('%s [tokens 0..%d]', [KindName(G.Kind), EndTok])
+    Line:= Indent + Format('%s [tokens 0..%d]', [KindName(G.Kind), EndTok])
   else
-    Line := Indent + Format('%s [%d..%d]  %s', [
-      KindName(G.Kind), StartTok, EndTok, PreviewSpan(ATokens, StartTok, EndTok)]);
+    Line:= Indent + Format('%s [%d..%d]  %s', [ KindName(G.Kind), StartTok, EndTok, PreviewSpan(ATokens, StartTok, EndTok)]);
   if G.ForceClosed then
-    Line := Line + '  <FORCE-CLOSED at EOF>';
+    Line:= Line + '  <FORCE-CLOSED at EOF>';
   ALines.Add(Line);
-  for Child in G.Children do
-    WalkGroup(ATokens, Child, ADepth + 1, ALines);
+  for Child in G.Children do WalkGroup(ATokens, Child, ADepth + 1, ALines);
 end;
 
 function RenderGroupTree(const ATokens: TTokenList; ARoot: TGroup): string;
 var
   Lines: TStringList;
 begin
-  Lines := TStringList.Create;
+  Lines:= TStringList.Create;
   try
-    Lines.LineBreak := #13#10;
+    Lines.LineBreak:= #13#10;
     WalkGroup(ATokens, ARoot, 0, Lines);
-    Result := Lines.Text;
+    Result:= Lines.Text;
   finally
     Lines.Free;
   end;

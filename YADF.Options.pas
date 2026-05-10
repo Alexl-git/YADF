@@ -20,35 +20,35 @@ type
   TYadfEncoding = (encANSI, encUTF8BOM, encUTF16BOM);
 
   TYadfOptions = record
-    MaxLen:              Integer;
-    Indent:              Integer;
-    TabWidth:            Integer;
-    MarkUnclosed:        Boolean;
-    LabelLongBlocks:     Boolean;
-    LabelMinLines:       Integer;
-    MaxBlankLines:       Integer;
-    TrimTrailing:        Boolean;
-    ReflowLines:         Boolean;
-    LowercaseKeywords:   Boolean;
-    UpperHexNumbers:     Boolean;
-    UpperDirectives:     Boolean;
-    FirstOccCasing:      Boolean;
+    MaxLen             : Integer;
+    Indent             : Integer;
+    TabWidth           : Integer;
+    MarkUnclosed       : Boolean;
+    LabelLongBlocks    : Boolean;
+    LabelMinLines      : Integer;
+    MaxBlankLines      : Integer;
+    TrimTrailing       : Boolean;
+    ReflowLines        : Boolean;
+    LowercaseKeywords  : Boolean;
+    UpperHexNumbers    : Boolean;
+    UpperDirectives    : Boolean;
+    FirstOccCasing     : Boolean;
     BlanksBeforeSection: Integer;
-    BlanksBeforeMethod:  Integer;
-    BlanksBeforeType:    Integer;
+    BlanksBeforeMethod : Integer;
+    BlanksBeforeType   : Integer;
     AssignNoSpaceBefore: Boolean;
-    AssignSpaceAfter:    Boolean;
-    AlignConstEquals:    Boolean;
-    AlignTypeColon:      Boolean;
-    AlignSmartAssign:    Boolean;
-    AlignMaxColumn:      Integer;
-    UsesAlwaysBreak:     Boolean;
-    Backup:              Boolean;
-    BackupDir:           string;
-    ResultDir:           string;
-    Encoding:            TYadfEncoding;
-    Logging:             Boolean;
-  end;
+    AssignSpaceAfter   : Boolean;
+    AlignConstEquals   : Boolean;
+    AlignTypeColon     : Boolean;
+    AlignSmartAssign   : Boolean;
+    AlignMaxColumn     : Integer;
+    UsesAlwaysBreak    : Boolean;
+    Backup             : Boolean;
+    BackupDir          : string;
+    ResultDir          : string;
+    Encoding           : TYadfEncoding;
+    Logging            : Boolean;
+  end; // record
 
 function DefaultOptions: TYadfOptions;
 
@@ -56,34 +56,34 @@ implementation
 
 function DefaultOptions: TYadfOptions;
 begin
-  Result.MaxLen              := 180;
-  Result.Indent              := 2;
-  Result.TabWidth            := 4;
-  Result.MarkUnclosed        := False;
-  Result.LabelLongBlocks     := True;
-  Result.LabelMinLines       := 15;
-  Result.MaxBlankLines       := 1;
-  Result.TrimTrailing        := True;
-  Result.ReflowLines         := True;
-  Result.LowercaseKeywords   := True;
-  Result.UpperHexNumbers     := True;
-  Result.UpperDirectives     := True;
-  Result.FirstOccCasing      := True;
-  Result.BlanksBeforeSection := 0;
-  Result.BlanksBeforeMethod  := 0;
-  Result.BlanksBeforeType    := 0;
-  Result.AssignNoSpaceBefore := True;
-  Result.AssignSpaceAfter    := True;
-  Result.AlignConstEquals    := True;
-  Result.AlignTypeColon      := True;
-  Result.AlignSmartAssign    := True;
-  Result.AlignMaxColumn      := 100;
-  Result.UsesAlwaysBreak     := True;
-  Result.Backup              := False;
-  Result.BackupDir           := '';
-  Result.ResultDir           := '';
-  Result.Encoding            := encANSI;
-  Result.Logging             := False;
-end;
+  Result.MaxLen             := 180    ;
+  Result.Indent             := 2      ;
+  Result.TabWidth           := 4      ;
+  Result.MarkUnclosed       := False  ;
+  Result.LabelLongBlocks    := True   ;
+  Result.LabelMinLines      := 15     ;
+  Result.MaxBlankLines      := 1      ;
+  Result.TrimTrailing       := True   ;
+  Result.ReflowLines        := True   ;
+  Result.LowercaseKeywords  := True   ;
+  Result.UpperHexNumbers    := True   ;
+  Result.UpperDirectives    := True   ;
+  Result.FirstOccCasing     := True   ;
+  Result.BlanksBeforeSection:= 0      ;
+  Result.BlanksBeforeMethod := 0      ;
+  Result.BlanksBeforeType   := 0      ;
+  Result.AssignNoSpaceBefore:= True   ;
+  Result.AssignSpaceAfter   := True   ;
+  Result.AlignConstEquals   := True   ;
+  Result.AlignTypeColon     := True   ;
+  Result.AlignSmartAssign   := True   ;
+  Result.AlignMaxColumn     := 100    ;
+  Result.UsesAlwaysBreak    := True   ;
+  Result.Backup             := False  ;
+  Result.BackupDir          := ''     ;
+  Result.ResultDir          := ''     ;
+  Result.Encoding           := encANSI;
+  Result.Logging            := False  ;
+end; // function
 
 end.
