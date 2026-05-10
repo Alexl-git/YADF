@@ -1013,15 +1013,83 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     Result := False;
   end;
 
+  function ComputeBlockCommentLock(ALines: TStringList): TArray<Boolean>;
+  var
+    i, k:                     Integer;
+    Line:                     string;
+    InBrace, InPar, InString: Boolean;
+    StartedInside:            Boolean;
+  begin
+    SetLength(Result, ALines.Count);
+    InBrace := False;
+    InPar := False;
+    for i := 0 to ALines.Count - 1 do
+    begin
+      StartedInside := InBrace or InPar;
+      Line := ALines[i];
+      InString := False;
+      k := 1;
+      while k <= Length(Line) do
+      begin
+        if InBrace then
+        begin
+          if Line[k] = '}' then InBrace := False;
+          Inc(k);
+          Continue;
+        end;
+        if InPar then
+        begin
+          if (k + 1 <= Length(Line)) and (Line[k] = '*') and (Line[k + 1] = ')') then
+          begin
+            InPar := False;
+            Inc(k, 2);
+            Continue;
+          end;
+          Inc(k);
+          Continue;
+        end;
+        if InString then
+        begin
+          if Line[k] = '''' then
+          begin
+            if (k + 1 <= Length(Line)) and (Line[k + 1] = '''') then
+              Inc(k, 2)
+            else
+            begin
+              InString := False;
+              Inc(k);
+            end;
+          end
+          else
+            Inc(k);
+          Continue;
+        end;
+        if Line[k] = '''' then begin InString := True; Inc(k); Continue; end;
+        if Line[k] = '{' then begin InBrace := True; Inc(k); Continue; end;
+        if (k + 1 <= Length(Line)) and (Line[k] = '(') and (Line[k + 1] = '*') then
+        begin
+          InPar := True;
+          Inc(k, 2);
+          Continue;
+        end;
+        if (k + 1 <= Length(Line)) and (Line[k] = '/') and (Line[k + 1] = '/') then
+          Break;
+        Inc(k);
+      end;
+      Result[i] := StartedInside or InBrace or InPar;
+    end;
+  end;
+
 var
-  Lines:   TStringList;
-  Out_:    TStringBuilder;
-  i:       Integer;
-  Cur:     string;
-  NextLn:  string;
-  Joined:  string;
-  Leading: string;
-  k:       Integer;
+  Lines:         TStringList;
+  Out_:          TStringBuilder;
+  i:             Integer;
+  Cur:           string;
+  NextLn:        string;
+  Joined:        string;
+  Leading:       string;
+  k:             Integer;
+  CommentLocked: TArray<Boolean>;
 begin
   Lines := TStringList.Create;
   try
@@ -1030,6 +1098,7 @@ begin
     Lines.Text := S;
     Out_ := TStringBuilder.Create;
     try
+      CommentLocked := ComputeBlockCommentLock(Lines);
       i := 0;
       while i < Lines.Count do
       begin
@@ -1038,6 +1107,7 @@ begin
         begin
           NextLn := Lines[i + 1];
           if Trim(NextLn) = '' then Break;
+          if CommentLocked[i] or CommentLocked[i + 1] then Break;
           if CurBlocksMerge(Cur, NextLn) then Break;
           if NextBlocksMerge(NextLn) then Break;
           k := 1;
@@ -2213,16 +2283,78 @@ var
 
   function BreakLongLines(const ASrc: string): string;
   var
-    Lines: TStringList;
-    i:     Integer;
+    Lines:                    TStringList;
+    i, k:                     Integer;
+    Line:                     string;
+    InBrace, InPar, InString: Boolean;
+    StartedInside:            Boolean;
+    Locked:                   TArray<Boolean>;
   begin
     Lines := TStringList.Create;
     try
       Lines.LineBreak := #13#10;
       Lines.TrailingLineBreak := True;
       Lines.Text := ASrc;
+      SetLength(Locked, Lines.Count);
+      InBrace := False;
+      InPar := False;
       for i := 0 to Lines.Count - 1 do
-        if Length(Lines[i]) > AOpts.MaxLen then
+      begin
+        StartedInside := InBrace or InPar;
+        Line := Lines[i];
+        InString := False;
+        k := 1;
+        while k <= Length(Line) do
+        begin
+          if InBrace then
+          begin
+            if Line[k] = '}' then InBrace := False;
+            Inc(k);
+            Continue;
+          end;
+          if InPar then
+          begin
+            if (k + 1 <= Length(Line)) and (Line[k] = '*') and (Line[k + 1] = ')') then
+            begin
+              InPar := False;
+              Inc(k, 2);
+              Continue;
+            end;
+            Inc(k);
+            Continue;
+          end;
+          if InString then
+          begin
+            if Line[k] = '''' then
+            begin
+              if (k + 1 <= Length(Line)) and (Line[k + 1] = '''') then
+                Inc(k, 2)
+              else
+              begin
+                InString := False;
+                Inc(k);
+              end;
+            end
+            else
+              Inc(k);
+            Continue;
+          end;
+          if Line[k] = '''' then begin InString := True; Inc(k); Continue; end;
+          if Line[k] = '{' then begin InBrace := True; Inc(k); Continue; end;
+          if (k + 1 <= Length(Line)) and (Line[k] = '(') and (Line[k + 1] = '*') then
+          begin
+            InPar := True;
+            Inc(k, 2);
+            Continue;
+          end;
+          if (k + 1 <= Length(Line)) and (Line[k] = '/') and (Line[k + 1] = '/') then
+            Break;
+          Inc(k);
+        end;
+        Locked[i] := StartedInside or InBrace or InPar;
+      end;
+      for i := 0 to Lines.Count - 1 do
+        if (Length(Lines[i]) > AOpts.MaxLen) and not Locked[i] then
           Lines[i] := BreakLineByOperators(Lines[i]);
       Result := Lines.Text;
     finally
