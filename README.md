@@ -133,9 +133,12 @@ cmd /c "call \"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat\" ^
 ## Acknowledgements
 
 YADF is built on top of [DelphiAST](https://github.com/RomanYankovsky/DelphiAST)
-by Roman Yankovsky and contributors. The lexer (`SimpleParser.Lexer`) handles
+by @RomanYankovsky and contributors. The lexer (`SimpleParser.Lexer`) handles
 all token-level details including modern Delphi syntax (multi-line strings,
 inline vars, generic constraints, etc.) and made this project possible.
+
+To build YADF from source you'll need DelphiAST checked out alongside this
+repo — clone it from @RomanYankovsky/DelphiAST.
 
 DelphiAST is Copyright (c) 2014-2020 Roman Yankovsky (roman@yankovsky.me) et
 al, released under the Mozilla Public License v2.0.
