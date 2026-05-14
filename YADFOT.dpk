@@ -1,0 +1,47 @@
+package YADFOT;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$DESCRIPTION 'YADFOT - YADF Open Tools (IDE wizard wrapping YADF)'}
+{$DESIGNONLY}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  vcl,
+  vclx,
+  designide;
+
+contains
+  YADFOT.Wizard in 'YADFOT.Wizard.pas',
+  YADF.Tokens in 'YADF.Tokens.pas',
+  YADF.Options in 'YADF.Options.pas',
+  YADF.Groups in 'YADF.Groups.pas',
+  YADF.Layout in 'YADF.Layout.pas',
+  SimpleParser.Lexer in '..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas',
+  SimpleParser.Lexer.Types in '..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas';
+
+end.

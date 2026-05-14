@@ -4,7 +4,82 @@ A Pascal/Delphi source code formatter, written in Delphi 13. Reformats `.pas`
 files according to a configurable rule set: line-length budgeting, structural
 re-indentation, capitalization, and column alignment.
 
-## Quick start
+YADF ships in two flavours, built from the same engine:
+
+- **`YADF.exe`** — a stand-alone CLI for formatting files, folders, and
+  whole `.dpr`/`.dproj` projects (see [CLI quick start](#cli-quick-start)).
+- **`YADFOT.bpl`** — a Delphi IDE design-time package ("YADF Open Tools")
+  that adds a Tools-menu item and a `Ctrl+Shift+Alt+F` shortcut to format
+  the current source-editor buffer (see [YADFOT install](#yadfot-install)).
+
+Both artifacts are produced by this single project tree and land in the
+same output folder.
+
+## YADFOT install
+
+YADFOT is a design-time, Win32-only Delphi IDE package. The IDE itself
+is 32-bit, so the BPL must be Win32 even on a 64-bit machine.
+
+### From the IDE
+
+1. Open `YADFOT.dproj` in Delphi 13.
+2. Active platform: **Win32**, configuration **Release** (Debug works too).
+3. Project → Build YADFOT. The output is `Win32\Release\EXE\YADFOT.bpl`,
+   right next to where `YADF.exe` lands.
+4. Component → Install Packages → Add… → browse to that `YADFOT.bpl` → OK.
+
+The wizard registers itself on package load -- no IDE restart needed.
+
+### From the command line
+
+```cmd
+cmd.exe /c "call \"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat\" ^
+        && msbuild /t:Build /p:Config=Release /p:Platform=Win32 YADFOT.dproj"
+```
+
+Then install via the IDE (step 4 above).
+
+### Using the wizard
+
+Two entry points appear in the IDE after install:
+
+1. **Tools menu** → `YADFOT: Format Current Buffer`
+2. **Keyboard shortcut** → `Ctrl+Shift+Alt+F`
+
+YADFOT verifies the active edit view is a code buffer before doing anything.
+Supported extensions: `.pas` `.dpr` `.dpk` `.inc`. If the active view is a
+form designer, project options page, welcome page, or any other non-code
+editor, the wizard reports it and exits without changes -- it deliberately
+does **not** auto-jump to a sibling `.pas` behind a form. Click into the
+code editor first, then invoke the wizard.
+
+The buffer does not need to be saved -- the in-memory contents are read,
+formatted, and rewritten through an undoable IDE edit (so Ctrl+Z reverts
+the format).
+
+**Encoding.** All buffer I/O is UTF-8 by way of the IDE's edit
+reader/writer; the on-disk encoding of the file is irrelevant. The CLI's
+`Encoding` INI key (`ANSI` / `UTF-8` / `UTF-16`) only affects file I/O
+and is intentionally ignored by YADFOT.
+
+**INI lookup.** YADFOT looks for `yadf.ini` in this order (first hit wins):
+
+1. The source file's directory, walking up to 8 parents
+2. The active project's directory, walking up to 8 parents
+3. `%APPDATA%\YADFOT\yadf.ini`
+   (typically `C:\Users\<user>\AppData\Roaming\YADFOT\yadf.ini`)
+
+If none is found, compiled-in defaults from `YADF.Options.DefaultOptions`
+are used (the same defaults the CLI uses). The `[Format]` section keys
+match the CLI INI keys -- copy your existing `yadf.ini` into one of the
+locations above and YADFOT picks it up. The only CLI key the wizard
+skips is `Encoding`, since IDE buffer I/O is always UTF-8.
+
+### Uninstall
+
+Component → Install Packages → select `YADFOT` → Remove.
+
+## CLI quick start
 
 ```cmd
 yadf MyUnit.pas
@@ -92,7 +167,8 @@ values pulled from `yadf.ini`.
 - Always emits CRLF line endings
 - Reads and writes file bytes in the encoding chosen by `Encoding=` in
   `yadf.ini` (default `ANSI`; `UTF-8-BOM` and `UTF-16-BOM` also supported).
-  Existing BOM in input is auto-detected on load.
+  Existing BOM in input is auto-detected on load. (YADFOT bypasses this
+  setting and always exchanges UTF-8 with the IDE buffer.)
 - Backups are opt-in: in-place formatting overwrites the source unless
   you set `Backup=true` in `yadf.ini` or pass `--b` on the command line.
   When backups are on, they go to a sibling `<source>.BCK<N>` (default)
@@ -115,30 +191,63 @@ values pulled from `yadf.ini`.
 
 ## Configuration
 
-YADF looks for `yadf.ini` next to the executable. CLI flags override INI
-values; INI values override compiled-in defaults. See `yadf.ini` for the
+YADF (CLI) looks for `yadf.ini` next to the executable. CLI flags override
+INI values; INI values override compiled-in defaults. See `yadf.ini` for the
 documented option list.
+
+YADFOT (IDE wizard) reads the same `[Format]` keys with a different search
+order — see [YADFOT install](#yadfot-install) above.
 
 ## Building
 
 Requires Delphi 13 (RAD Studio 37.0). Depends on
 [DelphiAST](https://github.com/RomanYankovsky/DelphiAST) for its lexer; the
-project file expects DelphiAST checked out at `..\DelphiAST` relative to YADF.
+project files expect DelphiAST checked out at `..\DelphiAST` relative to YADF.
+
+Build the CLI:
 
 ```cmd
 cmd /c "call \"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat\" ^
-        && msbuild /t:Build /p:Config=Debug /p:Platform=Win64 YADF.dproj"
+        && msbuild /t:Build /p:Config=Release /p:Platform=Win64 YADF.dproj"
+```
+
+Build the IDE wizard package:
+
+```cmd
+cmd /c "call \"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat\" ^
+        && msbuild /t:Build /p:Config=Release /p:Platform=Win32 YADFOT.dproj"
+```
+
+Both outputs land in `Win32\Release\EXE\` (`YADFOT.bpl` is Win32-only, since
+the Delphi IDE is 32-bit; `YADF.exe` builds for Win32 and Win64).
+
+## Project layout
+
+```
+YADF\
+  YADF.Tokens.pas       lexer wrapper + token stream
+  YADF.Options.pas      TYadfOptions record + DefaultOptions
+  YADF.Groups.pas       structural group parser (begin/end nesting, etc.)
+  YADF.Layout.pas       FormatSource -- the engine entry point
+  YADF.Debug.pas        debug-tree dump (CLI --debug-tree)
+  YadfMain.pas          CLI argument parser + driver
+  YADF.dpr / .dproj     CLI project
+  YADFOT.Wizard.pas     IDE wizard (ToolsAPI + buffer I/O + INI loader)
+  YADFOT.dpk / .dproj   IDE design-time package
+  yadf.ini              shared CLI + wizard configuration (optional)
 ```
 
 ## Acknowledgements
 
 YADF is built on top of [DelphiAST](https://github.com/RomanYankovsky/DelphiAST)
-by @RomanYankovsky and contributors. The lexer (`SimpleParser.Lexer`) handles
-all token-level details including modern Delphi syntax (multi-line strings,
-inline vars, generic constraints, etc.) and made this project possible.
+by [Roman Yankovsky](https://github.com/RomanYankovsky) and contributors. The
+lexer (`SimpleParser.Lexer`) handles all token-level details including modern
+Delphi syntax (multi-line strings, inline vars, generic constraints, etc.) and
+made this project possible.
 
 To build YADF from source you'll need DelphiAST checked out alongside this
-repo — clone it from @RomanYankovsky/DelphiAST.
+repo — clone it from
+[RomanYankovsky/DelphiAST](https://github.com/RomanYankovsky/DelphiAST).
 
 DelphiAST is Copyright (c) 2014-2020 Roman Yankovsky (roman@yankovsky.me) et
 al, released under the Mozilla Public License v2.0.
