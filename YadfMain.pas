@@ -29,8 +29,6 @@ unit YadfMain;
 // Whitespace
 // ----------
 // - Output line endings are always CRLF, regardless of input.
-// - Source files are read and written as ANSI bytes (no BOM, no UTF-8
-//   re-encoding).
 // - Consecutive blank lines are collapsed to MaxBlankLines (default 1).
 // - Leading whitespace tabs are converted to spaces; one tab = TabWidth
 //   spaces (default 4). Tabs inside strings/comments are preserved.

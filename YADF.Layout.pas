@@ -10,6 +10,59 @@
   Uses lexer/parser code from DelphiAST:
   Copyright (c) 2014-2020 Roman Yankovsky (roman@yankovsky.me) et al
   https://github.com/RomanYankovsky/DelphiAST
+
+  --------------------------------------------------------------------
+  Unit overview
+  --------------------------------------------------------------------
+  YADF.Layout owns the formatting engine. The public surface is one
+  function -- FormatSource -- which takes a raw Pascal source string
+  plus a TYadfOptions record and returns the formatted source.
+
+  Pipeline (see FormatSource at the bottom of the implementation)
+  --------------------------------------------------------------------
+  1. Lex the source into a TTokenList via YADF.Tokens.
+  2. ApplyCapitalization     -- normalize keyword/hex/directive/
+                                identifier casing on the token stream.
+  3. NormalizeAssignSpacing  -- fix spaces around `:=` per options.
+  4. ParseGroups             -- build a structural TGroup tree
+                                (begin/end, parens, brackets, uses)
+                                from the token stream.
+  5. WalkGroup               -- emit the token stream into a string,
+                                substituting structural renderings for
+                                uses / parens / brackets groups, and
+                                inserting `// keyword` block-end labels
+                                and unclosed-block TODOs.
+  6. Sequence of string -> string passes on the rendered output:
+       NormalizeCRLF          canonicalise line endings.
+       TrimTrailingWhitespace strip per-line trailing spaces.
+       DetabLeadingWhitespace leading tabs -> spaces.
+       ReindentByDepth        full structural re-indentation.
+       EnforceBlankLines      blank lines before sections/methods/types.
+       BreakLongLines         operator/comma-aware overflow wrapping.
+       ReflowLineBreaks       (optional) drop redundant line breaks
+                              and re-pack short consecutive lines.
+       ReindentByDepth        (after reflow, depth changed)
+       -- OR --
+       JoinShortCaseAlts      (when reflow is off) merge `value:`
+                              followed by a short stmt onto one line.
+       CollapseBlankLines     consecutive blanks -> N.
+  7. Pass 2 (optional column alignment, all string->string):
+       CollapseInteriorSpaces normalise spaces so anchors line up.
+       AlignByAnchor          pad `:` in declarations (var/param/field).
+       AlignByAnchor          pad `=` in const blocks.
+       SmartAlignAssignments  pad `:=` and shared anchors across
+                              adjacent shape-matched lines.
+
+  Design constraints
+  --------------------------------------------------------------------
+  - Idempotent: FormatSource(FormatSource(x)) == FormatSource(x).
+  - Comments and string literals are never reformatted internally;
+    they pass through verbatim. Indentation around them may change.
+  - Output line endings are always CRLF, regardless of input.
+  - Pass-2 alignment never grows a line past AOpts.AlignMaxColumn.
+  - The walker never reformats raw bytes inside multi-line tokens
+    (block comments, triple-quoted strings); those preserve content
+    while their leading whitespace is still re-indented.
 }
 
 unit YADF.Layout;
@@ -36,6 +89,13 @@ uses
   , YADF.Groups
   ;
 
+// ===== Whitespace and character helpers =====
+// Tiny pure functions reused across the layout passes. None mutate the
+// token stream; they all take strings and return strings or scalars.
+
+// Counts characters after the last CR/LF in APre. Used to compute the
+// column at which a token will be emitted given its pre-whitespace.
+// Returns 0 when APre ends with a newline (token will be at column 0).
 function ColumnFromPre(const APre: string): Integer;
 var
   i     : Integer;
@@ -50,6 +110,10 @@ begin
   Result:= Length(APre) - LastNL;
 end;
 
+// Collapses any run of horizontal/vertical whitespace (spaces, tabs,
+// CR, LF) to a single space. Used to flatten a multi-line token range
+// onto one line during inline rendering of parens groups, uses items,
+// etc. Adjacent non-whitespace chars stay untouched.
 function CollapseToSpace(const S: string): string;
 var
   i    : Integer;
@@ -81,12 +145,18 @@ begin
   end; // try
 end; // function
 
+// Canonicalises every line break to CRLF. We collapse CRLF -> LF first
+// so mixed input (CRLF + bare LF) folds to a single LF run, then
+// expand back. This deliberately produces CRLF regardless of platform.
 function NormalizeCRLF(const S: string): string;
 begin
   Result:= StringReplace(S     , #13#10, #10   , [rfReplaceAll]);
   Result:= StringReplace(Result, #10   , #13#10, [rfReplaceAll]);
 end;
 
+// Strips trailing spaces/tabs from every line and preserves the final
+// trailing line break. Run late in the pipeline so passes that emit
+// intermediate trailing whitespace don't accumulate it in the output.
 function TrimTrailingWhitespace(const S: string): string;
 var
   i    : Integer;
@@ -114,6 +184,9 @@ begin
   end; // try
 end; // function
 
+// True iff S is non-empty and every character is an ASCII letter.
+// Used as a guard before lowercasing a token text -- we never want to
+// touch hex literals, punctuation, mixed tokens, etc.
 function IsAllAlphabetic(const S: string): Boolean;
 var
   i: Integer;
@@ -124,6 +197,10 @@ begin
   Result:= True;
 end;
 
+// Uppercases hex digits in a $-prefixed integer literal ($ff -> $FF),
+// or just the exponent letter in a float literal (1e5 -> 1E5). The
+// fork between integer-vs-float is decided by the leading `$`. Other
+// characters are preserved as-is.
 function UpperHexLiteral(const S: string): string;
 var
   C: Char;
@@ -142,6 +219,10 @@ begin
     Result[i]:= 'E';
 end;
 
+// Uppercases the directive name in a compiler-directive comment:
+// {$ifdef X} -> {$IFDEF X}, {$define} -> {$DEFINE}, etc. Only the
+// leading alphabetic run after `{$` is touched -- arguments, payload
+// text, and the closing `}` are preserved exactly.
 function UpperDirectiveName(const S: string): string;
 var
   C        : Char;
@@ -161,6 +242,18 @@ begin
   end;
 end;
 
+// ===== Token-stream passes =====
+// These mutate the TTokenList in place before the structural walker
+// emits anything. Capitalisation and spacing are easier to enforce at
+// the token level than in the rendered output, where we'd need to
+// re-distinguish identifiers from string contents.
+
+// Enforces spacing policy around `:=` per AOpts.AssignNoSpaceBefore
+// and AOpts.AssignSpaceAfter. Walks the token list in one pass: when
+// `ptAssign` is found, optionally drops the preceding ptSpace and
+// either trims the trailing ptSpace to a single space or inserts one
+// when missing (but not at end-of-line -- a `:=` immediately followed
+// by CRLF is left untouched so multi-line RHS reflow still works).
 procedure NormalizeAssignSpacing(const ATokens: TTokenList; const AOpts: TYadfOptions);
 var
   i   : Integer;
@@ -207,6 +300,18 @@ begin
   end; // while
 end; // procedure
 
+// Applies all four capitalisation rules driven by AOpts:
+//   LowercaseKeywords - lowercases reserved words (any all-alpha token
+//                       whose Kind is not in the literal/comment/whitespace
+//                       block-list).
+//   UpperHexNumbers   - uppercases hex digits and the float exponent E.
+//   UpperDirectives   - uppercases compiler directive names.
+//   FirstOccCasing    - normalises every identifier to the casing of
+//                       its first occurrence in the file (Pascal is
+//                       case-insensitive so this is purely cosmetic).
+// Each rule is independent; they're applied as separate passes for
+// clarity, not performance. The IsLiteralKind block-list keeps us
+// from accidentally lowercasing string contents, comments, etc.
 procedure ApplyCapitalization(const ATokens: TTokenList; const AOpts: TYadfOptions);
 var
   Existing     : string;
@@ -287,6 +392,16 @@ begin
   end; // if
 end; // procedure
 
+// ===== Single-line string transforms =====
+// Each of these takes the rendered output as a string, slices it into
+// lines, performs a per-line operation, and reassembles. Tabs and
+// spaces inside string literals and comments are not touched (we only
+// scan the LEADING run of whitespace on each line).
+
+// Replaces every leading tab with ATabWidth spaces. Tabs appearing
+// after non-whitespace text on a line are preserved. The leading run
+// is handled char-by-char (rather than a global StringReplace) so
+// non-uniform tab widths are respected.
 function DetabLeadingWhitespace(const S: string; ATabWidth: Integer): string;
 var
   i    : Integer;
@@ -329,6 +444,16 @@ begin
   end; // try
 end; // function
 
+// Joins a `case` alternative label and a short body that fit within
+// AMaxLen onto a single line:
+//
+//     SomeValue:                              SomeValue: DoIt(x);
+//       DoIt(x);                ==>
+//
+// Only kicks in when ReflowLines is OFF (otherwise the reflow pass
+// handles this in a more general way). Refuses to join when the
+// candidate body begins a structured construct (begin/case/try/asm/
+// record) so we don't end up with `Foo: begin ... end` collapsed.
 function JoinShortCaseAlts(const S: string; AMaxLen: Integer): string;
 var
   Cur        : string;
@@ -404,6 +529,23 @@ begin
   end; // try
 end; // begin
 
+// ===== Pass-2 column alignment =====
+// These run AFTER the structural rendering and re-indentation. They
+// operate purely on the string output, scanning each line for an
+// anchor character (`:`, `=`, `:=`) at the top syntactic level --
+// outside string literals, braces, parens, comments. Adjacent lines
+// that share an anchor are padded so the anchors line up at the
+// rightmost column observed in the run, capped at AlignMaxColumn so
+// runaway nesting can't push alignment off the right edge.
+
+// Locates AAnchor at top level in ALine -- not inside strings,
+// brace/paren comments, // line comments, or () [] groups (Depth > 0).
+// Returns the 1-based byte index of the anchor, or 0 if not found.
+// Sticky edge cases:
+//   * Looking for `:` ignores `:=`.
+//   * Looking for `=` ignores the `=` immediately after a `:`.
+// Both rules prevent the type-colon align pass and const-equals align
+// pass from latching onto the wrong character on the same line.
 function FindAnchorAtTopLevel(const ALine: string; const AAnchor: string): Integer;
 var
   Depth   : Integer;
@@ -474,6 +616,9 @@ begin
   end; // while
 end; // function
 
+// True if ALine begins with `const` followed by whitespace or EOL.
+// Used by the const-equals alignment pass to detect the section
+// keyword (the `const` line itself is never aligned).
 function StartsConstBlock(const ALine: string): Boolean;
 var
   T: string;
@@ -482,6 +627,12 @@ begin
   Result:= SameText(Copy(T, 1, 5), 'const') and ((Length(T) = 5) or (T[6] = ' ') or (T[6] = #9) or (T[6] = #13));
 end;
 
+// True iff ALine starts with a structural keyword that breaks any
+// in-progress alignment run (begin/end/type/var/const/procedure/
+// function/constructor/destructor/interface/implementation) or is
+// blank. The nested StartsKW helper ensures we match whole keywords
+// rather than identifier prefixes (so `endpoint` is not detected as
+// `end`).
 function StartsBlockBoundary(const ALine: string): Boolean;
 var
   T: string;
@@ -519,6 +670,12 @@ begin
   Result:= False;
 end; // function
 
+// Collapses every multi-space run inside a single line to one space,
+// preserving the leading indent. Re-lexes the line body through
+// TmwPasLex so whitespace inside string literals and comments stays
+// untouched (the lexer marks those as their own token kinds). Used
+// to normalise input before the column-alignment passes so they
+// don't have to think about pre-existing alignment padding.
 function CollapseInteriorSpacesInLine(const ALine: string): string;
 var
   Body   : string;
@@ -554,6 +711,9 @@ begin
   end; // try
 end; // function
 
+// Per-line wrapper around CollapseInteriorSpacesInLine that walks the
+// entire formatted output. Runs once before the column-alignment
+// passes so they see a clean baseline.
 function CollapseInteriorSpaces(const S: string): string;
 var
   i    : Integer;
@@ -581,6 +741,17 @@ begin
   end; // try
 end; // function
 
+// Generic anchor-alignment pass. Walks the text line by line:
+//   1. For every line, compute the column of AAnchor at top level
+//      (anchors inside strings/parens/comments don't count).
+//   2. Group consecutive lines that all have a non-zero anchor and
+//      none of which is a block-boundary line. Stop at the first
+//      gap (anchor = 0) or block-boundary keyword.
+//   3. If the group has at least 2 lines and the rightmost anchor
+//      fits within AMaxColumn, left-pad each line so its anchor
+//      reaches that rightmost column.
+// AAnchor is the literal anchor string (`:` or `=`); the special-case
+// for `:=` is handled inside FindAnchorAtTopLevel.
 function AlignByAnchor(const S, AAnchor: string; AMaxColumn: Integer): string;
 var
   Anchors : TArray<Integer>;
@@ -652,6 +823,19 @@ begin
   end; // try
 end; // function
 
+// Shape record for the smart-assignment alignment pass. Two lines
+// have the same "shape" when their punctuation/operator tokens form
+// the same sequence -- so identifier names and literals are
+// interchangeable, but `a.b := c(d, e);` and `x.y := z(w, v);` count
+// as the same shape and get their `.`, `:=`, `(`, `,`, `)`, `;`
+// padded to a shared column run.
+//   Shape     - the sequence of structural token kinds (no idents,
+//               whitespace, strings, numbers, chars, or comments).
+//   Cols      - the 1-based column of each structural token on the
+//               line, parallel to Shape.
+//   HasAssign - true iff `:=` appears anywhere on the line (used as
+//               the cheap precondition to skip lines that obviously
+//               can't participate).
 type
   TLineShape = record
     Shape    : TArray<TptTokenKind>;
@@ -659,6 +843,11 @@ type
     HasAssign: Boolean;
   end;
 
+// Builds the TLineShape for a single line by re-lexing it.
+// Identifiers, literals, whitespace, and comments are filtered out so
+// only the structural skeleton remains; that skeleton is what gets
+// compared between adjacent lines to decide whether they're alignment
+// peers.
 function ComputeLineShape(const ALine: string): TLineShape;
 var
   Cols : TList<Integer>;
@@ -695,6 +884,8 @@ begin
   end; // try
 end; // function
 
+// Element-wise array compare on shape arrays. False as soon as a
+// length or kind differs.
 function ShapesMatch(const A, B: TArray<TptTokenKind>): Boolean;
 var
   i: Integer;
@@ -704,6 +895,21 @@ begin
   Result:= True;
 end;
 
+// The "smart" alignment pass: finds runs of adjacent lines that all
+// contain `:=` and share an identical structural shape, then pads
+// every shared anchor column-by-column so the structure lines up.
+// Algorithm per shape-matched run:
+//   1. Snapshot each line's text and per-anchor column array.
+//   2. For each anchor index k (left-to-right):
+//      - Compute MaxCol = rightmost column of anchor k across the run.
+//      - If MaxCol > AMaxCol, abort this run entirely (no partial
+//        alignment -- avoids ugly half-padded blocks).
+//      - Else left-pad each line whose anchor k is to the left of
+//        MaxCol, and shift its remaining anchor columns by the pad
+//        width so subsequent iterations stay accurate.
+//   3. Emit either the padded lines (success) or the originals (abort).
+// Single-line "runs" (j - i < 2) and lines with empty shapes (no
+// structural tokens at all) are passed through untouched.
 function SmartAlignAssignments(const S: string; AMaxCol: Integer): string;
 var
   AnyOver : Boolean;
@@ -804,8 +1010,26 @@ begin
   end; // try
 end; // function
 
+// ===== Reflow =====
+// Reflow is the most invasive string pass: it deletes user-supplied
+// line breaks where they aren't structurally required, and merges
+// short adjacent lines that fit MaxLen when joined. Off-switch:
+// AOpts.ReflowLines = False (set in INI / via --no-reflow).
+//
+// The merge decision lives in CurBlocksMerge / NextBlocksMerge below.
+// A merge is REFUSED when either:
+//   * the current line ends in a structural break (`;`, `.`, `}`,
+//     `begin`, `end`, section keyword, visibility keyword, `try`,
+//     `else` not followed by `if`, `uses`, etc.)
+//   * the next line starts with one (`begin`, `end`, `else`, `until`,
+//     `var`, `procedure`, line comment, directive, ...)
+// Block-comment / string-literal interiors are tracked so we never
+// merge across an open `{...}` or `(*...*)` boundary.
 function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
 
+  // True iff ALine starts with AWord, case-insensitively, with a
+  // non-identifier boundary after the word (so `class` matches but
+  // `classes` does not).
   function StartsWordCI(const ALine, AWord: string): Boolean;
   var
     Trimmed: string;
@@ -821,6 +1045,8 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
       Result:= True;
   end;
 
+  // True iff ALine ends with AWord, case-insensitively, with a
+  // non-identifier boundary before the word.
   function EndsWordCI(const ALine, AWord: string): Boolean;
   var
     Trimmed: string;
@@ -837,6 +1063,11 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
       Result:= True;
   end;
 
+  // True if ALine contains a `//` line comment at top level or leaves
+  // a `{...}` / `(*...*)` block open at end-of-line. Either case
+  // forbids merging the next line into this one -- a line comment
+  // would swallow it, and an open block makes "where does this end"
+  // ambiguous.
   function HasLineCommentOrOpenBlock(const ALine: string): Boolean;
   var
     i                       : Integer;
@@ -896,6 +1127,10 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     Result:= InBrace or InPar;
   end; // function
 
+  // Detects `... class(TFoo, IBar)` / `... interface(IBaz)` style
+  // lines -- where the parenthesised ancestor list is the actual end
+  // of the line. Used to block merging the next member declaration
+  // onto the class header line, which would look terrible.
   function EndsWithTypeAncestorList(const ALine: string): Boolean;
   var
     R, Head : string;
@@ -920,6 +1155,12 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     Result:= EndsWordCI(Head, 'class') or EndsWordCI(Head, 'object') or EndsWordCI(Head, 'interface') or EndsWordCI(Head, 'dispinterface');
   end; // function
 
+  // Returns True when the CURRENT line forbids being merged with the
+  // following one. The big run of EndsWordCI checks below is the rule
+  // book: every keyword that terminates a structural construct ends
+  // the line. The `else` case has one exception -- `else if ...` is
+  // a chain we WANT to keep on one line, so an `else` is allowed to
+  // merge if the next line starts with `if`.
   function CurBlocksMerge(const ALine, ANext: string): Boolean;
   var
     R: string;
@@ -963,6 +1204,10 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     Result:= False;
   end; // function
 
+  // Returns True when the NEXT line forbids being merged onto its
+  // predecessor. Mirrors CurBlocksMerge from the opposite direction:
+  // structural keywords, line comments, directives, and section
+  // openers all force a line break to be preserved.
   function NextBlocksMerge(const ALine: string): Boolean;
   var
     T: string;
@@ -998,6 +1243,11 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     Result:= False;
   end; // function
 
+  // Returns a Boolean[Lines.Count] where Locked[i] = True iff line i
+  // is "inside" a block comment that was already open at the start of
+  // that line, OR opens a new block comment that stays open at end of
+  // line. Locked lines never participate in merge decisions, so block
+  // comment interiors pass through verbatim.
   function ComputeBlockCommentLock(ALines: TStringList): TArray<Boolean>;
   var
     i, k                    : Integer;
@@ -1127,6 +1377,19 @@ begin
   end; // try
 end; // begin
 
+// ===== Blank-line policy =====
+// Enforces minimum blank-line counts before structurally important
+// lines. Three independent settings:
+//   BlanksBeforeSection - before interface/implementation/
+//                         initialization/finalization
+//   BlanksBeforeType    - before `type`
+//   BlanksBeforeMethod  - before top-level procedure/function/
+//                         constructor/destructor (class methods are
+//                         excluded so we don't blanks before
+//                         `class procedure Foo`)
+// When multiple rules apply on the same line, the maximum wins.
+// Existing blank lines are counted backwards and only the deficit is
+// inserted, so this pass is idempotent.
 function EnforceBlankLines(const S: string; const AOpts: TYadfOptions): string;
 
   function StartsWordCI(const ALine, AWord: string): Boolean;
@@ -1216,6 +1479,10 @@ begin
   end; // try
 end; // begin
 
+// Caps consecutive blank lines at AMax. Runs after EnforceBlankLines
+// so the floors set there are still respected -- the AMax used in the
+// pipeline is computed as max(MaxBlankLines, BlanksBeforeSection,
+// BlanksBeforeMethod, BlanksBeforeType). AMax < 0 disables the pass.
 function CollapseBlankLines(const S: string; AMax: Integer): string;
 var
   Blanks : Integer;
@@ -1256,11 +1523,35 @@ begin
   end; // try
 end; // function
 
+// True for the three comment token kinds: {brace}, (*Borland*), //line.
 function IsCommentKind(k: TptTokenKind): Boolean;
 begin
   Result:= k in [ptAnsiComment, ptBorComment, ptSlashesComment];
 end;
 
+// ===== Structural re-indentation =====
+// Re-emits ASrc with every line's leading whitespace replaced by N *
+// AIndent spaces, where N is the structural depth at that point.
+// Existing leading whitespace is ignored (this pass is the source of
+// truth for indentation). The depth tracking is driven by the token
+// stream, not by pattern matching on lines, so it handles weird
+// hand-formatted input correctly.
+//
+// Depth state lives on Stack (TList<TptTokenKind>), one entry per
+// open block. Pushers: begin / case / try / asm / record / object /
+// class / interface / type / var / const. Poppers: end / until /
+// procedure-body completion / `;` after a section item.
+//
+// Bonuses (lines indent one level deeper than the structural depth
+// would suggest):
+//   * Members inside private/public/protected/published (InVisibility).
+//   * Single-statement bodies after then/do/else (BodyBonus,
+//     persists across multi-line bodies until the next stmt break).
+//   * `case`-label bodies after `Label:`.
+//
+// Within parens/brackets (ParensDepth > 0) and within a uses clause,
+// re-indentation is suppressed -- those constructs are rendered by
+// the structural walker, not the re-indenter.
 function ReindentByDepth(const ASrc: string; AIndent: Integer): string;
 var
   AfterCRLF         : Boolean;
@@ -1559,6 +1850,18 @@ begin
   end; // try
 end; // begin
 
+// ===== Uses-clause rendering =====
+// The uses clause is special-cased because the standard parens/comma
+// breaking rules don't apply -- it has no parentheses and uses
+// comma-first formatting when broken.
+
+// Walks the token range covering one uses clause body (between the
+// `uses` keyword and the closing `;`) and returns the list of "name"
+// strings. Each name is the full identifier including dots; a name
+// followed by `in 'path'` is captured as the single string
+// `Unit in 'path'`. Sets AHasInClause = True when any `in` form is
+// present (which forces breaking even when the joined inline form
+// would fit, because mixed inline+in looks awful).
 function CollectUsesItems(const ATokens: TTokenList; AStartIdx, AEndIdx: Integer; out AHasInClause: Boolean): TArray<string>;
 var
   CurText: string;
@@ -1595,6 +1898,23 @@ begin
   end; // try
 end; // function
 
+// Renders one uses/contains/requires clause, replacing it inline in
+// the token stream. Two output forms:
+//
+//   Inline (chosen when UsesAlwaysBreak is False AND the joined form
+//   fits within MaxLen AND no `in 'path'` items appear):
+//       uses System.SysUtils, System.Classes;
+//
+//   Broken (default; chosen otherwise):
+//       uses
+//         System.SysUtils
+//       , System.Classes
+//       ;
+//
+// The broken form uses comma-first style at column (BaseCol + Indent),
+// with the closing semicolon on its own line at the same column. This
+// makes diffs cleaner when units are added/removed -- the line being
+// added is a complete row including its comma.
 function RenderUsesGroup(const ATokens: TTokenList; G: TGroup; const AOpts: TYadfOptions): string;
 var
   BaseCol  : Integer;
@@ -1652,6 +1972,16 @@ begin
   end; // try
 end; // function
 
+// ===== Parens-group rendering helpers =====
+// Used by the structural walker to decide whether a parenthesised
+// group fits inline or needs to be broken one-argument-per-line, and
+// to actually render it both ways.
+
+// Concatenates tokens [AFrom..ATo] onto a single line, collapsing any
+// internal whitespace/CRLF runs to a single space. Pre-whitespace
+// before each token is normalised to either '' (when next to opening
+// punctuation) or ' ' (otherwise). The result has NO leading or
+// trailing whitespace; callers add indentation as needed.
 function InlineRenderRange(const ATokens: TTokenList; AFrom, ATo: Integer): string;
 var
   HasContent: Boolean;
@@ -1680,6 +2010,10 @@ begin
   end; // try
 end; // function
 
+// True iff any token in [AFrom..ATo] has a CR or LF inside its own
+// text. Multi-line tokens (block comments, multi-line strings) can't
+// be safely flattened to one line, so the structural walker skips
+// the inline-rendering optimisation when this returns True.
 function RangeHasMultiLineToken(const ATokens: TTokenList; AFrom, ATo: Integer): Boolean;
 var
   i: Integer;
@@ -1690,12 +2024,30 @@ begin
   Result:= False;
 end;
 
+// One item slot in a comma-separated parens/brackets group.
+//   First, Last     - token range of the item payload (no commas).
+//   CmtFirst,
+//   CmtLast         - optional token range of an inline comment that
+//                     followed the comma on the same source line as
+//                     that comma; -1/-1 when no such comment. We keep
+//                     these so the inline brace `{...}` after a
+//                     parameter stays glued to that parameter when
+//                     the group is broken.
 type
   TItemRange = record
     First, Last      : Integer;
     CmtFirst, CmtLast: Integer;
   end;
 
+// Walks the token range [AOpenIdx + 1 .. ACloseIdx - 1] (i.e. between
+// matched `(` `)` or `[` `]`) and slices it at top-level commas. Each
+// slice becomes a TItemRange. Nested parens/brackets are tracked via
+// Depth so commas inside an inner pair don't split the outer item.
+// Leading and trailing whitespace tokens at each boundary are absorbed
+// into the surrounding slot rather than into an item, so trim and
+// re-render are clean. After a top-level comma, the walker looks
+// ahead for an inline comment whose `Line` equals the comma's line --
+// that comment is captured as the item's CmtFirst/CmtLast.
 function CollectParensItems(const ATokens: TTokenList; AOpenIdx, ACloseIdx: Integer): TArray<TItemRange>;
 var
   CmtF     : Integer;
@@ -1777,6 +2129,17 @@ begin
   end; // try
 end; // function
 
+// ===== Block-end label discovery =====
+
+// Returns the keyword to use in the trailing `// keyword` comment
+// appended to a long block's closing `end`. Cheap path: if the
+// opener is itself record/case/try/asm/object, use that keyword
+// literally. For a plain `begin`, walk backwards through whitespace,
+// comments, and conditional directives looking for the introducing
+// keyword (while / for / if / else / procedure / function / try /
+// initialization / finalization / a prior `end` which we treat as
+// "anonymous begin"). The Limit guard caps the backwards scan at 300
+// non-trivial tokens so pathological input can't pin the formatter.
 function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;
 var
   i    : Integer;
@@ -1823,6 +2186,30 @@ begin
   Result:= 'begin';
 end; // function
 
+// ===== FormatSource =====
+// Top-level orchestrator. Runs the pipeline described in the unit
+// header comment. The first stage is token-level (capitalisation,
+// assignment spacing); the second is a structural emission driven by
+// WalkGroup over the TGroup tree; the third is a sequence of pure
+// string -> string passes for indentation, blank lines, line breaks,
+// and (optionally) reflow and column alignment.
+//
+// Shared mutable state for the walker (in scope of the nested procs):
+//   Tokens       - the lexed token stream (after capitalisation /
+//                  assign-spacing passes have mutated it).
+//   Root         - the parsed TGroup tree.
+//   Sb           - StringBuilder for the rendered output.
+//   Cursor       - next un-emitted token index. Incremented as
+//                  WalkGroup descends into / past child groups.
+//   CurCol,
+//   CurLine      - track the current output position so the walker
+//                  can decide whether a parens group fits inline at
+//                  the current column or must be broken.
+//   PendingLabel - block-end label that needs to be appended to the
+//                  next-emitted closing `end`. Buffered here because
+//                  the label is computed at the moment we leave a
+//                  child group, but must appear AFTER the `end`
+//                  token text and BEFORE the next CRLF.
 function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 var
   CurCol      : Integer;
@@ -1833,6 +2220,11 @@ var
   Sb          : TStringBuilder;
   Tokens      : TTokenList;
 
+  // Updates CurCol/CurLine after every text emission. Tabs are
+  // counted as TabWidth columns; CR is ignored (column reset happens
+  // on LF). Plain ASCII characters all count as one column -- we
+  // don't try to handle ambiguous-width Unicode here because the
+  // input is Pascal source.
   procedure UpdateColumn(const S: string);
   var
     i: Integer;
@@ -1848,6 +2240,11 @@ var
       Inc(CurCol);
   end;
 
+  // Appends S to the output StringBuilder, flushing any PendingLabel
+  // first. If S contains a line break, the label is spliced in BEFORE
+  // the break -- e.g. `end;` + pending `// while` + `\r\n` becomes
+  // `end; // while\r\n`. CurCol/CurLine are kept in sync via
+  // UpdateColumn so subsequent walker decisions remain accurate.
   procedure EmitText(const S: string);
   var
     i, k          : Integer;
@@ -1927,6 +2324,16 @@ var
     Result:= nil;
   end;
 
+  // Emits a parens/brackets group in broken form, one item per line:
+  //     Header(
+  //         item1,                <- items at LineWS + 2*Indent
+  //         item2,
+  //         item3
+  //     );                        <- close at LineWS (same as opener)
+  // Each item that ITSELF overflows AND is a single nested parens/
+  // brackets group with multiple items is recursively broken. Inline
+  // brace comments captured into Items[i].CmtFirst..CmtLast stick
+  // with the preceding item, on the same output line.
   procedure RenderParensBroken(G: TGroup);
   var
     Items   : TArray<TItemRange>;
@@ -1984,6 +2391,20 @@ var
     Result:= False;
   end;
 
+  // The structural emission walker. Recursively descends the TGroup
+  // tree, handing off to specialised renderers per group kind:
+  //   gkUses     -> RenderUsesGroup (uses-clause formatter)
+  //   gkParens / gkBrackets:
+  //     - fits inline at current column -> InlineRenderRange
+  //     - overflows AND has >1 comma item -> RenderParensBroken
+  //     - else descend into children (let inner groups break)
+  //   gkBlock and everything else -> recurse, emitting tokens
+  //                                   between child groups verbatim.
+  // After each child closes, two side-channels may fire:
+  //   * MarkUnclosed: emits a // TODO -oYADF marker if Child was
+  //     ForceClosed by the group parser (unmatched begin/record).
+  //   * LabelLongBlocks: stores a PendingLabel that EmitText will
+  //     splice in on the next CRLF if the block was long enough.
   procedure WalkGroup(G: TGroup);
   var
     Child     : TGroup;
@@ -2052,6 +2473,15 @@ var
     Result:= C.IsLetterOrDigit or (C = '_');
   end;
 
+  // Scans Line for top-level break points usable by the line-overflow
+  // breaker. Two categories are collected:
+  //   * Word operators with surrounding spaces: ` + ` ` - ` ` and `
+  //     ` xor ` (with whole-word boundaries enforced by AddIfWord).
+  //   * Commas inside parens/brackets at any nesting depth, where
+  //     the break point is just AFTER the comma+space.
+  // Returns positions are 1-based byte indices. String/brace/paren
+  // comment interiors are skipped so we don't split a literal or a
+  // documentation block.
   function FindOperatorPositionsAtTopLevel(const Line: string): TArray<Integer>;
   var
     Positions               : TList<Integer>;
@@ -2155,6 +2585,17 @@ var
     Result:= Copy(Line, 1, i - 1);
   end;
 
+  // Greedy line-wrapping at top-level operators/commas. Strategy:
+  //   1. Find all candidate break positions in the current line.
+  //   2. Pick the rightmost position that's still <= MaxLen (so the
+  //      first piece is as full as possible).
+  //   3. If no candidate fits, fall back to the leftmost candidate
+  //      after the leading indent (the line will overflow, but at
+  //      least we tried).
+  //   4. Emit head, push tail to the next iteration with NewIndent
+  //      (LeadingIndent + AOpts.Indent extra). The continuation
+  //      starts WITH the operator so the structure reads "op operand"
+  //      at the new column.
   function BreakLineByOperators(const ALine: string): string;
   var
     Positions : TArray<Integer>;
@@ -2204,6 +2645,14 @@ var
     end; // try
   end; // function
 
+  // Whole-output pass for overflow handling. Splits the rendered text
+  // into lines, computes a Locked[] mask using the same block-comment
+  // tracker as ReflowLineBreaks (lines inside a `{...}` or `(*...*)`
+  // are never broken), then runs BreakLineByOperators on every
+  // remaining line whose length exceeds MaxLen. Returns the modified
+  // text. This is the LAST defence against overflow before optional
+  // reflow; without it, long lines from heavily-nested expressions
+  // would survive the pipeline unchanged.
   function BreakLongLines(const ASrc: string): string;
   var
     Lines                   : TStringList;
@@ -2284,25 +2733,45 @@ var
     end; // try
   end; // function
 
+// FormatSource body: see the pipeline diagram in the unit header.
+// The code below is a literal rendering of those stages.
 begin
   Tokens:= LoadTokensFromString(ASource);
   try
+    // Stage 1: token-level passes (mutate Tokens in place).
     ApplyCapitalization(Tokens, AOpts);
     NormalizeAssignSpacing(Tokens, AOpts);
     Root:= ParseGroups(Tokens);
     try
       Sb:= TStringBuilder.Create;
       try
+        // Stage 2: structural emission. WalkGroup writes into Sb.
         Cursor      := 0 ;
         CurCol      := 0 ;
         CurLine     := 1 ;
         PendingLabel:= '';
         WalkGroup(Root);
+        // A trailing PendingLabel (block-end label on the last block
+        // of the file) needs an explicit CRLF to flush.
         if PendingLabel <> '' then
         begin
           EmitText(#13#10);
           PendingLabel:= '';
         end;
+
+        // Stage 3: string-level passes. Order matters here:
+        //   * CRLF first so every subsequent pass sees a uniform
+        //     line terminator.
+        //   * Trim trailing whitespace before any indent-aware pass.
+        //   * Re-indent BEFORE blank-line/overflow handling so those
+        //     passes see the canonical indented form.
+        //   * Reflow (when on) collapses multi-line statements; we
+        //     re-indent again because the merge may have changed
+        //     structural depth on some lines.
+        //   * CollapseBlankLines uses the MAX of the user's caps to
+        //     avoid clobbering EnforceBlankLines' results.
+        //   * Pass-2 alignment runs LAST so the columns it inserts
+        //     are never disturbed by a later pass.
         Result:= NormalizeCRLF(Sb.ToString);
         if AOpts.TrimTrailing then
           Result:= TrimTrailingWhitespace(Result);
@@ -2322,6 +2791,9 @@ begin
         if AOpts.BlanksBeforeMethod  > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeMethod ;
         if AOpts.BlanksBeforeType    > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeType   ;
         Result:= CollapseBlankLines(Result, EffMaxBlanks);
+
+        // Stage 4: column alignment (Pass 2). CollapseInteriorSpaces
+        // normalises spacing so anchor columns are predictable.
         if AOpts.AlignTypeColon or AOpts.AlignConstEquals or AOpts.AlignSmartAssign then
           Result:= CollapseInteriorSpaces(Result);
         if AOpts.AlignTypeColon then
