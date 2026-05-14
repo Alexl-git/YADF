@@ -606,7 +606,13 @@ begin
         Inc(i, 2); Continue;
       end;
       if AAnchor = '=' then
-      if (i > 1) and (ALine[i - 1] = ':') then
+      // Skip the trailing `=` of any two-char operator that ends in
+      // it: `:=` assignment, `<=` less-or-equal, `>=` greater-or-
+      // equal. Without this, the const-equals alignment pass mistakes
+      // the second char of `<=`/`>=` for a const-block `=` and right-
+      // pads it -- producing `>          = N`, which dcc32 rejects.
+      // (Bug repro: BUG_LE_OPERATOR.md, 2026-05-14.)
+      if (i > 1) and ((ALine[i - 1] = ':') or (ALine[i - 1] = '<') or (ALine[i - 1] = '>')) then
       begin
         Inc(i); Continue;
       end;
