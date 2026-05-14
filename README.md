@@ -9,8 +9,9 @@ YADF ships in two flavours, built from the same engine:
 - **`YADF.exe`** — a stand-alone CLI for formatting files, folders, and
   whole `.dpr`/`.dproj` projects (see [CLI quick start](#cli-quick-start)).
 - **`YADFOT.bpl`** — a Delphi IDE design-time package ("YADF Open Tools")
-  that adds a Tools-menu item and a `Ctrl+Shift+Alt+F` shortcut to format
-  the current source-editor buffer (see [YADFOT install](#yadfot-install)).
+  that adds a `Help → Tools → YADFOT: Format Current Buffer` menu item
+  and a `Ctrl+Shift+Alt+F` shortcut to format the current source-editor
+  buffer (see [YADFOT install](#yadfot-install)).
 
 Both artifacts are produced by this single project tree and land in the
 same output folder.
@@ -43,8 +44,18 @@ Then install via the IDE (step 4 above).
 
 Two entry points appear in the IDE after install:
 
-1. **Tools menu** → `YADFOT: Format Current Buffer`
-2. **Keyboard shortcut** → `Ctrl+Shift+Alt+F`
+1. **Menu** → `Help` → `Tools` → `YADFOT: Format Current Buffer`
+   (this is the standard location for IOTAMenuWizard items in the
+   Delphi IDE — installed wizards live under *Help → Tools*, not
+   directly under *Tools*).
+2. **Keyboard shortcut** → `Ctrl + Shift + Alt + F`
+
+The shortcut is registered as a Delphi keyboard binding named
+`YADFOT`. If the chord clashes with something on your machine you
+can rebind it under `Tools → Options → User Interface → Editor →
+Key Mappings` (look for the `YADFOT` entry), or change it in source
+at the call to `BindingServices.AddKeyBinding` in
+[YADFOT.Wizard.pas](YADFOT.Wizard.pas) and rebuild.
 
 YADFOT verifies the active edit view is a code buffer before doing anything.
 Supported extensions: `.pas` `.dpr` `.dpk` `.inc`. If the active view is a
