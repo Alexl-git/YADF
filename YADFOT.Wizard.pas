@@ -311,6 +311,29 @@ begin
   Writer.Insert(PAnsiChar(Utf8));
 end;
 
+// True when the module that owns AEditor also exposes a Form Designer
+// surface (an IOTAFormEditor among its module-file editors) -- i.e. the
+// .pas is paired with a .dfm/.fmx (a VCL/FMX form or data module). The
+// designer holds a live source-position map of the form class
+// declaration; YADFOT replaces the whole buffer, which invalidates that
+// map, and the IDE then access-violates inside
+// VCLFormDesigner.TVCLRootDesigner.DoSave on the next File > Save All.
+// The form editor is instantiated for any open form unit regardless of
+// which tab is focused, so this is the precise dangerous condition.
+function ModuleHasFormDesigner(const AEditor: IOTASourceEditor): Boolean;
+var
+  FE: IOTAFormEditor;
+  i : Integer;
+  M : IOTAModule;
+begin
+  Result:= False;
+  if AEditor = nil then Exit;
+  M:= AEditor.Module;
+  if M = nil then Exit;
+  for i:= 0 to M.GetModuleFileCount - 1 do
+    if Supports(M.GetModuleFileEditor(i), IOTAFormEditor, FE) then Exit(True);
+end;
+
 // --- The action ---------------------------------------------------------
 
 // Sole entry point for "format the current buffer". Both the Tools menu
@@ -345,6 +368,19 @@ begin
       'File: ' + FileName + sLineBreak +
       'Supported extensions: .pas .dpr .dpk .inc',
       mtInformation, [mbOK], 0);
+    Exit;
+  end;
+
+  if ModuleHasFormDesigner(Editor) then
+  begin
+    MessageDlg('YADFOT: "' + ExtractFileName(FileName) + '" is a form / data-module unit ' +
+      'with an open Form Designer.' + sLineBreak + sLineBreak +
+      'Reformatting its buffer in the IDE desynchronizes the designer''s source ' +
+      'map; the IDE then access-violates inside the VCL Form Designer on the ' +
+      'next File > Save All. Close this unit first and format it with the YADF ' +
+      'command-line tool, which performs the IDE-reload handshake:' + sLineBreak +
+      sLineBreak + '  yadf "' + FileName + '"',
+      mtWarning, [mbOK], 0);
     Exit;
   end;
 

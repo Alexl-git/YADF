@@ -33,6 +33,25 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   emitter produced them. Idempotent; no change to the DelphiAST
   snippet corpus.
 
+### Added
+- **YADFOT refuses form / data-module units.** Formatting a unit that
+  has an open Form Designer rewrote the whole editor buffer out from
+  under the designer, invalidating its source-position map; the IDE
+  then access-violated inside `VCLFormDesigner.TVCLRootDesigner.DoSave`
+  on the next *File > Save All*. YADFOT now detects an associated
+  `IOTAFormEditor` on the active module and declines with a message
+  pointing to the YADF command-line tool (whose `SaveFile` already
+  performs the IDE-reload handshake). Plain `.pas`/`.dpr`/`.dpk`/`.inc`
+  are unaffected. (The reformatted source was always valid -- the crash
+  was the IDE designer's stale cache, not corrupted output.)
+
+### Build
+- Version info pinned to `1.0.1.16` for the shipping configs
+  (`VerInfo_AutoIncVersion=false`; YADF Debug Win32 + Win64, YADFOT
+  Debug Win32) so binaries match the release tag. YADFOT is a
+  design-only package and RAD Studio is 32-bit, so the Win64 YADFOT
+  target is not a usable artifact and is not shipped.
+
 ## [1.0.0.15] -- 2026-05-15
 
 ### Fixed
