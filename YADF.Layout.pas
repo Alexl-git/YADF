@@ -2178,6 +2178,24 @@ begin
   Result:= False;
 end;
 
+// True iff any token in [AFrom..ATo] is a `//` / `///` line comment.
+// A line comment runs to physical end-of-line, so a range that
+// contains one can NEVER be flattened onto a single rendered line --
+// every token placed after it would be swallowed into the comment
+// (silently commenting out code: enum members, `)`, `;`, the next
+// argument). Callers that would otherwise inline-render or
+// item-flatten a range must consult this and fall back to verbatim,
+// line-preserving emission instead. The lexer classifies both `//`
+// and `///` (XMLDoc) as ptSlashesComment, so this covers both.
+function RangeHasLineComment(const ATokens: TTokenList; AFrom, ATo: Integer): Boolean;
+var
+  i: Integer;
+begin
+  for i:= AFrom to ATo do if ATokens[i].Kind = ptSlashesComment then
+    Exit(True);
+  Result:= False;
+end;
+
 // One item slot in a comma-separated parens/brackets group.
 //   First, Last     - token range of the item payload (no commas).
 //   CmtFirst,
@@ -2505,18 +2523,27 @@ var
     begin
       EmitText(#13#10);
       EmitText(Indent);
-      Inner:= InlineRenderRange(Tokens, Items[i].First, Items[i].Last);
-      if (Length(Indent) + Length(Trim(Inner)) > AOpts.MaxLen) then
+      // An item that itself contains a `//`/`///` line comment cannot
+      // be inline-flattened (it would comment out everything after the
+      // `//` on the rendered line). Emit it verbatim, preserving its
+      // source line breaks; ReindentByDepth re-indents it afterward.
+      if RangeHasLineComment(Tokens, Items[i].First, Items[i].Last) then
+        EmitTokenRange(Items[i].First, Items[i].Last)
+      else
       begin
-        SubGroup:= FindChildGroupAt(G, Items[i].First);
-        if Assigned(SubGroup) and (SubGroup.Kind in [gkParens, gkBrackets]) and (SubGroup.CloseIdx = Items[i].Last)
-           and (Length(CollectParensItems(Tokens, SubGroup.OpenIdx, SubGroup.CloseIdx)) > 1) then
-          RenderParensBroken(SubGroup)
+        Inner:= InlineRenderRange(Tokens, Items[i].First, Items[i].Last);
+        if (Length(Indent) + Length(Trim(Inner)) > AOpts.MaxLen) then
+        begin
+          SubGroup:= FindChildGroupAt(G, Items[i].First);
+          if Assigned(SubGroup) and (SubGroup.Kind in [gkParens, gkBrackets]) and (SubGroup.CloseIdx = Items[i].Last)
+             and (Length(CollectParensItems(Tokens, SubGroup.OpenIdx, SubGroup.CloseIdx)) > 1) then
+            RenderParensBroken(SubGroup)
+          else
+            EmitText(Trim(Inner));
+        end
         else
           EmitText(Trim(Inner));
-      end
-      else
-        EmitText(Trim(Inner));
+      end;
       if i < High(Items) then
         EmitText(',');
       if Items[i].CmtFirst >= 0 then
@@ -2585,7 +2612,17 @@ var
       else if (Child.Kind in [gkParens, gkBrackets]) and not Child.ForceClosed then
       begin
         InlineW:= 1 + ParensContentInlineWidth(Child) + 1;
-        if (CurCol + InlineW > AOpts.MaxLen) and (Length(CollectParensItems(Tokens, Child.OpenIdx, Child.CloseIdx)) > 1) then
+        // A `//`/`///` line comment anywhere inside the group makes
+        // BOTH flattening paths unsafe: InlineRenderRange and
+        // RenderParensBroken's per-item inline render would place the
+        // closing `)`/`]`, following members, or the next argument on
+        // the comment's physical line and comment them out (the enum /
+        // argument-list corruption bug). Fall through to WalkGroup,
+        // which emits the group's tokens verbatim and keeps the
+        // developer's own line breaks (reflow is already comment-safe).
+        if RangeHasLineComment(Tokens, Child.OpenIdx, Child.CloseIdx) then
+          WalkGroup(Child)
+        else if (CurCol + InlineW > AOpts.MaxLen) and (Length(CollectParensItems(Tokens, Child.OpenIdx, Child.CloseIdx)) > 1) then
         begin
           RenderParensBroken(Child);
           Cursor:= Child.CloseIdx + 1;

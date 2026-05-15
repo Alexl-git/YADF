@@ -1,0 +1,16 @@
+unit bug_comment_merge_arglist;
+
+interface
+
+implementation
+
+procedure Test;
+begin
+  CodeSite.Send(csmGreen, Format('LABEL h=%s v=%s r=%s',
+    [GetCaptionText,
+     YN(GetVisible),
+     'ord' + IntToStr(Ord(GetAlignVert)), // type not in scope; ord only
+     RS(GetBounds)]));
+end;
+
+end.

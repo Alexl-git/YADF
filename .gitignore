@@ -51,3 +51,11 @@ Test/YADF.TXT
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# Proprietary bug-repro inputs (Micronite source — never upload)
+bug-repro/
+
+# Bug reports with proprietary Micronite snippets (kept local, like .private)
+BUG_COMMENT_MERGE.md
+BUG_LINE_MERGE_OVER_COMMENT.md
+BUG_DROPPED_INCLUDE_DIRECTIVE.md

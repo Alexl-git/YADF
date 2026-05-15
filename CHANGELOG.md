@@ -10,6 +10,34 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [1.0.1.16] -- 2026-05-15
 
+### Fixed
+- **Code no longer commented-out by line-merge over `//` / `///`
+  (CRITICAL).** A parenthesised/bracketed group or an `enum` / `type`
+  list that contained an end-of-line `//` (or `///` XMLDoc) comment was
+  flattened onto one physical line by the structural emitter
+  (`InlineRenderRange` / `RenderParensBroken`), so every token after the
+  comment -- following enum members, the closing `)`/`]`, `;`, the next
+  argument -- was swallowed into the comment, silently destroying code
+  that then failed to compile. The emitter now detects a line-comment
+  token (`RangeHasLineComment`) anywhere in such a range and emits the
+  group verbatim, preserving the source line breaks; reflow was already
+  comment-safe. Affected multi-line argument/array lists and enum/type
+  declarations with interleaved `//`, `///`, or `{$REGION}` comments.
+- **`{$I}` / `{$INCLUDE}` directives no longer deleted (CRITICAL).**
+  The bundled DelphiAST lexer silently drops include directives when no
+  include handler is set (`TmwBasePasLex.Next`, `PtIncludeDirect` ->
+  `Next`), so a reformat erased every `{$I jedi.inc}`-style line --
+  flipping off the conditional symbols they define (project-wide
+  build breakage from a single pass). YADF now shields true include
+  directives before lexing and restores them afterward
+  (`ShieldIncludeDirectives` / `UnshieldIncludeToken` in YADF.Tokens),
+  so they round-trip verbatim and in place. IOCHECKS toggles
+  (`{$I+}` / `{$I-}`) are correctly left untouched.
+- Regression corpus: `Test/Cases/bug_comment_merge_arglist.pas`,
+  `bug_enum_comment_merge.pas`, `bug_include_directive.pas` (synthetic,
+  no proprietary source). Updated golden `Result/includefile.pas` --
+  the prior snapshot had encoded the include-dropping bug.
+
 ### Changed
 - **Aligned columns are compacted left.** The `:`/`=`/`:=` alignment
   passes used to anchor on the rightmost *current* anchor position,
