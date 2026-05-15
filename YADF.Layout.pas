@@ -717,6 +717,64 @@ begin
   end; // try
 end; // function
 
+// Enforces canonical anchor spacing on ONE line before the smart-align
+// pass measures its columns. Rule: a member-access `.` is tight on both
+// sides, and `;` has no space before it. Any whitespace that violates
+// those rules is dropped here so alignment never freezes a rule-breaking
+// gap into a column -- the align pass then re-adds spacing only where a
+// shorter line needs padding to reach the shared column. `:=` spacing is
+// already canonical from the pass-1 emitter (AssignNoSpaceBefore /
+// AssignSpaceAfter) so it is left untouched. Leading indent, strings,
+// and comments are preserved verbatim (single-token, not re-spaced).
+function TightenAnchorSpacingInLine(const ALine: string): string;
+var
+  Body    : string;
+  i       : Integer;
+  Lead    : string;
+  LeadLen : Integer;
+  NextKind: TptTokenKind;
+  n       : Integer;
+  PrevKind: TptTokenKind;
+  Sb      : TStringBuilder;
+  T       : TToken;
+  Tokens  : TTokenList;
+begin
+  LeadLen:= 0;
+  while (LeadLen < Length(ALine)) and (ALine[LeadLen + 1] = ' ') do Inc(LeadLen);
+  Lead:= Copy(ALine, 1, LeadLen);
+  Body:= Copy(ALine, LeadLen + 1, MaxInt);
+  if Body = '' then Exit(ALine);
+  Tokens:= LoadTokensFromString(Body);
+  Sb:= TStringBuilder.Create;
+  try
+    Sb.Append(Lead);
+    PrevKind:= ptNull;
+    for i:= 0 to Tokens.Count - 1 do
+    begin
+      T:= Tokens[i];
+      if T.Kind = ptSpace then
+      begin
+        NextKind:= ptNull;
+        n:= i + 1;
+        while (n < Tokens.Count) and (Tokens[n].Kind = ptSpace) do Inc(n);
+        if n < Tokens.Count then NextKind:= Tokens[n].Kind;
+        if (NextKind = ptPoint) or (NextKind = ptSemiColon) or (PrevKind = ptPoint) then
+          Continue; // drop: tight before `.`/`;` and after `.`
+        Sb.Append(T.Pre);
+        if Length(T.Text) > 1 then Sb.Append(' ') else Sb.Append(T.Text);
+        Continue;
+      end;
+      Sb.Append(T.Pre);
+      Sb.Append(T.Text);
+      PrevKind:= T.Kind;
+    end;
+    Result:= Sb.ToString;
+  finally
+    Sb.Free;
+    Tokens.Free;
+  end; // try
+end; // function
+
 // Per-line wrapper around CollapseInteriorSpacesInLine that walks the
 // entire formatted output. Runs once before the column-alignment
 // passes so they see a clean baseline.
@@ -1023,8 +1081,14 @@ begin
           SetLength(WorkCols, j - i);
           for k:= 0 to (j - i) - 1 do
           begin
-            WorkLine[k]:= Lines[i + k];
-            WorkCols[k]:= Copy(Info[i + k].Cols, 0, Length(Info[i + k].Cols));
+            // Normalize anchor spacing FIRST (tight `.`, no space before
+            // `;`), then measure columns from the normalized text. This
+            // guarantees the run carries zero rule-violating surplus, so
+            // the compaction below only ever adds alignment padding -- it
+            // never preserves a stray pre-anchor space just because every
+            // line happened to have one.
+            WorkLine[k]:= TightenAnchorSpacingInLine(Lines[i + k]);
+            WorkCols[k]:= ComputeLineShape(WorkLine[k]).Cols;
           end;
 
           AnyOver:= False;
