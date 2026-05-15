@@ -1766,7 +1766,15 @@ begin
               InVisibility     := False;
               ExpectSectionDecl:= True ;
             end;
-            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) then
+            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) then
+            // ParensDepth = 0 distinguishes a real procedure/function
+            // declaration from an inline anonymous method expression
+            // (e.g. CallSomething(procedure(X) begin ... end)). The
+            // anonymous form's inner begin/end is balanced on its own,
+            // so we must NOT push a pending-proc marker for it -- if
+            // we did, that marker would never be consumed, leaving
+            // OpenProcRegions elevated and over-indenting every line
+            // after the call. (Bug repro: inline anon proc, 2026-05-15.)
             begin
               CloseSectionIfOpen;
               InVisibility:= False;

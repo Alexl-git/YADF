@@ -116,8 +116,8 @@
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <Manifest_File>(None)</Manifest_File>
         <AppDPIAwarenessMode>none</AppDPIAwarenessMode>
-        <VerInfo_Build>14</VerInfo_Build>
-        <VerInfo_Keys>CompanyName=;FileDescription=YADF;FileVersion=1.0.1.14;InternalName=Yet Another Delphi Formatter;LegalCopyright=Alexander Liberov, parts by Roman Yankovsky;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.YADF;ProductName=YADF;ProductVersion=1.0.1.14;Comments=</VerInfo_Keys>
+        <VerInfo_Build>15</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=YADF;FileVersion=1.0.1.15;InternalName=Yet Another Delphi Formatter;LegalCopyright=Alexander Liberov, parts by Roman Yankovsky;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.YADF;ProductName=YADF;ProductVersion=1.0.1.14;Comments=</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
