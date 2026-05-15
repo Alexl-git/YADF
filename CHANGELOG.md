@@ -2,9 +2,36 @@
 
 All notable changes to YADF (and the YADFOT IDE wizard, which shares
 the same engine) are recorded here. Versions track the build counter
-stamped into `YADF.exe` (`1.0.0.<build>`).
+stamped into `YADF.exe` (`1.0.1.<build>`; the fourth field is the
+auto-incrementing build number). Entries below `1.0.1.16` predate the
+scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
+
+## [1.0.1.16] -- 2026-05-15
+
+### Changed
+- **Aligned columns are compacted left.** The `:`/`=`/`:=` alignment
+  passes used to anchor on the rightmost *current* anchor position,
+  which froze any whitespace that already sat before the anchor into
+  the shared column. They now target the tightest column that still
+  keeps the run aligned -- `max(content-extent) + min(gap) + 1` -- so
+  when every line carries surplus padding before an anchor the whole
+  column shifts left instead of being pushed out. `SmartAlignAssignments`
+  also deletes (not just inserts) padding when an earlier anchor's
+  cascade over-pads a later one. Byte-for-byte unchanged on already
+  tight runs.
+- **Aligned anchor spacing is normalized to the rule.** Before the
+  smart-align pass measures a run it strips rule-violating whitespace:
+  member-access `.` is glued on both sides and `;` has no space before
+  it. Alignment then re-adds a space before an anchor only on the
+  shorter lines that need it to reach the shared column -- the
+  extent-defining line of every column carries exactly the rule gap
+  (`0` for `.`, `0` before `;`, `:=` per `AssignNoSpaceBefore` /
+  `AssignSpaceAfter`). Scoped to multi-line shape-matched `:=` runs;
+  lone lines and non-aligned dotted code are left as the pass-1
+  emitter produced them. Idempotent; no change to the DelphiAST
+  snippet corpus.
 
 ## [1.0.0.15] -- 2026-05-15
 

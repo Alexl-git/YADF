@@ -171,8 +171,14 @@ values pulled from `yadf.ini`.
   consecutive lines
 - Smart align of `:=` assignments: when adjacent lines share the same token
   shape (same sequence of operators/punctuation, identifier names may differ),
-  every common anchor (`.`, `:=`, `(`, `,`, `)`, `;`) is padded to its max
-  column
+  every common anchor (`.`, `:=`, `(`, `,`, `)`, `;`) is padded so the
+  anchors line up
+- Aligned columns are kept **tight**: an anchor's spacing rule wins
+  (member-access `.` is glued on both sides, no space before `;`, `:=`
+  spacing per `AssignNoSpaceBefore`/`AssignSpaceAfter`), and a column is
+  never pushed right by padding that every line in the run shares — a
+  space appears before an anchor only on the shorter lines that need it
+  to reach the shared column
 
 **Other**
 - Always emits CRLF line endings
