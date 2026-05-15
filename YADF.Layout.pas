@@ -747,6 +747,54 @@ begin
   end; // try
 end; // function
 
+// Number of consecutive space characters immediately to the left of
+// the 1-based column APos in ALine. Used by the alignment passes to
+// measure the gap between an anchor and the content preceding it so
+// a whole aligned column can be compacted left when every line in
+// the run shares surplus padding before the anchor.
+function SpacesBeforeCol(const ALine: string; APos: Integer): Integer;
+var
+  k: Integer;
+begin
+  Result:= 0;
+  k:= APos - 1;
+  while (k >= 1) and (k <= Length(ALine)) and (ALine[k] = ' ') do
+  begin
+    Inc(Result);
+    Dec(k);
+  end;
+end;
+
+// Given an alignment run -- a set of lines whose anchor sits at the
+// 1-based columns in AAnchorCols -- compute the tightest column the
+// anchor can share without losing alignment or shrinking any line's
+// own gap below the run minimum. The result is
+//   max(content-extent) + min(gap) + 1
+// which equals the old `max(anchor column)` exactly when the run is
+// already tight (so existing output is byte-for-byte unchanged), and
+// is strictly smaller when every line carries common surplus spaces
+// before the anchor (so the whole column is moved left).
+function CompactedAnchorCol(const ALines: array of string; const AAnchorCols: array of Integer): Integer;
+var
+  Ext   : Integer;
+  Gap   : Integer;
+  i     : Integer;
+  MaxExt: Integer;
+  MinGap: Integer;
+begin
+  MaxExt:= 0;
+  MinGap:= MaxInt;
+  for i:= 0 to High(AAnchorCols) do
+  begin
+    Gap:= SpacesBeforeCol(ALines[i], AAnchorCols[i]);
+    Ext:= AAnchorCols[i] - 1 - Gap;
+    if Ext    > MaxExt then MaxExt:= Ext;
+    if Gap    < MinGap then MinGap:= Gap;
+  end;
+  if MinGap = MaxInt then MinGap:= 0;
+  Result:= MaxExt + MinGap + 1;
+end;
+
 // Generic anchor-alignment pass. Walks the text line by line:
 //   1. For every line, compute the column of AAnchor at top level
 //      (anchors inside strings/parens/comments don't count).
@@ -765,10 +813,12 @@ var
   j       : Integer;
   Line    : string;
   Lines   : TStringList;
-  MaxPos  : Integer;
   Out_    : TStringBuilder;
   Pad     : Integer;
+  RunCols : TArray<Integer>;
+  RunLines: TArray<string>;
   StartIdx: Integer;
+  Target  : Integer;
 begin
   Lines:= TStringList.Create;
   try
@@ -790,25 +840,38 @@ begin
           Continue;
         end;
         StartIdx:= i;
-        MaxPos:= Anchors[i];
         j:= i + 1;
-        while (j < Lines.Count) and (Anchors[j] > 0) and not StartsBlockBoundary(Lines[j]) do
+        while (j < Lines.Count) and (Anchors[j] > 0) and not StartsBlockBoundary(Lines[j]) do Inc(j);
+        if j - StartIdx >= 2 then
         begin
-          if Anchors[j] > MaxPos then MaxPos:= Anchors[j];
-          Inc(j);
-        end;
-        if (j - StartIdx >= 2) and (MaxPos <= AMaxColumn) then
+          SetLength(RunLines, j - StartIdx);
+          SetLength(RunCols , j - StartIdx);
+          for i:= StartIdx to j - 1 do
+          begin
+            RunLines[i - StartIdx]:= Lines  [i];
+            RunCols [i - StartIdx]:= Anchors[i];
+          end;
+          // Align to the tightest shared column rather than the
+          // rightmost current anchor: this strips surplus padding
+          // that every line carries before the anchor (compacting
+          // the whole column left) while keeping it aligned. Equal
+          // to the old max-anchor column when the run is tight.
+          Target:= CompactedAnchorCol(RunLines, RunCols);
+        end
+        else
+          Target:= 0;
+        if (j - StartIdx >= 2) and (Target <= AMaxColumn) then
         begin
           for i:= StartIdx to j - 1 do
           begin
-            Pad:= MaxPos - Anchors[i];
+            Pad:= Target - Anchors[i];
             if Pad > 0 then
-            begin
-              Line:= Copy(Lines[i], 1, Anchors[i] - 1) + StringOfChar(' ', Pad) + Copy(Lines[i], Anchors[i], MaxInt);
-              Out_.Append(Line);
-            end
+              Line:= Copy(Lines[i], 1, Anchors[i] - 1) + StringOfChar(' ', Pad) + Copy(Lines[i], Anchors[i], MaxInt)
+            else if Pad < 0 then
+              Line:= Copy(Lines[i], 1, Anchors[i] - 1 + Pad) + Copy(Lines[i], Anchors[i], MaxInt)
             else
-              Out_.Append(Lines[i]);
+              Line:= Lines[i];
+            Out_.Append(Line);
             Out_.Append(#13#10);
           end;
         end // if
@@ -919,14 +982,16 @@ end;
 function SmartAlignAssignments(const S: string; AMaxCol: Integer): string;
 var
   AnyOver : Boolean;
+  ColCols : TArray<Integer>;
+  ColLines: TArray<string>;
   i       : Integer;
   Info    : TArray<TLineShape>;
   j       : Integer;
   k       : Integer;
   Lines   : TStringList;
-  MaxCol  : Integer;
   Out_    : TStringBuilder;
   Pad     : Integer;
+  Target  : Integer;
   WorkCols: TArray<TArray<Integer>>;
   WorkLine: TArray<string>;
 begin
@@ -963,24 +1028,35 @@ begin
           end;
 
           AnyOver:= False;
+          SetLength(ColLines, j - i);
+          SetLength(ColCols , j - i);
           for k:= 0 to Length(Info[i].Shape) - 1 do
           begin
-            MaxCol:= 0;
-            for var L: Integer:= 0 to (j - i) - 1 do if WorkCols[L][k] > MaxCol then
-              MaxCol:= WorkCols[L][k];
-            if MaxCol > AMaxCol then
+            for var L: Integer:= 0 to (j - i) - 1 do
+            begin
+              ColLines[L]:= WorkLine[L]   ;
+              ColCols [L]:= WorkCols[L][k];
+            end;
+            // Tightest shared column for this anchor: compacts away
+            // padding common to every line in the run (e.g. inserted
+            // by an earlier anchor or an upstream align pass) instead
+            // of freezing it into the alignment. Identical to the old
+            // max-column when the run is already tight.
+            Target:= CompactedAnchorCol(ColLines, ColCols);
+            if Target > AMaxCol then
             begin
               AnyOver:= True;
               Break;
             end;
             for var L: Integer:= 0 to (j - i) - 1 do
             begin
-              Pad:= MaxCol - WorkCols[L][k];
+              Pad:= Target - WorkCols[L][k];
               if Pad > 0 then
-              begin
-                WorkLine[L]:= Copy(WorkLine[L], 1, WorkCols[L][k] - 1) + StringOfChar(' ', Pad) + Copy(WorkLine[L], WorkCols[L][k], MaxInt);
+                WorkLine[L]:= Copy(WorkLine[L], 1, WorkCols[L][k] - 1) + StringOfChar(' ', Pad) + Copy(WorkLine[L], WorkCols[L][k], MaxInt)
+              else if Pad < 0 then
+                WorkLine[L]:= Copy(WorkLine[L], 1, WorkCols[L][k] - 1 + Pad) + Copy(WorkLine[L], WorkCols[L][k], MaxInt);
+              if Pad <> 0 then
                 for var M: Integer:= k to High(WorkCols[L]) do WorkCols[L][M]:= WorkCols[L][M] + Pad;
-              end;
             end;
           end; // for
 
