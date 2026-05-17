@@ -65,7 +65,7 @@
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_AutoIncVersion>false</VerInfo_AutoIncVersion>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=;FileDescription=YADFOT - YADF Open Tools;FileVersion=1.0.1.16;InternalName=YADFOT;LegalCopyright=Alexander Liberov;LegalTrademarks=;OriginalFilename=YADFOT.bpl;ProductName=YADFOT;ProductVersion=1.0.1.16;Comments=YADF formatter wizard for the Delphi IDE</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=YADFOT - YADF Open Tools;FileVersion=1.0.1.17;InternalName=YADFOT;LegalCopyright=Alexander Liberov;LegalTrademarks=;OriginalFilename=YADFOT.bpl;ProductName=YADFOT;ProductVersion=1.0.1.17;Comments=YADF formatter wizard for the Delphi IDE</VerInfo_Keys>
         <DCC_UsePackage>designide;vcl;rtl;vclx;$(DCC_UsePackage)</DCC_UsePackage>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
@@ -76,8 +76,8 @@
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_AutoIncVersion>false</VerInfo_AutoIncVersion>
-        <VerInfo_Build>16</VerInfo_Build>
-        <VerInfo_Keys>CompanyName=;FileDescription=YADFOT - YADF Open Tools;FileVersion=1.0.1.16;InternalName=YADFOT;LegalCopyright=Alexander Liberov;LegalTrademarks=;OriginalFilename=YADFOT.bpl;ProductName=YADFOT;ProductVersion=1.0.1.16;Comments=YADF formatter wizard for the Delphi IDE</VerInfo_Keys>
+        <VerInfo_Build>17</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=YADFOT - YADF Open Tools;FileVersion=1.0.1.17;InternalName=YADFOT;LegalCopyright=Alexander Liberov;LegalTrademarks=;OriginalFilename=YADFOT.bpl;ProductName=YADFOT;ProductVersion=1.0.1.17;Comments=YADF formatter wizard for the Delphi IDE</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64x)'!=''">
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
@@ -98,9 +98,9 @@
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
         <VerInfo_Release>1</VerInfo_Release>
-        <VerInfo_Build>16</VerInfo_Build>
+        <VerInfo_Build>17</VerInfo_Build>
         <VerInfo_AutoIncVersion>false</VerInfo_AutoIncVersion>
-        <VerInfo_Keys>CompanyName=;FileDescription=YADFOT - YADF Open Tools;FileVersion=1.0.1.16;InternalName=YADFOT;LegalCopyright=Alexander Liberov;LegalTrademarks=;OriginalFilename=YADFOT.bpl;ProductName=YADFOT;ProductVersion=1.0.1.16;Comments=YADF formatter wizard for the Delphi IDE</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=YADFOT - YADF Open Tools;FileVersion=1.0.1.17;InternalName=YADFOT;LegalCopyright=Alexander Liberov;LegalTrademarks=;OriginalFilename=YADFOT.bpl;ProductName=YADFOT;ProductVersion=1.0.1.17;Comments=YADF formatter wizard for the Delphi IDE</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>

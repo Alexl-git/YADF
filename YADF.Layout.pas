@@ -1037,7 +1037,81 @@ end;
 //   3. Emit either the padded lines (success) or the originals (abort).
 // Single-line "runs" (j - i < 2) and lines with empty shapes (no
 // structural tokens at all) are passed through untouched.
-function SmartAlignAssignments(const S: string; AMaxCol: Integer): string;
+// Column (1-based) of the first top-level `//` line comment in ALine
+// -- one that is not inside a '...' string, a {...} brace comment, or
+// a (*...*) comment. Returns 0 when the line carries no such comment.
+// Used by SmartAlignAssignments to optionally pull trailing comments
+// to a shared column across a shape-matched run.
+function TopLevelLineCommentCol(const ALine: string): Integer;
+var
+  i                       : Integer;
+  InString, InBrace, InPar: Boolean;
+begin
+  Result   := 0    ;
+  InString := False;
+  InBrace  := False;
+  InPar    := False;
+  i        := 1    ;
+  while i <= Length(ALine) do
+  begin
+    if InBrace then
+    begin
+      if ALine[i] = '}' then InBrace:= False;
+      Inc(i);
+      Continue;
+    end;
+    if InPar then
+    begin
+      if (i + 1 <= Length(ALine)) and (ALine[i] = '*') and (ALine[i + 1] = ')') then
+      begin
+        InPar:= False;
+        Inc(i, 2);
+        Continue;
+      end;
+      Inc(i);
+      Continue;
+    end;
+    if InString then
+    begin
+      if ALine[i] = '''' then
+      begin
+        if (i + 1 <= Length(ALine)) and (ALine[i + 1] = '''') then
+          Inc(i, 2)
+        else
+        begin
+          InString:= False;
+          Inc(i);
+        end;
+      end
+      else
+        Inc(i);
+      Continue;
+    end;
+    if ALine[i] = '''' then
+    begin
+      InString:= True;
+      Inc(i);
+      Continue;
+    end;
+    if ALine[i] = '{' then
+    begin
+      InBrace:= True;
+      Inc(i);
+      Continue;
+    end;
+    if (i + 1 <= Length(ALine)) and (ALine[i] = '(') and (ALine[i + 1] = '*') then
+    begin
+      InPar:= True;
+      Inc(i, 2);
+      Continue;
+    end;
+    if (i + 1 <= Length(ALine)) and (ALine[i] = '/') and (ALine[i + 1] = '/') then
+      Exit(i);
+    Inc(i);
+  end;
+end;
+
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;
 var
   AnyOver : Boolean;
   ColCols : TArray<Integer>;
@@ -1066,7 +1140,14 @@ begin
       i:= 0;
       while i < Lines.Count do
       begin
-        if not Info[i].HasAssign then
+        // Eligibility: a line joins an alignment run if it carries a
+        // `:=` (original behaviour) OR -- when AlignMatchingShapes is
+        // on -- its structural skeleton has at least AMinAnchors
+        // anchors. ShapesMatch still demands an identical skeleton
+        // across the run, so the min-anchor floor only suppresses
+        // trivial 1-2 symbol shapes (e.g. every `Foo(x);`) from
+        // triggering noisy column padding in ordinary code.
+        if not (Info[i].HasAssign or (AMatchShapes and (Length(Info[i].Shape) >= AMinAnchors))) then
         begin
           Out_.Append(Lines[i]);
           Out_.Append(#13#10);
@@ -1074,7 +1155,8 @@ begin
           Continue;
         end;
         j:= i + 1;
-        while (j < Lines.Count) and Info[j].HasAssign and ShapesMatch(Info[i].Shape, Info[j].Shape) do Inc(j);
+        while (j < Lines.Count) and (Info[j].HasAssign or (AMatchShapes and (Length(Info[j].Shape) >= AMinAnchors)))
+          and ShapesMatch(Info[i].Shape, Info[j].Shape) do Inc(j);
         if (j - i >= 2) and (Length(Info[i].Shape) > 0) then
         begin
           SetLength(WorkLine, j - i);
@@ -1096,6 +1178,15 @@ begin
           SetLength(ColCols , j - i);
           for k:= 0 to Length(Info[i].Shape) - 1 do
           begin
+            // Never align a line-terminal `;`. Padding to reach a
+            // shared column would insert a run of spaces immediately
+            // before the semicolon -- exactly the surplus the tighten
+            // pass exists to remove, and ruinous on declaration runs
+            // (property/var lists) whose tails vary in length. An
+            // interior `;` (record-literal field separator, followed
+            // by more anchors) is still aligned, so grid-shaped const
+            // arrays keep their columns.
+            if (k = High(Info[i].Shape)) and (Info[i].Shape[k] = ptSemiColon) then Continue;
             for var L: Integer:= 0 to (j - i) - 1 do
             begin
               ColLines[L]:= WorkLine[L]   ;
@@ -1124,16 +1215,52 @@ begin
             end;
           end; // for
 
+          // Operator padding overflowed AMaxCol: drop it and fall
+          // back to the raw lines. The run is still a shape-matched
+          // peer group, so trailing-comment alignment below may yet
+          // apply to the originals.
           if AnyOver then
+            for k:= 0 to (j - i) - 1 do WorkLine[k]:= Lines[i + k];
+
+          // Optional trailing-comment alignment. A shape-matched run
+          // whose every member carries a top-level `//` gets those
+          // comments pulled to one column -- but only when no line
+          // must travel more than ACommentMaxShift spaces to get
+          // there. That cap keeps far-flung comments where the author
+          // put them instead of tearing open a ragged gap, and
+          // ACommentMaxShift = 0 disables the step entirely. The
+          // shared column is still bounded by AMaxCol.
+          if ACommentMaxShift > 0 then
           begin
-            for k:= i to j - 1 do
-            begin
-              Out_.Append(Lines[k]);
-              Out_.Append(#13#10);
-            end;
-          end
-          else
+            var AllHaveCo: Boolean:= True ;
+            var MaxCoCol : Integer:= 0    ;
+            SetLength(ColCols, j - i);
             for k:= 0 to (j - i) - 1 do
+            begin
+              ColCols[k]:= TopLevelLineCommentCol(WorkLine[k]);
+              if ColCols[k] = 0 then
+              begin
+                AllHaveCo:= False;
+                Break;
+              end;
+              if ColCols[k] > MaxCoCol then MaxCoCol:= ColCols[k];
+            end;
+            if AllHaveCo then
+            begin
+              var MaxShift: Integer:= 0;
+              for k:= 0 to (j - i) - 1 do
+                if MaxCoCol - ColCols[k] > MaxShift then MaxShift:= MaxCoCol - ColCols[k];
+              if (MaxShift > 0) and (MaxShift <= ACommentMaxShift) and (MaxCoCol <= AMaxCol) then
+                for k:= 0 to (j - i) - 1 do
+                begin
+                  Pad:= MaxCoCol - ColCols[k];
+                  if Pad > 0 then
+                    WorkLine[k]:= Copy(WorkLine[k], 1, ColCols[k] - 1) + StringOfChar(' ', Pad) + Copy(WorkLine[k], ColCols[k], MaxInt);
+                end;
+            end;
+          end;
+
+          for k:= 0 to (j - i) - 1 do
           begin
             Out_.Append(WorkLine[k]);
             Out_.Append(#13#10);
@@ -2992,7 +3119,8 @@ begin
         if AOpts.AlignConstEquals then
           Result:= AlignByAnchor(Result, '=', AOpts.AlignMaxColumn);
         if AOpts.AlignSmartAssign then
-          Result:= SmartAlignAssignments(Result, AOpts.AlignMaxColumn);
+          Result:= SmartAlignAssignments(Result, AOpts.AlignMaxColumn, AOpts.AlignMatchingShapes, AOpts.AlignShapeMinAnchors,
+            AOpts.AlignCommentMaxShift);
       finally
         Sb.Free;
       end; // try

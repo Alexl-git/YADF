@@ -42,6 +42,9 @@ type
     AlignTypeColon     : Boolean;
     AlignSmartAssign   : Boolean;
     AlignMaxColumn     : Integer;
+    AlignMatchingShapes: Boolean;
+    AlignShapeMinAnchors: Integer;
+    AlignCommentMaxShift: Integer;
     UsesAlwaysBreak    : Boolean;
     Backup             : Boolean;
     BackupDir          : string;
@@ -77,7 +80,10 @@ begin
   Result.AlignConstEquals   := True   ;
   Result.AlignTypeColon     := True   ;
   Result.AlignSmartAssign   := True   ;
-  Result.AlignMaxColumn     := 100    ;
+  Result.AlignMaxColumn     := 140    ;
+  Result.AlignMatchingShapes := True  ;
+  Result.AlignShapeMinAnchors := 3    ;
+  Result.AlignCommentMaxShift := 7    ;
   Result.UsesAlwaysBreak    := True   ;
   Result.Backup             := False  ;
   Result.BackupDir          := ''     ;

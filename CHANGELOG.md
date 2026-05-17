@@ -8,6 +8,59 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.1.17] -- 2026-05-17
+
+### Improve Smart Align
+
+- **Smart-align generalized beyond `:=` (new `AlignMatchingShapes`,
+  default on).** The shape engine (`ComputeLineShape` / `ShapesMatch`)
+  already reduced each line to its operator skeleton; only a `:=`-only
+  gate kept it from acting on anything else. Now any run of 2+ adjacent
+  lines with an identical structural skeleton -- record-constant
+  arrays, declaration lists, repeated calls -- has every shared anchor
+  padded to a common column. Lines whose skeletons differ are never
+  touched. Off-switch: `AlignMatchingShapes=false`.
+- **`AlignShapeMinAnchors` (default 3).** Floor on how many structural
+  anchors a non-`:=` run's shared skeleton must have before it aligns,
+  so trivial 1-2 symbol shapes (every `Foo(x);`) don't trigger noisy
+  padding across ordinary code. `:=` lines are exempt from the floor.
+- **Trailing `//` alignment (`AlignCommentMaxShift`, default 7).** In a
+  shape-matched run where every line carries a top-level `//`, the
+  comments are pulled to one column -- but only when no line must move
+  more than N spaces to get there (far-flung comments are left where
+  the author put them). `0` disables; the shared column is still
+  bounded by `AlignMaxColumn`.
+- **A line-terminal `;` is never aligned.** Padding to a shared column
+  before a statement-terminating `;` would reintroduce exactly the
+  space-before-`;` the tighten pass removes and wreck property/var
+  lists whose tails vary. Interior `;` (record-literal field
+  separators) still align, so grid-shaped const arrays keep their
+  columns.
+
+### Changed
+
+- **`AlignMaxColumn` default raised 100 -> 140.** So typical
+  record-constant tables align out of the box under
+  `AlignMatchingShapes` without a per-project override. Very wide
+  tables may still need it raised further; runs whose widest anchor
+  would cross the column are still left untouched.
+
+### Fixed
+
+- **`yadf.ini` textual booleans were silently ignored (pre-existing).**
+  Delphi's `TIniFile.ReadBool` only honours numeric `0`/`1`, so every
+  documented textual `true`/`false` in `yadf.ini` fell through to the
+  compiled default -- a user who set `Option=false` saw no effect. A
+  new `ReadBoolIni` helper accepts `1/0`, `true/false`, `yes/no`,
+  `on/off` (case/space-insensitive); all `Format` boolean reads now use
+  it. Integer options were always read correctly.
+
+### Tests
+
+- New regression `Test/Cases/record_array_const_align.pas` (a 32-row
+  record-constant array). Corpus footprint at shipped defaults: 2 of 46
+  files change, both improvements; 0 crashes; output idempotent.
+
 ## [1.0.1.16] -- 2026-05-15
 
 ### Fixed
