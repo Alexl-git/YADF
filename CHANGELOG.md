@@ -8,6 +8,27 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.1.18] -- 2026-05-18
+
+### Fixed
+
+- **Declaration-colon field/var blocks no longer staggered by
+  Smart Align.** `SmartAlignAssignments` runs after `AlignByAnchor(':')`
+  and was re-compacting shape-matched sub-runs to their own tighter
+  column. In a `name : type ;` block the type-name token class
+  fragments the skeleton -- the keyword `string` keeps a structural
+  anchor (`: string ;`, 3 anchors) while identifier types
+  (`integer`, `Boolean`, `TStringList`) do not (`: type ;`, 2
+  anchors) -- so consecutive `: string;` lines were pulled to a
+  different colon column than their `: integer;` neighbours, shearing
+  one uniform field list into staggered columns. A declaration-colon
+  line (shape's first anchor is `:` with no `:=`) is now treated as
+  shape-ineligible and left to `AlignByAnchor(':')`, which already
+  aligns the whole block uniformly. Record-constant arrays (shape
+  starts with `(`) and properties (starts with `property`) are
+  unaffected and still align. No corpus footprint change (still 2
+  files); 0 crashes; idempotent.
+
 ## [1.0.1.17] -- 2026-05-17
 
 ### Improve Smart Align

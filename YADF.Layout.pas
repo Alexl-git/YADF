@@ -1147,7 +1147,17 @@ begin
         // across the run, so the min-anchor floor only suppresses
         // trivial 1-2 symbol shapes (e.g. every `Foo(x);`) from
         // triggering noisy column padding in ordinary code.
-        if not (Info[i].HasAssign or (AMatchShapes and (Length(Info[i].Shape) >= AMinAnchors))) then
+        //
+        // Exception: a declaration-colon line -- shape's first anchor
+        // is `:` and there is no `:=` (a `name : type ;` field/var).
+        // AlignByAnchor(':') already aligns those uniformly across the
+        // whole block; the type-name token class fragments the shape
+        // (keyword `string` keeps a `string` anchor, identifier types
+        // like `integer`/`TStringList` do not), so letting SmartAlign
+        // re-compact per sub-shape shatters one uniform field list
+        // into staggered columns. Leave declaration colons to
+        // AlignByAnchor by treating them as shape-ineligible.
+        if not (Info[i].HasAssign or (AMatchShapes and (Length(Info[i].Shape) >= AMinAnchors) and (Length(Info[i].Shape) > 0) and (Info[i].Shape[0] <> ptColon))) then
         begin
           Out_.Append(Lines[i]);
           Out_.Append(#13#10);
@@ -1155,7 +1165,7 @@ begin
           Continue;
         end;
         j:= i + 1;
-        while (j < Lines.Count) and (Info[j].HasAssign or (AMatchShapes and (Length(Info[j].Shape) >= AMinAnchors)))
+        while (j < Lines.Count) and (Info[j].HasAssign or (AMatchShapes and (Length(Info[j].Shape) >= AMinAnchors) and (Length(Info[j].Shape) > 0) and (Info[j].Shape[0] <> ptColon)))
           and ShapesMatch(Info[i].Shape, Info[j].Shape) do Inc(j);
         if (j - i >= 2) and (Length(Info[i].Shape) > 0) then
         begin
