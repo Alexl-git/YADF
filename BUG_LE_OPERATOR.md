@@ -1,3 +1,9 @@
+> **STATUS: RESOLVED (2026-05-19).** The `<=` / `>=` operator-splitting bug
+> has been fixed in YADF. This document is kept for history / regression
+> reference only — the test cases below should pass byte-for-byte. No
+> workaround is needed in Micronite code anymore; the old "prefer `= 0` over
+> `<= 0`" guidance is withdrawn.
+
 # YADF bug: `<=` operator gets mangled
 
 **Reported:** 2026-05-14, found while running YADF on `Blueprint4.ViewModel.pas` in the Micronite/ORM3 project.
