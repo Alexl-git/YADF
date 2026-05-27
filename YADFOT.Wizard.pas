@@ -78,7 +78,12 @@ const
   WizardMenuText  = 'YADFOT: Format Current Buffer';
   WizardLongName  = 'YADFOT - YADF Open Tools';
   IniFileName     = 'yadf.ini';
-  AppDataSubDir   = 'YADFOT';
+  // v1.0.2: family-shared subdir so YADF.exe and YADFOT.bpl converge
+  // on the same %APPDATA%\YADF\yadf.ini. Legacy %APPDATA%\YADFOT\ is
+  // checked as a fallback so existing 1.0.1.x users don't lose their
+  // config silently.
+  AppDataSubDir   = 'YADF';
+  LegacyAppDataSubDir = 'YADFOT';
 
 // Indices returned by IOTAWizardServices.AddWizard and
 // IOTAKeyboardServices.AddKeyboardBinding. Both are kept so finalization
@@ -98,6 +103,14 @@ var
   Dir: string;
 begin
   Dir:= TPath.Combine(TPath.GetHomePath, AppDataSubDir);
+  Result:= TPath.Combine(Dir, IniFileName);
+end;
+
+function LegacyAppDataIniPath: string;
+var
+  Dir: string;
+begin
+  Dir:= TPath.Combine(TPath.GetHomePath, LegacyAppDataSubDir);
   Result:= TPath.Combine(Dir, IniFileName);
 end;
 
@@ -212,12 +225,25 @@ var
 begin
   Result:= DefaultOptions;
   IniPath:= '';
+  // 1. Walk up from the source file's folder.
   if ASourceFile <> '' then
     IniPath:= FindIniFile(ExtractFilePath(ASourceFile));
+  // 2. Walk up from the active project's folder.
   if IniPath = '' then
     IniPath:= FindIniFile(ActiveProjectDir);
+  // 3. Legacy %APPDATA%\YADFOT\yadf.ini (1.0.1.x users) -- read-only
+  //    fallback so existing configs keep working without forcing a
+  //    migration.
+  if (IniPath = '') and TFile.Exists(LegacyAppDataIniPath) then
+    IniPath:= LegacyAppDataIniPath;
+  // 4. Shared per-user fallback %APPDATA%\YADF\yadf.ini. Family-wide
+  //    location -- YADF.exe writes here on first run too. If nothing
+  //    exists, materialise a fully-commented template.
   if IniPath = '' then
+  begin
     IniPath:= AppDataIniPath;
+    EnsureIniExists(IniPath);
+  end;
   LoadIniDefaults(Result, IniPath);
 end;
 

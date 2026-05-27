@@ -73,18 +73,37 @@ reader/writer; the on-disk encoding of the file is irrelevant. The CLI's
 `Encoding` INI key (`ANSI` / `UTF-8` / `UTF-16`) only affects file I/O
 and is intentionally ignored by YADFOT.
 
-**INI lookup.** YADFOT looks for `yadf.ini` in this order (first hit wins):
+**INI lookup (unified across YADF.exe and YADFOT.bpl since 1.0.2).**
 
-1. The source file's directory, walking up to 8 parents
-2. The active project's directory, walking up to 8 parents
-3. `%APPDATA%\YADFOT\yadf.ini`
-   (typically `C:\Users\<user>\AppData\Roaming\YADFOT\yadf.ini`)
+Both the CLI and the IDE wizard look for `yadf.ini` in the same order
+(first hit wins) so whichever tool runs first creates the file the other
+will find:
 
-If none is found, compiled-in defaults from `YADF.Options.DefaultOptions`
-are used (the same defaults the CLI uses). The `[Format]` section keys
-match the CLI INI keys -- copy your existing `yadf.ini` into one of the
-locations above and YADFOT picks it up. The only CLI key the wizard
-skips is `Encoding`, since IDE buffer I/O is always UTF-8.
+1. The source file's directory, walking up to 8 parents (project-local
+   override; YADFOT only)
+2. The active project's directory, walking up to 8 parents (YADFOT only)
+3. The CLI's current working directory, walking up to 9 parents (YADF.exe
+   only — typically the project root)
+4. The directory of `YADF.exe` itself, walking up to 5 parents (portable-
+   app pattern: drop a `yadf.ini` next to the EXE)
+5. Legacy `%APPDATA%\YADFOT\yadf.ini` (read-only fallback for users
+   upgrading from 1.0.1.x; never written to)
+6. **`%APPDATA%\YADF\yadf.ini`** — shared per-user fallback. If nothing
+   exists anywhere above, a fully-commented template is written here on
+   first run and used. Typically
+   `C:\Users\<user>\AppData\Roaming\YADF\yadf.ini`.
+
+**First-run experience.** No INI ships in the release zip. The first time
+you run `YADF.exe` (or save a file with `YADFOT` registered), an INI is
+created at `%APPDATA%\YADF\yadf.ini` with every option, its default, and
+a one-line explanation. Edit values and re-run; or drop a project-local
+`yadf.ini` to override per-project.
+
+The CLI prints `Created default config: <path>` on the first run that
+materialises the template, so you know where to find it.
+
+The `[Format]` section keys match the CLI keys exactly. The only key the
+IDE wizard ignores is `Encoding`, since IDE buffer I/O is always UTF-8.
 
 ### Uninstall
 
@@ -208,8 +227,14 @@ values pulled from `yadf.ini`.
 
 ## Configuration
 
-YADF (CLI) looks for `yadf.ini` next to the executable. CLI flags override
-INI values; INI values override compiled-in defaults. See `yadf.ini` for the
+YADF (CLI) and YADFOT (IDE wizard) share a unified lookup hierarchy
+documented in detail under [YADFOT install → INI lookup](#yadfot-install)
+above. Summary: project-local `yadf.ini` (walked up from the source file,
+the active project, or the CLI's cwd), then the EXE's own folder, then
+the shared fallback `%APPDATA%\YADF\yadf.ini`. No INI ships in the
+release zip — first run creates a fully-commented template at the
+fallback location. CLI flags override INI values; INI values override
+compiled-in defaults. See the auto-created `yadf.ini` for the
 documented option list.
 
 YADFOT (IDE wizard) reads the same `[Format]` keys with a different search

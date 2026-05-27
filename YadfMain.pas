@@ -822,23 +822,43 @@ begin
     Result:= ADefault;
 end;
 
+// Lookup order:
+//   1. Walk UP from cwd up to 9 levels looking for yadf.ini (project-
+//      local override).
+//   2. Walk UP from the .exe's own folder up to 5 levels (portable-app
+//      pattern: yadf.ini ships next to YADF.exe).
+//   3. Shared per-user fallback %APPDATA%\YADF\yadf.ini -- same path
+//      YADFOT.bpl uses, so the IDE wizard and the CLI converge on the
+//      same file.
+// First hit wins. If nothing exists, returns the shared fallback path
+// (which EnsureIniExists will then materialise as a commented template).
 function DefaultIniPath: string;
-var
-  Candidate: string;
-  Dir      : string;
-  i        : Integer;
-  Parent   : string;
-begin
-  Dir:= ExtractFilePath(ParamStr(0));
-  for i:= 0 to 5 do
+  function WalkUp(const AStart: string; ADepth: Integer): string;
+  var
+    Dir, Candidate, Parent: string;
+    i: Integer;
   begin
-    Candidate:= TPath.Combine(Dir, 'yadf.ini');
-    if TFile.Exists(Candidate) then Exit(Candidate);
-    Parent:= ExtractFileDir(ExcludeTrailingPathDelimiter(Dir));
-    if (Parent = '') or SameText(Parent, ExcludeTrailingPathDelimiter(Dir)) then Break;
-    Dir:= IncludeTrailingPathDelimiter(Parent);
+    Result:= '';
+    Dir:= AStart;
+    for i:= 0 to ADepth do
+    begin
+      if Dir = '' then Break;
+      Candidate:= TPath.Combine(Dir, 'yadf.ini');
+      if TFile.Exists(Candidate) then Exit(Candidate);
+      Parent:= ExtractFileDir(ExcludeTrailingPathDelimiter(Dir));
+      if (Parent = '') or SameText(Parent,
+        ExcludeTrailingPathDelimiter(Dir)) then Break;
+      Dir:= IncludeTrailingPathDelimiter(Parent);
+    end;
   end;
-  Result:= TPath.Combine(ExtractFilePath(ParamStr(0)), 'yadf.ini');
+var
+  Hit: string;
+begin
+  Hit:= WalkUp(IncludeTrailingPathDelimiter(GetCurrentDir), 9);
+  if Hit <> '' then Exit(Hit);
+  Hit:= WalkUp(ExtractFilePath(ParamStr(0)), 5);
+  if Hit <> '' then Exit(Hit);
+  Result:= SharedAppDataIniPath;
 end;
 
 // Delphi's TIniFile.ReadBool only honours numeric 0/1 -- a textual
@@ -1149,6 +1169,11 @@ begin
 
   IniPath:= ExtractIniPath(Args);
   Opts:= DefaultOptions;
+  // First-run: if no INI exists at the resolved path, materialise a
+  // fully-commented template with all defaults. Subsequent runs see
+  // an existing file and load it normally.
+  if EnsureIniExists(IniPath) then
+    WriteStdoutLine('Created default config: ' + IniPath);
   LoadIniDefaults(Opts, IniPath);
   ParseFlags(Args, Opts, OutFile, StdoutMode);
   GLogEnabled:= Opts.Logging;

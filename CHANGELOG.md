@@ -8,6 +8,48 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.2.0] -- 2026-05-27
+
+### Added
+
+- **First-run INI auto-creation.** When no `yadf.ini` exists anywhere
+  in the lookup hierarchy, both `YADF.exe` and `YADFOT.bpl` now write
+  a fully-commented template to the shared fallback location and use
+  it. The template documents every option with its default and a
+  one-line explanation so a fresh install needs zero shell-flag
+  ceremony to start formatting. `YADF.exe` prints
+  `Created default config: <path>` on the run that materialises the
+  template.
+- **Unified INI lookup hierarchy across CLI and IDE wizard.** YADF.exe
+  and YADFOT.bpl now share the same fallback: `%APPDATA%\YADF\yadf.ini`
+  (was `%APPDATA%\YADFOT\yadf.ini` for the wizard alone, and "next to
+  the exe" for the CLI alone). Whichever tool runs first creates the
+  file the other will find. Project-local overrides still take
+  precedence via walk-up search.
+- **`SharedAppDataIniPath` / `EnsureIniExists` / `WriteDefaultIniTemplate`**
+  added to `YADF.Options.pas` so both `YadfMain.pas` (CLI) and
+  `YADFOT.Wizard.pas` (IDE wizard) call the same code path.
+
+### Changed
+
+- `%APPDATA%\YADFOT\yadf.ini` (the 1.0.1.x wizard-only location) is
+  now a **read-only legacy fallback** — YADFOT still reads it if
+  present so existing users don't lose their config, but writes go to
+  `%APPDATA%\YADF\yadf.ini`. To migrate, copy the file once.
+- `YADF.exe`'s `DefaultIniPath` now walks up from cwd (project root)
+  first, then the EXE folder, then the shared AppData fallback. The
+  previous behavior walked only from the EXE folder.
+
+### Distribution
+
+The release zip contains:
+- `YADF.exe` (Win64 console)
+- `YADFOT.bpl` (Win32 IDE wizard for RAD Studio 12 / Delphi 13)
+- `README.md`, `CHANGELOG.md`, `LICENSE`
+- **No `yadf.ini`** — auto-created on first run.
+
+---
+
 ## [1.0.1.18] -- 2026-05-18
 
 ### Fixed
