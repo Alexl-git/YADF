@@ -908,6 +908,8 @@ begin
     AOpts.AlignShapeMinAnchors:= Ini.ReadInteger('Format', 'AlignShapeMinAnchors', AOpts.AlignShapeMinAnchors);
     AOpts.AlignCommentMaxShift:= Ini.ReadInteger('Format', 'AlignCommentMaxShift', AOpts.AlignCommentMaxShift);
     AOpts.UsesAlwaysBreak:= ReadBoolIni(Ini, 'Format','UsesAlwaysBreak', AOpts.UsesAlwaysBreak);
+    AOpts.SplitMultiVarDecls:= ReadBoolIni(Ini, 'Format','SplitMultiVarDecls', AOpts.SplitMultiVarDecls);
+    AOpts.AlignDeclSemicolons:= ReadBoolIni(Ini, 'Format','AlignDeclSemicolons', AOpts.AlignDeclSemicolons);
     AOpts.Backup:= ReadBoolIni(Ini, 'Format','Backup', AOpts.Backup);
     AOpts.BackupDir:= Ini.ReadString ('Format', 'BackupDir', AOpts.BackupDir);
     AOpts.ResultDir:= Ini.ReadString ('Format', 'ResultDir', AOpts.ResultDir);

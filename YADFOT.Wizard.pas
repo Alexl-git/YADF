@@ -175,6 +175,8 @@ begin
     AOpts.AlignSmartAssign   := Ini.ReadBool   ('Format', 'AlignSmartAssign'   , AOpts.AlignSmartAssign);
     AOpts.AlignMaxColumn     := Ini.ReadInteger('Format', 'AlignMaxColumn'     , AOpts.AlignMaxColumn);
     AOpts.UsesAlwaysBreak    := Ini.ReadBool   ('Format', 'UsesAlwaysBreak'    , AOpts.UsesAlwaysBreak);
+    AOpts.SplitMultiVarDecls := Ini.ReadBool   ('Format', 'SplitMultiVarDecls' , AOpts.SplitMultiVarDecls);
+    AOpts.AlignDeclSemicolons:= Ini.ReadBool   ('Format', 'AlignDeclSemicolons', AOpts.AlignDeclSemicolons);
     // Encoding intentionally ignored: see unit header.
   finally
     Ini.Free;

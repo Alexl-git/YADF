@@ -864,6 +864,357 @@ end;
 //      reaches that rightmost column.
 // AAnchor is the literal anchor string (`:` or `=`); the special-case
 // for `:=` is handled inside FindAnchorAtTopLevel.
+// v1.0.3: split combined declarations like `I, J: integer;` into one
+// line per name. Operates on the post-layout text; runs BEFORE
+// AlignByAnchor(':') so the alignment sees the split result.
+//
+// Rules:
+//  - Only fires when the line is at paren depth 0 (so procedure
+//    parameter lists like `procedure F(A, B: integer);` are untouched).
+//  - The line must shape-match `<indent><name>{,<name>}+<separators>:<type>;<optional-trailing-comment>`.
+//    Whitespace tolerated everywhere.
+//  - Trailing `// comment` (if any) is preserved on the FIRST split
+//    line only -- moving it to the last would change which name the
+//    comment annotates.
+//
+// String- and brace-comment awareness is handled by the paren depth
+// tracker, which mirrors YADF's other text passes.
+function SplitMultiVarDeclarations(const S: string): string;
+var
+  Lines       : TStringList;
+  Out_        : TStringBuilder;
+  i, k, Col   : Integer;
+  Line        : string;
+  Indent, Body, Names, TypePart, Tail: string;
+  ColonPos, SemiPos, CommentPos, FirstNonWs: Integer;
+  Depth       : Integer;
+  C           : Char;
+  InStr       : Boolean;
+  InBrace     : Boolean;
+  InParenStar : Boolean;
+  NameTokens  : TArray<string>;
+  HasComma    : Boolean;
+  IdentChars  : set of AnsiChar;
+begin
+  Lines:= TStringList.Create;
+  IdentChars:= ['A'..'Z', 'a'..'z', '0'..'9', '_', '.'];
+  try
+    Lines.LineBreak        := #13#10;
+    Lines.TrailingLineBreak:= True  ;
+    Lines.Text             := S     ;
+    Out_:= TStringBuilder.Create;
+    try
+      Depth      := 0;
+      InBrace    := False;
+      InParenStar:= False;
+      for i:= 0 to Lines.Count - 1 do
+      begin
+        Line:= Lines[i];
+
+        // Track depth crossing this line BEFORE rewriting, so the next
+        // line sees the correct context regardless of whether we split.
+        if (Depth > 0) or InBrace or InParenStar then
+        begin
+          // Line lives inside a paren/brace/paren-star context. Don't
+          // split anything here; just update depth tracker.
+          InStr:= False;
+          Col:= 1;
+          while Col <= Length(Line) do
+          begin
+            C:= Line[Col];
+            if InBrace then begin if C = '}' then InBrace:= False; Inc(Col); end
+            else if InParenStar then begin
+              if (C = '*') and (Col < Length(Line)) and (Line[Col + 1] = ')') then
+                begin InParenStar:= False; Inc(Col, 2) end
+              else Inc(Col);
+            end
+            else if InStr then begin if C = '''' then InStr:= False; Inc(Col); end
+            else if C = '''' then begin InStr:= True; Inc(Col) end
+            else if C = '{' then begin InBrace:= True; Inc(Col) end
+            else if (C = '(') and (Col < Length(Line)) and (Line[Col + 1] = '*') then
+              begin InParenStar:= True; Inc(Col, 2) end
+            else if (C = '/') and (Col < Length(Line)) and (Line[Col + 1] = '/') then Break
+            else if (C = '(') or (C = '[') then begin Inc(Depth); Inc(Col) end
+            else if (C = ')') or (C = ']') then begin if Depth > 0 then Dec(Depth); Inc(Col) end
+            else Inc(Col);
+          end;
+          Out_.Append(Line);
+          Out_.Append(#13#10);
+          Continue;
+        end;
+
+        // At paren depth 0. Try to shape-match the line.
+        FirstNonWs:= 1;
+        while (FirstNonWs <= Length(Line)) and
+              (Line[FirstNonWs] in [' ', #9]) do Inc(FirstNonWs);
+        Indent:= Copy(Line, 1, FirstNonWs - 1);
+
+        // Find `:` and `;` at this line's top level (no nested parens),
+        // and detect any trailing line comment so we can preserve it.
+        ColonPos:= 0; SemiPos:= 0; CommentPos:= 0;
+        InStr:= False;
+        Col:= FirstNonWs;
+        while Col <= Length(Line) do
+        begin
+          C:= Line[Col];
+          if InStr then begin if C = '''' then InStr:= False; Inc(Col); end
+          else if C = '''' then begin InStr:= True; Inc(Col) end
+          else if (C = '/') and (Col < Length(Line)) and (Line[Col + 1] = '/') then
+            begin CommentPos:= Col; Break end
+          else if C = '{' then
+          begin
+            // Inline brace comment. Skip to matching `}` on the same
+            // line; if it doesn't close, bail (we'll just emit the
+            // line as-is below).
+            Inc(Col);
+            while (Col <= Length(Line)) and (Line[Col] <> '}') do Inc(Col);
+            if Col <= Length(Line) then Inc(Col);
+          end
+          else if (C = '(') or (C = '[') then begin Inc(Depth); Inc(Col) end
+          else if (C = ')') or (C = ']') then begin if Depth > 0 then Dec(Depth); Inc(Col) end
+          else if (Depth = 0) and (C = ':')
+                  and not ((Col < Length(Line)) and (Line[Col + 1] = '=')) then
+          begin
+            if ColonPos = 0 then ColonPos:= Col;
+            Inc(Col);
+          end
+          else if (Depth = 0) and (C = ';') then
+          begin
+            SemiPos:= Col;
+            Inc(Col);
+          end
+          else
+            Inc(Col);
+        end;
+
+        // Shape-match: indent + names + `:` + type + `;` + optional comment.
+        // ColonPos > FirstNonWs AND SemiPos > ColonPos AND no trailing
+        // garbage between `;` and `//` or EOL.
+        if (ColonPos > FirstNonWs) and (SemiPos > ColonPos) then
+        begin
+          Names:= Trim(Copy(Line, FirstNonWs, ColonPos - FirstNonWs));
+          TypePart:= Trim(Copy(Line, ColonPos + 1, SemiPos - ColonPos - 1));
+          if CommentPos > 0 then
+            Tail:= Trim(Copy(Line, CommentPos, Length(Line) - CommentPos + 1))
+          else
+            Tail:= '';
+
+          // Reject if `Names` is not a clean identifier-comma list.
+          // Tolerates whitespace; rejects parens, brackets, equals
+          // (initialisers), operators, etc.
+          HasComma:= Pos(',', Names) > 0;
+          if HasComma then
+          begin
+            Body:= '';
+            for k:= 1 to Length(Names) do
+            begin
+              C:= Names[k];
+              if (AnsiChar(C) in IdentChars) or (C = ',') or
+                 (C = ' ') or (C = #9) then
+                Body:= Body + C
+              else
+              begin
+                HasComma:= False;  // poison: not a clean name list
+                Break;
+              end;
+            end;
+          end;
+
+          if HasComma and (TypePart <> '') then
+          begin
+            NameTokens:= Names.Split([','], TStringSplitOptions.ExcludeEmpty);
+            for k:= 0 to High(NameTokens) do
+            begin
+              if k = 0 then
+              begin
+                if Tail <> '' then
+                  Out_.AppendLine(Indent + Trim(NameTokens[k]) + ': ' +
+                    TypePart + '; ' + Tail)
+                else
+                  Out_.AppendLine(Indent + Trim(NameTokens[k]) + ': ' +
+                    TypePart + ';');
+              end
+              else
+                Out_.AppendLine(Indent + Trim(NameTokens[k]) + ': ' +
+                  TypePart + ';');
+            end;
+            Continue;  // line replaced
+          end;
+        end;
+
+        // No match (or rejected) -- emit line unchanged.
+        Out_.Append(Line);
+        Out_.Append(#13#10);
+      end;
+      Result:= Out_.ToString;
+    finally
+      Out_.Free;
+    end;
+  finally
+    Lines.Free;
+  end;
+end;
+
+// v1.0.3: align the trailing `;` on consecutive declaration lines
+// (lines that contain a top-level `:` and end with `;`). Runs AFTER
+// AlignByAnchor(':') so the colons are already in their final column;
+// this pass just adds spaces before the `;` so the right edge lines up.
+// Runs of fewer than 2 declaration lines are left untouched.
+function AlignDeclarationSemicolons(const S: string;
+  AMaxColumn: Integer): string;
+var
+  Lines     : TStringList;
+  Out_      : TStringBuilder;
+  i, j      : Integer;
+  ColonAt, SemiAt: TArray<Integer>;
+  RunStart, RunEnd: Integer;
+  Target, k : Integer;
+  Pad       : Integer;
+  Line      : string;
+
+  function HasDeclShape(const ALine: string;
+    out AColon, ASemi: Integer): Boolean;
+  var
+    p, Depth, sCol: Integer;
+    C: Char;
+    InStr: Boolean;
+  begin
+    AColon:= 0; ASemi:= 0;
+    InStr:= False; Depth:= 0;
+    p:= 1;
+    while p <= Length(ALine) do
+    begin
+      C:= ALine[p];
+      if InStr then
+      begin
+        if C = '''' then InStr:= False;
+        Inc(p);
+      end
+      else if C = '''' then
+      begin
+        InStr:= True;
+        Inc(p);
+      end
+      else if C = '{' then  // skip inline brace comment
+      begin
+        Inc(p);
+        while (p <= Length(ALine)) and (ALine[p] <> '}') do Inc(p);
+        if p <= Length(ALine) then Inc(p);
+      end
+      else if (C = '/') and (p < Length(ALine)) and (ALine[p + 1] = '/') then
+        Break
+      else if (C = '(') or (C = '[') then begin Inc(Depth); Inc(p) end
+      else if (C = ')') or (C = ']') then begin Dec(Depth); Inc(p) end
+      else if (Depth = 0) and (C = ':') and
+              not ((p < Length(ALine)) and (ALine[p + 1] = '=')) then
+      begin
+        if AColon = 0 then AColon:= p;
+        Inc(p);
+      end
+      else if (Depth = 0) and (C = ';') then
+      begin
+        ASemi:= p;
+        Inc(p);
+      end
+      else
+        Inc(p);
+    end;
+    // The line must have a top-level `:` and a `;` that lives AFTER
+    // the colon (i.e., this really is a `name : type;` declaration).
+    // We also require that nothing non-whitespace follows the `;`
+    // except an optional line comment.
+    Result:= (AColon > 0) and (ASemi > AColon);
+    if Result then
+    begin
+      sCol:= ASemi + 1;
+      while (sCol <= Length(ALine)) and
+            (ALine[sCol] in [' ', #9]) do Inc(sCol);
+      if sCol <= Length(ALine) then
+      begin
+        // Only line comments allowed after the `;`.
+        if not ((sCol < Length(ALine)) and (ALine[sCol] = '/') and
+                (ALine[sCol + 1] = '/')) then
+          Result:= False;
+      end;
+    end;
+  end;
+
+begin
+  Lines:= TStringList.Create;
+  try
+    Lines.LineBreak        := #13#10;
+    Lines.TrailingLineBreak:= True  ;
+    Lines.Text             := S     ;
+
+    SetLength(ColonAt, Lines.Count);
+    SetLength(SemiAt , Lines.Count);
+    for i:= 0 to Lines.Count - 1 do
+      HasDeclShape(Lines[i], ColonAt[i], SemiAt[i]);
+
+    Out_:= TStringBuilder.Create;
+    try
+      i:= 0;
+      while i < Lines.Count do
+      begin
+        if (ColonAt[i] = 0) or (SemiAt[i] = 0) then
+        begin
+          Out_.Append(Lines[i]);
+          Out_.Append(#13#10);
+          Inc(i);
+          Continue;
+        end;
+        RunStart:= i;
+        RunEnd:= i;
+        j:= i + 1;
+        while (j < Lines.Count) and (ColonAt[j] > 0) and (SemiAt[j] > 0) do
+        begin
+          RunEnd:= j;
+          Inc(j);
+        end;
+        if RunEnd - RunStart >= 1 then
+        begin
+          // Compute target column = max of current semi columns,
+          // capped by AMaxColumn.
+          Target:= 0;
+          for k:= RunStart to RunEnd do
+            if SemiAt[k] > Target then Target:= SemiAt[k];
+          if Target > AMaxColumn then Target:= 0;  // skip if too wide
+          if Target > 0 then
+          begin
+            for k:= RunStart to RunEnd do
+            begin
+              Line:= Lines[k];
+              Pad:= Target - SemiAt[k];
+              if Pad > 0 then
+                Line:= Copy(Line, 1, SemiAt[k] - 1) +
+                  StringOfChar(' ', Pad) + Copy(Line, SemiAt[k], MaxInt);
+              Out_.Append(Line);
+              Out_.Append(#13#10);
+            end;
+          end
+          else
+            for k:= RunStart to RunEnd do
+            begin
+              Out_.Append(Lines[k]);
+              Out_.Append(#13#10);
+            end;
+        end
+        else
+        begin
+          Out_.Append(Lines[i]);
+          Out_.Append(#13#10);
+        end;
+        i:= RunEnd + 1;
+      end;
+      Result:= Out_.ToString;
+    finally
+      Out_.Free;
+    end;
+  finally
+    Lines.Free;
+  end;
+end;
+
 function AlignByAnchor(const S, AAnchor: string; AMaxColumn: Integer): string;
 var
   Anchors : TArray<Integer>;
@@ -3122,10 +3473,16 @@ begin
 
         // Stage 4: column alignment (Pass 2). CollapseInteriorSpaces
         // normalises spacing so anchor columns are predictable.
+        // SplitMultiVarDecls runs first so the alignment sees one
+        // declaration per line.
+        if AOpts.SplitMultiVarDecls then
+          Result:= SplitMultiVarDeclarations(Result);
         if AOpts.AlignTypeColon or AOpts.AlignConstEquals or AOpts.AlignSmartAssign then
           Result:= CollapseInteriorSpaces(Result);
         if AOpts.AlignTypeColon then
           Result:= AlignByAnchor(Result, ':', AOpts.AlignMaxColumn);
+        if AOpts.AlignDeclSemicolons then
+          Result:= AlignDeclarationSemicolons(Result, AOpts.AlignMaxColumn);
         if AOpts.AlignConstEquals then
           Result:= AlignByAnchor(Result, '=', AOpts.AlignMaxColumn);
         if AOpts.AlignSmartAssign then

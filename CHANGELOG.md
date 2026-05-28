@@ -8,6 +8,61 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.3.0] -- 2026-05-27
+
+### Added
+
+- **`SplitMultiVarDecls` (default `true`).** Combined declarations
+  like `I, J: integer;` are now split into one line per name
+  (`I: integer;` / `J: integer;`) so the type colons align cleanly.
+  Applies to top-level `var`/`const` blocks and record/class field
+  declarations. Procedure parameter lists inside `(...)` are
+  untouched (splitting them would change call signatures).
+- **`AlignDeclSemicolons` (default `true`).** After
+  `AlignTypeColon`, the trailing `;` on consecutive declaration
+  lines is padded so the right edge is flush. Only fires on lines
+  that match `name : type;` -- regular statement semicolons are
+  not touched.
+
+### Example
+
+Before:
+```pascal
+var
+  I, J: Integer;
+  Sum, Product, Quotient: Double;
+  Done: Boolean;
+```
+
+After:
+```pascal
+var
+  I       : Integer;
+  J       : Integer;
+  Sum     : Double ;
+  Product : Double ;
+  Quotient: Double ;
+  Done    : Boolean;
+```
+
+Parameter list (NOT split):
+```pascal
+procedure DoIt(A, B: Integer; const Msg: string);  // untouched
+```
+
+### Implementation
+
+`SplitMultiVarDeclarations` (in `YADF.Layout.pas`) tracks paren
+depth, brace comments, paren-star comments, and string literals
+across lines so the multi-var pattern only matches at top-level
+declaration depth. `AlignDeclarationSemicolons` runs after
+`AlignByAnchor(':')` so it sees the colons in their final
+column; it identifies declaration-shaped lines (top-level `:`
+followed by `;` with at most a trailing `// comment`) and groups
+consecutive ones into alignment runs.
+
+---
+
 ## [1.0.2.0] -- 2026-05-27
 
 ### Added
