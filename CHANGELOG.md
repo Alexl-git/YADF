@@ -8,6 +8,45 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.4.0] -- 2026-06-02
+
+### Added
+
+- **YADFSetup.exe** -- a visual settings editor / format playground with three
+  columns (Settings | Source | Result). Load any `.pas`, watch it reformat live
+  as you tune every option, and autosave the shared `yadf.ini` that the CLI and
+  IDE wizard also use. Save/Load option profiles to any file; Reset to defaults.
+  Ships with `Demo\Sample.pas`, auto-loaded on first launch, which demonstrates
+  every feature plus modern Delphi 13 syntax (inline `var`/`const`, type
+  inference, inline-loop vars, `if` ternary, `is not`, generics, inline
+  anonymous methods).
+- **Single option-descriptor table in `YADF.Options`** (`YADF_OPTIONS`): one
+  entry per `TYadfOptions` field, now the sole source for INI load/save, the
+  `yadf.ini` template, and option help. New public API: `OptionTable`,
+  `LoadOptionsFromIni`, `SaveOptionsToIni`, `OptionsHelpText` (plus
+  `ParseEncoding`/`EncodingToStr`/`ReadBoolIni`, moved here from `YadfMain`).
+  `SaveOptionsToIni` writes current values over the commented template so the
+  explanatory comments survive a round-trip.
+- **`build_all.bat`** builds all three artifacts (`YADF.exe`, `YADFSetup.exe`,
+  `YADFOT.bpl`) with one shared version stamp, so their FileVersion is always
+  identical. `YADF.Version.inc` carries the matching in-app version string.
+- Headless `Test\OptionsTest.dpr` (round-trip identity, comment preservation,
+  descriptor completeness, help coverage) and `Test\smoke_yadfsetup.ps1`.
+
+### Fixed
+
+- **YADFOT wizard ignored three alignment options.** `YADFOT.Wizard.pas` had a
+  hand-maintained INI reader that had drifted from the CLI, silently ignoring
+  `AlignMatchingShapes`, `AlignShapeMinAnchors`, and `AlignCommentMaxShift`.
+  Both the CLI and the wizard now delegate to the shared `LoadOptionsFromIni`,
+  so all three tools honor exactly the same options.
+
+### Distribution
+
+The release zip now contains `YADF.exe`, `YADFSetup.exe`, `YADFOT.bpl`,
+`Demo\Sample.pas`, `README.md`, `CHANGELOG.md`, `LICENSE`. No `yadf.ini`
+(auto-created on first run).
+
 ## [1.0.3.0] -- 2026-05-27
 
 ### Added

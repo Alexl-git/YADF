@@ -39,12 +39,17 @@ yadf.log
 .claude/
 
 # Upstream samples kept locally for reference (clone DelphiAST for these)
-Demo/
+# ...but Sample.pas is a shipped YADF demo (auto-loaded by YADFSetup), so keep it.
+Demo/*
+!Demo/Sample.pas
 
 # Proprietary test inputs (do not redistribute)
 Test/uPLANLIST.PAS
 Test/uStyles_formatted.pas
 Test/__*.pas
+
+# Incidental build-generated resource for the console test (no {$R} reference)
+Test/OptionsTest.res
 Test/YADF.TXT
 
 # OS junk

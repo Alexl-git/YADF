@@ -4,17 +4,89 @@ A Pascal/Delphi source code formatter, written in Delphi 13. Reformats `.pas`
 files according to a configurable rule set: line-length budgeting, structural
 re-indentation, capitalization, and column alignment.
 
-YADF ships in two flavours, built from the same engine:
+YADF ships in three flavours, built from the same engine:
 
 - **`YADF.exe`** — a stand-alone CLI for formatting files, folders, and
   whole `.dpr`/`.dproj` projects (see [CLI quick start](#cli-quick-start)).
+- **`YADFSetup.exe`** — a visual settings editor / format playground
+  (see [YADFSetup](#yadfsetup)).
 - **`YADFOT.bpl`** — a Delphi IDE design-time package ("YADF Open Tools")
   that adds a `Help → Tools → YADFOT: Format Current Buffer` menu item
   and a `Ctrl+Shift+Alt+F` shortcut to format the current source-editor
   buffer (see [YADFOT install](#yadfot-install)).
 
-Both artifacts are produced by this single project tree and land in the
-same output folder.
+All three artifacts are produced by this single project tree and share one
+`yadf.ini` configuration. `build_all.bat` builds them together with a single
+version stamp.
+
+## YADFSetup
+
+`YADFSetup.exe` is a three-column GUI — **Settings | Source | Result**. Load any
+`.pas` on the left, watch it reformat live on the right, and tune every option
+in between. It is the visual front-end for the whole family's configuration:
+what you change here is what `YADF.exe` and `YADFOT.bpl` use.
+
+### Setup
+
+1. **Get the binary.** Download `YADFSetup.exe` from the release zip (alongside
+   `YADF.exe`, `YADFOT.bpl`, and `Demo\Sample.pas`), or build it yourself
+   (see [Building](#building)).
+2. **No installation required.** It is a standalone Win32 executable — just run
+   it. Keep `Demo\Sample.pas` next to it (or in a `Demo\` subfolder) and it
+   auto-loads on first launch so you immediately see formatting at work.
+3. **First run creates the config.** If no `yadf.ini` exists yet, YADFSetup
+   writes a fully-commented one to `%APPDATA%\YADF\yadf.ini` and starts editing
+   it (see [Where the INI lives](#where-the-ini-lives)).
+
+> **Heads-up:** every change you make autosaves to the shared `yadf.ini`, so it
+> immediately changes how the CLI and IDE wizard format from then on. Use
+> **Save As…** to snapshot a profile before experimenting, and **Reset** to
+> return to the shipped defaults.
+
+### Where the INI lives
+
+YADFSetup reads and writes the **shared per-user config**:
+
+```
+%APPDATA%\YADF\yadf.ini
+```
+
+which expands to e.g. `C:\Users\<you>\AppData\Roaming\YADF\yadf.ini`. This is
+the same file `YADF.exe` and `YADFOT.bpl` fall back to, so all three tools stay
+in sync. (The CLI and IDE wizard can also pick up a *project-local* `yadf.ini`
+placed next to your source — see the full
+[INI lookup order](#yadfot-install). YADFSetup always edits the shared file and
+shows the active path at the bottom of the Settings column.)
+
+To keep alternative option sets, use **Save As…** to export a named `.ini`
+anywhere, and **Load Settings…** to bring one back later.
+
+### How to use it
+
+The window has three resizable columns (drag the splitters):
+
+1. **Settings** (left) — every formatting option, grouped (Line length,
+   Reflow & whitespace, Casing, Alignment, Uses, Declarations, Labels, File &
+   CLI). Hover any control for a one-line explanation. Changing any option
+   re-formats the Result pane instantly and saves to the shared `yadf.ini`.
+   - **Load Settings…** — import an option profile from any `.ini`.
+   - **Save As…** — export the current options to an `.ini` (does *not* touch
+     the shared file).
+   - **Reset** — restore the shipped defaults (this *does* overwrite the shared
+     `yadf.ini`; you'll be asked to confirm).
+2. **Source** (middle) — paste Pascal here, or click **Open File…** to load any
+   `.pas` / `.dpr` / `.inc`. Edits re-format after a brief pause.
+3. **Result** (right) — the formatted output, read-only. **Copy** puts it on the
+   clipboard.
+
+The status line under Settings shows the active INI path and a *(saved)* marker
+after each change. The status by the Result pane shows **OK** or a
+**[Format error]** message if the input can't be parsed (the app never crashes
+on bad input).
+
+Options in the **File & CLI** group (Backup, BackupDir, ResultDir, Encoding,
+Logging) configure the CLI's file handling and have no effect on the live
+preview — they're saved for `YADF.exe` to use.
 
 ## YADFOT install
 
@@ -260,23 +332,45 @@ cmd /c "call \"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat\" ^
         && msbuild /t:Build /p:Config=Release /p:Platform=Win32 YADFOT.dproj"
 ```
 
-Both outputs land in `Win32\Release\EXE\` (`YADFOT.bpl` is Win32-only, since
-the Delphi IDE is 32-bit; `YADF.exe` builds for Win32 and Win64).
+Build the settings editor:
+
+```cmd
+cmd /c "call \"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat\" ^
+        && msbuild /t:Build /p:Config=Release /p:Platform=Win32 YADFSetup.dproj"
+```
+
+Or build **all three at once with one shared version stamp**:
+
+```cmd
+build_all.bat
+```
+
+`build_all.bat` is the single source of truth for the release version: it sets
+`YADF_MAJOR/MINOR/RELEASE/BUILD` once and stamps the identical FileVersion into
+`YADF.exe`, `YADFSetup.exe`, and `YADFOT.bpl` (keep `YADF.Version.inc` in sync
+for the in-app version string). All outputs land in `Win32\Release\EXE\`
+(plus `Win64\Release\EXE\` for the CLI); `YADFOT.bpl` is Win32-only, since the
+Delphi IDE is 32-bit, while `YADF.exe` builds for Win32 and Win64.
 
 ## Project layout
 
 ```
 YADF\
   YADF.Tokens.pas       lexer wrapper + token stream
-  YADF.Options.pas      TYadfOptions record + DefaultOptions
+  YADF.Options.pas      TYadfOptions + YADF_OPTIONS table + INI load/save
   YADF.Groups.pas       structural group parser (begin/end nesting, etc.)
   YADF.Layout.pas       FormatSource -- the engine entry point
   YADF.Debug.pas        debug-tree dump (CLI --debug-tree)
+  YADF.Version.inc      single-source version string (display)
   YadfMain.pas          CLI argument parser + driver
   YADF.dpr / .dproj     CLI project
+  uYADFSetupMain.pas    YADFSetup form (3-column playground)
+  YADFSetup.dpr/.dproj  settings-editor GUI project
   YADFOT.Wizard.pas     IDE wizard (ToolsAPI + buffer I/O + INI loader)
   YADFOT.dpk / .dproj   IDE design-time package
-  yadf.ini              shared CLI + wizard configuration (optional)
+  Demo\Sample.pas       feature-demonstration unit (auto-loaded by YADFSetup)
+  build_all.bat         builds all 3 artifacts with one version stamp
+  yadf.ini              shared CLI + wizard + GUI config (optional)
 ```
 
 ## Acknowledgements

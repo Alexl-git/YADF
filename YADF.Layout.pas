@@ -1057,6 +1057,61 @@ end;
 
 // v1.0.3: align the trailing `;` on consecutive declaration lines
 // (lines that contain a top-level `:` and end with `;`). Runs AFTER
+// Bracket depth at the START of each line, tracked ACROSS lines (string- and
+// comment-aware). A line whose start-depth > 0 sits inside a multi-line `( )`
+// or `[ ]` group -- an enum body, a multi-line array literal, or a split
+// parameter list. Those lines must be excluded from the top-level declaration
+// alignment passes; otherwise enum members and array internals get their
+// `=` / `:` / `;` aligned as if they were real declarations (and the trailing
+// `//` comments shift with them).
+function ComputeLineStartDepths(Lines: TStringList): TArray<Integer>;
+var
+  i, p, depth: Integer;
+  line       : string;
+  c          : Char;
+  InBrace, InParenStar, InString: Boolean;
+begin
+  SetLength(Result, Lines.Count);
+  depth := 0; InBrace := False; InParenStar := False;
+  for i := 0 to Lines.Count - 1 do
+  begin
+    Result[i] := depth;          // depth BEFORE this line is processed
+    line := Lines[i];
+    InString := False;           // Pascal string literals do not span lines
+    p := 1;
+    while p <= Length(line) do
+    begin
+      c := line[p];
+      if InBrace then
+      begin
+        if c = '}' then InBrace := False;
+        Inc(p); Continue;
+      end;
+      if InParenStar then
+      begin
+        if (c = '*') and (p < Length(line)) and (line[p + 1] = ')') then
+        begin InParenStar := False; Inc(p, 2); Continue; end;
+        Inc(p); Continue;
+      end;
+      if InString then
+      begin
+        if c = '''' then InString := False;
+        Inc(p); Continue;
+      end;
+      if c = '''' then begin InString := True; Inc(p); Continue; end;
+      if c = '{' then begin InBrace := True; Inc(p); Continue; end;
+      if (c = '(') and (p < Length(line)) and (line[p + 1] = '*') then
+      begin InParenStar := True; Inc(p, 2); Continue; end;
+      if (c = '/') and (p < Length(line)) and (line[p + 1] = '/') then
+        Break;                   // line comment: ignore the rest of the line
+      if (c = '(') or (c = '[') then Inc(depth)
+      else if (c = ')') or (c = ']') then
+      begin if depth > 0 then Dec(depth); end;
+      Inc(p);
+    end;
+  end;
+end;
+
 // AlignByAnchor(':') so the colons are already in their final column;
 // this pass just adds spaces before the `;` so the right edge lines up.
 // Runs of fewer than 2 declaration lines are left untouched.
@@ -1067,6 +1122,7 @@ var
   Out_      : TStringBuilder;
   i, j      : Integer;
   ColonAt, SemiAt: TArray<Integer>;
+  Depths    : TArray<Integer>;
   RunStart, RunEnd: Integer;
   Target, k : Integer;
   Pad       : Integer;
@@ -1148,8 +1204,14 @@ begin
 
     SetLength(ColonAt, Lines.Count);
     SetLength(SemiAt , Lines.Count);
+    Depths:= ComputeLineStartDepths(Lines);
     for i:= 0 to Lines.Count - 1 do
+    begin
       HasDeclShape(Lines[i], ColonAt[i], SemiAt[i]);
+      // A declaration-shaped line that actually sits inside a multi-line
+      // ()/[] group is not a real top-level declaration -- leave it alone.
+      if Depths[i] > 0 then begin ColonAt[i]:= 0; SemiAt[i]:= 0; end;
+    end;
 
     Out_:= TStringBuilder.Create;
     try
@@ -1218,6 +1280,7 @@ end;
 function AlignByAnchor(const S, AAnchor: string; AMaxColumn: Integer): string;
 var
   Anchors : TArray<Integer>;
+  Depths  : TArray<Integer>;
   i       : Integer;
   j       : Integer;
   Line    : string;
@@ -1236,6 +1299,12 @@ begin
     Lines.Text             := S     ;
     SetLength(Anchors, Lines.Count);
     for i:= 0 to Lines.Count - 1 do Anchors[i]:= FindAnchorAtTopLevel(Lines[i], AAnchor);
+    // Exclude lines inside a multi-line ()/[] group (enum bodies, array
+    // literals, split parameter lists): they must not be aligned as if they
+    // were top-level const/var/type declarations.
+    Depths:= ComputeLineStartDepths(Lines);
+    for i:= 0 to Lines.Count - 1 do
+      if Depths[i] > 0 then Anchors[i]:= 0;
     Out_:= TStringBuilder.Create;
     try
       i:= 0;
@@ -1806,6 +1875,12 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     if R[Length(R)] = ';' then Exit(True);
     if R[Length(R)] = '.' then Exit(True);
     if R[Length(R)] = '}' then Exit(True);
+    // A line ending in an unclosed `(` / `[` is the opener of a multi-line
+    // group that the structural emitter chose NOT to inline (it overflows or
+    // contains a line comment -- e.g. an enum/array body). Pulling the first
+    // member up onto the opener re-creates the half-merged enum bug, so keep
+    // the break.
+    if (R[Length(R)] = '(') or (R[Length(R)] = '[') then Exit(True);
     if EndsWordCI(R, 'begin') then Exit(True);
     if EndsWordCI(R, 'end') then Exit(True);
     if EndsWordCI(R, 'asm') then Exit(True);

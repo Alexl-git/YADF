@@ -807,20 +807,7 @@ begin
   WriteStdoutLine('Precedence: CLI flags > INI values > compiled-in defaults.');
 end; // begin
 
-function ParseEncoding(const S: string; const ADefault: TYadfEncoding): TYadfEncoding;
-var
-  L: string;
-begin
-  L:= UpperCase(Trim(S));
-  if (L = 'UTF-8') or (L = 'UTF8') or (L = 'UTF-8-BOM') or (L = 'UTF8BOM') then
-    Result:= encUTF8BOM
-  else if (L = 'UTF-16') or (L = 'UTF16') or (L = 'UTF-16-BOM') or (L = 'UTF16BOM') or (L = 'UTF-16-LE') then
-    Result:= encUTF16BOM
-  else if (L = 'ANSI') then
-    Result:= encANSI
-  else
-    Result:= ADefault;
-end;
+// ParseEncoding now lives in YADF.Options (shared by CLI, wizard, GUI).
 
 // Lookup order:
 //   1. Walk UP from cwd up to 9 levels looking for yadf.ini (project-
@@ -861,63 +848,13 @@ begin
   Result:= SharedAppDataIniPath;
 end;
 
-// Delphi's TIniFile.ReadBool only honours numeric 0/1 -- a textual
-// `true`/`false` falls through to the default. yadf.ini documents and
-// ships textual booleans, so read them ourselves and accept the
-// obvious spellings; anything unrecognised keeps the compiled default.
-function ReadBoolIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: Boolean): Boolean;
-var
-  S: string;
-begin
-  S:= LowerCase(Trim(AIni.ReadString(ASection, AIdent, '')));
-  if (S = '1') or (S = 'true' ) or (S = 'yes') or (S = 'on' ) then Exit(True );
-  if (S = '0') or (S = 'false') or (S = 'no' ) or (S = 'off') then Exit(False);
-  Result:= ADefault;
-end;
-
+// All [Format] keys are read by the shared, table-driven loader in
+// YADF.Options. The CLI seeds DefaultOptions then overlays the INI; here
+// we just delegate so the CLI, the IDE wizard, and YADFSetup stay in lockstep.
 procedure LoadIniDefaults(var AOpts: TYadfOptions; const AIniPath: string);
-var
-  Ini: TIniFile;
 begin
   if not FileExists(AIniPath) then Exit;
-  Ini:= TIniFile.Create(AIniPath);
-  try
-    AOpts.MaxLen:= Ini.ReadInteger('Format', 'MaxLen', AOpts.MaxLen);
-    AOpts.Indent:= Ini.ReadInteger('Format', 'Indent', AOpts.Indent);
-    AOpts.TabWidth:= Ini.ReadInteger('Format', 'TabWidth', AOpts.TabWidth);
-    AOpts.MaxBlankLines:= Ini.ReadInteger('Format', 'MaxBlankLines', AOpts.MaxBlankLines);
-    AOpts.LabelMinLines:= Ini.ReadInteger('Format', 'LabelMinLines', AOpts.LabelMinLines);
-    AOpts.LabelLongBlocks:= ReadBoolIni(Ini, 'Format','LabelLongBlocks', AOpts.LabelLongBlocks);
-    AOpts.MarkUnclosed:= ReadBoolIni(Ini, 'Format','MarkUnclosed', AOpts.MarkUnclosed);
-    AOpts.TrimTrailing:= ReadBoolIni(Ini, 'Format','TrimTrailing', AOpts.TrimTrailing);
-    AOpts.ReflowLines:= ReadBoolIni(Ini, 'Format','ReflowLines', AOpts.ReflowLines);
-    AOpts.LowercaseKeywords:= ReadBoolIni(Ini, 'Format','LowercaseKeywords', AOpts.LowercaseKeywords);
-    AOpts.UpperHexNumbers:= ReadBoolIni(Ini, 'Format','UpperHexNumbers', AOpts.UpperHexNumbers);
-    AOpts.UpperDirectives:= ReadBoolIni(Ini, 'Format','UpperDirectives', AOpts.UpperDirectives);
-    AOpts.FirstOccCasing:= ReadBoolIni(Ini, 'Format','FirstOccCasing', AOpts.FirstOccCasing);
-    AOpts.BlanksBeforeSection:= Ini.ReadInteger('Format', 'BlanksBeforeSection', AOpts.BlanksBeforeSection);
-    AOpts.BlanksBeforeMethod:= Ini.ReadInteger('Format', 'BlanksBeforeMethod', AOpts.BlanksBeforeMethod);
-    AOpts.BlanksBeforeType:= Ini.ReadInteger('Format', 'BlanksBeforeType', AOpts.BlanksBeforeType);
-    AOpts.AssignNoSpaceBefore:= ReadBoolIni(Ini, 'Format','AssignNoSpaceBefore', AOpts.AssignNoSpaceBefore);
-    AOpts.AssignSpaceAfter:= ReadBoolIni(Ini, 'Format','AssignSpaceAfter', AOpts.AssignSpaceAfter);
-    AOpts.AlignConstEquals:= ReadBoolIni(Ini, 'Format','AlignConstEquals', AOpts.AlignConstEquals);
-    AOpts.AlignTypeColon:= ReadBoolIni(Ini, 'Format','AlignTypeColon', AOpts.AlignTypeColon);
-    AOpts.AlignSmartAssign:= ReadBoolIni(Ini, 'Format','AlignSmartAssign', AOpts.AlignSmartAssign);
-    AOpts.AlignMaxColumn:= Ini.ReadInteger('Format', 'AlignMaxColumn', AOpts.AlignMaxColumn);
-    AOpts.AlignMatchingShapes:= ReadBoolIni(Ini, 'Format','AlignMatchingShapes', AOpts.AlignMatchingShapes);
-    AOpts.AlignShapeMinAnchors:= Ini.ReadInteger('Format', 'AlignShapeMinAnchors', AOpts.AlignShapeMinAnchors);
-    AOpts.AlignCommentMaxShift:= Ini.ReadInteger('Format', 'AlignCommentMaxShift', AOpts.AlignCommentMaxShift);
-    AOpts.UsesAlwaysBreak:= ReadBoolIni(Ini, 'Format','UsesAlwaysBreak', AOpts.UsesAlwaysBreak);
-    AOpts.SplitMultiVarDecls:= ReadBoolIni(Ini, 'Format','SplitMultiVarDecls', AOpts.SplitMultiVarDecls);
-    AOpts.AlignDeclSemicolons:= ReadBoolIni(Ini, 'Format','AlignDeclSemicolons', AOpts.AlignDeclSemicolons);
-    AOpts.Backup:= ReadBoolIni(Ini, 'Format','Backup', AOpts.Backup);
-    AOpts.BackupDir:= Ini.ReadString ('Format', 'BackupDir', AOpts.BackupDir);
-    AOpts.ResultDir:= Ini.ReadString ('Format', 'ResultDir', AOpts.ResultDir);
-    AOpts.Encoding:= ParseEncoding (Ini.ReadString('Format', 'Encoding', ''), AOpts.Encoding);
-    AOpts.Logging:= ReadBoolIni(Ini, 'Format','Logging', AOpts.Logging);
-  finally
-    Ini.Free;
-  end; // try
+  AOpts:= LoadOptionsFromIni(AIniPath);
 end; // procedure
 
 function IsHelpArg(const A: string): Boolean;
