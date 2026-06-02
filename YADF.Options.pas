@@ -45,6 +45,7 @@ type
     BlanksBeforeType   : Integer;
     AssignNoSpaceBefore: Boolean;
     AssignSpaceAfter   : Boolean;
+    SpaceAroundOperators: Boolean;
     AlignConstEquals   : Boolean;
     AlignTypeColon     : Boolean;
     AlignSmartAssign   : Boolean;
@@ -141,6 +142,7 @@ begin
   Result.BlanksBeforeType   := 0      ;
   Result.AssignNoSpaceBefore:= True   ;
   Result.AssignSpaceAfter   := True   ;
+  Result.SpaceAroundOperators := True ;
   Result.AlignConstEquals   := True   ;
   Result.AlignTypeColon     := True   ;
   Result.AlignSmartAssign   := True   ;
@@ -323,6 +325,12 @@ begin
       okInt, True,
       function(const O: TYadfOptions): Variant begin Result := O.AlignCommentMaxShift end,
       procedure(var O: TYadfOptions; const V: Variant) begin O.AlignCommentMaxShift := V end),
+    MakeOpt('SpaceAroundOperators', 'Spacing', 'Space around operators',
+      'Put one space around binary operators (A+B -> A + B): + - * / = <= >= <>. ' +
+      'Unary +/- and generic brackets (<, >) are left intact. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.SpaceAroundOperators end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.SpaceAroundOperators := V end),
     MakeOpt('UsesAlwaysBreak', 'Uses clauses', 'Break uses one-per-line',
       'Always break uses clauses one unit per line. Default: true',
       okBool, True,

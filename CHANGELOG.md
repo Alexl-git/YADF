@@ -8,6 +8,26 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.5.0] -- 2026-06-02
+
+### Added
+
+- **`SpaceAroundOperators` (default `true`).** A token-level pass that puts one
+  space around binary operators: `+ - * / = <= >= <>`. It is unary-safe (`-5`,
+  `:= -X`, `(-A)` stay attached) and generics-safe (bare `<` / `>` are never
+  touched, so `TList<Integer>` is preserved); `..` ranges, `^` pointers, and
+  `@` address-of are left intact. Toggle it in YADFSetup or via the
+  `SpaceAroundOperators` INI key.
+
+### Fixed
+
+- **Anonymous method passed as an argument no longer under-indents.** A
+  multi-line `List.Sort(function ... begin ... end)` had its `function` header
+  collapsed to the procedure-region column. `ReindentByDepth` now applies the
+  proc-region indent only to real declarations (`ParensDepth = 0`); an
+  anonymous method inside an expression keeps the normal expression depth and
+  lines up under the call argument.
+
 ## [1.0.4.0] -- 2026-06-02
 
 ### Added

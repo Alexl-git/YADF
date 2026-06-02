@@ -300,6 +300,98 @@ begin
   end; // while
 end; // procedure
 
+// Puts exactly one space around binary operators (+ - * / = <= >= <>) per
+// AOpts.SpaceAroundOperators. Token-based, so it tells a binary `-`/`+` from a
+// unary one and never touches bare `<`/`>` (generic brackets), `..` ranges,
+// `^` pointers, `@` address-of, comments, or strings (different token kinds).
+// An operator at end-of-line is left untouched so multi-line RHS reflow still
+// works (mirrors NormalizeAssignSpacing). Rebuilds the token list so insert/
+// delete bookkeeping stays simple.
+procedure NormalizeOperatorSpacing(const ATokens: TTokenList; const AOpts: TYadfOptions);
+var
+  Src : TArray<TToken>;
+  Outp: TTokenList;
+  i, j: Integer;
+  PrevKind: TptTokenKind;
+  IsBinary: Boolean;
+
+  function MakeSpace(ALine: Integer): TToken;
+  begin
+    Result.Kind:= ptSpace  ;
+    Result.ExID:= ptUnknown;
+    Result.Text:= ' '      ;
+    Result.Pre := ''       ;
+    Result.Line:= ALine    ;
+    Result.Col := 0        ;
+  end;
+
+  // Kind of the last non-space token already emitted; ptCRLF (line start)
+  // when there is none yet on this line.
+  function LastRealKind: TptTokenKind;
+  var
+    k: Integer;
+  begin
+    k:= Outp.Count - 1;
+    while (k >= 0) and (Outp[k].Kind = ptSpace) do Dec(k);
+    if k < 0 then Result:= ptCRLF
+    else Result:= Outp[k].Kind;
+  end;
+
+begin
+  Src := ATokens.ToArray;
+  Outp:= TTokenList.Create;
+  try
+    i:= 0;
+    while i <= High(Src) do
+    begin
+      if Src[i].Kind in [ptStar, ptSlash, ptEqual, ptNotEqual, ptLowerEqual,
+                         ptGreaterEqual, ptPlus, ptMinus] then
+      begin
+        PrevKind:= LastRealKind;
+        if Src[i].Kind in [ptPlus, ptMinus] then
+          // binary only when the previous real token ends an operand;
+          // otherwise it is a unary sign and stays attached.
+          IsBinary:= PrevKind in [ptIdentifier, ptIntegerConst, ptFloat,
+                       ptStringConst, ptAsciiChar, ptRoundClose, ptSquareClose,
+                       ptPointerSymbol]
+        else
+          IsBinary:= True;
+        if PrevKind = ptCRLF then IsBinary:= False;  // never at line start
+        if IsBinary then
+        begin
+          // exactly one space before
+          while (Outp.Count > 0) and (Outp[Outp.Count - 1].Kind = ptSpace) do
+            Outp.Delete(Outp.Count - 1);
+          Outp.Add(MakeSpace(Src[i].Line));
+          Outp.Add(Src[i]);
+          // exactly one space after -- unless the operator sits at end of
+          // line (next real token is a CRLF or end of stream), in which case
+          // leave the trailing layout for the reflow pass.
+          j:= i + 1;
+          while (j <= High(Src)) and (Src[j].Kind = ptSpace) do Inc(j);
+          if (j <= High(Src)) and (Src[j].Kind <> ptCRLF) then
+          begin
+            Outp.Add(MakeSpace(Src[i].Line));
+            i:= j;
+            Continue;
+          end
+          else
+          begin
+            i:= i + 1;
+            Continue;
+          end;
+        end;
+      end;
+      Outp.Add(Src[i]);
+      Inc(i);
+    end;
+    ATokens.Clear;
+    ATokens.AddRange(Outp.ToArray);
+  finally
+    Outp.Free;
+  end;
+end; // procedure
+
 // Applies all four capitalisation rules driven by AOpts:
 //   LowercaseKeywords - lowercases reserved words (any all-alpha token
 //                       whose Kind is not in the literal/comment/whitespace
@@ -2436,7 +2528,12 @@ begin
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if (T.Kind = ptBegin) and (not InClassOrRecord) and (StackTop in [ptType, ptVar, ptConst]) then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
-          if (T.Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) and (not InClassOrRecord) then
+          if (T.Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) and (not InClassOrRecord) and (ParensDepth = 0) then
+            // ParensDepth = 0: only a REAL proc/function declaration snaps to the
+            // proc-region column. An anonymous method inside an expression
+            // (ParensDepth > 0, e.g. List.Sort(function ... end)) keeps the normal
+            // expression depth so its header lines up under the call argument
+            // (matches the ParensDepth = 0 guard on the push side below).
             EffectiveDepth:= OpenProcRegions;
           if T.Kind in [ptImplementation, ptInitialization, ptFinalization] then
             EffectiveDepth:= 0;
@@ -3495,6 +3592,8 @@ begin
     // Stage 1: token-level passes (mutate Tokens in place).
     ApplyCapitalization(Tokens, AOpts);
     NormalizeAssignSpacing(Tokens, AOpts);
+    if AOpts.SpaceAroundOperators then
+      NormalizeOperatorSpacing(Tokens, AOpts);
     Root:= ParseGroups(Tokens);
     try
       Sb:= TStringBuilder.Create;
