@@ -23,19 +23,70 @@ version stamp.
 
 `YADFSetup.exe` is a three-column GUI — **Settings | Source | Result**. Load any
 `.pas` on the left, watch it reformat live on the right, and tune every option
-in between. It auto-loads `Demo\Sample.pas` on first launch so you can see every
-feature at work immediately.
+in between. It is the visual front-end for the whole family's configuration:
+what you change here is what `YADF.exe` and `YADFOT.bpl` use.
 
-- Changes **autosave** to the shared `yadf.ini` (`%APPDATA%\YADF\yadf.ini`) that
-  `YADF.exe` and `YADFOT.bpl` also read — so YADFSetup is the visual front-end
-  for the whole family's configuration.
-- **Load Settings / Save As…** — import or export an option profile (any `.ini`).
-- **Reset** — restore the shipped defaults (overwrites the shared `yadf.ini`).
+### Setup
 
-Because edits autosave to the shared config, experimenting in YADFSetup changes
-how the CLI and IDE wizard format from then on. Use **Save As…** to keep a
-profile and **Reset** to return to defaults. The active INI path is shown at the
-bottom of the Settings column.
+1. **Get the binary.** Download `YADFSetup.exe` from the release zip (alongside
+   `YADF.exe`, `YADFOT.bpl`, and `Demo\Sample.pas`), or build it yourself
+   (see [Building](#building)).
+2. **No installation required.** It is a standalone Win32 executable — just run
+   it. Keep `Demo\Sample.pas` next to it (or in a `Demo\` subfolder) and it
+   auto-loads on first launch so you immediately see formatting at work.
+3. **First run creates the config.** If no `yadf.ini` exists yet, YADFSetup
+   writes a fully-commented one to `%APPDATA%\YADF\yadf.ini` and starts editing
+   it (see [Where the INI lives](#where-the-ini-lives)).
+
+> **Heads-up:** every change you make autosaves to the shared `yadf.ini`, so it
+> immediately changes how the CLI and IDE wizard format from then on. Use
+> **Save As…** to snapshot a profile before experimenting, and **Reset** to
+> return to the shipped defaults.
+
+### Where the INI lives
+
+YADFSetup reads and writes the **shared per-user config**:
+
+```
+%APPDATA%\YADF\yadf.ini
+```
+
+which expands to e.g. `C:\Users\<you>\AppData\Roaming\YADF\yadf.ini`. This is
+the same file `YADF.exe` and `YADFOT.bpl` fall back to, so all three tools stay
+in sync. (The CLI and IDE wizard can also pick up a *project-local* `yadf.ini`
+placed next to your source — see the full
+[INI lookup order](#yadfot-install). YADFSetup always edits the shared file and
+shows the active path at the bottom of the Settings column.)
+
+To keep alternative option sets, use **Save As…** to export a named `.ini`
+anywhere, and **Load Settings…** to bring one back later.
+
+### How to use it
+
+The window has three resizable columns (drag the splitters):
+
+1. **Settings** (left) — every formatting option, grouped (Line length,
+   Reflow & whitespace, Casing, Alignment, Uses, Declarations, Labels, File &
+   CLI). Hover any control for a one-line explanation. Changing any option
+   re-formats the Result pane instantly and saves to the shared `yadf.ini`.
+   - **Load Settings…** — import an option profile from any `.ini`.
+   - **Save As…** — export the current options to an `.ini` (does *not* touch
+     the shared file).
+   - **Reset** — restore the shipped defaults (this *does* overwrite the shared
+     `yadf.ini`; you'll be asked to confirm).
+2. **Source** (middle) — paste Pascal here, or click **Open File…** to load any
+   `.pas` / `.dpr` / `.inc`. Edits re-format after a brief pause.
+3. **Result** (right) — the formatted output, read-only. **Copy** puts it on the
+   clipboard.
+
+The status line under Settings shows the active INI path and a *(saved)* marker
+after each change. The status by the Result pane shows **OK** or a
+**[Format error]** message if the input can't be parsed (the app never crashes
+on bad input).
+
+Options in the **File & CLI** group (Backup, BackupDir, ResultDir, Encoding,
+Logging) configure the CLI's file handling and have no effect on the live
+preview — they're saved for `YADF.exe` to use.
 
 ## YADFOT install
 
