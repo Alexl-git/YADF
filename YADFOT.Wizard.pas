@@ -139,48 +139,17 @@ begin
   Result:= '';
 end;
 
-// Reads YADF's [Format] section from AIniPath into AOpts. Keys match
-// the CLI INI keys exactly so a single yadf.ini can drive both the CLI
-// and the wizard. Any key not present keeps its incoming value (the
-// caller is expected to seed AOpts with DefaultOptions first). The
-// Encoding key is the only CLI key intentionally skipped -- see the
-// "Encoding model" note in the unit header for why.
+// Delegates to the shared, table-driven loader in YADF.Options so the
+// wizard reads EXACTLY the same [Format] keys as the CLI and YADFSetup.
+// (This also picks up AlignMatchingShapes / AlignShapeMinAnchors /
+// AlignCommentMaxShift, which the previous hand-maintained reader here had
+// drifted and silently ignored.) The Encoding field is loaded but unused
+// by the wizard -- it writes through the IDE editor buffer (UTF-8), not a
+// file -- which is harmless.
 procedure LoadIniDefaults(var AOpts: TYadfOptions; const AIniPath: string);
-var
-  Ini: TIniFile;
 begin
-  if (AIniPath = '') or not FileExists(AIniPath) then Exit;
-  Ini:= TIniFile.Create(AIniPath);
-  try
-    AOpts.MaxLen             := Ini.ReadInteger('Format', 'MaxLen'             , AOpts.MaxLen);
-    AOpts.Indent             := Ini.ReadInteger('Format', 'Indent'             , AOpts.Indent);
-    AOpts.TabWidth           := Ini.ReadInteger('Format', 'TabWidth'           , AOpts.TabWidth);
-    AOpts.MaxBlankLines      := Ini.ReadInteger('Format', 'MaxBlankLines'      , AOpts.MaxBlankLines);
-    AOpts.LabelMinLines      := Ini.ReadInteger('Format', 'LabelMinLines'      , AOpts.LabelMinLines);
-    AOpts.LabelLongBlocks    := Ini.ReadBool   ('Format', 'LabelLongBlocks'    , AOpts.LabelLongBlocks);
-    AOpts.MarkUnclosed       := Ini.ReadBool   ('Format', 'MarkUnclosed'       , AOpts.MarkUnclosed);
-    AOpts.TrimTrailing       := Ini.ReadBool   ('Format', 'TrimTrailing'       , AOpts.TrimTrailing);
-    AOpts.ReflowLines        := Ini.ReadBool   ('Format', 'ReflowLines'        , AOpts.ReflowLines);
-    AOpts.LowercaseKeywords  := Ini.ReadBool   ('Format', 'LowercaseKeywords'  , AOpts.LowercaseKeywords);
-    AOpts.UpperHexNumbers    := Ini.ReadBool   ('Format', 'UpperHexNumbers'    , AOpts.UpperHexNumbers);
-    AOpts.UpperDirectives    := Ini.ReadBool   ('Format', 'UpperDirectives'    , AOpts.UpperDirectives);
-    AOpts.FirstOccCasing     := Ini.ReadBool   ('Format', 'FirstOccCasing'     , AOpts.FirstOccCasing);
-    AOpts.BlanksBeforeSection:= Ini.ReadInteger('Format', 'BlanksBeforeSection', AOpts.BlanksBeforeSection);
-    AOpts.BlanksBeforeMethod := Ini.ReadInteger('Format', 'BlanksBeforeMethod' , AOpts.BlanksBeforeMethod);
-    AOpts.BlanksBeforeType   := Ini.ReadInteger('Format', 'BlanksBeforeType'   , AOpts.BlanksBeforeType);
-    AOpts.AssignNoSpaceBefore:= Ini.ReadBool   ('Format', 'AssignNoSpaceBefore', AOpts.AssignNoSpaceBefore);
-    AOpts.AssignSpaceAfter   := Ini.ReadBool   ('Format', 'AssignSpaceAfter'   , AOpts.AssignSpaceAfter);
-    AOpts.AlignConstEquals   := Ini.ReadBool   ('Format', 'AlignConstEquals'   , AOpts.AlignConstEquals);
-    AOpts.AlignTypeColon     := Ini.ReadBool   ('Format', 'AlignTypeColon'     , AOpts.AlignTypeColon);
-    AOpts.AlignSmartAssign   := Ini.ReadBool   ('Format', 'AlignSmartAssign'   , AOpts.AlignSmartAssign);
-    AOpts.AlignMaxColumn     := Ini.ReadInteger('Format', 'AlignMaxColumn'     , AOpts.AlignMaxColumn);
-    AOpts.UsesAlwaysBreak    := Ini.ReadBool   ('Format', 'UsesAlwaysBreak'    , AOpts.UsesAlwaysBreak);
-    AOpts.SplitMultiVarDecls := Ini.ReadBool   ('Format', 'SplitMultiVarDecls' , AOpts.SplitMultiVarDecls);
-    AOpts.AlignDeclSemicolons:= Ini.ReadBool   ('Format', 'AlignDeclSemicolons', AOpts.AlignDeclSemicolons);
-    // Encoding intentionally ignored: see unit header.
-  finally
-    Ini.Free;
-  end; // try
+  if (AIniPath = '') or (not FileExists(AIniPath)) then Exit;
+  AOpts:= LoadOptionsFromIni(AIniPath);
 end; // procedure
 
 // Resolves the directory of the IDE's currently active project, or ''
