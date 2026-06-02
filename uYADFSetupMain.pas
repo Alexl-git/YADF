@@ -45,6 +45,9 @@ type
     FOpts: TYadfOptions;
     FIniPath: string;
     FControls: array of TControl;   // index-aligned to OptionTable
+    FUpdating: Boolean;             // True while we push FOpts -> controls;
+                                    // suppresses OptionChanged so the
+                                    // programmatic writes don't clobber FOpts.
     procedure BuildOptionControls;
     procedure OptionsToControls;
     procedure ControlsToOptions;
@@ -180,16 +183,25 @@ var
   v: Variant;
 begin
   T := OptionTable;
-  for i := 0 to High(T) do
-  begin
-    v := T[i].GetVal(FOpts);
-    case T[i].Kind of
-      okBool  : TCheckBox(FControls[i]).Checked := v;
-      okInt   : TSpinEdit(FControls[i]).Value := v;
-      okString: TEdit(FControls[i]).Text := VarToStr(v);
-      okEnum  : TComboBox(FControls[i]).ItemIndex :=
-                  TComboBox(FControls[i]).Items.IndexOf(VarToStr(v));
+  // Setting Checked/Value/Text/ItemIndex fires the control's OnClick/OnChange,
+  // i.e. OptionChanged. Suppress it: otherwise each programmatic write would
+  // read back the not-yet-updated controls and clobber FOpts mid-loop (which
+  // broke Reset and left spin edits stuck at 0).
+  FUpdating := True;
+  try
+    for i := 0 to High(T) do
+    begin
+      v := T[i].GetVal(FOpts);
+      case T[i].Kind of
+        okBool  : TCheckBox(FControls[i]).Checked := v;
+        okInt   : TSpinEdit(FControls[i]).Value := v;
+        okString: TEdit(FControls[i]).Text := VarToStr(v);
+        okEnum  : TComboBox(FControls[i]).ItemIndex :=
+                    TComboBox(FControls[i]).Items.IndexOf(VarToStr(v));
+      end;
     end;
+  finally
+    FUpdating := False;
   end;
 end;
 
@@ -213,6 +225,7 @@ var
   T: TArray<TOptInfo>;
   idx: Integer;
 begin
+  if FUpdating then Exit;   // programmatic population in progress -- ignore
   ControlsToOptions;
   AutoSave;
   T := OptionTable;
