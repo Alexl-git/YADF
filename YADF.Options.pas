@@ -19,7 +19,9 @@ interface
 uses
   System.SysUtils,
   System.Classes,
-  System.IOUtils;
+  System.IOUtils,
+  System.IniFiles,
+  System.Variants;
 
 type
   TYadfEncoding = (encANSI, encUTF8BOM, encUTF16BOM);
@@ -60,28 +62,64 @@ type
     Logging            : Boolean;
   end; // record
 
+  // ---- Single descriptor table : the settings authority ----
+  TOptKind = (okBool, okInt, okString, okEnum);
+
+  TOptGetter = reference to function(const O: TYadfOptions): Variant;
+  TOptSetter = reference to procedure(var O: TYadfOptions; const V: Variant);
+
+  TOptInfo = record
+    Ident         : string;      // INI key under [Format] AND the record field name
+    Group         : string;      // UI group + template section header
+    Caption       : string;      // GUI label
+    Hint          : string;      // one-line help: GUI tooltip, ';' comment, --help line
+    Kind          : TOptKind;
+    AffectsPreview: Boolean;     // False for file/CLI-only options
+    GetVal        : TOptGetter;
+    SetVal        : TOptSetter;
+  end;
+
 function DefaultOptions: TYadfOptions;
 
-// Shared per-user fallback path used by both YADF.exe and YADFOT.bpl
-// when no project-local yadf.ini is found anywhere in the walk-up
-// hierarchy. Returns %APPDATA%\YADF\yadf.ini -- subdirectory is named
-// after the family, not the specific tool, so the EXE and BPL find
-// the same file regardless of which one ran first.
+// The single authority for every TYadfOptions field. Built once on first call.
+function OptionTable: TArray<TOptInfo>;
+
+// Encoding name <-> enum, shared by CLI, wizard, GUI, and the INI layer.
+function ParseEncoding(const S: string; const ADefault: TYadfEncoding): TYadfEncoding;
+function EncodingToStr(const E: TYadfEncoding): string;
+
+// Reads a textual boolean (1/0, true/false, yes/no, on/off; case-insensitive);
+// unrecognised values return ADefault. Delphi's TIniFile.ReadBool only honours
+// numeric 0/1, but yadf.ini ships textual booleans.
+function ReadBoolIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: Boolean): Boolean;
+
+// Load every [Format] key into a TYadfOptions, falling back to DefaultOptions
+// per field. Returns DefaultOptions unchanged if the file is missing.
+function LoadOptionsFromIni(const APath: string): TYadfOptions;
+
+// Persist current values over the commented template (so comments survive).
+procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
+
+// One "Ident - Hint" line per option, grouped -- for CLI --help / about text.
+function OptionsHelpText: string;
+
+// Shared per-user fallback path used by YADF.exe, YADFOT.bpl, and YADFSetup.exe
+// when no project-local yadf.ini is found. Returns %APPDATA%\YADF\yadf.ini.
 function SharedAppDataIniPath: string;
 
-// Write a fully-commented yadf.ini at APath with every option, its
-// default value, and a one-line explanation. Used on first run when no
-// INI exists -- the user sees the file appear and can edit it. Safe
-// to call if directory does not exist (it gets created). Does NOT
-// overwrite an existing file.
+// Write a fully-commented yadf.ini at APath (every option, default, one-line
+// explanation), rendered from the descriptor table. Does NOT overwrite an
+// existing file's values destructively beyond (re)creating when absent.
 procedure WriteDefaultIniTemplate(const APath: string);
 
-// Convenience: if APath does not exist, write the template; otherwise
-// no-op. Returns True when a new file was created (so callers can
-// surface a 'created default config at X' status line).
+// If APath does not exist, write the template; otherwise no-op. Returns True
+// when a new file was created.
 function EnsureIniExists(const APath: string): Boolean;
 
 implementation
+
+uses
+  System.StrUtils;
 
 function DefaultOptions: TYadfOptions;
 begin
@@ -120,23 +158,328 @@ begin
   Result.Logging            := False  ;
 end; // function
 
+function ParseEncoding(const S: string; const ADefault: TYadfEncoding): TYadfEncoding;
+var
+  L: string;
+begin
+  L:= UpperCase(Trim(S));
+  if (L = 'UTF-8') or (L = 'UTF8') or (L = 'UTF-8-BOM') or (L = 'UTF8BOM') then
+    Result:= encUTF8BOM
+  else if (L = 'UTF-16') or (L = 'UTF16') or (L = 'UTF-16-BOM') or (L = 'UTF16BOM') or (L = 'UTF-16-LE') then
+    Result:= encUTF16BOM
+  else if (L = 'ANSI') then
+    Result:= encANSI
+  else
+    Result:= ADefault;
+end;
+
+function EncodingToStr(const E: TYadfEncoding): string;
+begin
+  case E of
+    encUTF8BOM : Result:= 'UTF-8';
+    encUTF16BOM: Result:= 'UTF-16';
+  else
+    Result:= 'ANSI';
+  end;
+end;
+
+function ReadBoolIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: Boolean): Boolean;
+var
+  S: string;
+begin
+  S:= LowerCase(Trim(AIni.ReadString(ASection, AIdent, '')));
+  if (S = '1') or (S = 'true' ) or (S = 'yes') or (S = 'on' ) then Exit(True );
+  if (S = '0') or (S = 'false') or (S = 'no' ) or (S = 'off') then Exit(False);
+  Result:= ADefault;
+end;
+
+var
+  GOptTable: TArray<TOptInfo>;
+
+function MakeOpt(const AIdent, AGroup, ACaption, AHint: string; AKind: TOptKind;
+  AAffects: Boolean; const AGet: TOptGetter; const ASet: TOptSetter): TOptInfo;
+begin
+  Result.Ident := AIdent;
+  Result.Group := AGroup;
+  Result.Caption := ACaption;
+  Result.Hint := AHint;
+  Result.Kind := AKind;
+  Result.AffectsPreview := AAffects;
+  Result.GetVal := AGet;
+  Result.SetVal := ASet;
+end;
+
+function OptionTable: TArray<TOptInfo>;
+begin
+  if Length(GOptTable) > 0 then Exit(GOptTable);
+  GOptTable := [
+    MakeOpt('MaxLen', 'Line length & indentation', 'Max line length',
+      'Maximum line length in columns. Long lines are reflowed when ReflowLines is true. Default: 180',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.MaxLen end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.MaxLen := V end),
+    MakeOpt('Indent', 'Line length & indentation', 'Indent step',
+      'Indentation step in spaces (each nesting level adds this many). Default: 2',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.Indent end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.Indent := V end),
+    MakeOpt('TabWidth', 'Line length & indentation', 'Tab width',
+      'Width assumed for an existing tab on input. YADF always emits spaces. Default: 4',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.TabWidth end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.TabWidth := V end),
+    MakeOpt('ReflowLines', 'Reflow & whitespace', 'Reflow long lines',
+      'Reflow lines that exceed MaxLen. When false, long lines are left as-is. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.ReflowLines end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.ReflowLines := V end),
+    MakeOpt('TrimTrailing', 'Reflow & whitespace', 'Trim trailing spaces',
+      'Trim trailing whitespace from every output line. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.TrimTrailing end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.TrimTrailing := V end),
+    MakeOpt('MaxBlankLines', 'Reflow & whitespace', 'Max blank lines',
+      'Maximum consecutive blank lines kept in output. Excess blanks are collapsed. Default: 1',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.MaxBlankLines end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.MaxBlankLines := V end),
+    MakeOpt('BlanksBeforeSection', 'Reflow & whitespace', 'Blanks before section',
+      'Blank lines forced before each interface section. 0 = no change. Default: 0',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.BlanksBeforeSection end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.BlanksBeforeSection := V end),
+    MakeOpt('BlanksBeforeMethod', 'Reflow & whitespace', 'Blanks before method',
+      'Blank lines forced before each method body. Default: 0',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.BlanksBeforeMethod end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.BlanksBeforeMethod := V end),
+    MakeOpt('BlanksBeforeType', 'Reflow & whitespace', 'Blanks before type',
+      'Blank lines forced before each top-level type declaration. Default: 0',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.BlanksBeforeType end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.BlanksBeforeType := V end),
+    MakeOpt('LowercaseKeywords', 'Casing', 'Lowercase keywords',
+      'Lowercase Pascal keywords (begin, end, if, then ...). Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.LowercaseKeywords end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.LowercaseKeywords := V end),
+    MakeOpt('UpperHexNumbers', 'Casing', 'Uppercase hex',
+      'Uppercase hex digits in numeric literals ($AB not $ab). Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.UpperHexNumbers end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.UpperHexNumbers := V end),
+    MakeOpt('UpperDirectives', 'Casing', 'Uppercase directives',
+      'Uppercase compiler-directive keywords ({$IFDEF}, {$R+} ...). Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.UpperDirectives end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.UpperDirectives := V end),
+    MakeOpt('FirstOccCasing', 'Casing', 'First-occurrence casing',
+      'Cascade casing from the first occurrence of each identifier to all later uses. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.FirstOccCasing end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.FirstOccCasing := V end),
+    MakeOpt('AssignNoSpaceBefore', 'Assignment & alignment', 'No space before :=',
+      'No space BEFORE := ("X:= 1" not "X := 1"). Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AssignNoSpaceBefore end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AssignNoSpaceBefore := V end),
+    MakeOpt('AssignSpaceAfter', 'Assignment & alignment', 'Space after :=',
+      'Single space AFTER := ("X:= 1" not "X:=1"). Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AssignSpaceAfter end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AssignSpaceAfter := V end),
+    MakeOpt('AlignConstEquals', 'Assignment & alignment', 'Align const =',
+      'Vertical-align = in const blocks. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AlignConstEquals end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AlignConstEquals := V end),
+    MakeOpt('AlignTypeColon', 'Assignment & alignment', 'Align type :',
+      'Vertical-align : in type / var / parameter blocks. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AlignTypeColon end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AlignTypeColon := V end),
+    MakeOpt('AlignSmartAssign', 'Assignment & alignment', 'Smart-align :=',
+      'Smart-align := across consecutive assignment statements. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AlignSmartAssign end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AlignSmartAssign := V end),
+    MakeOpt('AlignMaxColumn', 'Assignment & alignment', 'Align max column',
+      'Maximum column an alignment may push to. Past this, alignment is skipped. Default: 140',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AlignMaxColumn end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AlignMaxColumn := V end),
+    MakeOpt('AlignMatchingShapes', 'Assignment & alignment', 'Align matching shapes',
+      'Align matching "shapes" (record-init lines, repeated field declarations). Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AlignMatchingShapes end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AlignMatchingShapes := V end),
+    MakeOpt('AlignShapeMinAnchors', 'Assignment & alignment', 'Shape min anchors',
+      'Minimum anchors required before shape-alignment kicks in. Default: 3',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AlignShapeMinAnchors end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AlignShapeMinAnchors := V end),
+    MakeOpt('AlignCommentMaxShift', 'Assignment & alignment', 'Comment max shift',
+      'Maximum columns a trailing comment may shift when aligning to a shape. Default: 7',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AlignCommentMaxShift end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AlignCommentMaxShift := V end),
+    MakeOpt('UsesAlwaysBreak', 'Uses clauses', 'Break uses one-per-line',
+      'Always break uses clauses one unit per line. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.UsesAlwaysBreak end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.UsesAlwaysBreak := V end),
+    MakeOpt('SplitMultiVarDecls', 'Declarations', 'Split multi-var decls',
+      'Split "I, J: integer;" into one line per name so the type colons align. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.SplitMultiVarDecls end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.SplitMultiVarDecls := V end),
+    MakeOpt('AlignDeclSemicolons', 'Declarations', 'Align decl semicolons',
+      'After AlignTypeColon, align the trailing ; on consecutive declaration lines. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.AlignDeclSemicolons end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.AlignDeclSemicolons := V end),
+    MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label long blocks',
+      'Insert "// end of <Name>" markers after long blocks. Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.LabelLongBlocks end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.LabelLongBlocks := V end),
+    MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines',
+      'Minimum lines a block must span before LabelLongBlocks adds the marker. Default: 15',
+      okInt, True,
+      function(const O: TYadfOptions): Variant begin Result := O.LabelMinLines end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.LabelMinLines := V end),
+    MakeOpt('MarkUnclosed', 'Labels & markers', 'Mark unclosed blocks',
+      'Add a "// UNCLOSED" marker when an opening keyword has no matching close. Default: false',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.MarkUnclosed end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.MarkUnclosed := V end),
+    MakeOpt('Backup', 'File & CLI (no preview effect)', 'Backup before overwrite',
+      'Create a backup of every file before overwriting it. Default: false',
+      okBool, False,
+      function(const O: TYadfOptions): Variant begin Result := O.Backup end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.Backup := V end),
+    MakeOpt('BackupDir', 'File & CLI (no preview effect)', 'Backup directory',
+      'Directory for backups (used when Backup=true). Empty = next to original file. Default: empty',
+      okString, False,
+      function(const O: TYadfOptions): Variant begin Result := O.BackupDir end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.BackupDir := VarToStr(V) end),
+    MakeOpt('ResultDir', 'File & CLI (no preview effect)', 'Result directory',
+      'Directory for formatted output. Empty = format in place. Default: empty',
+      okString, False,
+      function(const O: TYadfOptions): Variant begin Result := O.ResultDir end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.ResultDir := VarToStr(V) end),
+    MakeOpt('Encoding', 'File & CLI (no preview effect)', 'Output encoding',
+      'File encoding to write: ANSI, UTF-8 (with BOM), or UTF-16 (with BOM). Default: ANSI',
+      okEnum, False,
+      function(const O: TYadfOptions): Variant begin Result := EncodingToStr(O.Encoding) end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.Encoding := ParseEncoding(VarToStr(V), encANSI) end),
+    MakeOpt('Logging', 'File & CLI (no preview effect)', 'Logging',
+      'Write a log file with details of every option resolved and file processed. Default: false',
+      okBool, False,
+      function(const O: TYadfOptions): Variant begin Result := O.Logging end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.Logging := V end)
+  ];
+  Result := GOptTable;
+end;
+
+function LoadOptionsFromIni(const APath: string): TYadfOptions;
+var
+  Ini: TIniFile;
+  T  : TArray<TOptInfo>;
+  i  : Integer;
+begin
+  Result := DefaultOptions;
+  if (APath = '') or (not FileExists(APath)) then Exit;
+  T := OptionTable;
+  Ini := TIniFile.Create(APath);
+  try
+    for i := 0 to High(T) do
+      case T[i].Kind of
+        okInt:
+          T[i].SetVal(Result, Ini.ReadInteger('Format', T[i].Ident, T[i].GetVal(Result)));
+        okBool:
+          T[i].SetVal(Result, ReadBoolIni(Ini, 'Format', T[i].Ident, T[i].GetVal(Result)));
+        okString, okEnum:
+          T[i].SetVal(Result, Ini.ReadString('Format', T[i].Ident, VarToStr(T[i].GetVal(Result))));
+      end;
+  finally
+    Ini.Free;
+  end;
+end;
+
+procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
+var
+  Ini : TIniFile;
+  T   : TArray<TOptInfo>;
+  i   : Integer;
+  iVal: Integer;
+  bVal: Boolean;
+begin
+  // Ensure the commented template exists first so WinAPI INI writes update
+  // values in place and leave the ';' comment lines intact.
+  EnsureIniExists(APath);
+  T := OptionTable;
+  Ini := TIniFile.Create(APath);
+  try
+    for i := 0 to High(T) do
+      case T[i].Kind of
+        okInt :
+          begin
+            iVal := T[i].GetVal(AOpts);
+            Ini.WriteInteger('Format', T[i].Ident, iVal);
+          end;
+        okBool:
+          begin
+            bVal := T[i].GetVal(AOpts);
+            Ini.WriteString('Format', T[i].Ident, IfThen(bVal, 'true', 'false'));
+          end;
+        okString, okEnum:
+            Ini.WriteString('Format', T[i].Ident, VarToStr(T[i].GetVal(AOpts)));
+      end;
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
+  end;
+end;
+
 function SharedAppDataIniPath: string;
 begin
   // TPath.GetHomePath on Windows = %APPDATA% (Roaming). Subdirectory
-  // is `YADF` (family name) -- both YADF.exe and YADFOT.bpl write/read
-  // here so they always converge on the same file.
+  // is `YADF` (family name) -- YADF.exe, YADFOT.bpl and YADFSetup.exe all
+  // write/read here so they always converge on the same file.
   Result:= TPath.Combine(
     TPath.Combine(TPath.GetHomePath, 'YADF'), 'yadf.ini');
+end;
+
+function DefaultValueStr(const AInfo: TOptInfo): string;
+var
+  D   : TYadfOptions;
+  bVal: Boolean;
+begin
+  D := DefaultOptions;
+  case AInfo.Kind of
+    okBool:
+      begin
+        bVal := AInfo.GetVal(D);
+        Result := IfThen(bVal, 'true', 'false');
+      end;
+  else
+    Result := VarToStr(AInfo.GetVal(D));
+  end;
 end;
 
 procedure WriteDefaultIniTemplate(const APath: string);
 var
   L      : TStringList;
   DirName: string;
+  T      : TArray<TOptInfo>;
+  i      : Integer;
+  CurGrp : string;
 begin
   DirName:= ExtractFilePath(APath);
   if (DirName <> '') and (not DirectoryExists(DirName)) then
     ForceDirectories(DirName);
+  T := OptionTable;
   L:= TStringList.Create;
   try
     L.Add('; YADF -- Yet Another Delphi Formatter');
@@ -145,164 +488,49 @@ begin
     L.Add('; CLI flags override these values; --ini <path> overrides location.');
     L.Add('');
     L.Add('[Format]');
-    L.Add('');
-    L.Add('; ---- Line length & indentation -------------------------------');
-    L.Add('');
-    L.Add('; Maximum line length in columns. Long lines are reflowed when');
-    L.Add('; ReflowLines is true.  Default: 180');
-    L.Add('MaxLen = 180');
-    L.Add('');
-    L.Add('; Indentation step in spaces (each nesting level adds this many).');
-    L.Add('; Default: 2');
-    L.Add('Indent = 2');
-    L.Add('');
-    L.Add('; Width assumed for an existing tab character on input. YADF');
-    L.Add('; always emits spaces; this only affects how tabs are counted');
-    L.Add('; while reading. Default: 4');
-    L.Add('TabWidth = 4');
-    L.Add('');
-    L.Add('; ---- Reflow & whitespace -------------------------------------');
-    L.Add('');
-    L.Add('; Reflow lines that exceed MaxLen. When false, long lines are');
-    L.Add('; left as-is. Default: true');
-    L.Add('ReflowLines = true');
-    L.Add('');
-    L.Add('; Trim trailing whitespace from every output line. Default: true');
-    L.Add('TrimTrailing = true');
-    L.Add('');
-    L.Add('; Maximum number of consecutive blank lines kept in output.');
-    L.Add('; Excess blanks are collapsed.  Default: 1');
-    L.Add('MaxBlankLines = 1');
-    L.Add('');
-    L.Add('; Blank lines forced before each interface section (uses,');
-    L.Add('; type, const, var, procedure, function...). 0 = no change.');
-    L.Add('; Default: 0');
-    L.Add('BlanksBeforeSection = 0');
-    L.Add('');
-    L.Add('; Blank lines forced before each method body. Default: 0');
-    L.Add('BlanksBeforeMethod = 0');
-    L.Add('');
-    L.Add('; Blank lines forced before each top-level type declaration.');
-    L.Add('; Default: 0');
-    L.Add('BlanksBeforeType = 0');
-    L.Add('');
-    L.Add('; ---- Casing --------------------------------------------------');
-    L.Add('');
-    L.Add('; Lowercase Pascal keywords (begin, end, if, then ...).');
-    L.Add('; Default: true');
-    L.Add('LowercaseKeywords = true');
-    L.Add('');
-    L.Add('; Uppercase hex digits in numeric literals ($AB instead of $ab).');
-    L.Add('; Default: true');
-    L.Add('UpperHexNumbers = true');
-    L.Add('');
-    L.Add('; Uppercase compiler-directive keywords ({$IFDEF}, {$R+}, ...).');
-    L.Add('; Default: true');
-    L.Add('UpperDirectives = true');
-    L.Add('');
-    L.Add('; Cascade casing from the FIRST occurrence of each identifier');
-    L.Add('; in the file to all later uses. Useful when the codebase has');
-    L.Add('; inconsistent casing.  Default: true');
-    L.Add('FirstOccCasing = true');
-    L.Add('');
-    L.Add('; ---- Assignment & alignment ----------------------------------');
-    L.Add('');
-    L.Add('; No space BEFORE `:=` ("X:= 1" not "X := 1"). Default: true');
-    L.Add('AssignNoSpaceBefore = true');
-    L.Add('');
-    L.Add('; Single space AFTER `:=` ("X:= 1" not "X:=1"). Default: true');
-    L.Add('AssignSpaceAfter = true');
-    L.Add('');
-    L.Add('; Vertical-align `=` in const blocks. Default: true');
-    L.Add('AlignConstEquals = true');
-    L.Add('');
-    L.Add('; Vertical-align `:` in type / var / parameter blocks.');
-    L.Add('; Default: true');
-    L.Add('AlignTypeColon = true');
-    L.Add('');
-    L.Add('; Smart-align `:=` across consecutive assignment statements.');
-    L.Add('; Default: true');
-    L.Add('AlignSmartAssign = true');
-    L.Add('');
-    L.Add('; Maximum column an alignment is allowed to push to. Past this,');
-    L.Add('; alignment is skipped so a single long identifier does not');
-    L.Add('; shove the whole group right.  Default: 140');
-    L.Add('AlignMaxColumn = 140');
-    L.Add('');
-    L.Add('; Align matching "shapes" (e.g. record-init lines, repeated');
-    L.Add('; record-field declarations). Default: true');
-    L.Add('AlignMatchingShapes = true');
-    L.Add('');
-    L.Add('; Minimum number of anchors required before shape-alignment');
-    L.Add('; kicks in. Default: 3');
-    L.Add('AlignShapeMinAnchors = 3');
-    L.Add('');
-    L.Add('; Maximum columns a trailing comment is allowed to shift when');
-    L.Add('; aligning to a shape.  Default: 7');
-    L.Add('AlignCommentMaxShift = 7');
-    L.Add('');
-    L.Add('; ---- Uses clauses --------------------------------------------');
-    L.Add('');
-    L.Add('; Always break `uses` clauses one unit per line. Default: true');
-    L.Add('UsesAlwaysBreak = true');
-    L.Add('');
-    L.Add('; ---- var / const / field declaration splitting --------------');
-    L.Add('');
-    L.Add('; Split combined declarations like `I, J: integer;` into one');
-    L.Add('; line per name (`I: integer;` + `J: integer;`) so the type');
-    L.Add('; colons align cleanly. Applies to top-level var/const blocks');
-    L.Add('; and record/class field declarations. Does NOT touch parameter');
-    L.Add('; lists inside `(...)` (that would change procedure signatures).');
-    L.Add('; Default: true');
-    L.Add('SplitMultiVarDecls = true');
-    L.Add('');
-    L.Add('; After AlignTypeColon, also align the trailing `;` on');
-    L.Add('; consecutive declaration lines so the right edge is flush.');
-    L.Add('; Only fires on lines that look like `name : type;` -- regular');
-    L.Add('; statement semicolons are not touched. Default: true');
-    L.Add('AlignDeclSemicolons = true');
-    L.Add('');
-    L.Add('; ---- Labels & markers ----------------------------------------');
-    L.Add('');
-    L.Add('; Insert "// end of <Name>" markers after long blocks.');
-    L.Add('; Default: true');
-    L.Add('LabelLongBlocks = true');
-    L.Add('');
-    L.Add('; Minimum lines a block must span before LabelLongBlocks adds');
-    L.Add('; the marker.  Default: 15');
-    L.Add('LabelMinLines = 15');
-    L.Add('');
-    L.Add('; Add a "// UNCLOSED" marker comment when an opening keyword');
-    L.Add('; (begin/case/try) has no matching close. Default: false');
-    L.Add('MarkUnclosed = false');
-    L.Add('');
-    L.Add('; ---- Backup & output -----------------------------------------');
-    L.Add('');
-    L.Add('; Create a backup of every file before overwriting it.');
-    L.Add('; Default: false');
-    L.Add('Backup = false');
-    L.Add('');
-    L.Add('; Directory for backups (used when Backup=true). Empty = next');
-    L.Add('; to original file with .bak.NN suffix. Default: empty');
-    L.Add('BackupDir =');
-    L.Add('');
-    L.Add('; Directory for formatted output (--result-dir style). Empty =');
-    L.Add('; format in place. Default: empty');
-    L.Add('ResultDir =');
-    L.Add('');
-    L.Add('; File encoding to write: ANSI, UTF-8 (with BOM), or UTF-16');
-    L.Add('; (with BOM). Default: ANSI');
-    L.Add('Encoding = ANSI');
-    L.Add('');
-    L.Add('; ---- Logging --------------------------------------------------');
-    L.Add('');
-    L.Add('; Write a log file alongside YADF.exe / YADFOT.bpl with details');
-    L.Add('; of every option resolved and every file processed.');
-    L.Add('; Default: false');
-    L.Add('Logging = false');
+    CurGrp := '';
+    for i := 0 to High(T) do
+    begin
+      if T[i].Group <> CurGrp then
+      begin
+        CurGrp := T[i].Group;
+        L.Add('');
+        L.Add('; ---- ' + CurGrp + ' ----');
+      end;
+      L.Add('');
+      L.Add('; ' + T[i].Hint);
+      L.Add(T[i].Ident + ' = ' + DefaultValueStr(T[i]));
+    end;
     L.SaveToFile(APath, TEncoding.ANSI);
   finally
     L.Free;
+  end;
+end;
+
+function OptionsHelpText: string;
+var
+  T     : TArray<TOptInfo>;
+  i     : Integer;
+  CurGrp: string;
+  SB    : TStringBuilder;
+begin
+  T := OptionTable;
+  SB := TStringBuilder.Create;
+  try
+    CurGrp := '';
+    for i := 0 to High(T) do
+    begin
+      if T[i].Group <> CurGrp then
+      begin
+        CurGrp := T[i].Group;
+        SB.AppendLine;
+        SB.AppendLine('  [' + CurGrp + ']');
+      end;
+      SB.AppendLine(Format('    %-22s %s', [T[i].Ident, T[i].Hint]));
+    end;
+    Result := SB.ToString;
+  finally
+    SB.Free;
   end;
 end;
 
@@ -315,10 +543,8 @@ begin
     WriteDefaultIniTemplate(APath);
     Result:= True;
   except
-    // Best-effort: a read-only location (Program Files, archive bit,
-    // permissions) is non-fatal -- the run still proceeds with the
-    // compiled defaults.  Logging this would require a logger here
-    // but we'd rather not pull one in; callers can detect by checking
+    // Best-effort: a read-only location is non-fatal -- the run still
+    // proceeds with the compiled defaults. Callers can detect by checking
     // FileExists(APath) post-call.
     Result:= False;
   end;
