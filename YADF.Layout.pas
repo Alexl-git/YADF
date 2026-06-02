@@ -1638,6 +1638,28 @@ var
   Target  : Integer;
   WorkCols: TArray<TArray<Integer>>;
   WorkLine: TArray<string>;
+
+  // A line whose structural skeleton starts with a block keyword (end,
+  // begin, try, finally, ...) is NOT an alignment peer. ComputeLineShape
+  // treats those keywords as anchors, so two `end;` lines at different
+  // nesting depths would otherwise count as a matching shape and get their
+  // keyword column aligned -- pulling the indented one into column 0.
+  function StructuralLead(K: TptTokenKind): Boolean;
+  begin
+    Result:= K in [ptEnd, ptBegin, ptTry, ptFinally, ptExcept, ptElse,
+                   ptRepeat, ptUntil, ptCase, ptRecord, ptClass, ptObject,
+                   ptInterface, ptInitialization, ptFinalization, ptAsm];
+  end;
+
+  function Eligible(const AInfo: TLineShape): Boolean;
+  begin
+    Result:= AInfo.HasAssign or
+      (AMatchShapes and (Length(AInfo.Shape) >= AMinAnchors)
+       and (Length(AInfo.Shape) > 0)
+       and (AInfo.Shape[0] <> ptColon)
+       and not StructuralLead(AInfo.Shape[0]));
+  end;
+
 begin
   Lines:= TStringList.Create;
   try
@@ -1669,7 +1691,7 @@ begin
         // re-compact per sub-shape shatters one uniform field list
         // into staggered columns. Leave declaration colons to
         // AlignByAnchor by treating them as shape-ineligible.
-        if not (Info[i].HasAssign or (AMatchShapes and (Length(Info[i].Shape) >= AMinAnchors) and (Length(Info[i].Shape) > 0) and (Info[i].Shape[0] <> ptColon))) then
+        if not Eligible(Info[i]) then
         begin
           Out_.Append(Lines[i]);
           Out_.Append(#13#10);
@@ -1677,7 +1699,7 @@ begin
           Continue;
         end;
         j:= i + 1;
-        while (j < Lines.Count) and (Info[j].HasAssign or (AMatchShapes and (Length(Info[j].Shape) >= AMinAnchors) and (Length(Info[j].Shape) > 0) and (Info[j].Shape[0] <> ptColon)))
+        while (j < Lines.Count) and Eligible(Info[j])
           and ShapesMatch(Info[i].Shape, Info[j].Shape) do Inc(j);
         if (j - i >= 2) and (Length(Info[i].Shape) > 0) then
         begin
