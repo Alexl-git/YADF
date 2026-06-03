@@ -300,8 +300,10 @@ begin
       okBool, True,
       function(const O: TYadfOptions): Variant begin Result := O.AlignTypeColon end,
       procedure(var O: TYadfOptions; const V: Variant) begin O.AlignTypeColon := V end),
-    MakeOpt('AlignSmartAssign', 'Assignment & alignment', 'Smart-align :=',
-      'Smart-align := across consecutive assignment statements. Default: true',
+    MakeOpt('AlignSmartAssign', 'Assignment & alignment', 'Smart-align',
+      'Master switch for the shape-aware alignment pass: aligns := runs and ' +
+      '(when "Align matching shapes" is on) any matching structural shapes ' +
+      'across consecutive lines. Default: true',
       okBool, True,
       function(const O: TYadfOptions): Variant begin Result := O.AlignSmartAssign end,
       procedure(var O: TYadfOptions; const V: Variant) begin O.AlignSmartAssign := V end),
