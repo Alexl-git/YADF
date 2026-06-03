@@ -66,9 +66,34 @@ implementation
 
 {$I YADF.Version.inc}
 
-procedure TfrmMain.FormCreate(Sender: TObject);
+// Read the FileVersion stamped into THIS running exe (so the title bar always
+// reflects the actual binary -- the YADF.Version.inc constant is only a
+// fallback if the version resource is missing).
+function GetExeVersion: string;
+var
+  Sz, H : DWORD;
+  Buf   : TBytes;
+  Fixed : PVSFixedFileInfo;
+  Len   : UINT;
 begin
-  Caption := 'YADFSetup ' + YADF_VERSION + '  -  Settings | Source | Result';
+  Result := '';
+  Sz := GetFileVersionInfoSize(PChar(Application.ExeName), H);
+  if Sz = 0 then Exit;
+  SetLength(Buf, Sz);
+  if GetFileVersionInfo(PChar(Application.ExeName), 0, Sz, Pointer(Buf)) then
+    if VerQueryValue(Pointer(Buf), '\', Pointer(Fixed), Len) and (Fixed <> nil) then
+      Result := Format('%d.%d.%d.%d',
+        [HiWord(Fixed.dwFileVersionMS), LoWord(Fixed.dwFileVersionMS),
+         HiWord(Fixed.dwFileVersionLS), LoWord(Fixed.dwFileVersionLS)]);
+end;
+
+procedure TfrmMain.FormCreate(Sender: TObject);
+var
+  Ver: string;
+begin
+  Ver := GetExeVersion;
+  if Ver = '' then Ver := YADF_VERSION;
+  Caption := 'YADFSetup ' + Ver + '  -  Settings | Source | Result';
   FIniPath := SharedAppDataIniPath;
   EnsureIniExists(FIniPath);
   FOpts := LoadOptionsFromIni(FIniPath);
