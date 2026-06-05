@@ -56,6 +56,7 @@ type
     UsesAlwaysBreak    : Boolean;
     SplitMultiVarDecls : Boolean;
     AlignDeclSemicolons: Boolean;
+    Delphi10Compat     : Boolean;
     Backup             : Boolean;
     BackupDir          : string;
     ResultDir          : string;
@@ -153,6 +154,7 @@ begin
   Result.UsesAlwaysBreak    := True   ;
   Result.SplitMultiVarDecls := True   ;
   Result.AlignDeclSemicolons:= True   ;
+  Result.Delphi10Compat     := False  ;
   Result.Backup             := False  ;
   Result.BackupDir          := ''     ;
   Result.ResultDir          := ''     ;
@@ -348,6 +350,11 @@ begin
       okBool, True,
       function(const O: TYadfOptions): Variant begin Result := O.AlignDeclSemicolons end,
       procedure(var O: TYadfOptions; const V: Variant) begin O.AlignDeclSemicolons := V end),
+    MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Downgrade inline vars',
+      'Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest get a // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain. Default: false',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.Delphi10Compat end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.Delphi10Compat := V end),
     MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label long blocks',
       'Insert "// end of <Name>" markers after long blocks. Default: true',
       okBool, True,

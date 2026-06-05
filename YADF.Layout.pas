@@ -3087,6 +3087,16 @@ begin
     Result:= StringReplace(Result, MlSentinel(i), AMap[i], [rfReplaceAll]);
 end; // function
 
+// Delphi 10.2.3 compatibility: hoist inline `var` declarations into a classic
+// top-of-routine `var` block so the code builds on pre-10.3 compilers. A
+// self-contained token->token pass run before ParseGroups (so it cannot
+// invalidate the group tree). Implemented incrementally across the feature's
+// tasks; currently a no-op.
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);
+begin
+  // no-op until the hoisting tasks land
+end; // procedure
+
 // ===== FormatSource =====
 // Top-level orchestrator. Runs the pipeline described in the unit
 // header comment. The first stage is token-level (capitalisation,
@@ -3665,6 +3675,10 @@ begin
     NormalizeAssignSpacing(Tokens, AOpts);
     if AOpts.SpaceAroundOperators then
       NormalizeOperatorSpacing(Tokens, AOpts);
+    // Delphi 10 compatibility transform (opt-in): hoist inline vars. Runs before
+    // ParseGroups so it can mutate the token list freely.
+    if AOpts.Delphi10Compat then
+      DowngradeInlineVars(Tokens, AOpts);
     // Shield multi-line string-literal tokens before structure/emission so
     // every later pass sees a one-line atom; restored verbatim at Stage 5.
     ShieldMultilineStringTokens(Tokens, MLMap);
