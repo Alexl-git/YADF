@@ -3040,6 +3040,53 @@ begin
   Result:= 'begin';
 end; // function
 
+// Multi-line ('''...''') string literals must survive Stage 3/4 byte-for-byte:
+// their interior is the string's VALUE, not code, so re-indent/reflow/align
+// must never touch it. Worse, ReindentByDepth's depth tracker would otherwise
+// scan a literal's interior lines for begin/end and corrupt the indentation of
+// real code that follows. ShieldMultilineStringTokens replaces each such
+// literal TOKEN with a single-line sentinel (an ordinary one-line string
+// literal, so every line-based pass treats it as one inert atom);
+// UnshieldMultilineStrings puts the originals back verbatim as the very last
+// step. We shield at the TOKEN level -- the lexer has already found the exact
+// literal boundaries (including lone apostrophes inside a '''...''' literal),
+// so there is no need to re-scan the rendered text with a fragile quote
+// matcher. Every render path (WalkGroup, EmitTokenRange, InlineRenderRange)
+// reads Token.Text, so swapping the text shields all of them at once.
+function MlSentinel(AIdx: Integer): string;
+begin
+  Result:= '''__YADF_ML_' + IntToStr(AIdx) + '__''';
+end;
+
+procedure ShieldMultilineStringTokens(const ATokens: TTokenList; const AMap: TStringList);
+var
+  i: Integer;
+  T: TToken;
+begin
+  AMap.Clear;
+  for i:= 0 to ATokens.Count - 1 do
+  begin
+    T:= ATokens[i];
+    if (T.Kind in [ptStringConst, ptStringDQConst]) and
+       ((Pos(#10, T.Text) > 0) or (Pos(#13, T.Text) > 0)) then
+    begin
+      AMap.Add(T.Text);
+      T.Text:= MlSentinel(AMap.Count - 1);
+      ATokens[i]:= T;
+    end;
+  end;
+end; // procedure
+
+function UnshieldMultilineStrings(const S: string; const AMap: TStringList): string;
+var
+  i: Integer;
+begin
+  Result:= S;
+  // Reverse order so sentinel N can never be a prefix-match inside sentinel NN.
+  for i:= AMap.Count - 1 downto 0 do
+    Result:= StringReplace(Result, MlSentinel(i), AMap[i], [rfReplaceAll]);
+end; // function
+
 // ===== FormatSource =====
 // Top-level orchestrator. Runs the pipeline described in the unit
 // header comment. The first stage is token-level (capitalisation,
@@ -3073,6 +3120,7 @@ var
   Root        : TGroup;
   Sb          : TStringBuilder;
   Tokens      : TTokenList;
+  MLMap       : TStringList;
 
   // Updates CurCol/CurLine after every text emission. Tabs are
   // counted as TabWidth columns; CR is ignored (column reset happens
@@ -3610,12 +3658,16 @@ var
 // The code below is a literal rendering of those stages.
 begin
   Tokens:= LoadTokensFromString(ASource);
+  MLMap := TStringList.Create;
   try
     // Stage 1: token-level passes (mutate Tokens in place).
     ApplyCapitalization(Tokens, AOpts);
     NormalizeAssignSpacing(Tokens, AOpts);
     if AOpts.SpaceAroundOperators then
       NormalizeOperatorSpacing(Tokens, AOpts);
+    // Shield multi-line string-literal tokens before structure/emission so
+    // every later pass sees a one-line atom; restored verbatim at Stage 5.
+    ShieldMultilineStringTokens(Tokens, MLMap);
     Root:= ParseGroups(Tokens);
     try
       Sb:= TStringBuilder.Create;
@@ -3684,6 +3736,9 @@ begin
         if AOpts.AlignSmartAssign then
           Result:= SmartAlignAssignments(Result, AOpts.AlignMaxColumn, AOpts.AlignMatchingShapes, AOpts.AlignShapeMinAnchors,
             AOpts.AlignCommentMaxShift);
+
+        // Stage 5: restore shielded multi-line string literals verbatim.
+        Result:= UnshieldMultilineStrings(Result, MLMap);
       finally
         Sb.Free;
       end; // try
@@ -3692,6 +3747,7 @@ begin
     end; // try
   finally
     Tokens.Free;
+    MLMap.Free;
   end; // try
 end; // begin
 
