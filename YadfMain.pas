@@ -773,6 +773,7 @@ begin
   WriteStdoutLine('Configuration:');
   WriteStdoutLine('  --ini <file>          alternate INI file (default: yadf.ini, searched up from the exe folder)');
   WriteStdoutLine(Format('  --log / --no-log      write yadf-startup.log next to the exe + OutputDebugString  [Logging=%s]', [OnOff(AOpts.Logging)]));
+  WriteStdoutLine(Format('  --d10 / --no-d10      downgrade inline vars for Delphi 10.2.3 (best-effort)        [Delphi10Compat=%s]', [OnOff(AOpts.Delphi10Compat)]));
   WriteStdoutLine('');
   WriteStdoutLine('Layout (current values in []):');
   WriteStdoutLine(Format('  --max-len N           max line length                                  [%d]', [AOpts.MaxLen]));
@@ -1040,6 +1041,16 @@ begin
       else if AArgs[i] = '--stdout' then
       begin
         AStdoutMode:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--d10' then
+      begin
+        AOpts.Delphi10Compat:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-d10' then
+      begin
+        AOpts.Delphi10Compat:= False;
         Inc(i);
       end
       else if AArgs[i] = '--encoding' then
