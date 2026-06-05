@@ -1,0 +1,17 @@
+unit d10_infer;
+
+interface
+
+implementation
+
+procedure Demo;
+begin
+  var N := 5;
+  var R := 1.5;
+  var S := 'hi';
+  var B := True;
+  var L := TStringList.Create;
+  WriteLn(N, R, S, B, L.Count);
+end;
+
+end.

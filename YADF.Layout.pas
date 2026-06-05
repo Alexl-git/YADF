@@ -3087,6 +3087,495 @@ begin
     Result:= StringReplace(Result, MlSentinel(i), AMap[i], [rfReplaceAll]);
 end; // function
 
+// Delphi 10.2.3 compatibility: hoist inline `var` declarations into a classic
+// top-of-routine `var` block so the code builds on pre-10.3 compilers. A
+// self-contained token->token pass run before ParseGroups (so it cannot
+// invalidate the group tree). Implemented incrementally across the feature's
+// tasks; currently a no-op.
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);
+type
+  TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
+  TInlineRec = record
+    Kind     : TInlineKind;
+    NameIdx  : Integer;   // identifier token (the var name)
+    AssignIdx: Integer;   // ptAssign index (statement init forms; else -1)
+    SemiIdx  : Integer;   // terminating ptSemiColon (statement forms; else -1)
+    Sep      : Integer;   // for-var: resume index (the `:=` or `in` token)
+    SepIsIn  : Boolean;   // for-var: True when Sep is `in`
+    DeclLines: TArray<string>; // hoisted 'Name: Type;' lines (one per name)
+    Names    : TArray<string>; // hoisted names (parallel to DeclLines)
+    TypeStr  : string;    // shared type of the hoisted names (collision check)
+    Comment  : string;    // fallback: trailing '// TODO -oYADF ...' text
+  end;
+var
+  Root     : TGroup;
+  Outp     : TTokenList;
+  Inlines  : TDictionary<Integer, TInlineRec>;        // key = inline `var` token index
+  BodyDecls: TObjectDictionary<Integer, TStringList>; // key = routine `begin` token index
+  RNames   : TDictionary<string, string>;             // per-routine name -> hoisted type
+  BlkAnon  : TList<Boolean>;                           // open blocks in body; True = anon-method body
+  G        : TGroup;
+  i, k, pv, AnonCount: Integer;
+  PendingAnon, IsAnon: Boolean;
+  Ki       : TptTokenKind;
+  Rec      : TInlineRec;
+
+  function NextSig(AFrom: Integer): Integer;
+  begin
+    Result:= AFrom;
+    while (Result < ATokens.Count) and
+          (ATokens[Result].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
+      Inc(Result);
+  end;
+
+  function PrevSig(AFrom: Integer): Integer;
+  begin
+    Result:= AFrom;
+    while (Result >= 0) and
+          (ATokens[Result].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
+      Dec(Result);
+  end;
+
+  // True when the statement ending at ASemi already carries a `// ... YADF ...`
+  // marker -- i.e. we flagged it on a previous run. Keeps the pass idempotent and
+  // stops us re-touching a statement the user was asked to resolve manually.
+  function AlreadyFlagged(ASemi: Integer): Boolean;
+  var
+    nx: Integer;
+  begin
+    nx:= NextSig(ASemi + 1);
+    Result:= (nx < ATokens.Count) and (ATokens[nx].Kind = ptSlashesComment) and
+             (Pos('YADF', ATokens[nx].Text) > 0);
+  end;
+
+  function EnsureBodyDecls(ABeginIdx: Integer): TStringList;
+  begin
+    if not BodyDecls.ContainsKey(ABeginIdx) then
+      BodyDecls.Add(ABeginIdx, TStringList.Create);
+    Result:= BodyDecls[ABeginIdx];
+  end;
+
+  function MakeTok(AKind: TptTokenKind; const AText: string): TToken;
+  begin
+    Result.Kind:= AKind; Result.ExID:= ptUnknown; Result.Text:= AText;
+    Result.Pre := ''   ; Result.Line:= 0        ; Result.Col := 0;
+  end;
+
+  // Terminating ptSemiColon for a statement scanned from AFrom, tracking () and
+  // [] depth. Reports the first top-level ptAssign into AAssign (-1 if none).
+  function FindStmtEnd(AFrom: Integer; out AAssign: Integer): Integer;
+  var
+    j, depth: Integer;
+  begin
+    AAssign:= -1; Result:= -1; depth:= 0; j:= AFrom;
+    while j < ATokens.Count do
+    begin
+      case ATokens[j].Kind of
+        ptRoundOpen, ptSquareOpen  : Inc(depth);
+        ptRoundClose, ptSquareClose: if depth > 0 then Dec(depth);
+        ptAssign                   : if (depth = 0) and (AAssign < 0) then AAssign:= j;
+        ptSemiColon                : if depth = 0 then begin Result:= j; Exit; end;
+      end;
+      Inc(j);
+    end;
+  end;
+
+  // Single-name, explicitly-typed inline var at ptVar index AVar.
+  function TryParseExplicit(AVar: Integer; out ARec: TInlineRec): Boolean;
+  var
+    firstName, p, ci, ao, semi, typeEnd, n: Integer;
+    ty: string;
+    names: TArray<string>;
+  begin
+    Result:= False;
+    firstName:= NextSig(AVar + 1);
+    if (firstName >= ATokens.Count) or (ATokens[firstName].Kind <> ptIdentifier) then Exit;
+    SetLength(names, 1); names[0]:= ATokens[firstName].Text;
+    // Collect any comma-separated additional names (`var A, B: T;`).
+    p:= NextSig(firstName + 1);
+    while (p < ATokens.Count) and (ATokens[p].Kind = ptComma) do
+    begin
+      p:= NextSig(p + 1);
+      if (p >= ATokens.Count) or (ATokens[p].Kind <> ptIdentifier) then Exit;
+      SetLength(names, Length(names) + 1); names[High(names)]:= ATokens[p].Text;
+      p:= NextSig(p + 1);
+    end;
+    ci:= p;
+    if (ci >= ATokens.Count) or (ATokens[ci].Kind <> ptColon) then Exit; // inferred types: later
+    semi:= FindStmtEnd(ci + 1, ao);
+    if semi < 0 then Exit;
+    if AlreadyFlagged(semi) then Exit; // left for the user on a previous run
+    // A multi-name inline var cannot carry an initializer, so init applies only to
+    // the single-name case.
+    if (Length(names) = 1) and (ao >= 0) and (ao < semi) then
+    begin
+      typeEnd:= ao - 1; ARec.Kind:= ikExplicitInit; ARec.AssignIdx:= ao;
+    end
+    else
+    begin
+      typeEnd:= semi - 1; ARec.Kind:= ikExplicitNoInit; ARec.AssignIdx:= -1;
+    end;
+    ty:= Trim(InlineRenderRange(ATokens, ci + 1, typeEnd));
+    if ty = '' then Exit;
+    SetLength(ARec.DeclLines, Length(names));
+    for n:= 0 to High(names) do ARec.DeclLines[n]:= names[n] + ': ' + ty + ';';
+    ARec.Names   := names;
+    ARec.TypeStr := ty;
+    ARec.NameIdx := firstName;
+    ARec.SemiIdx := semi;
+    ARec.Sep     := -1;
+    ARec.SepIsIn := False;
+    Result:= True;
+  end;
+
+  // First `:=` or `in` at depth 0 from AFrom; bounded by `do`/`;`. The loop
+  // header separator that ends a `for var Name: Type ...` declaration.
+  function FindForSep(AFrom: Integer; out ASep: Integer): Boolean;
+  var
+    j, depth: Integer;
+  begin
+    Result:= False; ASep:= -1; depth:= 0; j:= AFrom;
+    while j < ATokens.Count do
+    begin
+      case ATokens[j].Kind of
+        ptRoundOpen, ptSquareOpen  : Inc(depth);
+        ptRoundClose, ptSquareClose: if depth > 0 then Dec(depth);
+        ptAssign, ptIn             : if depth = 0 then begin ASep:= j; Exit(True); end;
+        ptSemiColon, ptDo          : if depth = 0 then Exit(False);
+      end;
+      Inc(j);
+    end;
+  end;
+
+  // Single-name, explicitly-typed `for var Name: Type := ...` / `... in ...`.
+  function TryParseForExplicit(AVar: Integer; out ARec: TInlineRec): Boolean;
+  var
+    ni, ci, sep: Integer;
+    ty: string;
+  begin
+    Result:= False;
+    ni:= NextSig(AVar + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    ci:= NextSig(ni + 1);
+    if (ci >= ATokens.Count) or (ATokens[ci].Kind <> ptColon) then Exit; // explicit only
+    if not FindForSep(ci + 1, sep) then Exit;
+    ty:= Trim(InlineRenderRange(ATokens, ci + 1, sep - 1));
+    if ty = '' then Exit;
+    ARec.Kind    := ikForExplicit;
+    ARec.NameIdx := ni;
+    ARec.AssignIdx:= -1;
+    ARec.SemiIdx := -1;
+    ARec.Sep     := sep;
+    ARec.SepIsIn := ATokens[sep].Kind = ptIn;
+    SetLength(ARec.DeclLines, 1);
+    ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty + ';';
+    SetLength(ARec.Names, 1);
+    ARec.Names[0]:= ATokens[ni].Text;
+    ARec.TypeStr := ty;
+    Result:= True;
+  end;
+
+  // Literal-only type inference over an expression token span. Returns '' when
+  // the type cannot be safely determined (-> fallback). Deliberately conservative:
+  // no typecast inference (Ident(expr) is indistinguishable from a function call).
+  function InferLiteralType(AFrom, ATo: Integer): string;
+  var
+    s, e, j, dotIdx: Integer;
+  begin
+    Result:= '';
+    s:= NextSig(AFrom);
+    e:= ATo;
+    while (e >= s) and (ATokens[e].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do Dec(e);
+    if (s > e) or (s >= ATokens.Count) then Exit;
+    if s = e then
+    begin
+      case ATokens[s].Kind of
+        ptIntegerConst: Exit('Integer');
+        ptFloat       : Exit('Extended');
+        ptStringConst, ptStringDQConst: Exit('string');
+      end;
+      if SameText(ATokens[s].Text, 'True') or SameText(ATokens[s].Text, 'False') then
+        Exit('Boolean');
+      Exit;
+    end;
+    // Constructor call: <type-chain> . Create [ ( ... ) ] -> the type chain.
+    for j:= s to e do
+      if (ATokens[j].Kind = ptIdentifier) and SameText(ATokens[j].Text, 'Create') then
+      begin
+        dotIdx:= PrevSig(j - 1);
+        if (dotIdx >= s) and (ATokens[dotIdx].Kind = ptPoint) then
+        begin
+          Result:= Trim(InlineRenderRange(ATokens, s, dotIdx - 1));
+          if Result <> '' then Exit;
+        end;
+      end;
+  end;
+
+  // `var Name := Expr;` with no explicit type -- infer from a literal initializer.
+  // Reuses the explicit-init rewrite (Name := Expr) but annotates the hoisted
+  // declaration with a verify comment quoting the original line.
+  function TryParseInferred(AVar: Integer; out ARec: TInlineRec): Boolean;
+  var
+    ni, ao, semi, dummy: Integer;
+    ty, origLine: string;
+  begin
+    Result:= False;
+    ni:= NextSig(AVar + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    ao:= NextSig(ni + 1);
+    if (ao >= ATokens.Count) or (ATokens[ao].Kind <> ptAssign) then Exit;
+    semi:= FindStmtEnd(ao + 1, dummy);
+    if semi < 0 then Exit;
+    origLine:= Trim(InlineRenderRange(ATokens, AVar, semi));
+    ARec.NameIdx := ni;
+    ARec.AssignIdx:= ao;
+    ARec.SemiIdx := semi;
+    ARec.Sep     := -1;
+    ARec.SepIsIn := False;
+    ty:= InferLiteralType(ao + 1, semi - 1);
+    if ty <> '' then
+    begin
+      ARec.Kind:= ikExplicitInit;
+      SetLength(ARec.DeclLines, 1);
+      ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty +
+        '; // YADF Delphi10: inferred type, verify -- was: ' + origLine;
+      SetLength(ARec.Names, 1);
+      ARec.Names[0]:= ATokens[ni].Text;
+      ARec.TypeStr := ty;
+    end
+    else
+    begin
+      // Not inferable: leave the inline var in place + a TODO marker -- unless it
+      // was already flagged on a previous run (keeps the pass idempotent).
+      if AlreadyFlagged(semi) then Exit;
+      ARec.Kind:= ikFallbackTodo;
+      SetLength(ARec.DeclLines, 0);
+      SetLength(ARec.Names, 0);
+      ARec.TypeStr := '';
+      ARec.Comment:= ' // TODO -oYADF : add an explicit type to hoist for Delphi 10 -- was: ' + origLine;
+    end;
+    Result:= True;
+  end;
+
+  // Record an inline-var action, applying the per-routine name-collision guard:
+  // a name already hoisted with the SAME type drops its duplicate declaration; a
+  // name hoisted with a DIFFERENT type converts a statement var to a leave-in-place
+  // TODO (we will not silently shadow/retype). ABeginIdx = routine begin index,
+  // AVarIdx = the inline `var` token index (the Inlines key).
+  procedure CommitInline(ABeginIdx, AVarIdx: Integer; var ARec: TInlineRec);
+  var
+    m: Integer;
+    collide: Boolean;
+    keep: TArray<string>;
+    nm, origLine, cname: string;
+  begin
+    collide:= False;
+    SetLength(keep, 0);
+    for m:= 0 to High(ARec.Names) do
+    begin
+      nm:= ARec.Names[m];
+      if RNames.ContainsKey(nm) then
+      begin
+        if not SameText(RNames[nm], ARec.TypeStr) then collide:= True;
+        // same-type duplicate: omit the second declaration, keep the assignment
+      end
+      else
+      begin
+        RNames.Add(nm, ARec.TypeStr);
+        SetLength(keep, Length(keep) + 1);
+        keep[High(keep)]:= ARec.DeclLines[m];
+      end;
+    end;
+    if collide and (ARec.Kind in [ikExplicitInit, ikExplicitNoInit]) then
+    begin
+      origLine:= Trim(InlineRenderRange(ATokens, AVarIdx, ARec.SemiIdx));
+      cname:= '';
+      for m:= 0 to High(ARec.Names) do
+        if RNames.ContainsKey(ARec.Names[m]) and
+           not SameText(RNames[ARec.Names[m]], ARec.TypeStr) then
+        begin cname:= ARec.Names[m]; Break; end;
+      ARec.Kind:= ikFallbackTodo;
+      ARec.Comment:= ' // TODO -oYADF : name ''' + cname +
+        ''' already hoisted with a different type; resolve manually for Delphi 10 -- was: ' + origLine;
+      Inlines.Add(AVarIdx, ARec);
+      Exit;
+    end;
+    Inlines.Add(AVarIdx, ARec);
+    for m:= 0 to High(keep) do EnsureBodyDecls(ABeginIdx).Add(keep[m]);
+  end;
+
+  // An inline var inside an anonymous method body: we will not hoist it (its
+  // scope is the anon method, not the enclosing routine). Leave it in place +
+  // a TODO. Statement vars only; for-vars/already-flagged are left untouched.
+  function TryAnonFallback(AVar: Integer; out ARec: TInlineRec): Boolean;
+  var
+    ni, semi, dummy: Integer;
+    origLine: string;
+  begin
+    Result:= False;
+    ni:= NextSig(AVar + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    semi:= FindStmtEnd(AVar + 1, dummy);
+    if semi < 0 then Exit;
+    if AlreadyFlagged(semi) then Exit;
+    origLine:= Trim(InlineRenderRange(ATokens, AVar, semi));
+    ARec.Kind    := ikFallbackTodo;
+    ARec.NameIdx := ni;
+    ARec.AssignIdx:= -1;
+    ARec.SemiIdx := semi;
+    ARec.Sep     := -1;
+    ARec.SepIsIn := False;
+    SetLength(ARec.DeclLines, 0);
+    SetLength(ARec.Names, 0);
+    ARec.TypeStr := '';
+    ARec.Comment := ' // TODO -oYADF : inline var inside an anonymous method is not auto-hoisted for Delphi 10 -- was: ' + origLine;
+    Result:= True;
+  end;
+
+begin
+  Root     := ParseGroups(ATokens);
+  Inlines  := TDictionary<Integer, TInlineRec>.Create;
+  BodyDecls:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
+  RNames   := TDictionary<string, string>.Create;
+  BlkAnon  := TList<Boolean>.Create;
+  try
+    // 1) Analyse. A routine body is a gkBlock opened by `begin` that is a direct
+    //    child of Root (top-level proc/func/method bodies AND nested-routine
+    //    bodies all sit at Root; statement blocks nest deeper). Scan each body's
+    //    token range for inline `var` statements.
+    for G in Root.Children do
+    begin
+      if (G.Kind <> gkBlock) or (G.OpenerKind <> ptBegin) then Continue;
+      if G.CloseIdx <= G.OpenIdx then Continue;
+      RNames.Clear; // names are scoped per routine
+      BlkAnon.Clear;
+      AnonCount  := 0;
+      PendingAnon:= False;
+      i:= G.OpenIdx + 1;
+      while i < G.CloseIdx do
+      begin
+        Ki:= ATokens[i].Kind;
+        // A procedure/function keyword inside a body opens an anonymous method
+        // (named nested routines live in the decl section, before `begin`).
+        if Ki in [ptProcedure, ptFunction] then
+        begin PendingAnon:= True; Inc(i); Continue; end;
+        if Ki in [ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject] then
+        begin
+          IsAnon:= PendingAnon and (Ki = ptBegin);
+          BlkAnon.Add(IsAnon);
+          if IsAnon then Inc(AnonCount);
+          PendingAnon:= False;
+          Inc(i); Continue;
+        end;
+        if Ki = ptEnd then
+        begin
+          if BlkAnon.Count > 0 then
+          begin
+            if BlkAnon[BlkAnon.Count - 1] then Dec(AnonCount);
+            BlkAnon.Delete(BlkAnon.Count - 1);
+          end;
+          Inc(i); Continue;
+        end;
+        if Ki = ptVar then
+        begin
+          // A `var` in an anon method's own decl section (seen before its begin)
+          // is a classic var section, not an inline var -- leave it.
+          if PendingAnon then begin Inc(i); Continue; end;
+          pv:= PrevSig(i - 1);
+          if AnonCount > 0 then
+          begin
+            if ((pv < 0) or (ATokens[pv].Kind <> ptFor)) and TryAnonFallback(i, Rec) then
+            begin
+              Inlines.Add(i, Rec);
+              i:= Rec.SemiIdx + 1;
+              Continue;
+            end;
+          end
+          else if (pv >= 0) and (ATokens[pv].Kind = ptFor) then
+          begin
+            if TryParseForExplicit(i, Rec) then
+            begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.Sep + 1; Continue; end;
+          end
+          else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
+          begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.SemiIdx + 1; Continue; end;
+        end;
+        Inc(i);
+      end;
+    end;
+
+    if Inlines.Count = 0 then Exit;
+
+    // 2) Rebuild the token list in one forward pass.
+    Outp:= TTokenList.Create;
+    try
+      i:= 0;
+      while i < ATokens.Count do
+      begin
+        // Inject the hoisted `var` block immediately before a routine's `begin`.
+        if BodyDecls.ContainsKey(i) then
+        begin
+          Outp.Add(MakeTok(ptVar, 'var'));
+          Outp.Add(MakeTok(ptCRLF, #13#10));
+          for k:= 0 to BodyDecls[i].Count - 1 do
+          begin
+            Outp.Add(MakeTok(ptIdentifier, BodyDecls[i][k]));
+            Outp.Add(MakeTok(ptCRLF, #13#10));
+          end;
+        end;
+
+        if Inlines.TryGetValue(i, Rec) then
+        begin
+          case Rec.Kind of
+            ikExplicitInit:
+              begin
+                Outp.Add(ATokens[Rec.NameIdx]);                 // Name
+                if not AOpts.AssignNoSpaceBefore then
+                  Outp.Add(MakeTok(ptSpace, ' '));
+                for k:= Rec.AssignIdx to Rec.SemiIdx do
+                  Outp.Add(ATokens[k]);                         // := Expr ;
+                i:= Rec.SemiIdx + 1;
+              end;
+            ikExplicitNoInit:                                   // drop the whole line
+              begin
+                i:= Rec.SemiIdx + 1;
+                if (i < ATokens.Count) and (ATokens[i].Kind in [ptCRLF, ptCRLFCo]) then
+                  Inc(i);
+              end;
+            ikForExplicit:
+              begin
+                Outp.Add(ATokens[Rec.NameIdx]);                 // for Name
+                if Rec.SepIsIn or (not AOpts.AssignNoSpaceBefore) then
+                  Outp.Add(MakeTok(ptSpace, ' '));
+                i:= Rec.Sep;                                    // resume at := / in
+              end;
+            ikFallbackTodo:                                     // leave in place + TODO
+              begin
+                for k:= i to Rec.SemiIdx do Outp.Add(ATokens[k]);
+                Outp.Add(MakeTok(ptSlashesComment, Rec.Comment));
+                i:= Rec.SemiIdx + 1;
+              end;
+          end; // case
+          Continue;
+        end;
+
+        Outp.Add(ATokens[i]);
+        Inc(i);
+      end;
+
+      ATokens.Clear;
+      ATokens.AddRange(Outp);
+    finally
+      Outp.Free;
+    end;
+  finally
+    Inlines.Free;
+    BodyDecls.Free;
+    RNames.Free;
+    BlkAnon.Free;
+    Root.Free;
+  end;
+end; // procedure
+
 // ===== FormatSource =====
 // Top-level orchestrator. Runs the pipeline described in the unit
 // header comment. The first stage is token-level (capitalisation,
@@ -3665,6 +4154,10 @@ begin
     NormalizeAssignSpacing(Tokens, AOpts);
     if AOpts.SpaceAroundOperators then
       NormalizeOperatorSpacing(Tokens, AOpts);
+    // Delphi 10 compatibility transform (opt-in): hoist inline vars. Runs before
+    // ParseGroups so it can mutate the token list freely.
+    if AOpts.Delphi10Compat then
+      DowngradeInlineVars(Tokens, AOpts);
     // Shield multi-line string-literal tokens before structure/emission so
     // every later pass sees a one-line atom; restored verbatim at Stage 5.
     ShieldMultilineStringTokens(Tokens, MLMap);

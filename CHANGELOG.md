@@ -8,6 +8,39 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.0] -- 2026-06-04
+
+### Added
+
+- **`Delphi10Compat` (default `false`; `--d10` CLI flag).** An opt-in transform
+  that rewrites **inline `var` declarations** into a classic top-of-routine `var`
+  block so code written on Delphi 11/12/13 can build on **Delphi 10.2.3 (Tokyo)**.
+  Explicit-typed vars and typed `for`-loop vars hoist mechanically (a `var` block is
+  created if absent); multi-name decls hoist each name. Inferred initializers with a
+  literal RHS get a best-effort type (`Integer`/`Extended`/`string`/`Boolean`,
+  `T.Create` -> `T`) with a `// YADF Delphi10: inferred type, verify` comment.
+  Un-inferable vars, different-type name collisions, and inline vars inside
+  anonymous methods are left in place with a `// TODO -oYADF : ...` marker quoting
+  the original line. Idempotent.
+  - **Not full Delphi 10 compliance:** only inline variables are downgraded. The
+    `if` ternary expression, inline constants, and managed records have no
+    mechanical Delphi 10 equivalent and are left untouched.
+  - We have no pre-10.3 Delphi to test against, so the transform is best-effort and
+    unverified on a real Tokyo toolchain; the prebuilt `YADF.exe` needs no Delphi
+    installed. See the README "Delphi 10 compatibility" section.
+
+### Fixed
+
+- **Multi-line (`'''...'''`) string literals are no longer corrupted by formatting.**
+  YADF's Stage 3/4 string passes (re-indent, reflow, alignment) used to treat the
+  *interior* of a triple-quoted literal as code -- collapsing the opening newline to
+  a space and re-indenting the body, silently changing the string's value -- and
+  `ReindentByDepth`'s depth tracker even scanned literal interiors for `begin`/`end`.
+  The engine now shields every multi-line string token before those passes and
+  restores it verbatim afterward, so literal contents pass through byte-for-byte.
+- Adopted the upstream DelphiAST fix (PR #337 by Uwe Raabe, issue #336) for the
+  lexer's multi-line `StringProc` in the bundled lexer dependency.
+
 ## [1.0.5.0] -- 2026-06-02
 
 ### Added
