@@ -3136,6 +3136,18 @@ var
       Dec(Result);
   end;
 
+  // True when the statement ending at ASemi already carries a `// ... YADF ...`
+  // marker -- i.e. we flagged it on a previous run. Keeps the pass idempotent and
+  // stops us re-touching a statement the user was asked to resolve manually.
+  function AlreadyFlagged(ASemi: Integer): Boolean;
+  var
+    nx: Integer;
+  begin
+    nx:= NextSig(ASemi + 1);
+    Result:= (nx < ATokens.Count) and (ATokens[nx].Kind = ptSlashesComment) and
+             (Pos('YADF', ATokens[nx].Text) > 0);
+  end;
+
   function EnsureBodyDecls(ABeginIdx: Integer): TStringList;
   begin
     if not BodyDecls.ContainsKey(ABeginIdx) then
@@ -3192,6 +3204,7 @@ var
     if (ci >= ATokens.Count) or (ATokens[ci].Kind <> ptColon) then Exit; // inferred types: later
     semi:= FindStmtEnd(ci + 1, ao);
     if semi < 0 then Exit;
+    if AlreadyFlagged(semi) then Exit; // left for the user on a previous run
     // A multi-name inline var cannot carry an initializer, so init applies only to
     // the single-name case.
     if (Length(names) = 1) and (ao >= 0) and (ao < semi) then
@@ -3303,7 +3316,7 @@ var
   // declaration with a verify comment quoting the original line.
   function TryParseInferred(AVar: Integer; out ARec: TInlineRec): Boolean;
   var
-    ni, ao, semi, dummy, nx: Integer;
+    ni, ao, semi, dummy: Integer;
     ty, origLine: string;
   begin
     Result:= False;
@@ -3334,9 +3347,7 @@ var
     begin
       // Not inferable: leave the inline var in place + a TODO marker -- unless it
       // was already flagged on a previous run (keeps the pass idempotent).
-      nx:= NextSig(semi + 1);
-      if (nx < ATokens.Count) and (ATokens[nx].Kind = ptSlashesComment) and
-         (Pos('YADF', ATokens[nx].Text) > 0) then Exit;
+      if AlreadyFlagged(semi) then Exit;
       ARec.Kind:= ikFallbackTodo;
       SetLength(ARec.DeclLines, 0);
       SetLength(ARec.Names, 0);
@@ -3398,7 +3409,7 @@ var
   // a TODO. Statement vars only; for-vars/already-flagged are left untouched.
   function TryAnonFallback(AVar: Integer; out ARec: TInlineRec): Boolean;
   var
-    ni, semi, dummy, nx: Integer;
+    ni, semi, dummy: Integer;
     origLine: string;
   begin
     Result:= False;
@@ -3406,9 +3417,7 @@ var
     if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
     semi:= FindStmtEnd(AVar + 1, dummy);
     if semi < 0 then Exit;
-    nx:= NextSig(semi + 1);
-    if (nx < ATokens.Count) and (ATokens[nx].Kind = ptSlashesComment) and
-       (Pos('YADF', ATokens[nx].Text) > 0) then Exit; // already flagged
+    if AlreadyFlagged(semi) then Exit;
     origLine:= Trim(InlineRenderRange(ATokens, AVar, semi));
     ARec.Kind    := ikFallbackTodo;
     ARec.NameIdx := ni;

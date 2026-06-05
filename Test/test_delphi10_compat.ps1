@@ -82,5 +82,27 @@ MustContain $o "  procedure Inner;`r`n  var`r`n    K: Integer;`r`n  begin" 'nest
 $o = Fmt 'd10_anon.pas'
 MustContain $o "var Z: Integer:= 3; // TODO -oYADF : inline var inside an anonymous method is not auto-hoisted for Delphi 10 -- was: var Z: Integer:= 3;" 'anon: flagged'
 
+# --- consolidated guards: idempotency + transformed round-trip over every fixture ---
+Get-ChildItem $casesDir -Filter 'd10_*.pas' | ForEach-Object {
+  $o1 = Join-Path $env:TEMP ($_.BaseName + '.1.pas')
+  $o2 = Join-Path $env:TEMP ($_.BaseName + '.2.pas')
+  & $exe $_.FullName --d10 --o $o1 | Out-Null
+  & $exe $o1 --d10 --o $o2 | Out-Null
+  if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) {
+    $script:fail++; Write-Output "FAIL [idempotent]: $($_.Name)"
+  }
+  $chk = & $exe --check $o1 2>&1
+  if ("$chk" -notmatch 'PASS') { $script:fail++; Write-Output "FAIL [roundtrip]: $($_.Name)" }
+  Remove-Item $o1 -Force -ErrorAction SilentlyContinue
+  Remove-Item $o2 -Force -ErrorAction SilentlyContinue
+}
+
+# --- option OFF must not hoist ---
+$tmp = Join-Path $env:TEMP "d10_off.pas"
+& $exe (Join-Path $casesDir 'd10_explicit_basic.pas') --no-d10 --o $tmp | Out-Null
+$off = Get-Content $tmp -Raw
+Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+MustMatch $off 'var N: Integer:= 5;' 'option-off: inline var preserved'
+
 if ($fail -eq 0) { Write-Output "delphi10_compat: PASS"; exit 0 }
 else { Write-Output "delphi10_compat: $fail FAILED"; exit 1 }
