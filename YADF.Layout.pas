@@ -3094,12 +3094,14 @@ end; // function
 // tasks; currently a no-op.
 procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);
 type
-  TInlineKind = (ikExplicitInit, ikExplicitNoInit);
+  TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit);
   TInlineRec = record
     Kind     : TInlineKind;
     NameIdx  : Integer;   // identifier token (the var name)
-    AssignIdx: Integer;   // ptAssign index (init forms only; else -1)
-    SemiIdx  : Integer;   // terminating ptSemiColon
+    AssignIdx: Integer;   // ptAssign index (statement init forms; else -1)
+    SemiIdx  : Integer;   // terminating ptSemiColon (statement forms; else -1)
+    Sep      : Integer;   // for-var: resume index (the `:=` or `in` token)
+    SepIsIn  : Boolean;   // for-var: True when Sep is `in`
     DeclLine : string;    // hoisted 'Name: Type;'
   end;
 var
@@ -3108,7 +3110,7 @@ var
   Inlines  : TDictionary<Integer, TInlineRec>;        // key = inline `var` token index
   BodyDecls: TObjectDictionary<Integer, TStringList>; // key = routine `begin` token index
   G        : TGroup;
-  i, k     : Integer;
+  i, k, pv : Integer;
   Rec      : TInlineRec;
 
   function NextSig(AFrom: Integer): Integer;
@@ -3117,6 +3119,21 @@ var
     while (Result < ATokens.Count) and
           (ATokens[Result].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
       Inc(Result);
+  end;
+
+  function PrevSig(AFrom: Integer): Integer;
+  begin
+    Result:= AFrom;
+    while (Result >= 0) and
+          (ATokens[Result].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
+      Dec(Result);
+  end;
+
+  function EnsureBodyDecls(ABeginIdx: Integer): TStringList;
+  begin
+    if not BodyDecls.ContainsKey(ABeginIdx) then
+      BodyDecls.Add(ABeginIdx, TStringList.Create);
+    Result:= BodyDecls[ABeginIdx];
   end;
 
   function MakeTok(AKind: TptTokenKind; const AText: string): TToken;
@@ -3170,6 +3187,51 @@ var
     if ty = '' then Exit;
     ARec.NameIdx := ni;
     ARec.SemiIdx := semi;
+    ARec.Sep     := -1;
+    ARec.SepIsIn := False;
+    ARec.DeclLine:= ATokens[ni].Text + ': ' + ty + ';';
+    Result:= True;
+  end;
+
+  // First `:=` or `in` at depth 0 from AFrom; bounded by `do`/`;`. The loop
+  // header separator that ends a `for var Name: Type ...` declaration.
+  function FindForSep(AFrom: Integer; out ASep: Integer): Boolean;
+  var
+    j, depth: Integer;
+  begin
+    Result:= False; ASep:= -1; depth:= 0; j:= AFrom;
+    while j < ATokens.Count do
+    begin
+      case ATokens[j].Kind of
+        ptRoundOpen, ptSquareOpen  : Inc(depth);
+        ptRoundClose, ptSquareClose: if depth > 0 then Dec(depth);
+        ptAssign, ptIn             : if depth = 0 then begin ASep:= j; Exit(True); end;
+        ptSemiColon, ptDo          : if depth = 0 then Exit(False);
+      end;
+      Inc(j);
+    end;
+  end;
+
+  // Single-name, explicitly-typed `for var Name: Type := ...` / `... in ...`.
+  function TryParseForExplicit(AVar: Integer; out ARec: TInlineRec): Boolean;
+  var
+    ni, ci, sep: Integer;
+    ty: string;
+  begin
+    Result:= False;
+    ni:= NextSig(AVar + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    ci:= NextSig(ni + 1);
+    if (ci >= ATokens.Count) or (ATokens[ci].Kind <> ptColon) then Exit; // explicit only
+    if not FindForSep(ci + 1, sep) then Exit;
+    ty:= Trim(InlineRenderRange(ATokens, ci + 1, sep - 1));
+    if ty = '' then Exit;
+    ARec.Kind    := ikForExplicit;
+    ARec.NameIdx := ni;
+    ARec.AssignIdx:= -1;
+    ARec.SemiIdx := -1;
+    ARec.Sep     := sep;
+    ARec.SepIsIn := ATokens[sep].Kind = ptIn;
     ARec.DeclLine:= ATokens[ni].Text + ': ' + ty + ';';
     Result:= True;
   end;
@@ -3190,14 +3252,26 @@ begin
       i:= G.OpenIdx + 1;
       while i < G.CloseIdx do
       begin
-        if (ATokens[i].Kind = ptVar) and TryParseExplicit(i, Rec) then
+        if ATokens[i].Kind = ptVar then
         begin
-          Inlines.Add(i, Rec);
-          if not BodyDecls.ContainsKey(G.OpenIdx) then
-            BodyDecls.Add(G.OpenIdx, TStringList.Create);
-          BodyDecls[G.OpenIdx].Add(Rec.DeclLine);
-          i:= Rec.SemiIdx + 1;
-          Continue;
+          pv:= PrevSig(i - 1);
+          if (pv >= 0) and (ATokens[pv].Kind = ptFor) then
+          begin
+            if TryParseForExplicit(i, Rec) then
+            begin
+              Inlines.Add(i, Rec);
+              EnsureBodyDecls(G.OpenIdx).Add(Rec.DeclLine);
+              i:= Rec.Sep + 1; // keep scanning the loop body for more inline vars
+              Continue;
+            end;
+          end
+          else if TryParseExplicit(i, Rec) then
+          begin
+            Inlines.Add(i, Rec);
+            EnsureBodyDecls(G.OpenIdx).Add(Rec.DeclLine);
+            i:= Rec.SemiIdx + 1;
+            Continue;
+          end;
         end;
         Inc(i);
       end;
@@ -3225,23 +3299,31 @@ begin
 
         if Inlines.TryGetValue(i, Rec) then
         begin
-          if Rec.Kind = ikExplicitInit then
-          begin
-            Outp.Add(ATokens[Rec.NameIdx]);                 // Name
-            if not AOpts.AssignNoSpaceBefore then
-              Outp.Add(MakeTok(ptSpace, ' '));
-            for k:= Rec.AssignIdx to Rec.SemiIdx do
-              Outp.Add(ATokens[k]);                         // := Expr ;
-            i:= Rec.SemiIdx + 1;
-            Continue;
-          end
-          else // ikExplicitNoInit -- drop the whole declaration line
-          begin
-            i:= Rec.SemiIdx + 1;
-            if (i < ATokens.Count) and (ATokens[i].Kind in [ptCRLF, ptCRLFCo]) then
-              Inc(i);
-            Continue;
-          end;
+          case Rec.Kind of
+            ikExplicitInit:
+              begin
+                Outp.Add(ATokens[Rec.NameIdx]);                 // Name
+                if not AOpts.AssignNoSpaceBefore then
+                  Outp.Add(MakeTok(ptSpace, ' '));
+                for k:= Rec.AssignIdx to Rec.SemiIdx do
+                  Outp.Add(ATokens[k]);                         // := Expr ;
+                i:= Rec.SemiIdx + 1;
+              end;
+            ikExplicitNoInit:                                   // drop the whole line
+              begin
+                i:= Rec.SemiIdx + 1;
+                if (i < ATokens.Count) and (ATokens[i].Kind in [ptCRLF, ptCRLFCo]) then
+                  Inc(i);
+              end;
+            ikForExplicit:
+              begin
+                Outp.Add(ATokens[Rec.NameIdx]);                 // for Name
+                if Rec.SepIsIn or (not AOpts.AssignNoSpaceBefore) then
+                  Outp.Add(MakeTok(ptSpace, ' '));
+                i:= Rec.Sep;                                    // resume at := / in
+              end;
+          end; // case
+          Continue;
         end;
 
         Outp.Add(ATokens[i]);

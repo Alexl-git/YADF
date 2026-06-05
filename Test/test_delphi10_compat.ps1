@@ -32,5 +32,11 @@ MustContain $o "var`r`n  N: Integer;" 'explicit_basic: hoisted decl'
 MustContain $o "N:= 5;" 'explicit_basic: assignment kept'
 MustNotMatch $o 'var\s+N\s*:\s*Integer\s*:=' 'explicit_basic: no inline var left'
 
+# --- d10_for_typed ---
+$o = Fmt 'd10_for_typed.pas'
+MustContain $o "var`r`n  L: Integer;" 'for_typed: hoisted loop var'
+MustContain $o "for L:= 0 to 9 do" 'for_typed: loop downgraded'
+MustNotMatch $o 'for\s+var\s+L' 'for_typed: no inline loop var'
+
 if ($fail -eq 0) { Write-Output "delphi10_compat: PASS"; exit 0 }
 else { Write-Output "delphi10_compat: $fail FAILED"; exit 1 }
