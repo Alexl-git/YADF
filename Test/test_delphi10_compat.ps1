@@ -70,5 +70,10 @@ MustMatch $o 'N:= 5;' 'infer: int assignment kept'
 $o = Fmt 'd10_fallback.pas'
 MustContain $o "var X:= AInput.GetThing; // TODO -oYADF : add an explicit type to hoist for Delphi 10 -- was: var X:= AInput.GetThing;" 'fallback: left + TODO'
 
+# --- d10_collision ---
+$o = Fmt 'd10_collision.pas'
+MustContain $o "var`r`n  I: Integer;" 'collision: first hoisted'
+MustContain $o "var I: string:= 'x'; // TODO -oYADF : name 'I' already hoisted with a different type; resolve manually for Delphi 10 -- was: var I: string:= 'x';" 'collision: second flagged'
+
 if ($fail -eq 0) { Write-Output "delphi10_compat: PASS"; exit 0 }
 else { Write-Output "delphi10_compat: $fail FAILED"; exit 1 }

@@ -3103,6 +3103,8 @@ type
     Sep      : Integer;   // for-var: resume index (the `:=` or `in` token)
     SepIsIn  : Boolean;   // for-var: True when Sep is `in`
     DeclLines: TArray<string>; // hoisted 'Name: Type;' lines (one per name)
+    Names    : TArray<string>; // hoisted names (parallel to DeclLines)
+    TypeStr  : string;    // shared type of the hoisted names (collision check)
     Comment  : string;    // fallback: trailing '// TODO -oYADF ...' text
   end;
 var
@@ -3110,6 +3112,7 @@ var
   Outp     : TTokenList;
   Inlines  : TDictionary<Integer, TInlineRec>;        // key = inline `var` token index
   BodyDecls: TObjectDictionary<Integer, TStringList>; // key = routine `begin` token index
+  RNames   : TDictionary<string, string>;             // per-routine name -> hoisted type
   G        : TGroup;
   i, k, pv : Integer;
   Rec      : TInlineRec;
@@ -3200,6 +3203,8 @@ var
     if ty = '' then Exit;
     SetLength(ARec.DeclLines, Length(names));
     for n:= 0 to High(names) do ARec.DeclLines[n]:= names[n] + ': ' + ty + ';';
+    ARec.Names   := names;
+    ARec.TypeStr := ty;
     ARec.NameIdx := firstName;
     ARec.SemiIdx := semi;
     ARec.Sep     := -1;
@@ -3248,6 +3253,9 @@ var
     ARec.SepIsIn := ATokens[sep].Kind = ptIn;
     SetLength(ARec.DeclLines, 1);
     ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty + ';';
+    SetLength(ARec.Names, 1);
+    ARec.Names[0]:= ATokens[ni].Text;
+    ARec.TypeStr := ty;
     Result:= True;
   end;
 
@@ -3315,6 +3323,9 @@ var
       SetLength(ARec.DeclLines, 1);
       ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty +
         '; // YADF Delphi10: inferred type, verify -- was: ' + origLine;
+      SetLength(ARec.Names, 1);
+      ARec.Names[0]:= ATokens[ni].Text;
+      ARec.TypeStr := ty;
     end
     else
     begin
@@ -3325,15 +3336,65 @@ var
          (Pos('YADF', ATokens[nx].Text) > 0) then Exit;
       ARec.Kind:= ikFallbackTodo;
       SetLength(ARec.DeclLines, 0);
+      SetLength(ARec.Names, 0);
+      ARec.TypeStr := '';
       ARec.Comment:= ' // TODO -oYADF : add an explicit type to hoist for Delphi 10 -- was: ' + origLine;
     end;
     Result:= True;
+  end;
+
+  // Record an inline-var action, applying the per-routine name-collision guard:
+  // a name already hoisted with the SAME type drops its duplicate declaration; a
+  // name hoisted with a DIFFERENT type converts a statement var to a leave-in-place
+  // TODO (we will not silently shadow/retype). ABeginIdx = routine begin index,
+  // AVarIdx = the inline `var` token index (the Inlines key).
+  procedure CommitInline(ABeginIdx, AVarIdx: Integer; var ARec: TInlineRec);
+  var
+    m: Integer;
+    collide: Boolean;
+    keep: TArray<string>;
+    nm, origLine, cname: string;
+  begin
+    collide:= False;
+    SetLength(keep, 0);
+    for m:= 0 to High(ARec.Names) do
+    begin
+      nm:= ARec.Names[m];
+      if RNames.ContainsKey(nm) then
+      begin
+        if not SameText(RNames[nm], ARec.TypeStr) then collide:= True;
+        // same-type duplicate: omit the second declaration, keep the assignment
+      end
+      else
+      begin
+        RNames.Add(nm, ARec.TypeStr);
+        SetLength(keep, Length(keep) + 1);
+        keep[High(keep)]:= ARec.DeclLines[m];
+      end;
+    end;
+    if collide and (ARec.Kind in [ikExplicitInit, ikExplicitNoInit]) then
+    begin
+      origLine:= Trim(InlineRenderRange(ATokens, AVarIdx, ARec.SemiIdx));
+      cname:= '';
+      for m:= 0 to High(ARec.Names) do
+        if RNames.ContainsKey(ARec.Names[m]) and
+           not SameText(RNames[ARec.Names[m]], ARec.TypeStr) then
+        begin cname:= ARec.Names[m]; Break; end;
+      ARec.Kind:= ikFallbackTodo;
+      ARec.Comment:= ' // TODO -oYADF : name ''' + cname +
+        ''' already hoisted with a different type; resolve manually for Delphi 10 -- was: ' + origLine;
+      Inlines.Add(AVarIdx, ARec);
+      Exit;
+    end;
+    Inlines.Add(AVarIdx, ARec);
+    for m:= 0 to High(keep) do EnsureBodyDecls(ABeginIdx).Add(keep[m]);
   end;
 
 begin
   Root     := ParseGroups(ATokens);
   Inlines  := TDictionary<Integer, TInlineRec>.Create;
   BodyDecls:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
+  RNames   := TDictionary<string, string>.Create;
   try
     // 1) Analyse. A routine body is a gkBlock opened by `begin` that is a direct
     //    child of Root (top-level proc/func/method bodies AND nested-routine
@@ -3343,6 +3404,7 @@ begin
     begin
       if (G.Kind <> gkBlock) or (G.OpenerKind <> ptBegin) then Continue;
       if G.CloseIdx <= G.OpenIdx then Continue;
+      RNames.Clear; // names are scoped per routine
       i:= G.OpenIdx + 1;
       while i < G.CloseIdx do
       begin
@@ -3353,18 +3415,14 @@ begin
           begin
             if TryParseForExplicit(i, Rec) then
             begin
-              Inlines.Add(i, Rec);
-              for k:= 0 to High(Rec.DeclLines) do
-                EnsureBodyDecls(G.OpenIdx).Add(Rec.DeclLines[k]);
+              CommitInline(G.OpenIdx, i, Rec);
               i:= Rec.Sep + 1; // keep scanning the loop body for more inline vars
               Continue;
             end;
           end
           else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
           begin
-            Inlines.Add(i, Rec);
-            for k:= 0 to High(Rec.DeclLines) do
-              EnsureBodyDecls(G.OpenIdx).Add(Rec.DeclLines[k]);
+            CommitInline(G.OpenIdx, i, Rec);
             i:= Rec.SemiIdx + 1;
             Continue;
           end;
@@ -3440,6 +3498,7 @@ begin
   finally
     Inlines.Free;
     BodyDecls.Free;
+    RNames.Free;
     Root.Free;
   end;
 end; // procedure
