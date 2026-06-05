@@ -1,0 +1,13 @@
+unit d10_explicit_basic;
+
+interface
+
+implementation
+
+procedure Demo;
+begin
+  var N: Integer := 5;
+  WriteLn(N);
+end;
+
+end.
