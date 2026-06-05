@@ -3102,7 +3102,7 @@ type
     SemiIdx  : Integer;   // terminating ptSemiColon (statement forms; else -1)
     Sep      : Integer;   // for-var: resume index (the `:=` or `in` token)
     SepIsIn  : Boolean;   // for-var: True when Sep is `in`
-    DeclLine : string;    // hoisted 'Name: Type;'
+    DeclLines: TArray<string>; // hoisted 'Name: Type;' lines (one per name)
   end;
 var
   Root     : TGroup;
@@ -3164,18 +3164,30 @@ var
   // Single-name, explicitly-typed inline var at ptVar index AVar.
   function TryParseExplicit(AVar: Integer; out ARec: TInlineRec): Boolean;
   var
-    ni, ci, ao, semi, typeEnd: Integer;
+    firstName, p, ci, ao, semi, typeEnd, n: Integer;
     ty: string;
+    names: TArray<string>;
   begin
     Result:= False;
-    ni:= NextSig(AVar + 1);
-    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
-    ci:= NextSig(ni + 1);
-    // Explicit single-name only here (comma lists / inferred types: later tasks).
-    if (ci >= ATokens.Count) or (ATokens[ci].Kind <> ptColon) then Exit;
+    firstName:= NextSig(AVar + 1);
+    if (firstName >= ATokens.Count) or (ATokens[firstName].Kind <> ptIdentifier) then Exit;
+    SetLength(names, 1); names[0]:= ATokens[firstName].Text;
+    // Collect any comma-separated additional names (`var A, B: T;`).
+    p:= NextSig(firstName + 1);
+    while (p < ATokens.Count) and (ATokens[p].Kind = ptComma) do
+    begin
+      p:= NextSig(p + 1);
+      if (p >= ATokens.Count) or (ATokens[p].Kind <> ptIdentifier) then Exit;
+      SetLength(names, Length(names) + 1); names[High(names)]:= ATokens[p].Text;
+      p:= NextSig(p + 1);
+    end;
+    ci:= p;
+    if (ci >= ATokens.Count) or (ATokens[ci].Kind <> ptColon) then Exit; // inferred types: later
     semi:= FindStmtEnd(ci + 1, ao);
     if semi < 0 then Exit;
-    if (ao >= 0) and (ao < semi) then
+    // A multi-name inline var cannot carry an initializer, so init applies only to
+    // the single-name case.
+    if (Length(names) = 1) and (ao >= 0) and (ao < semi) then
     begin
       typeEnd:= ao - 1; ARec.Kind:= ikExplicitInit; ARec.AssignIdx:= ao;
     end
@@ -3185,11 +3197,12 @@ var
     end;
     ty:= Trim(InlineRenderRange(ATokens, ci + 1, typeEnd));
     if ty = '' then Exit;
-    ARec.NameIdx := ni;
+    SetLength(ARec.DeclLines, Length(names));
+    for n:= 0 to High(names) do ARec.DeclLines[n]:= names[n] + ': ' + ty + ';';
+    ARec.NameIdx := firstName;
     ARec.SemiIdx := semi;
     ARec.Sep     := -1;
     ARec.SepIsIn := False;
-    ARec.DeclLine:= ATokens[ni].Text + ': ' + ty + ';';
     Result:= True;
   end;
 
@@ -3232,7 +3245,8 @@ var
     ARec.SemiIdx := -1;
     ARec.Sep     := sep;
     ARec.SepIsIn := ATokens[sep].Kind = ptIn;
-    ARec.DeclLine:= ATokens[ni].Text + ': ' + ty + ';';
+    SetLength(ARec.DeclLines, 1);
+    ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty + ';';
     Result:= True;
   end;
 
@@ -3260,7 +3274,8 @@ begin
             if TryParseForExplicit(i, Rec) then
             begin
               Inlines.Add(i, Rec);
-              EnsureBodyDecls(G.OpenIdx).Add(Rec.DeclLine);
+              for k:= 0 to High(Rec.DeclLines) do
+                EnsureBodyDecls(G.OpenIdx).Add(Rec.DeclLines[k]);
               i:= Rec.Sep + 1; // keep scanning the loop body for more inline vars
               Continue;
             end;
@@ -3268,7 +3283,8 @@ begin
           else if TryParseExplicit(i, Rec) then
           begin
             Inlines.Add(i, Rec);
-            EnsureBodyDecls(G.OpenIdx).Add(Rec.DeclLine);
+            for k:= 0 to High(Rec.DeclLines) do
+              EnsureBodyDecls(G.OpenIdx).Add(Rec.DeclLines[k]);
             i:= Rec.SemiIdx + 1;
             Continue;
           end;
