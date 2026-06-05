@@ -3250,6 +3250,72 @@ var
     Result:= True;
   end;
 
+  // Literal-only type inference over an expression token span. Returns '' when
+  // the type cannot be safely determined (-> fallback). Deliberately conservative:
+  // no typecast inference (Ident(expr) is indistinguishable from a function call).
+  function InferLiteralType(AFrom, ATo: Integer): string;
+  var
+    s, e, j, dotIdx: Integer;
+  begin
+    Result:= '';
+    s:= NextSig(AFrom);
+    e:= ATo;
+    while (e >= s) and (ATokens[e].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do Dec(e);
+    if (s > e) or (s >= ATokens.Count) then Exit;
+    if s = e then
+    begin
+      case ATokens[s].Kind of
+        ptIntegerConst: Exit('Integer');
+        ptFloat       : Exit('Extended');
+        ptStringConst, ptStringDQConst: Exit('string');
+      end;
+      if SameText(ATokens[s].Text, 'True') or SameText(ATokens[s].Text, 'False') then
+        Exit('Boolean');
+      Exit;
+    end;
+    // Constructor call: <type-chain> . Create [ ( ... ) ] -> the type chain.
+    for j:= s to e do
+      if (ATokens[j].Kind = ptIdentifier) and SameText(ATokens[j].Text, 'Create') then
+      begin
+        dotIdx:= PrevSig(j - 1);
+        if (dotIdx >= s) and (ATokens[dotIdx].Kind = ptPoint) then
+        begin
+          Result:= Trim(InlineRenderRange(ATokens, s, dotIdx - 1));
+          if Result <> '' then Exit;
+        end;
+      end;
+  end;
+
+  // `var Name := Expr;` with no explicit type -- infer from a literal initializer.
+  // Reuses the explicit-init rewrite (Name := Expr) but annotates the hoisted
+  // declaration with a verify comment quoting the original line.
+  function TryParseInferred(AVar: Integer; out ARec: TInlineRec): Boolean;
+  var
+    ni, ao, semi, dummy: Integer;
+    ty, origLine: string;
+  begin
+    Result:= False;
+    ni:= NextSig(AVar + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    ao:= NextSig(ni + 1);
+    if (ao >= ATokens.Count) or (ATokens[ao].Kind <> ptAssign) then Exit;
+    semi:= FindStmtEnd(ao + 1, dummy);
+    if semi < 0 then Exit;
+    ty:= InferLiteralType(ao + 1, semi - 1);
+    if ty = '' then Exit; // not inferable -> fallback (later task)
+    origLine:= Trim(InlineRenderRange(ATokens, AVar, semi));
+    ARec.Kind    := ikExplicitInit;
+    ARec.NameIdx := ni;
+    ARec.AssignIdx:= ao;
+    ARec.SemiIdx := semi;
+    ARec.Sep     := -1;
+    ARec.SepIsIn := False;
+    SetLength(ARec.DeclLines, 1);
+    ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty +
+      '; // YADF Delphi10: inferred type, verify -- was: ' + origLine;
+    Result:= True;
+  end;
+
 begin
   Root     := ParseGroups(ATokens);
   Inlines  := TDictionary<Integer, TInlineRec>.Create;
@@ -3280,7 +3346,7 @@ begin
               Continue;
             end;
           end
-          else if TryParseExplicit(i, Rec) then
+          else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
           begin
             Inlines.Add(i, Rec);
             for k:= 0 to High(Rec.DeclLines) do

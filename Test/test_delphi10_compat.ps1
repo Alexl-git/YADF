@@ -25,6 +25,12 @@ function MustNotMatch([string]$out, [string]$rx, [string]$label) {
     Write-Output "FAIL [$label]: should not match /$rx/"
   }
 }
+function MustMatch([string]$out, [string]$rx, [string]$label) {
+  if ($out -notmatch $rx) {
+    $script:fail++
+    Write-Output "FAIL [$label]: expected match /$rx/"
+  }
+}
 
 # --- d10_explicit_basic ---
 $o = Fmt 'd10_explicit_basic.pas'
@@ -50,6 +56,15 @@ MustContain $o "var`r`n  Acc: Integer;" 'novarsection: var block created'
 MustContain $o "const`r`n  Step = 2;" 'novarsection: existing const intact'
 MustContain $o ":= Step;" 'novarsection: assignment kept'
 MustNotMatch $o 'var\s+Acc\s*:\s*Integer\s*:=' 'novarsection: inline removed'
+
+# --- d10_infer ---
+$o = Fmt 'd10_infer.pas'
+MustMatch $o 'N: Integer\s*; // YADF Delphi10: inferred type, verify -- was: var N:= 5;' 'infer: int'
+MustMatch $o 'R: Extended\s*; // YADF Delphi10: inferred type, verify -- was: var R:= 1\.5;' 'infer: real'
+MustMatch $o "S: string\s*; // YADF Delphi10: inferred type, verify -- was: var S:= 'hi';" 'infer: string'
+MustMatch $o 'B: Boolean\s*; // YADF Delphi10: inferred type, verify -- was: var B:= True;' 'infer: bool'
+MustMatch $o 'L: TStringList; // YADF Delphi10: inferred type, verify -- was: var L:= TStringList\.Create;' 'infer: ctor'
+MustMatch $o 'N:= 5;' 'infer: int assignment kept'
 
 if ($fail -eq 0) { Write-Output "delphi10_compat: PASS"; exit 0 }
 else { Write-Output "delphi10_compat: $fail FAILED"; exit 1 }
