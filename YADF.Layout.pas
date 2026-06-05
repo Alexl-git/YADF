@@ -3094,7 +3094,7 @@ end; // function
 // tasks; currently a no-op.
 procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);
 type
-  TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit);
+  TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec = record
     Kind     : TInlineKind;
     NameIdx  : Integer;   // identifier token (the var name)
@@ -3103,6 +3103,7 @@ type
     Sep      : Integer;   // for-var: resume index (the `:=` or `in` token)
     SepIsIn  : Boolean;   // for-var: True when Sep is `in`
     DeclLines: TArray<string>; // hoisted 'Name: Type;' lines (one per name)
+    Comment  : string;    // fallback: trailing '// TODO -oYADF ...' text
   end;
 var
   Root     : TGroup;
@@ -3291,7 +3292,7 @@ var
   // declaration with a verify comment quoting the original line.
   function TryParseInferred(AVar: Integer; out ARec: TInlineRec): Boolean;
   var
-    ni, ao, semi, dummy: Integer;
+    ni, ao, semi, dummy, nx: Integer;
     ty, origLine: string;
   begin
     Result:= False;
@@ -3301,18 +3302,31 @@ var
     if (ao >= ATokens.Count) or (ATokens[ao].Kind <> ptAssign) then Exit;
     semi:= FindStmtEnd(ao + 1, dummy);
     if semi < 0 then Exit;
-    ty:= InferLiteralType(ao + 1, semi - 1);
-    if ty = '' then Exit; // not inferable -> fallback (later task)
     origLine:= Trim(InlineRenderRange(ATokens, AVar, semi));
-    ARec.Kind    := ikExplicitInit;
     ARec.NameIdx := ni;
     ARec.AssignIdx:= ao;
     ARec.SemiIdx := semi;
     ARec.Sep     := -1;
     ARec.SepIsIn := False;
-    SetLength(ARec.DeclLines, 1);
-    ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty +
-      '; // YADF Delphi10: inferred type, verify -- was: ' + origLine;
+    ty:= InferLiteralType(ao + 1, semi - 1);
+    if ty <> '' then
+    begin
+      ARec.Kind:= ikExplicitInit;
+      SetLength(ARec.DeclLines, 1);
+      ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty +
+        '; // YADF Delphi10: inferred type, verify -- was: ' + origLine;
+    end
+    else
+    begin
+      // Not inferable: leave the inline var in place + a TODO marker -- unless it
+      // was already flagged on a previous run (keeps the pass idempotent).
+      nx:= NextSig(semi + 1);
+      if (nx < ATokens.Count) and (ATokens[nx].Kind = ptSlashesComment) and
+         (Pos('YADF', ATokens[nx].Text) > 0) then Exit;
+      ARec.Kind:= ikFallbackTodo;
+      SetLength(ARec.DeclLines, 0);
+      ARec.Comment:= ' // TODO -oYADF : add an explicit type to hoist for Delphi 10 -- was: ' + origLine;
+    end;
     Result:= True;
   end;
 
@@ -3403,6 +3417,12 @@ begin
                 if Rec.SepIsIn or (not AOpts.AssignNoSpaceBefore) then
                   Outp.Add(MakeTok(ptSpace, ' '));
                 i:= Rec.Sep;                                    // resume at := / in
+              end;
+            ikFallbackTodo:                                     // leave in place + TODO
+              begin
+                for k:= i to Rec.SemiIdx do Outp.Add(ATokens[k]);
+                Outp.Add(MakeTok(ptSlashesComment, Rec.Comment));
+                i:= Rec.SemiIdx + 1;
               end;
           end; // case
           Continue;

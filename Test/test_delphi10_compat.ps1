@@ -66,5 +66,9 @@ MustMatch $o 'B: Boolean\s*; // YADF Delphi10: inferred type, verify -- was: var
 MustMatch $o 'L: TStringList; // YADF Delphi10: inferred type, verify -- was: var L:= TStringList\.Create;' 'infer: ctor'
 MustMatch $o 'N:= 5;' 'infer: int assignment kept'
 
+# --- d10_fallback ---
+$o = Fmt 'd10_fallback.pas'
+MustContain $o "var X:= AInput.GetThing; // TODO -oYADF : add an explicit type to hoist for Delphi 10 -- was: var X:= AInput.GetThing;" 'fallback: left + TODO'
+
 if ($fail -eq 0) { Write-Output "delphi10_compat: PASS"; exit 0 }
 else { Write-Output "delphi10_compat: $fail FAILED"; exit 1 }
