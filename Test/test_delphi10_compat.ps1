@@ -29,7 +29,7 @@ function MustNotMatch([string]$out, [string]$rx, [string]$label) {
 # --- d10_explicit_basic ---
 $o = Fmt 'd10_explicit_basic.pas'
 MustContain $o "var`r`n  N: Integer;" 'explicit_basic: hoisted decl'
-MustContain $o "N := 5;" 'explicit_basic: assignment kept'
+MustContain $o "N:= 5;" 'explicit_basic: assignment kept'
 MustNotMatch $o 'var\s+N\s*:\s*Integer\s*:=' 'explicit_basic: no inline var left'
 
 if ($fail -eq 0) { Write-Output "delphi10_compat: PASS"; exit 0 }

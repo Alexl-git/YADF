@@ -3093,8 +3093,171 @@ end; // function
 // invalidate the group tree). Implemented incrementally across the feature's
 // tasks; currently a no-op.
 procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);
+type
+  TInlineKind = (ikExplicitInit, ikExplicitNoInit);
+  TInlineRec = record
+    Kind     : TInlineKind;
+    NameIdx  : Integer;   // identifier token (the var name)
+    AssignIdx: Integer;   // ptAssign index (init forms only; else -1)
+    SemiIdx  : Integer;   // terminating ptSemiColon
+    DeclLine : string;    // hoisted 'Name: Type;'
+  end;
+var
+  Root     : TGroup;
+  Outp     : TTokenList;
+  Inlines  : TDictionary<Integer, TInlineRec>;        // key = inline `var` token index
+  BodyDecls: TObjectDictionary<Integer, TStringList>; // key = routine `begin` token index
+  G        : TGroup;
+  i, k     : Integer;
+  Rec      : TInlineRec;
+
+  function NextSig(AFrom: Integer): Integer;
+  begin
+    Result:= AFrom;
+    while (Result < ATokens.Count) and
+          (ATokens[Result].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
+      Inc(Result);
+  end;
+
+  function MakeTok(AKind: TptTokenKind; const AText: string): TToken;
+  begin
+    Result.Kind:= AKind; Result.ExID:= ptUnknown; Result.Text:= AText;
+    Result.Pre := ''   ; Result.Line:= 0        ; Result.Col := 0;
+  end;
+
+  // Terminating ptSemiColon for a statement scanned from AFrom, tracking () and
+  // [] depth. Reports the first top-level ptAssign into AAssign (-1 if none).
+  function FindStmtEnd(AFrom: Integer; out AAssign: Integer): Integer;
+  var
+    j, depth: Integer;
+  begin
+    AAssign:= -1; Result:= -1; depth:= 0; j:= AFrom;
+    while j < ATokens.Count do
+    begin
+      case ATokens[j].Kind of
+        ptRoundOpen, ptSquareOpen  : Inc(depth);
+        ptRoundClose, ptSquareClose: if depth > 0 then Dec(depth);
+        ptAssign                   : if (depth = 0) and (AAssign < 0) then AAssign:= j;
+        ptSemiColon                : if depth = 0 then begin Result:= j; Exit; end;
+      end;
+      Inc(j);
+    end;
+  end;
+
+  // Single-name, explicitly-typed inline var at ptVar index AVar.
+  function TryParseExplicit(AVar: Integer; out ARec: TInlineRec): Boolean;
+  var
+    ni, ci, ao, semi, typeEnd: Integer;
+    ty: string;
+  begin
+    Result:= False;
+    ni:= NextSig(AVar + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    ci:= NextSig(ni + 1);
+    // Explicit single-name only here (comma lists / inferred types: later tasks).
+    if (ci >= ATokens.Count) or (ATokens[ci].Kind <> ptColon) then Exit;
+    semi:= FindStmtEnd(ci + 1, ao);
+    if semi < 0 then Exit;
+    if (ao >= 0) and (ao < semi) then
+    begin
+      typeEnd:= ao - 1; ARec.Kind:= ikExplicitInit; ARec.AssignIdx:= ao;
+    end
+    else
+    begin
+      typeEnd:= semi - 1; ARec.Kind:= ikExplicitNoInit; ARec.AssignIdx:= -1;
+    end;
+    ty:= Trim(InlineRenderRange(ATokens, ci + 1, typeEnd));
+    if ty = '' then Exit;
+    ARec.NameIdx := ni;
+    ARec.SemiIdx := semi;
+    ARec.DeclLine:= ATokens[ni].Text + ': ' + ty + ';';
+    Result:= True;
+  end;
+
 begin
-  // no-op until the hoisting tasks land
+  Root     := ParseGroups(ATokens);
+  Inlines  := TDictionary<Integer, TInlineRec>.Create;
+  BodyDecls:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
+  try
+    // 1) Analyse. A routine body is a gkBlock opened by `begin` that is a direct
+    //    child of Root (top-level proc/func/method bodies AND nested-routine
+    //    bodies all sit at Root; statement blocks nest deeper). Scan each body's
+    //    token range for inline `var` statements.
+    for G in Root.Children do
+    begin
+      if (G.Kind <> gkBlock) or (G.OpenerKind <> ptBegin) then Continue;
+      if G.CloseIdx <= G.OpenIdx then Continue;
+      i:= G.OpenIdx + 1;
+      while i < G.CloseIdx do
+      begin
+        if (ATokens[i].Kind = ptVar) and TryParseExplicit(i, Rec) then
+        begin
+          Inlines.Add(i, Rec);
+          if not BodyDecls.ContainsKey(G.OpenIdx) then
+            BodyDecls.Add(G.OpenIdx, TStringList.Create);
+          BodyDecls[G.OpenIdx].Add(Rec.DeclLine);
+          i:= Rec.SemiIdx + 1;
+          Continue;
+        end;
+        Inc(i);
+      end;
+    end;
+
+    if Inlines.Count = 0 then Exit;
+
+    // 2) Rebuild the token list in one forward pass.
+    Outp:= TTokenList.Create;
+    try
+      i:= 0;
+      while i < ATokens.Count do
+      begin
+        // Inject the hoisted `var` block immediately before a routine's `begin`.
+        if BodyDecls.ContainsKey(i) then
+        begin
+          Outp.Add(MakeTok(ptVar, 'var'));
+          Outp.Add(MakeTok(ptCRLF, #13#10));
+          for k:= 0 to BodyDecls[i].Count - 1 do
+          begin
+            Outp.Add(MakeTok(ptIdentifier, BodyDecls[i][k]));
+            Outp.Add(MakeTok(ptCRLF, #13#10));
+          end;
+        end;
+
+        if Inlines.TryGetValue(i, Rec) then
+        begin
+          if Rec.Kind = ikExplicitInit then
+          begin
+            Outp.Add(ATokens[Rec.NameIdx]);                 // Name
+            if not AOpts.AssignNoSpaceBefore then
+              Outp.Add(MakeTok(ptSpace, ' '));
+            for k:= Rec.AssignIdx to Rec.SemiIdx do
+              Outp.Add(ATokens[k]);                         // := Expr ;
+            i:= Rec.SemiIdx + 1;
+            Continue;
+          end
+          else // ikExplicitNoInit -- drop the whole declaration line
+          begin
+            i:= Rec.SemiIdx + 1;
+            if (i < ATokens.Count) and (ATokens[i].Kind in [ptCRLF, ptCRLFCo]) then
+              Inc(i);
+            Continue;
+          end;
+        end;
+
+        Outp.Add(ATokens[i]);
+        Inc(i);
+      end;
+
+      ATokens.Clear;
+      ATokens.AddRange(Outp);
+    finally
+      Outp.Free;
+    end;
+  finally
+    Inlines.Free;
+    BodyDecls.Free;
+    Root.Free;
+  end;
 end; // procedure
 
 // ===== FormatSource =====
