@@ -64,3 +64,6 @@ bug-repro/
 BUG_COMMENT_MERGE.md
 BUG_LINE_MERGE_OVER_COMMENT.md
 BUG_DROPPED_INCLUDE_DIRECTIVE.md
+
+# Release packages
+*.zip
