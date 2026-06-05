@@ -297,6 +297,44 @@ values pulled from `yadf.ini`.
 - Tolerates structurally-broken Pascal source (missing `end`s) without
   crashing
 
+## Delphi 10 compatibility (experimental)
+
+`Delphi10Compat=true` in `yadf.ini` (or `--d10` on the command line; default off)
+rewrites **inline `var` declarations** into a classic top-of-routine `var` block, so
+code written on Delphi 11/12/13 can build on **Delphi 10.2.3 (Tokyo)** and earlier,
+which predate inline variables.
+
+```cmd
+yadf MyUnit.pas --d10
+```
+
+What it does:
+
+- **Explicit-typed** inline vars and typed `for`-loop vars hoist mechanically:
+  `var N: Integer := 5;` becomes `N: Integer;` in a `var` block plus `N := 5;` in
+  place; `for var L: Integer := 0 to 9 do` becomes `for L := 0 to 9 do`. A `var`
+  block is created if the routine has none. Multi-name declarations
+  (`var A, B: Integer;`) hoist each name.
+- **Inferred** initializers with a literal RHS get a best-effort type from the
+  literal (`Integer`, `Extended`, `string`, `Boolean`, and `T.Create` -> `T`), with a
+  `// YADF Delphi10: inferred type, verify` comment so you can confirm the guess.
+- Anything whose type **cannot** be determined, a **name collision** with a
+  different type, or an inline var inside an **anonymous method** is left in place
+  with a `// TODO -oYADF : ...` marker (visible in the IDE To-Do list) quoting the
+  original line, so you can finish it by hand and re-run.
+
+**This is not full Delphi 10 compliance.** Only inline variables are downgraded.
+Other modern constructs are **not** rewritten -- in particular the **`if` ternary
+expression** (`A := if C then X else Y`), inline constants, and managed records have
+no Delphi 10 equivalent a formatter can produce mechanically, so they remain and must
+be reworked by hand. Inline-var hoisting still removes the most common blocker.
+
+> **Limits.** We do not have Delphi 10 (or any pre-10.3 Delphi) available, so this
+> transform is **best-effort and unverified on a real Tokyo toolchain**, and the
+> YADFOT IDE wizard / older builds are untested for it. The prebuilt `YADF.exe`
+> needs no Delphi installed, so anyone can run the downgrade. Please report cases it
+> gets wrong.
+
 ## Configuration
 
 YADF (CLI) and YADFOT (IDE wizard) share a unified lookup hierarchy
