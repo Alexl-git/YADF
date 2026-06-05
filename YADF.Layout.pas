@@ -2588,7 +2588,7 @@ begin
               InVisibility     := False;
               ExpectSectionDecl:= True ;
             end;
-            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) then
+            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) and (PrevNonKind <> ptEqual) then
             // ParensDepth = 0 distinguishes a real procedure/function
             // declaration from an inline anonymous method expression
             // (e.g. CallSomething(procedure(X) begin ... end)). The
@@ -2597,6 +2597,9 @@ begin
             // we did, that marker would never be consumed, leaving
             // OpenProcRegions elevated and over-indenting every line
             // after the call. (Bug repro: inline anon proc, 2026-05-15.)
+            // PrevNonKind <> ptEqual excludes a procedural / method-pointer
+            // TYPE (`T = procedure(...)` / `T = function(...) of object`),
+            // which must NOT close the surrounding type section.
             begin
               CloseSectionIfOpen;
               InVisibility:= False;

@@ -8,6 +8,21 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.1] -- 2026-06-05
+
+### Fixed
+
+- **`of object` method-pointer / event types no longer break formatting.** A type
+  like `TNotifyEvent = procedure(Sender: TObject) of object;` was mishandled two
+  ways: the group parser treated the `object` modifier as an `object...end` block
+  opener (stamping a spurious `// object` label on the unit's `end.` and cascading
+  indentation), and the re-indent pass treated `= procedure` / `= function` as a
+  routine declaration, closing the surrounding `type` section so every following
+  declaration dropped a level. Both are now guarded -- the fixes fire only on
+  `of object` and on `procedure`/`function` immediately after `=`, so real object
+  blocks and routine declarations are unaffected. Procedural and method-pointer
+  type declarations now keep correct indentation.
+
 ## [1.0.6.0] -- 2026-06-04
 
 ### Added

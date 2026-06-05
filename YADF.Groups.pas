@@ -66,11 +66,19 @@ begin
   Result:= K in [ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject];
 end;
 
+// Index of the previous significant token (skipping whitespace/CRLF), or -1.
+function PrevSignificantIdx(const ATokens: TTokenList; AFrom: Integer): Integer;
+begin
+  Result:= AFrom;
+  while (Result >= 0) and (ATokens[Result].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
+    Dec(Result);
+end;
+
 function ParseGroups(const ATokens: TTokenList): TGroup;
 var
   Root: TGroup;
   Cur : TGroup;
-  i   : Integer;
+  i, p: Integer;
   K   : TptTokenKind;
 begin
   Root:= TGroup.Create(gkRoot, -1, ptUnknown, nil);
@@ -91,7 +99,15 @@ begin
         Cur.CloseIdx:= i;
         Cur:= Cur.Parent;
       end;
-      ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject: Cur:= TGroup.Create(gkBlock, i, K, Cur);
+      ptBegin, ptRecord, ptCase, ptTry, ptAsm: Cur:= TGroup.Create(gkBlock, i, K, Cur);
+      ptObject:
+        begin
+          // `object` opens a block in `type T = object ... end`, but in `of object`
+          // (method-pointer / event types) it is a modifier, not a block opener.
+          p:= PrevSignificantIdx(ATokens, i - 1);
+          if (p < 0) or (ATokens[p].Kind <> ptOf) then
+            Cur:= TGroup.Create(gkBlock, i, K, Cur);
+        end;
       ptEnd                                            : if Cur.Kind = gkBlock then
       begin
         Cur.CloseIdx:= i;
