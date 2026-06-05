@@ -75,5 +75,12 @@ $o = Fmt 'd10_collision.pas'
 MustContain $o "var`r`n  I: Integer;" 'collision: first hoisted'
 MustContain $o "var I: string:= 'x'; // TODO -oYADF : name 'I' already hoisted with a different type; resolve manually for Delphi 10 -- was: var I: string:= 'x';" 'collision: second flagged'
 
+# --- d10_nested ---
+$o = Fmt 'd10_nested.pas'
+MustContain $o "  procedure Inner;`r`n  var`r`n    K: Integer;`r`n  begin" 'nested: hoisted to Inner'
+# --- d10_anon ---
+$o = Fmt 'd10_anon.pas'
+MustContain $o "var Z: Integer:= 3; // TODO -oYADF : inline var inside an anonymous method is not auto-hoisted for Delphi 10 -- was: var Z: Integer:= 3;" 'anon: flagged'
+
 if ($fail -eq 0) { Write-Output "delphi10_compat: PASS"; exit 0 }
 else { Write-Output "delphi10_compat: $fail FAILED"; exit 1 }

@@ -3113,8 +3113,11 @@ var
   Inlines  : TDictionary<Integer, TInlineRec>;        // key = inline `var` token index
   BodyDecls: TObjectDictionary<Integer, TStringList>; // key = routine `begin` token index
   RNames   : TDictionary<string, string>;             // per-routine name -> hoisted type
+  BlkAnon  : TList<Boolean>;                           // open blocks in body; True = anon-method body
   G        : TGroup;
-  i, k, pv : Integer;
+  i, k, pv, AnonCount: Integer;
+  PendingAnon, IsAnon: Boolean;
+  Ki       : TptTokenKind;
   Rec      : TInlineRec;
 
   function NextSig(AFrom: Integer): Integer;
@@ -3390,11 +3393,42 @@ var
     for m:= 0 to High(keep) do EnsureBodyDecls(ABeginIdx).Add(keep[m]);
   end;
 
+  // An inline var inside an anonymous method body: we will not hoist it (its
+  // scope is the anon method, not the enclosing routine). Leave it in place +
+  // a TODO. Statement vars only; for-vars/already-flagged are left untouched.
+  function TryAnonFallback(AVar: Integer; out ARec: TInlineRec): Boolean;
+  var
+    ni, semi, dummy, nx: Integer;
+    origLine: string;
+  begin
+    Result:= False;
+    ni:= NextSig(AVar + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    semi:= FindStmtEnd(AVar + 1, dummy);
+    if semi < 0 then Exit;
+    nx:= NextSig(semi + 1);
+    if (nx < ATokens.Count) and (ATokens[nx].Kind = ptSlashesComment) and
+       (Pos('YADF', ATokens[nx].Text) > 0) then Exit; // already flagged
+    origLine:= Trim(InlineRenderRange(ATokens, AVar, semi));
+    ARec.Kind    := ikFallbackTodo;
+    ARec.NameIdx := ni;
+    ARec.AssignIdx:= -1;
+    ARec.SemiIdx := semi;
+    ARec.Sep     := -1;
+    ARec.SepIsIn := False;
+    SetLength(ARec.DeclLines, 0);
+    SetLength(ARec.Names, 0);
+    ARec.TypeStr := '';
+    ARec.Comment := ' // TODO -oYADF : inline var inside an anonymous method is not auto-hoisted for Delphi 10 -- was: ' + origLine;
+    Result:= True;
+  end;
+
 begin
   Root     := ParseGroups(ATokens);
   Inlines  := TDictionary<Integer, TInlineRec>.Create;
   BodyDecls:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
   RNames   := TDictionary<string, string>.Create;
+  BlkAnon  := TList<Boolean>.Create;
   try
     // 1) Analyse. A routine body is a gkBlock opened by `begin` that is a direct
     //    child of Root (top-level proc/func/method bodies AND nested-routine
@@ -3405,27 +3439,56 @@ begin
       if (G.Kind <> gkBlock) or (G.OpenerKind <> ptBegin) then Continue;
       if G.CloseIdx <= G.OpenIdx then Continue;
       RNames.Clear; // names are scoped per routine
+      BlkAnon.Clear;
+      AnonCount  := 0;
+      PendingAnon:= False;
       i:= G.OpenIdx + 1;
       while i < G.CloseIdx do
       begin
-        if ATokens[i].Kind = ptVar then
+        Ki:= ATokens[i].Kind;
+        // A procedure/function keyword inside a body opens an anonymous method
+        // (named nested routines live in the decl section, before `begin`).
+        if Ki in [ptProcedure, ptFunction] then
+        begin PendingAnon:= True; Inc(i); Continue; end;
+        if Ki in [ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject] then
         begin
-          pv:= PrevSig(i - 1);
-          if (pv >= 0) and (ATokens[pv].Kind = ptFor) then
+          IsAnon:= PendingAnon and (Ki = ptBegin);
+          BlkAnon.Add(IsAnon);
+          if IsAnon then Inc(AnonCount);
+          PendingAnon:= False;
+          Inc(i); Continue;
+        end;
+        if Ki = ptEnd then
+        begin
+          if BlkAnon.Count > 0 then
           begin
-            if TryParseForExplicit(i, Rec) then
+            if BlkAnon[BlkAnon.Count - 1] then Dec(AnonCount);
+            BlkAnon.Delete(BlkAnon.Count - 1);
+          end;
+          Inc(i); Continue;
+        end;
+        if Ki = ptVar then
+        begin
+          // A `var` in an anon method's own decl section (seen before its begin)
+          // is a classic var section, not an inline var -- leave it.
+          if PendingAnon then begin Inc(i); Continue; end;
+          pv:= PrevSig(i - 1);
+          if AnonCount > 0 then
+          begin
+            if ((pv < 0) or (ATokens[pv].Kind <> ptFor)) and TryAnonFallback(i, Rec) then
             begin
-              CommitInline(G.OpenIdx, i, Rec);
-              i:= Rec.Sep + 1; // keep scanning the loop body for more inline vars
+              Inlines.Add(i, Rec);
+              i:= Rec.SemiIdx + 1;
               Continue;
             end;
           end
-          else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
+          else if (pv >= 0) and (ATokens[pv].Kind = ptFor) then
           begin
-            CommitInline(G.OpenIdx, i, Rec);
-            i:= Rec.SemiIdx + 1;
-            Continue;
-          end;
+            if TryParseForExplicit(i, Rec) then
+            begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.Sep + 1; Continue; end;
+          end
+          else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
+          begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.SemiIdx + 1; Continue; end;
         end;
         Inc(i);
       end;
@@ -3499,6 +3562,7 @@ begin
     Inlines.Free;
     BodyDecls.Free;
     RNames.Free;
+    BlkAnon.Free;
     Root.Free;
   end;
 end; // procedure
