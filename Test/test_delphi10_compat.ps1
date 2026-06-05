@@ -44,5 +44,12 @@ MustContain $o "A: Integer;" 'multiname: A hoisted'
 MustContain $o "B: Integer;" 'multiname: B hoisted'
 MustNotMatch $o 'var\s+A\s*,\s*B' 'multiname: inline removed'
 
+# --- d10_novarsection ---
+$o = Fmt 'd10_novarsection.pas'
+MustContain $o "var`r`n  Acc: Integer;" 'novarsection: var block created'
+MustContain $o "const`r`n  Step = 2;" 'novarsection: existing const intact'
+MustContain $o ":= Step;" 'novarsection: assignment kept'
+MustNotMatch $o 'var\s+Acc\s*:\s*Integer\s*:=' 'novarsection: inline removed'
+
 if ($fail -eq 0) { Write-Output "delphi10_compat: PASS"; exit 0 }
 else { Write-Output "delphi10_compat: $fail FAILED"; exit 1 }
