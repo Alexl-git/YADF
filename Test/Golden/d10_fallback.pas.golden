@@ -1,0 +1,13 @@
+unit d10_fallback;
+
+interface
+
+implementation
+
+procedure Demo(AInput: TObject);
+begin
+  var X:= AInput.GetThing;
+  WriteLn(X.ToString);
+end;
+
+end.

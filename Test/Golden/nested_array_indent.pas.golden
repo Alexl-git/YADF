@@ -1,0 +1,12 @@
+unit nested_array_indent;
+
+interface
+
+implementation
+
+const
+  Explane: array [0 .. 1, 0 .. 5] of string = (
+    ( 'Item AAAAAAAAAAAAAAAAAAA 1', 'Item AAAAAAAAAAAAAAAAAAA 2', 'Item AAAAAAAAAAAAAAAAAAA 3', 'Item AAAAAAAAAAAAAAAAAAA 4'),
+    ('Item BBBBBBBBBBBBBB 1', 'Item BBBBBBBBBBBBBB 2', 'Item BBBBBBBBBBBBBB 3', 'Item BBBBBBBBBBBBBB 4'));
+
+end.

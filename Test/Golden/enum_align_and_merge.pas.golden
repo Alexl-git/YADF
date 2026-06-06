@@ -1,0 +1,40 @@
+unit enum_align_and_merge;
+
+// Regression: alignment passes must NOT reach inside a multi-line enum/paren
+// body, and reflow must NOT pull the first enum member up onto the `(` line.
+//   - AlignConstEquals / AlignTypeColon used to align enum-member `=`/`:` and
+//     shift their trailing `//` comments (lines sit inside a multi-line `(`).
+//   - ReflowLineBreaks used to merge `knNone = 0,` onto `TKind = (` (stopping
+//     at the comment), leaving a half-merged enum.
+// The const/var/assignment blocks below MUST still align (they are top-level,
+// bracket depth 0).
+
+interface
+
+type
+  TKind = (
+    knNone = 0, // nothing
+    knLow = 1, // low
+    knHigh = 2 // high
+  );
+
+const
+  A   = 1;
+  Bb  = 22;
+  Ccc = 333;
+
+var
+  X  : Integer;
+  Yy : string ;
+  Zzz: Boolean;
+
+implementation
+
+procedure P;
+begin
+  A  := 1;
+  Bb := 22;
+  Ccc:= 333;
+end;
+
+end.
