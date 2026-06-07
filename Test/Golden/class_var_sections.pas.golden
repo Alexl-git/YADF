@@ -14,7 +14,7 @@ type
       var
         Var3: string;
         Var4: string;
-    end;
+  end;
 
 implementation
 

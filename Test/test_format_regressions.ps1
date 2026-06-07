@@ -28,5 +28,12 @@ MustMatch $o '(?m)^  TThing = class' 'of_object: class keeps type-section indent
 MustMatch $o '(?m)^    FHandler: function\(P1: Integer\): HResult of object stdcall;' 'of_object: method-pointer field indented + intact'
 MustMatch $o '(?m)^end\.\s*$' 'of_object: unit end. unlabeled'
 
+# --- directive_levels: {$IF}/{$ELSE}/{$ENDIF} of one group share a level (no drift) ---
+$o = Fmt 'directive_levels.pas'
+MustMatch    $o '(?m)^\{\$IF Defined\(MSWINDOWS\)\}' 'directives: $IF at column 0'
+MustMatch    $o '(?m)^\{\$ELSE\}'  'directives: $ELSE aligned with $IF'
+MustMatch    $o '(?m)^\{\$ENDIF\}' 'directives: $ENDIF aligned with $IF'
+MustNotMatch $o '(?m)^\s+\{\$(ELSE|ENDIF)\}' 'directives: $ELSE/$ENDIF not drifted/indented'
+
 if ($fail -eq 0) { Write-Output "format_regressions: PASS"; exit 0 }
 else { Write-Output "format_regressions: $fail FAILED"; exit 1 }

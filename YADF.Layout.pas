@@ -2388,6 +2388,7 @@ var
   InVisibility      : Boolean;
   VisOnThisLine     : Boolean;
   IsProcBody        : TList<Boolean>;
+  DirDepths         : TList<Integer>;
   OpenProcRegions   : Integer;
   Out_              : TStringBuilder;
   ParensDepth       : Integer;
@@ -2492,6 +2493,7 @@ begin
     Stack           := TList<TptTokenKind>.Create;
     IsProcBody      := TList<Boolean     >.Create;
     PendingProcStack:= TList<Boolean     >.Create;
+    DirDepths       := TList<Integer     >.Create;
     try
       PrevNonKind       := ptUnknown;
       InVisibility      := False    ;
@@ -2562,6 +2564,11 @@ begin
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if T.Kind in [ptEnd, ptUntil] then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
+          // A class/record `end` that follows an open var/const/type section
+          // implicitly closes that section, so dedent past it to align the `end`
+          // with the class/record opener (sections have no `end` of their own).
+          if (T.Kind = ptEnd) and (StackTop in [ptType, ptVar, ptConst]) then
+            EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if T.Kind in [ptExcept, ptFinally] then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if ((T.Kind in [ptType, ptVar, ptConst]) or IsClassSectionLine(i)) and (StackTop in [ptType, ptVar, ptConst]) then
@@ -2588,6 +2595,20 @@ begin
             Inc(EffectiveDepth, BodyBonus);
           if (OpenProcRegions > 1) and not ((T.Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) and (not InClassOrRecord)) then
             Inc(EffectiveDepth, OpenProcRegions - 1);
+          // Conditional compiler directives: align {$ELSE}/{$ENDIF} with their
+          // matching {$IF}/{$IFDEF} by mirroring the depth recorded for the opener.
+          // This keeps a directive group consistent in ANY context; it deliberately
+          // does NOT indent the code between the directives (that would break inline
+          // directives inside uses clauses / field lists / statement blocks).
+          if T.Kind in [ptIfDirect, ptIfDefDirect, ptIfNDefDirect, ptIfOptDirect] then
+            DirDepths.Add(EffectiveDepth)
+          else if (T.Kind in [ptElseDirect, ptElseIfDirect]) and (DirDepths.Count > 0) then
+            EffectiveDepth:= DirDepths[DirDepths.Count - 1]
+          else if (T.Kind in [ptEndIfDirect, ptIfEndDirect]) and (DirDepths.Count > 0) then
+          begin
+            EffectiveDepth:= DirDepths[DirDepths.Count - 1];
+            DirDepths.Delete(DirDepths.Count - 1);
+          end;
           Out_.Append(StringOfChar(' ', EffectiveDepth * AIndent));
           AfterCRLF:= False;
         end; // if
@@ -2680,7 +2701,8 @@ begin
             end;
             ptEnd:
             begin
-              StackPop;
+              CloseSectionIfOpen; // an open var/const/type section is closed by this end
+              StackPop;           // then pop the begin/class/record/... block itself
               InVisibility:= False;
             end;
             ptPrivate, ptPublic, ptProtected, ptPublished: begin InVisibility:= True; VisOnThisLine:= True; end;
@@ -2711,6 +2733,7 @@ begin
     finally
       PendingProcStack.Free;
       IsProcBody.Free;
+      DirDepths.Free;
       Stack.Free;
       Out_.Free;
     end; // try
