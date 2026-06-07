@@ -23,9 +23,9 @@ param([switch]$Capture)
 $ErrorActionPreference = 'Stop'
 $exe     = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
 $goldDir = Join-Path $PSScriptRoot 'Golden'
-# WIP fixtures (known-bad output we're about to fix) are excluded so they don't lock
-# in the bug.
-$exclude = @('class_var_sections.pas')
+# WIP fixtures (known-bad output we're about to fix) can be excluded so they don't
+# lock in a bug. (Empty now -- #333 is fixed and class_var_sections.pas is a golden.)
+$exclude = @()
 
 if (-not (Test-Path $goldDir)) { New-Item -ItemType Directory -Path $goldDir | Out-Null }
 $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRoot 'Snippets') -Filter *.pas -Recurse |
