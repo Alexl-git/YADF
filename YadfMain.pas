@@ -141,9 +141,9 @@ unit YadfMain;
 // ------------------------
 // - Content inside block comments is never reformatted.
 // - Content inside string literals is never altered.
-// - class TFoo = class ... end; declarations are not yet recognized as
-//   structural blocks; the end of such a class is treated as inline.
-// - Pass 2 (column alignment) is not yet implemented.
+// - A class/record type body is not tracked as a structural group by
+//   ParseGroups; its indentation and `end` alignment are handled by the
+//   re-indentation pass instead.
 
 interface
 
@@ -1206,7 +1206,7 @@ begin
 
     if (OutFile <> '') and (AllFiles.Count > 1) then
     begin
-      WriteStdoutLine('error: --out only valid with a single input file');
+      WriteStdoutLine('error: --o only valid with a single input file');
       ExitCode:= 1;
       Exit;
     end;

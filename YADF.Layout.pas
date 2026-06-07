@@ -89,6 +89,12 @@ uses
   , YADF.Groups
   ;
 
+const
+  // Forced CRLF on every platform. System.sLineBreak is platform-dependent
+  // (#10 on POSIX), so we use an explicit constant to keep output identical
+  // everywhere. Also keeps the source clean of scattered #13#10 literals.
+  CRLF = #13#10;
+
 // ===== Whitespace and character helpers =====
 // Tiny pure functions reused across the layout passes. None mutate the
 // token stream; they all take strings and return strings or scalars.
@@ -110,48 +116,13 @@ begin
   Result:= Length(APre) - LastNL;
 end;
 
-// Collapses any run of horizontal/vertical whitespace (spaces, tabs,
-// CR, LF) to a single space. Used to flatten a multi-line token range
-// onto one line during inline rendering of parens groups, uses items,
-// etc. Adjacent non-whitespace chars stay untouched.
-function CollapseToSpace(const S: string): string;
-var
-  i    : Integer;
-  InRun: Boolean;
-  Sb   : TStringBuilder;
-begin
-  Sb:= TStringBuilder.Create;
-  try
-    InRun:= False;
-    for i:= 1 to Length(S) do
-    begin
-      if (S[i] = #9) or (S[i] = #10) or (S[i] = #13) or (S[i] = ' ') then
-      begin
-        if not InRun then
-        begin
-          Sb.Append(' ');
-          InRun:= True;
-        end;
-      end
-      else
-      begin
-        Sb.Append(S[i]);
-        InRun:= False;
-      end;
-    end;
-    Result:= Sb.ToString;
-  finally
-    Sb.Free;
-  end; // try
-end; // function
-
 // Canonicalises every line break to CRLF. We collapse CRLF -> LF first
 // so mixed input (CRLF + bare LF) folds to a single LF run, then
 // expand back. This deliberately produces CRLF regardless of platform.
 function NormalizeCRLF(const S: string): string;
 begin
-  Result:= StringReplace(S     , #13#10, #10   , [rfReplaceAll]);
-  Result:= StringReplace(Result, #10   , #13#10, [rfReplaceAll]);
+  Result:= StringReplace(S     , CRLF, #10   , [rfReplaceAll]);
+  Result:= StringReplace(Result, #10   , CRLF, [rfReplaceAll]);
 end;
 
 // Strips trailing spaces/tabs from every line and preserves the final
@@ -165,15 +136,14 @@ var
 begin
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     Out_:= TStringBuilder.Create;
     try
       for i:= 0 to Lines.Count - 1 do
       begin
         Out_.Append(TrimRight(Lines[i]));
-        Out_.Append(#13#10);
+        Out_.Append(CRLF);
       end;
       Result:= Out_.ToString;
     finally
@@ -507,8 +477,7 @@ begin
   Tab:= StringOfChar(' ', ATabWidth);
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     Out_:= TStringBuilder.Create;
     try
@@ -525,7 +494,7 @@ begin
           Inc(j);
         end;
         Out_.Append(Copy(Line, j, MaxInt));
-        Out_.Append(#13#10);
+        Out_.Append(CRLF);
       end;
       Result:= Out_.ToString;
     finally
@@ -582,8 +551,7 @@ var
 begin
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     Out_:= TStringBuilder.Create;
     try
@@ -602,14 +570,14 @@ begin
             if Length(Joined) <= AMaxLen then
             begin
               Out_.Append(Joined);
-              Out_.Append(#13#10);
+              Out_.Append(CRLF);
               Inc(i, 2);
               Continue;
             end;
           end;
         end; // if
         Out_.Append(Cur);
-        Out_.Append(#13#10);
+        Out_.Append(CRLF);
         Inc(i);
       end; // while
       Result:= Out_.ToString;
@@ -713,17 +681,6 @@ begin
     Inc(i);
   end; // while
 end; // function
-
-// True if ALine begins with `const` followed by whitespace or EOL.
-// Used by the const-equals alignment pass to detect the section
-// keyword (the `const` line itself is never aligned).
-function StartsConstBlock(const ALine: string): Boolean;
-var
-  T: string;
-begin
-  T:= TrimLeft(ALine);
-  Result:= SameText(Copy(T, 1, 5), 'const') and ((Length(T) = 5) or (T[6] = ' ') or (T[6] = #9) or (T[6] = #13));
-end;
 
 // True iff ALine starts with a structural keyword that breaks any
 // in-progress alignment run (begin/end/type/var/const/procedure/
@@ -878,15 +835,14 @@ var
 begin
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     Out_:= TStringBuilder.Create;
     try
       for i:= 0 to Lines.Count - 1 do
       begin
         Out_.Append(CollapseInteriorSpacesInLine(Lines[i]));
-        Out_.Append(#13#10);
+        Out_.Append(CRLF);
       end;
       Result:= Out_.ToString;
     finally
@@ -991,8 +947,7 @@ begin
   Lines:= TStringList.Create;
   IdentChars:= ['A'..'Z', 'a'..'z', '0'..'9', '_', '.'];
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     Out_:= TStringBuilder.Create;
     try
@@ -1031,14 +986,14 @@ begin
             else Inc(Col);
           end;
           Out_.Append(Line);
-          Out_.Append(#13#10);
+          Out_.Append(CRLF);
           Continue;
         end;
 
         // At paren depth 0. Try to shape-match the line.
         FirstNonWs:= 1;
         while (FirstNonWs <= Length(Line)) and
-              (Line[FirstNonWs] in [' ', #9]) do Inc(FirstNonWs);
+              CharInSet(Line[FirstNonWs], [' ', #9]) do Inc(FirstNonWs);
         Indent:= Copy(Line, 1, FirstNonWs - 1);
 
         // Find `:` and `;` at this line's top level (no nested parens),
@@ -1136,7 +1091,7 @@ begin
 
         // No match (or rejected) -- emit line unchanged.
         Out_.Append(Line);
-        Out_.Append(#13#10);
+        Out_.Append(CRLF);
       end;
       Result:= Out_.ToString;
     finally
@@ -1276,7 +1231,7 @@ var
     begin
       sCol:= ASemi + 1;
       while (sCol <= Length(ALine)) and
-            (ALine[sCol] in [' ', #9]) do Inc(sCol);
+            CharInSet(ALine[sCol], [' ', #9]) do Inc(sCol);
       if sCol <= Length(ALine) then
       begin
         // Only line comments allowed after the `;`.
@@ -1290,8 +1245,7 @@ var
 begin
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
 
     SetLength(ColonAt, Lines.Count);
@@ -1313,7 +1267,7 @@ begin
         if (ColonAt[i] = 0) or (SemiAt[i] = 0) then
         begin
           Out_.Append(Lines[i]);
-          Out_.Append(#13#10);
+          Out_.Append(CRLF);
           Inc(i);
           Continue;
         end;
@@ -1343,20 +1297,20 @@ begin
                 Line:= Copy(Line, 1, SemiAt[k] - 1) +
                   StringOfChar(' ', Pad) + Copy(Line, SemiAt[k], MaxInt);
               Out_.Append(Line);
-              Out_.Append(#13#10);
+              Out_.Append(CRLF);
             end;
           end
           else
             for k:= RunStart to RunEnd do
             begin
               Out_.Append(Lines[k]);
-              Out_.Append(#13#10);
+              Out_.Append(CRLF);
             end;
         end
         else
         begin
           Out_.Append(Lines[i]);
-          Out_.Append(#13#10);
+          Out_.Append(CRLF);
         end;
         i:= RunEnd + 1;
       end;
@@ -1386,8 +1340,7 @@ var
 begin
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     SetLength(Anchors, Lines.Count);
     for i:= 0 to Lines.Count - 1 do Anchors[i]:= FindAnchorAtTopLevel(Lines[i], AAnchor);
@@ -1405,7 +1358,7 @@ begin
         if (Anchors[i] = 0) or StartsBlockBoundary(Lines[i]) then
         begin
           Out_.Append(Lines[i]);
-          Out_.Append(#13#10);
+          Out_.Append(CRLF);
           Inc(i);
           Continue;
         end;
@@ -1442,14 +1395,14 @@ begin
             else
               Line:= Lines[i];
             Out_.Append(Line);
-            Out_.Append(#13#10);
+            Out_.Append(CRLF);
           end;
         end // if
         else
           for i:= StartIdx to j - 1 do
         begin
           Out_.Append(Lines[i]);
-          Out_.Append(#13#10);
+          Out_.Append(CRLF);
         end;
         i:= j;
       end; // while
@@ -1638,6 +1591,11 @@ var
   Target  : Integer;
   WorkCols: TArray<TArray<Integer>>;
   WorkLine: TArray<string>;
+  L        : Integer;  // hoisted from inline `for var L` (XE8/D10 compat)
+  M        : Integer;  // hoisted from inline `for var M`
+  AllHaveCo: Boolean;  // hoisted from inline vars in the comment-align block
+  MaxCoCol : Integer;
+  MaxShift : Integer;
 
   // A line whose structural skeleton starts with a block keyword (end,
   // begin, try, finally, ...) is NOT an alignment peer. ComputeLineShape
@@ -1663,8 +1621,7 @@ var
 begin
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     SetLength(Info, Lines.Count);
     for i:= 0 to Lines.Count - 1 do Info[i]:= ComputeLineShape(Lines[i]);
@@ -1694,7 +1651,7 @@ begin
         if not Eligible(Info[i]) then
         begin
           Out_.Append(Lines[i]);
-          Out_.Append(#13#10);
+          Out_.Append(CRLF);
           Inc(i);
           Continue;
         end;
@@ -1731,7 +1688,7 @@ begin
             // by more anchors) is still aligned, so grid-shaped const
             // arrays keep their columns.
             if (k = High(Info[i].Shape)) and (Info[i].Shape[k] = ptSemiColon) then Continue;
-            for var L: Integer:= 0 to (j - i) - 1 do
+            for L:= 0 to (j - i) - 1 do
             begin
               ColLines[L]:= WorkLine[L]   ;
               ColCols [L]:= WorkCols[L][k];
@@ -1747,7 +1704,7 @@ begin
               AnyOver:= True;
               Break;
             end;
-            for var L: Integer:= 0 to (j - i) - 1 do
+            for L:= 0 to (j - i) - 1 do
             begin
               Pad:= Target - WorkCols[L][k];
               if Pad > 0 then
@@ -1755,7 +1712,7 @@ begin
               else if Pad < 0 then
                 WorkLine[L]:= Copy(WorkLine[L], 1, WorkCols[L][k] - 1 + Pad) + Copy(WorkLine[L], WorkCols[L][k], MaxInt);
               if Pad <> 0 then
-                for var M: Integer:= k to High(WorkCols[L]) do WorkCols[L][M]:= WorkCols[L][M] + Pad;
+                for M:= k to High(WorkCols[L]) do WorkCols[L][M]:= WorkCols[L][M] + Pad;
             end;
           end; // for
 
@@ -1776,8 +1733,8 @@ begin
           // shared column is still bounded by AMaxCol.
           if ACommentMaxShift > 0 then
           begin
-            var AllHaveCo: Boolean:= True ;
-            var MaxCoCol : Integer:= 0    ;
+            AllHaveCo:= True;
+            MaxCoCol := 0   ;
             SetLength(ColCols, j - i);
             for k:= 0 to (j - i) - 1 do
             begin
@@ -1791,7 +1748,7 @@ begin
             end;
             if AllHaveCo then
             begin
-              var MaxShift: Integer:= 0;
+              MaxShift:= 0;
               for k:= 0 to (j - i) - 1 do
                 if MaxCoCol - ColCols[k] > MaxShift then MaxShift:= MaxCoCol - ColCols[k];
               if (MaxShift > 0) and (MaxShift <= ACommentMaxShift) and (MaxCoCol <= AMaxCol) then
@@ -1807,14 +1764,14 @@ begin
           for k:= 0 to (j - i) - 1 do
           begin
             Out_.Append(WorkLine[k]);
-            Out_.Append(#13#10);
+            Out_.Append(CRLF);
           end;
           i:= j;
         end // if
         else
         begin
           Out_.Append(Lines[i]);
-          Out_.Append(#13#10);
+          Out_.Append(CRLF);
           Inc(i);
         end;
       end; // while
@@ -2148,11 +2105,13 @@ var
   Lines        : TStringList;
   NextLn       : string;
   Out_         : TStringBuilder;
+  CurR         : string;  // hoisted from inline vars in the merge loop (XE8/D10)
+  NextT        : string;
+  Sep          : string;
 begin
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     Out_:= TStringBuilder.Create;
     try
@@ -2175,9 +2134,9 @@ begin
             Leading:= Leading + Cur[k];
             Inc(k);
           end;
-          var CurR : string:= TrimRight(Cur   );
-          var NextT: string:= Trim     (NextLn);
-          var Sep: string:= ' ';
+          CurR := TrimRight(Cur   );
+          NextT:= Trim     (NextLn);
+          Sep  := ' ';
           if (CurR <> '') and CharInSet(CurR[Length(CurR)], ['(', '[']) then
             Sep:= '';
           if (NextT <> '') and CharInSet(NextT[1], [')', ']', ',', ';', '.']) then
@@ -2188,7 +2147,7 @@ begin
           Inc(i);
         end; // while
         Out_.Append(Cur);
-        Out_.Append(#13#10);
+        Out_.Append(CRLF);
         Inc(i);
       end; // while
       Result:= Out_.ToString;
@@ -2261,8 +2220,7 @@ begin
     Exit(S);
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     Out_:= TStringBuilder.Create;
     try
@@ -2286,12 +2244,12 @@ begin
           end;
           while Have < Need do
           begin
-            Out_.Append(#13#10);
+            Out_.Append(CRLF);
             Inc(Have);
           end;
         end;
         Out_.Append(Lines[i]);
-        Out_.Append(#13#10);
+        Out_.Append(CRLF);
       end; // for
       Result:= Out_.ToString;
     finally
@@ -2317,8 +2275,7 @@ begin
   if AMax < 0 then Exit(S);
   Lines:= TStringList.Create;
   try
-    Lines.LineBreak        := #13#10;
-    Lines.TrailingLineBreak:= True  ;
+    Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
     Out_:= TStringBuilder.Create;
     try
@@ -2335,7 +2292,7 @@ begin
         else
           Blanks:= 0;
         Out_.Append(Lines[i]);
-        Out_.Append(#13#10);
+        Out_.Append(CRLF);
       end;
       Result:= Out_.ToString;
     finally
@@ -2542,7 +2499,7 @@ begin
         if ExpectSectionDecl and not (T.Kind in [ptAnsiComment, ptBorComment, ptSlashesComment]) then
         begin
           while (Out_.Length > 0) and (Out_.Chars[Out_.Length - 1] = ' ') do Out_.Length:= Out_.Length - 1;
-          Out_.Append(#13#10);
+          Out_.Append(CRLF);
           AfterCRLF        := True     ;
           PendingWS        := ''       ;
           CurLineLast      := ptUnknown;
@@ -2845,7 +2802,7 @@ begin
     Sb.Append(OpenTok.Text);
     for i:= 0 to High(Items) do
     begin
-      Sb.Append(#13#10);
+      Sb.Append(CRLF);
       Sb.Append(Indent);
       if i = 0 then
         Sb.Append(Items[i])
@@ -2855,7 +2812,7 @@ begin
         Sb.Append(Items[i]);
       end;
     end;
-    Sb.Append(#13#10);
+    Sb.Append(CRLF);
     Sb.Append(Indent);
     Sb.Append(';');
     Result:= Sb.ToString;
@@ -3571,11 +3528,11 @@ begin
         if BodyDecls.ContainsKey(i) then
         begin
           Outp.Add(MakeTok(ptVar, 'var'));
-          Outp.Add(MakeTok(ptCRLF, #13#10));
+          Outp.Add(MakeTok(ptCRLF, CRLF));
           for k:= 0 to BodyDecls[i].Count - 1 do
           begin
             Outp.Add(MakeTok(ptIdentifier, BodyDecls[i][k]));
-            Outp.Add(MakeTok(ptCRLF, #13#10));
+            Outp.Add(MakeTok(ptCRLF, CRLF));
           end;
         end;
 
@@ -3666,6 +3623,7 @@ var
   Sb          : TStringBuilder;
   Tokens      : TTokenList;
   MLMap       : TStringList;
+  EffMaxBlanks: Integer;  // hoisted from inline var in the pipeline (XE8/D10)
 
   // Updates CurCol/CurLine after every text emission. Tabs are
   // counted as TabWidth columns; CR is ignored (column reset happens
@@ -3796,7 +3754,7 @@ var
     EmitText(Tokens[G.OpenIdx].Text);
     for i:= 0 to High(Items) do
     begin
-      EmitText(#13#10);
+      EmitText(CRLF);
       EmitText(Indent);
       // An item that itself contains a `//`/`///` line comment cannot
       // be inline-flattened (it would comment out everything after the
@@ -3827,7 +3785,7 @@ var
         EmitText(Trim(InlineRenderRange(Tokens, Items[i].CmtFirst, Items[i].CmtLast)));
       end;
     end; // for
-    EmitText(#13#10);
+    EmitText(CRLF);
     EmitText(LineWS);
     EmitText(Tokens[G.CloseIdx].Text);
   end; // procedure
@@ -3918,7 +3876,7 @@ var
       begin
         Marker:= Format('// TODO -oYADF : ''%s'' on line %d has no matching ''end''', [Tokens[Child.OpenIdx].Text, Tokens[Child.OpenIdx].Line]);
         if Pos(Marker, ASource) = 0 then
-          EmitText(#13#10 + Marker);
+          EmitText(CRLF + Marker);
       end;
       if AOpts.LabelLongBlocks and (Child.Kind = gkBlock) and not Child.ForceClosed and (Child.CloseIdx > Child.OpenIdx) then
       begin
@@ -4101,7 +4059,7 @@ var
         if BestIdx <= 0 then
           Break;
         Out_.Append(TrimRight(Copy(CurLine, 1, BestIdx - 1)));
-        Out_.Append(#13#10);
+        Out_.Append(CRLF);
         CurLine:= NewIndent + Copy(CurLine, BestIdx, MaxInt);
       end; // while
       Out_.Append(CurLine);
@@ -4130,8 +4088,7 @@ var
   begin
     Lines:= TStringList.Create;
     try
-      Lines.LineBreak        := #13#10;
-      Lines.TrailingLineBreak:= True  ;
+      Lines.LineBreak:= CRLF;
       Lines.Text             := ASrc  ;
       SetLength(Locked, Lines.Count);
       InBrace:= False;
@@ -4231,7 +4188,7 @@ begin
         // of the file) needs an explicit CRLF to flush.
         if PendingLabel <> '' then
         begin
-          EmitText(#13#10);
+          EmitText(CRLF);
           PendingLabel:= '';
         end;
 
@@ -4262,7 +4219,7 @@ begin
         end
         else
           Result:= JoinShortCaseAlts(Result, AOpts.MaxLen);
-        var EffMaxBlanks: Integer:= AOpts.MaxBlankLines;
+        EffMaxBlanks:= AOpts.MaxBlankLines;
         if AOpts.BlanksBeforeSection > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeSection;
         if AOpts.BlanksBeforeMethod  > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeMethod ;
         if AOpts.BlanksBeforeType    > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeType   ;

@@ -61,11 +61,6 @@ begin
   inherited;
 end;
 
-function IsBlockOpener(K: TptTokenKind): Boolean;
-begin
-  Result:= K in [ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject];
-end;
-
 // Index of the previous significant token (skipping whitespace/CRLF), or -1.
 function PrevSignificantIdx(const ATokens: TTokenList; AFrom: Integer): Integer;
 begin

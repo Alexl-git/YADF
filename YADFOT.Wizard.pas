@@ -96,8 +96,8 @@ var
 // --- Options loading ----------------------------------------------------
 
 // TPath.GetHomePath on Windows resolves to %APPDATA% (Roaming), so the
-// returned path is %APPDATA%\YADFOT\yadf.ini -- the per-user fallback
-// when no project-local or source-local INI is found.
+// returned path is %APPDATA%\YADF\yadf.ini -- the family-shared per-user
+// fallback when no project-local or source-local INI is found.
 function AppDataIniPath: string;
 var
   Dir: string;
@@ -185,11 +185,12 @@ begin
     Result:= ExtractFilePath(Project.FileName);
 end;
 
-// Three-tier INI lookup, first hit wins:
+// Four-tier INI lookup, first hit wins:
 //   1. yadf.ini next to the source file (or any ancestor up to 9 deep)
 //   2. yadf.ini next to the active .dproj/.dpr (or any ancestor)
-//   3. %APPDATA%\YADFOT\yadf.ini (per-user fallback)
-// If none exists, DefaultOptions (from YADF.Options) is returned as-is.
+//   3. legacy %APPDATA%\YADFOT\yadf.ini (1.0.1.x users; read-only)
+//   4. shared %APPDATA%\YADF\yadf.ini (materialised from template if absent)
+// If none exists, a commented template is created at tier 4.
 function ResolveOptions(const ASourceFile: string): TYadfOptions;
 var
   IniPath: string;

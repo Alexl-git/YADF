@@ -8,6 +8,37 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.4] -- 2026-06-07
+
+Maintenance release: older-IDE source compatibility and internal cleanup.
+**No change to formatting output** -- the 61-file golden corpus is byte-identical
+to 1.0.6.3, and the full test suite passes.
+
+### Changed
+
+- **The source now compiles on older Delphi versions (back to XE8), best-effort.**
+  Prompted by community feedback on Delphi-PRAXiS: removed 12 redundant
+  `TStringList.TrailingLineBreak := True` assignments (the property does not exist
+  before ~10 Seattle, and `True` is the documented default), hoisted every inline
+  `var` / `for var` declaration in `YADF.Layout` into a classic top-of-routine var
+  block, and replaced two `WideChar in [set]` tests with `CharInSet` (silences
+  W1050). Delphi 13 remains the only developed-and-tested target; older IDEs are
+  accommodated but carry no forward guarantee.
+- Scattered `#13#10` literals in `YADF.Layout` are now a single `CRLF` constant.
+  (`System.sLineBreak` is platform-dependent -- `#10` on POSIX -- so an explicit
+  constant preserves YADF's forced-CRLF output on every platform.)
+
+### Removed
+
+- Dead internal routines with no remaining callers: `IsBlockOpener` (`YADF.Groups`),
+  `CollapseToSpace` and `StartsConstBlock` (`YADF.Layout`).
+
+### Fixed
+
+- A CLI error message referenced a non-existent `--out` flag; corrected to `--o`.
+- Refreshed several stale source comments (the obsolete "Pass 2 not yet implemented"
+  note, the wizard's `%APPDATA%` path, and its INI-lookup tier count).
+
 ## [1.0.6.3] -- 2026-06-07
 
 ### Fixed
