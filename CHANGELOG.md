@@ -8,6 +8,20 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.3] -- 2026-06-07
+
+### Fixed
+
+- **A class/record `end` that follows an open `var`/`const`/`type` section now aligns
+  with the class/record** instead of sitting at the section's indent. This also fixes
+  a stack leak that left the class "open" and over-indented every declaration *after*
+  it (e.g. a following unit-level `const`).
+- **Conditional compiler directives now align as a group.** `{$ELSE}` / `{$ENDIF}`
+  mirror the indentation of their matching `{$IF}` / `{$IFDEF}` instead of drifting to
+  a surrounding section's depth (or to column 0 inside an `asm` block). The code
+  *between* directives keeps its normal indentation, so inline directives inside
+  `uses` clauses, field lists, and statement bodies are left unchanged.
+
 ## [1.0.6.2] -- 2026-06-07
 
 ### Fixed

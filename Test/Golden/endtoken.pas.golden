@@ -14,7 +14,7 @@ asm
   // <-- EAX
   MOV ECX, EAX MOV EAX, -1 BSR EAX, ECX JNZ @@end
 MOV EAX, -1 @@end:
-{$ENDIF CPU32}
+  {$ENDIF CPU32}
 {$IFDEF CPU64}
 // --> ECX X
 // <-- RAX
