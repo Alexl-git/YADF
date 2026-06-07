@@ -1,0 +1,21 @@
+unit class_var_sections;
+
+interface
+
+type
+  TTestProtectedClassVars = class
+    protected
+      var
+        Var1: Boolean;
+        Var2: Boolean;
+      class var
+        CVar1: string;
+        CVar2: string;
+      var
+        Var3: string;
+        Var4: string;
+    end;
+
+implementation
+
+end.

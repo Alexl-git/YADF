@@ -8,6 +8,20 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.2] -- 2026-06-07
+
+### Fixed
+
+- **Class `var` / `class var` sections under a visibility specifier now indent
+  consistently** (surfaced via DelphiAST issue #333). Inside a class with a
+  `private`/`protected`/... specifier the re-indent pass cleared the visibility level
+  on every `var`/`const`/`type` section, so fields landed at the *same* depth as their
+  `var` keyword and a following section dropped a level. Now every `var`/`class var`
+  section under a visibility specifier aligns, and its fields sit one level deeper.
+  `class var` / `class const` / `class type` headers dedent like a bare section
+  keyword. A section that shares the visibility specifier's line (e.g. `public type`)
+  is left unchanged (no double-indent).
+
 ## [1.0.6.1] -- 2026-06-05
 
 ### Fixed

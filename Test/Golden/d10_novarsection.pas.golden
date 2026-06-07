@@ -1,0 +1,15 @@
+unit d10_novarsection;
+
+interface
+
+implementation
+
+function Demo: Integer;
+const
+  Step = 2;
+begin
+  var Acc: Integer:= Step;
+  Result:= Acc;
+end;
+
+end.

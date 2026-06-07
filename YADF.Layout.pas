@@ -2386,6 +2386,7 @@ var
   InInterfaceSection: Boolean;
   InUsesClause      : Boolean;
   InVisibility      : Boolean;
+  VisOnThisLine     : Boolean;
   IsProcBody        : TList<Boolean>;
   OpenProcRegions   : Integer;
   Out_              : TStringBuilder;
@@ -2469,6 +2470,21 @@ var
       StackPop;
   end;
 
+  // True when token AIdx is the `class` of a class-static section header
+  // `class var` / `class const` / `class type` -- i.e. `class` immediately
+  // followed by a section keyword. Such a line starts a section, so it must
+  // dedent like a bare `var`/`const`/`type` even though its first token is `class`.
+  function IsClassSectionLine(AIdx: Integer): Boolean;
+  var
+    j: Integer;
+  begin
+    Result:= False;
+    if (AIdx < 0) or (AIdx >= Tokens.Count) or (Tokens[AIdx].Kind <> ptClass) then Exit;
+    j:= AIdx + 1;
+    while (j < Tokens.Count) and (Tokens[j].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do Inc(j);
+    Result:= (j < Tokens.Count) and (Tokens[j].Kind in [ptVar, ptConst, ptType]);
+  end;
+
 begin
   Tokens:= LoadTokensFromString(ASrc);
   try
@@ -2479,6 +2495,7 @@ begin
     try
       PrevNonKind       := ptUnknown;
       InVisibility      := False    ;
+      VisOnThisLine     := False    ;
       AfterCRLF         := False    ;
       ParensDepth       := 0        ;
       PendingWS         := ''       ;
@@ -2497,6 +2514,7 @@ begin
           Out_.Append(T.Text);
           AfterCRLF:= True;
           PendingWS:= ''  ;
+          VisOnThisLine:= False;
           case CurLineLast of
             ptThen, ptDo, ptElse: BodyBonus:= 1;
             ptColon             : if StackContainsCaseAtTop then
@@ -2546,7 +2564,7 @@ begin
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if T.Kind in [ptExcept, ptFinally] then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
-          if (T.Kind in [ptType, ptVar, ptConst]) and (StackTop in [ptType, ptVar, ptConst]) then
+          if ((T.Kind in [ptType, ptVar, ptConst]) or IsClassSectionLine(i)) and (StackTop in [ptType, ptVar, ptConst]) then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if (T.Kind = ptBegin) and (not InClassOrRecord) and (StackTop in [ptType, ptVar, ptConst]) then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
@@ -2585,7 +2603,16 @@ begin
             begin
               CloseSectionIfOpen;
               StackPush(T.Kind);
-              InVisibility     := False;
+              // A var/const/type section inside a class/record must NOT clear the
+              // visibility level -- it belongs to the current private/protected/...
+              // group, so its fields (and any following section) keep that level
+              // (#333). EXCEPTION: when the section keyword shares the line with the
+              // visibility specifier (`public type` / `class var` after `private`...,
+              // i.e. VisOnThisLine), the section push already provides the level, so
+              // we clear it to avoid double-indenting the members (e.g. constset.pas).
+              // Outside a class InVisibility is already False, so this is a no-op there.
+              if (not InClassOrRecord) or VisOnThisLine then
+                InVisibility:= False;
               ExpectSectionDecl:= True ;
             end;
             ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) and (PrevNonKind <> ptEqual) then
@@ -2656,7 +2683,7 @@ begin
               StackPop;
               InVisibility:= False;
             end;
-            ptPrivate, ptPublic, ptProtected, ptPublished: InVisibility:= True;
+            ptPrivate, ptPublic, ptProtected, ptPublished: begin InVisibility:= True; VisOnThisLine:= True; end;
             ptUses, ptContains, ptRequires               : InUsesClause:= True;
             ptSemiColon                                  : if (ParensDepth = 0) and InUsesClause then
               InUsesClause:= False;
@@ -2667,7 +2694,10 @@ begin
             end;
           end; // case
           if T.ExID in [ptPrivate, ptPublic, ptProtected, ptPublished] then
-            InVisibility:= True;
+          begin
+            InVisibility := True;
+            VisOnThisLine:= True;
+          end;
           if (T.ExID in [ptForward, ptExternal]) and (not InClassOrRecord) and (PendingProcStack.Count > 0) then
           begin
             PendingProcStack.Delete(PendingProcStack.Count - 1);
