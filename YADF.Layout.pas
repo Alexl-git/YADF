@@ -110,7 +110,7 @@ var
   LastNL: Integer;
 begin
   LastNL:= 0;
-  for i:= Length(APre) downto 1 do if (APre[i] = #10) or (APre[i] = #13) then
+  for i:= Length(APre) downto 1 do if (APre[i] = LF) or (APre[i] = CR) then
   begin
     LastNL:= i;
     Break;
@@ -123,8 +123,8 @@ end;
 // expand back. This deliberately produces CRLF regardless of platform.
 function NormalizeCRLF(const S: string): string;
 begin
-  Result:= StringReplace(S     , CRLF, #10   , [rfReplaceAll]);
-  Result:= StringReplace(Result, #10   , CRLF, [rfReplaceAll]);
+  Result:= StringReplace(S     , CRLF, LF  , [rfReplaceAll]);
+  Result:= StringReplace(Result, LF  , CRLF, [rfReplaceAll]);
 end;
 
 // Strips trailing spaces/tabs from every line and preserves the final
@@ -3010,7 +3010,7 @@ var
   i: Integer;
 begin
   for i:= AFrom to ATo do if not (ATokens[i].Kind in [ptSpace, ptCRLF, ptCRLFCo]) then
-  if (Pos(#10, ATokens[i].Text) > 0) or (Pos(#13, ATokens[i].Text) > 0) then
+  if (Pos(LF, ATokens[i].Text) > 0) or (Pos(CR, ATokens[i].Text) > 0) then
     Exit(True);
   Result:= False;
 end;
@@ -3233,7 +3233,7 @@ begin
   for i:= 0 to ATokens.Count - 1 do
   begin
     T:= ATokens[i];
-    if (Pos(#10, T.Text) = 0) and (Pos(#13, T.Text) = 0) then Continue;
+    if (Pos(LF, T.Text) = 0) and (Pos(CR, T.Text) = 0) then Continue;
     if T.Kind in [ptStringConst, ptStringDQConst] then
     begin
       AMap.Add(T.Text);
@@ -3798,14 +3798,14 @@ var
   var
     i: Integer;
   begin
-    for i:= 1 to Length(S) do if S[i] = #10 then
+    for i:= 1 to Length(S) do if S[i] = LF then
     begin
       CurCol:= 0;
       Inc(CurLine);
     end
     else if S[i] = #9 then
       Inc(CurCol, AOpts.TabWidth)
-    else if S[i] <> #13 then
+    else if S[i] <> CR then
       Inc(CurCol);
   end;
 
@@ -3822,7 +3822,7 @@ var
     if PendingLabel <> '' then
     begin
       k:= 0;
-      for i:= 1 to Length(S) do if (S[i] = #13) or (S[i] = #10) then
+      for i:= 1 to Length(S) do if (S[i] = CR) or (S[i] = LF) then
       begin
         k:= i;
         Break;
@@ -3870,7 +3870,7 @@ var
   begin
     S:= Sb.ToString;
     LineStart:= 1;
-    for i:= Length(S) downto 1 do if (S[i] = #10) or (S[i] = #13) then
+    for i:= Length(S) downto 1 do if (S[i] = LF) or (S[i] = CR) then
     begin
       LineStart:= i + 1;
       Break;
