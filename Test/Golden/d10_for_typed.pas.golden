@@ -6,7 +6,8 @@ implementation
 
 procedure Demo;
 begin
-  for var L: Integer:= 0 to 9 do WriteLn(L);
+  for var L: Integer:= 0 to 9 do
+    WriteLn(L);
 end;
 
 end.

@@ -1,0 +1,18 @@
+unit comment_indent;
+
+interface
+
+implementation
+
+procedure P(X: Boolean);
+begin
+// authored at column 0
+  DoFirst;
+      // authored over-indented
+  DoSecond;
+//. pinned note stays where I put it
+  if X then
+    DoThird;
+end;
+
+end.

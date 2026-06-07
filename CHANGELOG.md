@@ -8,6 +8,50 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.5] -- 2026-06-07
+
+Formatting-quality release driven by Delphi-PRAXiS testing feedback: fixes two
+real defects and adds three opt-in formatting controls. Two defaults change (see
+**Changed**); the rest is opt-in. Regression net grown to 66 golden files + 9
+behavioural test scripts; all green and idempotent.
+
+### Fixed
+
+- **Block-comment interiors are no longer reformatted.** A multi-line `{ }` /
+  `(* *)` comment's interior whitespace (aligned columns, ASCII art) now passes
+  through byte-for-byte. The Stage-3/4 line passes re-lexed each line in
+  isolation and mistook a comment's interior lines for code; multi-line block
+  comments are now shielded exactly like multi-line string literals.
+- **Nested then/do/else/case-arm bodies indent correctly.** A control body that
+  is itself an `if` (and its `begin`/`end`) now composes one level under its
+  owner instead of sitting flat beside it -- e.g. `if A then` / `if B then` /
+  `begin ... end` indents as a nested statement. The same-line `else if` ladder
+  is unaffected.
+
+### Added
+
+- **`BreakCaseLabels` (default false; `--break-case`).** A multi-label case arm
+  (`a, b, c: Stmt;`) is kept on one line by default instead of being split into
+  one label per line (which duplicated the statement). Turn on to split.
+- **`IndentComments` (default true; `--no-indent-comments`) + the `//.` pin.**
+  Comment-only lines are re-indented to code depth as before; turn off to keep
+  every comment at its authored indentation. A comment line that starts with
+  `//.` is always kept at its authored indentation, even when indenting is on.
+- **`PackShortBodies` (default false; `--pack-bodies`).** When on, a short simple
+  body is pulled onto its `do`/`then`/`else` header or case `label:`
+  (`for I := 0 to N do Inc(X);`, `0: DoZero;`, `else DoIt;`). A nested control
+  header (if/case/begin...) is never pulled up, so no half-merged headers.
+
+### Changed
+
+- **Loop / case bodies are no longer packed onto their header by default.** A
+  `for..do` / `while..do` body, and a case arm written on its own line, now stay
+  on their own line (matching how an `if-then` body already behaved) instead of
+  being merged up; this also removes the awkward half-merge
+  (`for..do if..then` / `body`). Enable `PackShortBodies` for the old packing.
+- Internal: scattered `#13#10` literals are now `CR + LF` via `CR` / `LF` /
+  `CRLF` constants (no magic numbers; output unchanged).
+
 ## [1.0.6.4] -- 2026-06-07
 
 Maintenance release: older-IDE source compatibility and internal cleanup.

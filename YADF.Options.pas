@@ -56,6 +56,9 @@ type
     UsesAlwaysBreak    : Boolean;
     SplitMultiVarDecls : Boolean;
     AlignDeclSemicolons: Boolean;
+    BreakCaseLabels    : Boolean;
+    IndentComments     : Boolean;
+    PackShortBodies    : Boolean;
     Delphi10Compat     : Boolean;
     Backup             : Boolean;
     BackupDir          : string;
@@ -154,6 +157,9 @@ begin
   Result.UsesAlwaysBreak    := True   ;
   Result.SplitMultiVarDecls := True   ;
   Result.AlignDeclSemicolons:= True   ;
+  Result.BreakCaseLabels    := False  ;
+  Result.IndentComments     := True   ;
+  Result.PackShortBodies    := False  ;
   Result.Delphi10Compat     := False  ;
   Result.Backup             := False  ;
   Result.BackupDir          := ''     ;
@@ -350,6 +356,31 @@ begin
       okBool, True,
       function(const O: TYadfOptions): Variant begin Result := O.AlignDeclSemicolons end,
       procedure(var O: TYadfOptions; const V: Variant) begin O.AlignDeclSemicolons := V end),
+    MakeOpt('BreakCaseLabels', 'Declarations', 'Break case labels',
+      'Break a multi-label case arm ("a, b, c: Stmt;") into one label per line, ' +
+      'duplicating the statement. Off by default -- multi-label case arms are kept ' +
+      'on one line (only genuine variable/field declarations are split, per ' +
+      'SplitMultiVarDecls). Default: false',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.BreakCaseLabels end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.BreakCaseLabels := V end),
+    MakeOpt('IndentComments', 'Comments', 'Indent comments',
+      'Re-indent comment-only lines to the surrounding code depth. When off, every ' +
+      'comment keeps the indentation the author gave it. A comment line that starts ' +
+      'with "//." always keeps its authored indentation even when this is on (an ' +
+      'explicit "pin this comment" marker). Default: true',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.IndentComments end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments := V end),
+    MakeOpt('PackShortBodies', 'Reflow & whitespace', 'Pack short bodies & case arms',
+      'When reflowing, pull a SHORT body onto one line: a loop/if header keeps its ' +
+      'simple statement ("for I := 0 to N do Inc(X);", "if X then DoIt;") and a case ' +
+      'arm collapses onto its label ("0: DoZero;"). Off by default -- every body/arm ' +
+      'stays on its own line. A nested control header (if/case/begin...) is never ' +
+      'half-merged onto a do/then/label either way. Default: false',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.PackShortBodies end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies := V end),
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Downgrade inline vars',
       'Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest get a // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain. Default: false',
       okBool, True,

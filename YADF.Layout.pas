@@ -93,7 +93,9 @@ const
   // Forced CRLF on every platform. System.sLineBreak is platform-dependent
   // (#10 on POSIX), so we use an explicit constant to keep output identical
   // everywhere. Also keeps the source clean of scattered #13#10 literals.
-  CRLF = #13#10;
+  CR   = #13;
+  LF   = #10;
+  CRLF = CR + LF;
 
 // ===== Whitespace and character helpers =====
 // Tiny pure functions reused across the layout passes. None mutate the
@@ -927,7 +929,49 @@ end;
 //
 // String- and brace-comment awareness is handled by the paren depth
 // tracker, which mirrors YADF's other text passes.
-function SplitMultiVarDeclarations(const S: string): string;
+//
+// True when a `names: body;` line is a CASE-statement arm (the body is a
+// statement) rather than a genuine variable/field declaration (the body is
+// a type). Lets SplitMultiVarDeclarations route the two: real declarations
+// obey SplitMultiVarDecls, case arms obey BreakCaseLabels. The signals are
+// conservative -- a numeric label, a `:=`/`(` in the body, or a leading
+// statement keyword. (The rare `enumA, enumB: BareParamlessProc;` arm is not
+// caught and still splits; harmless and uncommon.)
+function CaseArmLikeBody(const ANames, AType: string): Boolean;
+var
+  FirstWord, T: string;
+  p, k        : Integer;
+  NameList    : TArray<string>;
+begin
+  // A label that does not start like an identifier (e.g. a numeric literal
+  // `0`/`1`) proves these are case labels, not variable names.
+  NameList:= ANames.Split([',']);
+  for k:= 0 to High(NameList) do
+  begin
+    T:= Trim(NameList[k]);
+    if (T <> '') and CharInSet(T[1], ['0'..'9']) then Exit(True);
+  end;
+  // A `:=` (assignment) or `(` (call / parenthesised expr) in the body marks
+  // it as a statement rather than a type.
+  if Pos(':=', AType) > 0 then Exit(True);
+  if Pos('(' , AType) > 0 then Exit(True);
+  // Body opening with a statement keyword.
+  FirstWord:= '';
+  p:= 1;
+  while (p <= Length(AType)) and CharInSet(AType[p], ['A'..'Z', 'a'..'z']) do
+  begin
+    FirstWord:= FirstWord + AType[p];
+    Inc(p);
+  end;
+  FirstWord:= LowerCase(FirstWord);
+  Result:= (FirstWord = 'begin') or (FirstWord = 'if') or (FirstWord = 'while') or
+           (FirstWord = 'for') or (FirstWord = 'with') or (FirstWord = 'try') or
+           (FirstWord = 'repeat') or (FirstWord = 'asm') or (FirstWord = 'raise') or
+           (FirstWord = 'inherited') or (FirstWord = 'goto') or (FirstWord = 'exit') or
+           (FirstWord = 'halt') or (FirstWord = 'break') or (FirstWord = 'continue');
+end;
+
+function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;
 var
   Lines       : TStringList;
   Out_        : TStringBuilder;
@@ -942,6 +986,7 @@ var
   InParenStar : Boolean;
   NameTokens  : TArray<string>;
   HasComma    : Boolean;
+  DoSplit     : Boolean;
   IdentChars  : set of AnsiChar;
 begin
   Lines:= TStringList.Create;
@@ -1067,7 +1112,14 @@ begin
             end;
           end;
 
-          if HasComma and (TypePart <> '') then
+          // Route the split: a case-arm body obeys BreakCaseLabels; a real
+          // declaration obeys SplitMultiVarDecls. When the governing flag is
+          // off the line falls through and is emitted unchanged.
+          if CaseArmLikeBody(Names, TypePart) then
+            DoSplit:= ASplitCaseLabels
+          else
+            DoSplit:= ASplitDecls;
+          if HasComma and (TypePart <> '') and DoSplit then
           begin
             NameTokens:= Names.Split([','], TStringSplitOptions.ExcludeEmpty);
             for k:= 0 to High(NameTokens) do
@@ -1799,7 +1851,7 @@ end; // function
 //     `var`, `procedure`, line comment, directive, ...)
 // Block-comment / string-literal interiors are tracked so we never
 // merge across an open `{...}` or `(*...*)` boundary.
-function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
+function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: Boolean = False): string;
 
   // True iff ALine starts with AWord, case-insensitively, with a
   // non-identifier boundary after the word (so `class` matches but
@@ -1929,6 +1981,19 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     Result:= EndsWordCI(Head, 'class') or EndsWordCI(Head, 'object') or EndsWordCI(Head, 'interface') or EndsWordCI(Head, 'dispinterface');
   end; // function
 
+  // True iff ALine starts with a control-statement keyword whose own body
+  // would dangle if it were pulled onto a preceding `then`/`do` header --
+  // pulling it up is the "half-merge" we never want. begin/asm count too:
+  // a begin block belongs on its own line under its `if`.
+  function StartsControlHeader(const ALine: string): Boolean;
+  begin
+    Result:= StartsWordCI(ALine, 'if') or StartsWordCI(ALine, 'while') or
+             StartsWordCI(ALine, 'for') or StartsWordCI(ALine, 'with') or
+             StartsWordCI(ALine, 'case') or StartsWordCI(ALine, 'repeat') or
+             StartsWordCI(ALine, 'try') or StartsWordCI(ALine, 'begin') or
+             StartsWordCI(ALine, 'asm');
+  end;
+
   // Returns True when the CURRENT line forbids being merged with the
   // following one. The big run of EndsWordCI checks below is the rule
   // book: every keyword that terminates a structural construct ends
@@ -1946,6 +2011,10 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     if R[Length(R)] = ';' then Exit(True);
     if R[Length(R)] = '.' then Exit(True);
     if R[Length(R)] = '}' then Exit(True);
+    // A line ending in `:` is a case-arm (or goto) label. Keep its body on the
+    // next line unless body-packing is on -- then a short arm collapses onto
+    // the label. (`:=` ends in `=`, so it is not caught here.)
+    if (R[Length(R)] = ':') and not APackShortBodies then Exit(True);
     // A line ending in an unclosed `(` / `[` is the opener of a multi-line
     // group that the structural emitter chose NOT to inline (it overflows or
     // contains a line comment -- e.g. an enum/array body). Pulling the first
@@ -1972,11 +2041,25 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer): string;
     if EndsWordCI(R, 'public') then Exit(True);
     if EndsWordCI(R, 'protected') then Exit(True);
     if EndsWordCI(R, 'published') then Exit(True);
-    if EndsWordCI(R, 'then') then Exit(True);
+    // A `then`/`do` header keeps its body on the next line unless body-packing
+    // is enabled. Even when it is, a nested control header (if/case/begin/...)
+    // is never pulled up -- that produces the half-merged `for..do if..then`
+    // shape. Only a short, simple body merges.
+    if EndsWordCI(R, 'then') or EndsWordCI(R, 'do') then
+    begin
+      if not APackShortBodies then Exit(True);
+      if StartsControlHeader(TrimLeft(ANext)) then Exit(True);
+    end;
     if EndsWordCI(R, 'else') then
     begin
+      // `else if ...` always chains onto one line. Otherwise the else body
+      // stays on its own line, unless body-packing is on and the body is a
+      // short simple statement (a control header is never pulled up).
       if not StartsWordCI(TrimLeft(ANext), 'if') then
-        Exit(True);
+      begin
+        if not APackShortBodies then Exit(True);
+        if StartsControlHeader(TrimLeft(ANext)) then Exit(True);
+      end;
     end;
     if EndsWordCI(R, 'uses') then Exit(True);
     if EndsWordCI(R, 'contains') then Exit(True);
@@ -2332,10 +2415,12 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer): string;
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;
 var
   AfterCRLF         : Boolean;
-  BodyBonus         : Integer;
+  PendingCtrl       : Integer;        // accumulated then/do/else/case-`:` body levels
+  CtrlCarried       : Integer;        // control levels locked into open begin/case/try blocks
+  CtrlStack         : TList<Integer>; // carried-control per Stack entry (parallel to Stack)
   CurLineLast       : TptTokenKind;
   EffectiveDepth    : Integer;
   ExpectSectionDecl : Boolean;
@@ -2382,8 +2467,23 @@ var
     Result:= False;
   end;
 
+  // Records how many pending control levels this block carries (the levels
+  // ABOVE its immediate controller). 0 in declaration contexts (PendingCtrl
+  // is 0 there), nonzero only for a begin/case/try opened as a nested
+  // then/do/else/case-arm body. Released when the block pops.
+  procedure PushCtrlCarry;
+  var
+    Carry: Integer;
+  begin
+    Carry:= Max(0, PendingCtrl - 1);
+    CtrlStack.Add(Carry);
+    Inc(CtrlCarried, Carry);
+    PendingCtrl:= 0;
+  end;
+
   procedure StackPush(k: TptTokenKind);
   begin
+    PushCtrlCarry;
     Stack.Add(k);
     IsProcBody.Add(False);
   end;
@@ -2406,6 +2506,7 @@ var
       IsBody:= PendingProcStack[PendingProcStack.Count - 1];
       PendingProcStack.Delete(PendingProcStack.Count - 1);
     end;
+    PushCtrlCarry;
     Stack.Add(ptBegin);
     IsProcBody.Add(IsBody);
   end; // procedure
@@ -2414,6 +2515,11 @@ var
   begin
     if Stack.Count > 0 then
     begin
+      if CtrlStack.Count > 0 then
+      begin
+        Dec(CtrlCarried, CtrlStack[CtrlStack.Count - 1]);
+        CtrlStack.Delete(CtrlStack.Count - 1);
+      end;
       if (IsProcBody.Count > 0) and IsProcBody[IsProcBody.Count - 1] then
       if OpenProcRegions > 0 then Dec(OpenProcRegions);
       if IsProcBody.Count > 0 then
@@ -2451,6 +2557,7 @@ begin
     IsProcBody      := TList<Boolean     >.Create;
     PendingProcStack:= TList<Boolean     >.Create;
     DirDepths       := TList<Integer     >.Create;
+    CtrlStack       := TList<Integer     >.Create;
     try
       PrevNonKind       := ptUnknown;
       InVisibility      := False    ;
@@ -2459,7 +2566,8 @@ begin
       ParensDepth       := 0        ;
       PendingWS         := ''       ;
       CurLineLast       := ptUnknown;
-      BodyBonus         := 0        ;
+      PendingCtrl       := 0        ;
+      CtrlCarried       := 0        ;
       InUsesClause      := False    ;
       OpenProcRegions   := 0        ;
       InInterfaceSection:= False    ;
@@ -2474,13 +2582,19 @@ begin
           AfterCRLF:= True;
           PendingWS:= ''  ;
           VisOnThisLine:= False;
+          // Accumulate / clear the controlled-statement level. then/do/else
+          // and a case-arm `:` each add a level for the body on the following
+          // line(s); a top-level `;` ends a simple statement chain; opening or
+          // closing a block clears it (the block carries its own level). For
+          // `else` the paired then-level was already consumed when the `else`
+          // token was seen, so the +1 here re-establishes the else body's level.
           case CurLineLast of
-            ptThen, ptDo, ptElse: BodyBonus:= 1;
+            ptThen, ptDo, ptElse: Inc(PendingCtrl);
             ptColon             : if StackContainsCaseAtTop then
-              BodyBonus:= 1;
+              Inc(PendingCtrl);
             ptSemiColon: if ParensDepth = 0 then
-              BodyBonus:= 0;
-            ptEnd, ptBegin, ptCase, ptRecord, ptTry, ptAsm, ptObject, ptRepeat, ptUntil: BodyBonus:= 0;
+              PendingCtrl:= 0;
+            ptEnd, ptBegin, ptCase, ptRecord, ptTry, ptAsm, ptObject, ptRepeat, ptUntil: PendingCtrl:= 0;
           end;
           CurLineLast      := ptUnknown;
           ExpectSectionDecl:= False    ;
@@ -2511,6 +2625,17 @@ begin
         begin
           Out_.Append(PendingWS);
           PendingWS:= ''   ;
+          AfterCRLF:= False;
+        end
+        else if AfterCRLF and (T.Kind in [ptSlashesComment, ptBorComment, ptAnsiComment]) and
+                ((not AIndentComments) or (Copy(T.Text, 1, 3) = '//.')) then
+        begin
+          // Comment-only line, with comment-indenting disabled (IndentComments
+          // = false) OR a `//.`-pinned line: keep the author's leading
+          // whitespace verbatim instead of re-deriving it from code depth.
+          // PendingWS holds that original indentation (accumulated above).
+          Out_.Append(PendingWS);
+          PendingWS:= '';
           AfterCRLF:= False;
         end
         else if AfterCRLF then
@@ -2548,8 +2673,19 @@ begin
           if InVisibility and not (T.Kind in [ptPrivate, ptPublic, ptProtected, ptPublished, ptStrict, ptEnd])
              and not (T.ExID in [ptPrivate, ptPublic, ptProtected, ptPublished, ptStrict]) then
             Inc(EffectiveDepth);
-          if (BodyBonus > 0) and not (T.Kind in [ptBegin, ptCase, ptTry, ptAsm, ptEnd, ptElse, ptIf, ptRecord, ptObject]) then
-            Inc(EffectiveDepth, BodyBonus);
+          // Controlled-statement indent, composing across nesting:
+          //   CtrlCarried  = levels locked into enclosing begin/case/try blocks
+          //   PendingCtrl  = levels pending for this line from then/do/else/`:`
+          // A block opener (begin/case/...), an `else`, or a closing end/until
+          // ALIGNS with its controller -> it takes one less than the full
+          // pending (so `begin` lines up under its `if`, and a same-line
+          // `else if` ladder stays flat). Every other statement -- crucially a
+          // nested `if` used as a body -- takes the full pending, so it indents
+          // one level under its owner instead of sitting flat beside it.
+          if T.Kind in [ptBegin, ptCase, ptTry, ptAsm, ptRecord, ptObject, ptElse, ptEnd, ptUntil] then
+            Inc(EffectiveDepth, CtrlCarried + Max(0, PendingCtrl - 1))
+          else
+            Inc(EffectiveDepth, CtrlCarried + PendingCtrl);
           if (OpenProcRegions > 1) and not ((T.Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) and (not InClassOrRecord)) then
             Inc(EffectiveDepth, OpenProcRegions - 1);
           // Conditional compiler directives: align {$ELSE}/{$ENDIF} with their
@@ -2630,6 +2766,11 @@ begin
               StackPop;
               InVisibility:= False;
             end;
+            // `else` pairs with the nearest open then-level and consumes it
+            // (the then-body is finished). The else's own line already aligned
+            // with its `if` using the pre-consume value; the CRLF handler then
+            // re-adds one level for the else body.
+            ptElse: PendingCtrl:= Max(0, PendingCtrl - 1);
             ptClass, ptObject: if PrevNonKind = ptEqual then
             begin
               StackPush(T.Kind);
@@ -2691,6 +2832,7 @@ begin
       PendingProcStack.Free;
       IsProcBody.Free;
       DirDepths.Free;
+      CtrlStack.Free;
       Stack.Free;
       Out_.Free;
     end; // try
@@ -3053,25 +3195,36 @@ begin
   Result:= 'begin';
 end; // function
 
-// Multi-line ('''...''') string literals must survive Stage 3/4 byte-for-byte:
-// their interior is the string's VALUE, not code, so re-indent/reflow/align
-// must never touch it. Worse, ReindentByDepth's depth tracker would otherwise
-// scan a literal's interior lines for begin/end and corrupt the indentation of
-// real code that follows. ShieldMultilineStringTokens replaces each such
-// literal TOKEN with a single-line sentinel (an ordinary one-line string
-// literal, so every line-based pass treats it as one inert atom);
-// UnshieldMultilineStrings puts the originals back verbatim as the very last
-// step. We shield at the TOKEN level -- the lexer has already found the exact
-// literal boundaries (including lone apostrophes inside a '''...''' literal),
-// so there is no need to re-scan the rendered text with a fragile quote
-// matcher. Every render path (WalkGroup, EmitTokenRange, InlineRenderRange)
-// reads Token.Text, so swapping the text shields all of them at once.
-function MlSentinel(AIdx: Integer): string;
+// Multi-line ATOMS -- ('''...''') string literals AND multi-line block
+// comments ({...}, (*...*)) -- must survive Stage 3/4 byte-for-byte: their
+// interior is data/prose, not code, so re-indent/reflow/align must never
+// touch it. The Stage 3/4 line-based passes re-lex each output line in
+// ISOLATION, so an interior line of a multi-line atom (which carries no
+// opening delimiter) is mistaken for code: its alignment whitespace gets
+// collapsed and ReindentByDepth's depth tracker would scan its interior for
+// begin/end and corrupt the indentation of real code that follows.
+// ShieldMultilineTokens replaces each such TOKEN with a single-line sentinel
+// of the MATCHING kind -- a one-line string for a string literal, a one-line
+// brace comment for a block comment -- so every line-based pass treats it as
+// one inert atom (and both forms are safe to sit mid-line, before/after real
+// code). UnshieldMultilineTokens puts the originals back verbatim as the very
+// last step. We shield at the TOKEN level -- the lexer has already found the
+// exact boundaries (lone apostrophes in '''...''', nested-looking braces in a
+// comment) -- and every render path (WalkGroup, EmitTokenRange,
+// InlineRenderRange) reads Token.Text, so swapping the text shields all of
+// them at once. Single-line block comments are NOT shielded: they are one
+// token on their own line and the per-line re-lex already preserves them.
+function MlStrSentinel(AIdx: Integer): string;
 begin
   Result:= '''__YADF_ML_' + IntToStr(AIdx) + '__''';
 end;
 
-procedure ShieldMultilineStringTokens(const ATokens: TTokenList; const AMap: TStringList);
+function MlComSentinel(AIdx: Integer): string;
+begin
+  Result:= '{__YADF_MLC_' + IntToStr(AIdx) + '__}';
+end;
+
+procedure ShieldMultilineTokens(const ATokens: TTokenList; const AMap: TStringList);
 var
   i: Integer;
   T: TToken;
@@ -3080,24 +3233,35 @@ begin
   for i:= 0 to ATokens.Count - 1 do
   begin
     T:= ATokens[i];
-    if (T.Kind in [ptStringConst, ptStringDQConst]) and
-       ((Pos(#10, T.Text) > 0) or (Pos(#13, T.Text) > 0)) then
+    if (Pos(#10, T.Text) = 0) and (Pos(#13, T.Text) = 0) then Continue;
+    if T.Kind in [ptStringConst, ptStringDQConst] then
     begin
       AMap.Add(T.Text);
-      T.Text:= MlSentinel(AMap.Count - 1);
+      T.Text:= MlStrSentinel(AMap.Count - 1);
+      ATokens[i]:= T;
+    end
+    else if T.Kind in [ptBorComment, ptAnsiComment] then
+    begin
+      AMap.Add(T.Text);
+      T.Text:= MlComSentinel(AMap.Count - 1);
       ATokens[i]:= T;
     end;
   end;
 end; // procedure
 
-function UnshieldMultilineStrings(const S: string; const AMap: TStringList): string;
+function UnshieldMultilineTokens(const S: string; const AMap: TStringList): string;
 var
   i: Integer;
 begin
   Result:= S;
   // Reverse order so sentinel N can never be a prefix-match inside sentinel NN.
+  // Only one sentinel form exists per index (string vs comment); the other
+  // StringReplace is a harmless no-op.
   for i:= AMap.Count - 1 downto 0 do
-    Result:= StringReplace(Result, MlSentinel(i), AMap[i], [rfReplaceAll]);
+  begin
+    Result:= StringReplace(Result, MlStrSentinel(i), AMap[i], [rfReplaceAll]);
+    Result:= StringReplace(Result, MlComSentinel(i), AMap[i], [rfReplaceAll]);
+  end;
 end; // function
 
 // Delphi 10.2.3 compatibility: hoist inline `var` declarations into a classic
@@ -4173,7 +4337,7 @@ begin
       DowngradeInlineVars(Tokens, AOpts);
     // Shield multi-line string-literal tokens before structure/emission so
     // every later pass sees a one-line atom; restored verbatim at Stage 5.
-    ShieldMultilineStringTokens(Tokens, MLMap);
+    ShieldMultilineTokens(Tokens, MLMap);
     Root:= ParseGroups(Tokens);
     try
       Sb:= TStringBuilder.Create;
@@ -4209,16 +4373,28 @@ begin
         if AOpts.TrimTrailing then
           Result:= TrimTrailingWhitespace(Result);
         Result:= DetabLeadingWhitespace(Result, AOpts.TabWidth);
-        Result:= ReindentByDepth       (Result, AOpts.Indent  );
+        Result:= ReindentByDepth       (Result, AOpts.Indent, AOpts.IndentComments);
         Result:= EnforceBlankLines(Result, AOpts);
         Result:= BreakLongLines(Result);
         if AOpts.ReflowLines then
         begin
-          Result:= ReflowLineBreaks(Result, AOpts.MaxLen);
-          Result:= ReindentByDepth (Result, AOpts.Indent);
+          Result:= ReflowLineBreaks(Result, AOpts.MaxLen, AOpts.PackShortBodies);
+          Result:= ReindentByDepth (Result, AOpts.Indent, AOpts.IndentComments);
         end
         else
-          Result:= JoinShortCaseAlts(Result, AOpts.MaxLen);
+        begin
+          // Case-arm joining is part of body-packing: only pull a short arm
+          // onto its `label:` line when PackShortBodies is on. Default leaves
+          // each arm body on its own line.
+          if AOpts.PackShortBodies then
+            Result:= JoinShortCaseAlts(Result, AOpts.MaxLen);
+          // JoinShortCaseAlts may pull a `label:` onto its body line; re-indent
+          // so the merged line's body depth is recomputed for the new shape
+          // (otherwise a case arm whose body is a nested `if` keeps the depth
+          // computed for the un-merged form -- a non-idempotency). Mirrors the
+          // reflow path, which already re-indents after ReflowLineBreaks.
+          Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
+        end;
         EffMaxBlanks:= AOpts.MaxBlankLines;
         if AOpts.BlanksBeforeSection > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeSection;
         if AOpts.BlanksBeforeMethod  > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeMethod ;
@@ -4229,8 +4405,8 @@ begin
         // normalises spacing so anchor columns are predictable.
         // SplitMultiVarDecls runs first so the alignment sees one
         // declaration per line.
-        if AOpts.SplitMultiVarDecls then
-          Result:= SplitMultiVarDeclarations(Result);
+        if AOpts.SplitMultiVarDecls or AOpts.BreakCaseLabels then
+          Result:= SplitMultiVarDeclarations(Result, AOpts.SplitMultiVarDecls, AOpts.BreakCaseLabels);
         if AOpts.AlignTypeColon or AOpts.AlignConstEquals or AOpts.AlignSmartAssign then
           Result:= CollapseInteriorSpaces(Result);
         if AOpts.AlignTypeColon then
@@ -4243,8 +4419,8 @@ begin
           Result:= SmartAlignAssignments(Result, AOpts.AlignMaxColumn, AOpts.AlignMatchingShapes, AOpts.AlignShapeMinAnchors,
             AOpts.AlignCommentMaxShift);
 
-        // Stage 5: restore shielded multi-line string literals verbatim.
-        Result:= UnshieldMultilineStrings(Result, MLMap);
+        // Stage 5: restore shielded multi-line strings and block comments verbatim.
+        Result:= UnshieldMultilineTokens(Result, MLMap);
       finally
         Sb.Free;
       end; // try

@@ -781,11 +781,22 @@ begin
   WriteStdoutLine(Format('  --tab-width N         a leading tab = N spaces                         [%d]', [AOpts.TabWidth]));
   WriteStdoutLine(Format('  --max-blank-lines N   cap consecutive blank lines                      [%d]', [AOpts.MaxBlankLines]));
   WriteStdoutLine(Format('  --no-reflow           preserve source line breaks                      [reflow=%s]', [OnOff(AOpts.ReflowLines)]));
+  WriteStdoutLine(Format('  --pack-bodies         pack short loop/if bodies + case arms onto one line [pack=%s]', [OnOff(AOpts.PackShortBodies)]));
+  WriteStdoutLine('  --no-pack-bodies      keep each body / case arm on its own line (default)');
   WriteStdoutLine(Format('  --no-trim-trailing    keep trailing whitespace                         [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
   WriteStdoutLine('');
   WriteStdoutLine('Uses clause:');
   WriteStdoutLine(Format('  --uses-break          always break uses one-per-line, comma-first      [break=%s]', [OnOff(AOpts.UsesAlwaysBreak)]));
   WriteStdoutLine('  --no-uses-break       keep uses inline if it fits in MaxLen');
+  WriteStdoutLine('');
+  WriteStdoutLine('Case statements:');
+  WriteStdoutLine(Format('  --break-case          split multi-label case arms one per line          [break=%s]', [OnOff(AOpts.BreakCaseLabels)]));
+  WriteStdoutLine('  --no-break-case       keep multi-label case arms on one line (default)');
+  WriteStdoutLine('');
+  WriteStdoutLine('Comments:');
+  WriteStdoutLine(Format('  --indent-comments     re-indent comments to code depth                   [indent=%s]', [OnOff(AOpts.IndentComments)]));
+  WriteStdoutLine('  --no-indent-comments  keep comments at their authored indentation');
+  WriteStdoutLine('                          (a comment starting with `//.` is always kept fixed)');
   WriteStdoutLine('');
   WriteStdoutLine('Block labels & markers:');
   WriteStdoutLine(Format('  --label-min-lines N   min block size for `// while`                    [%d]', [AOpts.LabelMinLines]));
@@ -1078,6 +1089,36 @@ begin
       else if AArgs[i] = '--no-uses-break' then
       begin
         AOpts.UsesAlwaysBreak:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--break-case' then
+      begin
+        AOpts.BreakCaseLabels:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-break-case' then
+      begin
+        AOpts.BreakCaseLabels:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--indent-comments' then
+      begin
+        AOpts.IndentComments:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-indent-comments' then
+      begin
+        AOpts.IndentComments:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--pack-bodies' then
+      begin
+        AOpts.PackShortBodies:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-pack-bodies' then
+      begin
+        AOpts.PackShortBodies:= False;
         Inc(i);
       end
       else
