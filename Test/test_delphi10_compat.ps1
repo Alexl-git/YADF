@@ -58,6 +58,12 @@ MustMatch    $o "Tag: string\s*=\s*'x';" 'inline_const: typed const kept'
 MustContain  $o 'WriteLn(Factor, Tag)' 'inline_const: body references survive'
 MustNotMatch $o '(?ms)\bbegin\b.*\bconst\s+Factor' 'inline_const: no inline const left inside begin'
 
+# --- d10_flag: non-inferable residuals get a TODO; nothing silently downgraded ---
+$o = Fmt 'd10_flag.pas'
+MustMatch $o '// TODO -oYADF : inline loop var cannot be type-inferred' 'flag: for-in flagged'
+MustMatch $o '(?m)^\s*for var X in Coll do' 'flag: for-in left in place on its own line'
+MustMatch $o 'const Local = 5; // TODO -oYADF : inline const inside an anonymous method' 'flag: anon const flagged'
+
 # --- d10_multiname ---
 $o = Fmt 'd10_multiname.pas'
 MustContain $o "A: Integer;" 'multiname: A hoisted'

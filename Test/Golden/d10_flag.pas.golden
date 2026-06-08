@@ -1,0 +1,22 @@
+unit d10_flag;
+
+interface
+
+uses
+  System.Generics.Collections
+  ;
+
+implementation
+
+procedure Demo(Coll: TList<Integer>; Run: TProc);
+begin
+  for var X in Coll do
+    WriteLn(X);
+  Run:= procedure
+    begin
+      const Local = 5;
+      WriteLn(Local);
+    end;
+  end;
+
+end.

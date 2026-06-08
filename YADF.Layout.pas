@@ -3290,6 +3290,7 @@ var
   Inlines  : TDictionary<Integer, TInlineRec>;        // key = inline `var` token index
   BodyDecls: TObjectDictionary<Integer, TStringList>; // key = routine `begin` token index
   BodyConst: TObjectDictionary<Integer, TStringList>; // hoisted inline-CONST decls per routine `begin`
+  ForTodos : TDictionary<Integer, string>;            // non-inferable for-var -> TODO before the `for`
   RNames   : TDictionary<string, string>;             // per-routine name -> hoisted type
   BlkAnon  : TList<Boolean>;                           // open blocks in body; True = anon-method body
   G        : TGroup;
@@ -3298,6 +3299,8 @@ var
   Ki       : TptTokenKind;
   Rec      : TInlineRec;
   constDecl: string;
+  todoText : string;
+  flagTok  : TToken;
 
   function NextSig(AFrom: Integer): Integer;
   begin
@@ -3678,11 +3681,40 @@ var
     Result:= True;
   end;
 
+  // An inline `const` inside an anonymous method body: its scope is the anon
+  // method, not the enclosing routine, so we will not hoist it. Leave it in
+  // place with a TODO (reuses the ikFallbackTodo rewrite -- const has a `;`).
+  function TryFlagAnonConst(AConst: Integer; out ARec: TInlineRec): Boolean;
+  var
+    ni, semi, dummy: Integer;
+    origLine: string;
+  begin
+    Result:= False;
+    ni:= NextSig(AConst + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    semi:= FindStmtEnd(AConst + 1, dummy);
+    if semi < 0 then Exit;
+    if AlreadyFlagged(semi) then Exit;
+    origLine:= Trim(InlineRenderRange(ATokens, AConst, semi));
+    ARec.Kind     := ikFallbackTodo;
+    ARec.NameIdx  := ni;
+    ARec.AssignIdx:= -1;
+    ARec.SemiIdx  := semi;
+    ARec.Sep      := -1;
+    ARec.SepIsIn  := False;
+    SetLength(ARec.DeclLines, 0);
+    SetLength(ARec.Names, 0);
+    ARec.TypeStr  := '';
+    ARec.Comment  := ' // TODO -oYADF : inline const inside an anonymous method is not auto-hoisted for Delphi 10 -- was: ' + origLine;
+    Result:= True;
+  end;
+
 begin
   Root     := ParseGroups(ATokens);
   Inlines  := TDictionary<Integer, TInlineRec>.Create;
   BodyDecls:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
   BodyConst:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
+  ForTodos := TDictionary<Integer, string>.Create;
   RNames   := TDictionary<string, string>.Create;
   BlkAnon  := TList<Boolean>.Create;
   try
@@ -3742,6 +3774,15 @@ begin
           begin
             if TryParseForExplicit(i, Rec) or TryParseForInferred(i, Rec) then
             begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.Sep + 1; Continue; end;
+            // Non-inferable inline loop var (e.g. `for var X in Coll`): can't
+            // downgrade without the element/bound type. Flag a TODO before the
+            // `for`. Idempotent: skip if the line above is already a YADF flag.
+            if not ForTodos.ContainsKey(pv) then
+            begin
+              k:= PrevSig(pv - 1);
+              if not ((k >= 0) and (ATokens[k].Kind = ptSlashesComment) and (Pos('YADF', ATokens[k].Text) > 0)) then
+                ForTodos.Add(pv, '// TODO -oYADF : inline loop var cannot be type-inferred for Delphi 10 -- declare a classic var and use a plain for');
+            end;
           end
           else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
           begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.SemiIdx + 1; Continue; end;
@@ -3755,6 +3796,7 @@ begin
           // left untouched.
           if PendingAnon then begin Inc(i); Continue; end;
           if AnonCount = 0 then
+          begin
             if TryParseInlineConst(i, Rec, constDecl) then
             begin
               Inlines.Add(i, Rec);
@@ -3762,12 +3804,15 @@ begin
               i:= Rec.SemiIdx + 1;
               Continue;
             end;
+          end
+          else if TryFlagAnonConst(i, Rec) then
+          begin Inlines.Add(i, Rec); i:= Rec.SemiIdx + 1; Continue; end;
         end;
         Inc(i);
       end;
     end;
 
-    if Inlines.Count = 0 then Exit;
+    if (Inlines.Count = 0) and (ForTodos.Count = 0) then Exit;
 
     // 2) Rebuild the token list in one forward pass.
     Outp:= TTokenList.Create;
@@ -3775,6 +3820,16 @@ begin
       i:= 0;
       while i < ATokens.Count do
       begin
+        // Prepend a TODO line before a flagged non-inferable inline for-var.
+        // Emit the comment + an explicit CRLF so the `for` drops to the next
+        // line (whitespace is tokenised here, so Pre alone won't break the
+        // line); the re-indent pass fixes the exact columns afterwards.
+        if ForTodos.TryGetValue(i, todoText) then
+        begin
+          flagTok:= MakeTok(ptSlashesComment, todoText);
+          Outp.Add(flagTok);
+          Outp.Add(MakeTok(ptCRLF, CRLF));
+        end;
         // Inject the hoisted `const` then `var` block immediately before a
         // routine's `begin` (const first so it can be referenced by the vars).
         if BodyConst.ContainsKey(i) then
@@ -3846,6 +3901,7 @@ begin
     Inlines.Free;
     BodyDecls.Free;
     BodyConst.Free;
+    ForTodos.Free;
     RNames.Free;
     BlkAnon.Free;
     Root.Free;
