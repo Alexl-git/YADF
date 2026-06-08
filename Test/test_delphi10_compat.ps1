@@ -44,6 +44,20 @@ MustContain $o "var`r`n  L: Integer;" 'for_typed: hoisted loop var'
 MustContain $o "for L:= 0 to 9 do" 'for_typed: loop downgraded'
 MustNotMatch $o 'for\s+var\s+L' 'for_typed: no inline loop var'
 
+# --- d10_for_untyped: untyped `for var K := 0 to N` -> Integer inference ---
+$o = Fmt 'd10_for_untyped.pas'
+MustMatch    $o 'K: Integer; // YADF Delphi10: inferred loop type' 'for_untyped: hoisted K: Integer + verify note'
+MustContain  $o 'for K:= 0 to N do' 'for_untyped: loop downgraded'
+MustNotMatch $o 'for\s+var\s+K' 'for_untyped: no inline for-var left'
+
+# --- d10_inline_const: inline const hoisted to a const section ---
+$o = Fmt 'd10_inline_const.pas'
+MustMatch    $o '(?m)^const\r?$' 'inline_const: a const section exists'
+MustMatch    $o 'Factor\s*=\s*2;' 'inline_const: Factor moved to const section'
+MustMatch    $o "Tag: string\s*=\s*'x';" 'inline_const: typed const kept'
+MustContain  $o 'WriteLn(Factor, Tag)' 'inline_const: body references survive'
+MustNotMatch $o '(?ms)\bbegin\b.*\bconst\s+Factor' 'inline_const: no inline const left inside begin'
+
 # --- d10_multiname ---
 $o = Fmt 'd10_multiname.pas'
 MustContain $o "A: Integer;" 'multiname: A hoisted'

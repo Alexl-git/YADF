@@ -3289,6 +3289,7 @@ var
   Outp     : TTokenList;
   Inlines  : TDictionary<Integer, TInlineRec>;        // key = inline `var` token index
   BodyDecls: TObjectDictionary<Integer, TStringList>; // key = routine `begin` token index
+  BodyConst: TObjectDictionary<Integer, TStringList>; // hoisted inline-CONST decls per routine `begin`
   RNames   : TDictionary<string, string>;             // per-routine name -> hoisted type
   BlkAnon  : TList<Boolean>;                           // open blocks in body; True = anon-method body
   G        : TGroup;
@@ -3296,6 +3297,7 @@ var
   PendingAnon, IsAnon: Boolean;
   Ki       : TptTokenKind;
   Rec      : TInlineRec;
+  constDecl: string;
 
   function NextSig(AFrom: Integer): Integer;
   begin
@@ -3330,6 +3332,13 @@ var
     if not BodyDecls.ContainsKey(ABeginIdx) then
       BodyDecls.Add(ABeginIdx, TStringList.Create);
     Result:= BodyDecls[ABeginIdx];
+  end;
+
+  function EnsureBodyConst(ABeginIdx: Integer): TStringList;
+  begin
+    if not BodyConst.ContainsKey(ABeginIdx) then
+      BodyConst.Add(ABeginIdx, TStringList.Create);
+    Result:= BodyConst[ABeginIdx];
   end;
 
   function MakeTok(AKind: TptTokenKind; const AText: string): TToken;
@@ -3446,6 +3455,39 @@ var
     ARec.SepIsIn := ATokens[sep].Kind = ptIn;
     SetLength(ARec.DeclLines, 1);
     ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty + ';';
+    SetLength(ARec.Names, 1);
+    ARec.Names[0]:= ATokens[ni].Text;
+    ARec.TypeStr := ty;
+    Result:= True;
+  end;
+
+  // Single-name, UNTYPED `for var Name := lo to hi do` -- infer the loop type
+  // from an integer literal lower bound (the overwhelmingly common `0/1 to N`).
+  // The `in` form (element type) and non-literal bounds are not inferred and are
+  // left untouched -- a conservative miss, never a wrong type.
+  function TryParseForInferred(AVar: Integer; out ARec: TInlineRec): Boolean;
+  var
+    ni, ci, sep, lo: Integer;
+    ty: string;
+  begin
+    Result:= False;
+    ni:= NextSig(AVar + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    ci:= NextSig(ni + 1);
+    if (ci < ATokens.Count) and (ATokens[ci].Kind = ptColon) then Exit; // typed: TryParseForExplicit
+    if not FindForSep(ni + 1, sep) then Exit;
+    if ATokens[sep].Kind <> ptAssign then Exit;        // `in` form -> not inferable
+    lo:= NextSig(sep + 1);
+    if (lo < ATokens.Count) and (ATokens[lo].Kind = ptIntegerConst) then ty:= 'Integer'
+    else Exit;                                         // non-literal bound -> leave as-is
+    ARec.Kind     := ikForExplicit;                    // reuse the for rewrite (strip `var`)
+    ARec.NameIdx  := ni;
+    ARec.AssignIdx:= -1;
+    ARec.SemiIdx  := -1;
+    ARec.Sep      := sep;
+    ARec.SepIsIn  := False;
+    SetLength(ARec.DeclLines, 1);
+    ARec.DeclLines[0]:= ATokens[ni].Text + ': ' + ty + '; // YADF Delphi10: inferred loop type, verify';
     SetLength(ARec.Names, 1);
     ARec.Names[0]:= ATokens[ni].Text;
     ARec.TypeStr := ty;
@@ -3609,10 +3651,38 @@ var
     Result:= True;
   end;
 
+  // Inline `const Name = expr;` / `const Name: Type = expr;` in a statement
+  // section (a 10.3+ feature). The whole declaration is constant, so it moves
+  // verbatim to a routine-level `const` section -- no inference needed. ARec is
+  // set to drop the inline line; ADecl returns the section text.
+  function TryParseInlineConst(AConst: Integer; out ARec: TInlineRec; out ADecl: string): Boolean;
+  var
+    ni, semi, dummy: Integer;
+  begin
+    Result:= False; ADecl:= '';
+    ni:= NextSig(AConst + 1);
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    semi:= FindStmtEnd(AConst + 1, dummy);
+    if semi < 0 then Exit;
+    ADecl:= Trim(InlineRenderRange(ATokens, ni, semi));   // 'Name = expr;' / 'Name: T = expr;'
+    if ADecl = '' then Exit;
+    ARec.Kind     := ikExplicitNoInit;   // the rewrite drops the whole inline line
+    ARec.NameIdx  := ni;
+    ARec.AssignIdx:= -1;
+    ARec.SemiIdx  := semi;
+    ARec.Sep      := -1;
+    ARec.SepIsIn  := False;
+    SetLength(ARec.DeclLines, 0);
+    SetLength(ARec.Names, 0);
+    ARec.TypeStr  := '';
+    Result:= True;
+  end;
+
 begin
   Root     := ParseGroups(ATokens);
   Inlines  := TDictionary<Integer, TInlineRec>.Create;
   BodyDecls:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
+  BodyConst:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
   RNames   := TDictionary<string, string>.Create;
   BlkAnon  := TList<Boolean>.Create;
   try
@@ -3670,11 +3740,28 @@ begin
           end
           else if (pv >= 0) and (ATokens[pv].Kind = ptFor) then
           begin
-            if TryParseForExplicit(i, Rec) then
+            if TryParseForExplicit(i, Rec) or TryParseForInferred(i, Rec) then
             begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.Sep + 1; Continue; end;
           end
           else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
           begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.SemiIdx + 1; Continue; end;
+        end;
+        if Ki = ptConst then
+        begin
+          // A `const` in an anon method's own decl section (before its begin) is
+          // a classic const section -- leave it. Otherwise, an inline const in
+          // THIS routine's statement section (AnonCount = 0) hoists to a const
+          // block; one inside a nested anon body has a different scope, so it is
+          // left untouched.
+          if PendingAnon then begin Inc(i); Continue; end;
+          if AnonCount = 0 then
+            if TryParseInlineConst(i, Rec, constDecl) then
+            begin
+              Inlines.Add(i, Rec);
+              EnsureBodyConst(G.OpenIdx).Add(constDecl);
+              i:= Rec.SemiIdx + 1;
+              Continue;
+            end;
         end;
         Inc(i);
       end;
@@ -3688,7 +3775,18 @@ begin
       i:= 0;
       while i < ATokens.Count do
       begin
-        // Inject the hoisted `var` block immediately before a routine's `begin`.
+        // Inject the hoisted `const` then `var` block immediately before a
+        // routine's `begin` (const first so it can be referenced by the vars).
+        if BodyConst.ContainsKey(i) then
+        begin
+          Outp.Add(MakeTok(ptConst, 'const'));
+          Outp.Add(MakeTok(ptCRLF, CRLF));
+          for k:= 0 to BodyConst[i].Count - 1 do
+          begin
+            Outp.Add(MakeTok(ptIdentifier, BodyConst[i][k]));
+            Outp.Add(MakeTok(ptCRLF, CRLF));
+          end;
+        end;
         if BodyDecls.ContainsKey(i) then
         begin
           Outp.Add(MakeTok(ptVar, 'var'));
@@ -3747,6 +3845,7 @@ begin
   finally
     Inlines.Free;
     BodyDecls.Free;
+    BodyConst.Free;
     RNames.Free;
     BlkAnon.Free;
     Root.Free;
