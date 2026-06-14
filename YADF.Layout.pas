@@ -2281,6 +2281,302 @@ begin
   end; // try
 end; // begin
 
+// Collapses a short control-statement begin..end block onto one line when it
+// fits. Targets the common idiom -- an if/for/while/with/else header whose body
+// is a begin..end of nothing but simple `;`-terminated statements:
+//   if X then              ->  if X then begin A := 1; B := 2; end;
+//   begin
+//     A := 1;
+//     B := 2;
+//   end;
+// Conservative and string-safe by design:
+//   * fires ONLY when the line before `begin` is a control header ending in
+//     then/do/else (a routine body -- `procedure Foo;` / `begin..end;` -- is
+//     deliberately left alone),
+//   * every body line must be a single complete `;`-terminated statement with
+//     no comment characters and not inside a block comment; anything else
+//     (a multi-line statement, a nested expanded block, a comment) bails the
+//     whole collapse,
+//   * the matching `end` is the first `end`-word line (body lines never start
+//     with the `end` word),
+//   * the resulting one-liner must fit AMaxLen,
+//   * interior runs of spaces (column-alignment padding) are squeezed to one,
+//     string-aware (doubled-quote escapes handled), so literals are untouched.
+// Runs as the FINAL pass so it never feeds joined lines back through the column
+// passes, and preserves the header's already-correct indent. Idempotent: a
+// collapsed line presents no bare `begin` line to re-match.
+function CollapseShortBlocks(const S: string; AMaxLen: Integer): string;
+var
+  Lines : TStringList;
+  Lock  : TArray<Boolean>;
+  Out_  : TStringBuilder;
+  i, j  : Integer;
+  Tj, Body, EndLn, Indent, Joined: string;
+  Ok    : Boolean;
+
+  function StartsWordCI(const L, W: string): Boolean;
+  var
+    T: string;
+  begin
+    T:= TrimLeft(L);
+    if Length(T) < Length(W) then Exit(False);
+    if not SameText(Copy(T, 1, Length(W)), W) then Exit(False);
+    if Length(T) > Length(W) then
+      Result:= not (CharInSet(T[Length(W) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']))
+    else
+      Result:= True;
+  end;
+
+  function EndsWordCI(const L, W: string): Boolean;
+  var
+    T: string;
+    P: Integer;
+  begin
+    T:= TrimRight(L);
+    if Length(T) < Length(W) then Exit(False);
+    P:= Length(T) - Length(W) + 1;
+    if not SameText(Copy(T, P, Length(W)), W) then Exit(False);
+    if P > 1 then
+      Result:= not (CharInSet(T[P - 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']))
+    else
+      Result:= True;
+  end;
+
+  // ends in a control header (then/do/else) that legally precedes a begin block
+  function IsHeaderEnd(const L: string): Boolean;
+  begin
+    Result:= EndsWordCI(L, 'then') or EndsWordCI(L, 'do') or EndsWordCI(L, 'else');
+  end;
+
+  // True iff L contains AWord as a whole word anywhere. Used to reject a body
+  // line that itself holds an inline begin/end (an already-collapsed inner
+  // block or an anonymous method): folding it into an OUTER block would make
+  // the pass non-idempotent (the outer would only collapse on a second run)
+  // and over-nest a one-liner. Keeping the collapse strictly leaf-level fixes
+  // both. Not string-aware on purpose -- a literal 'begin' merely declines the
+  // collapse, which is safe and still deterministic (idempotent).
+  function ContainsWordCI(const L, AWord: string): Boolean;
+  var
+    p, n: Integer;
+    Good: Boolean;
+  begin
+    n:= Length(AWord);
+    p:= 1;
+    while p <= Length(L) - n + 1 do
+    begin
+      if SameText(Copy(L, p, n), AWord) then
+      begin
+        Good:= True;
+        if (p > 1) and CharInSet(L[p - 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then Good:= False;
+        if (p + n <= Length(L)) and CharInSet(L[p + n], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then Good:= False;
+        if Good then Exit(True);
+      end;
+      Inc(p);
+    end;
+    Result:= False;
+  end;
+
+  // any comment involvement on the line forbids collapse (over-conservative on
+  // `//` inside a string -- safe: we just decline to collapse that block)
+  function HasCommentChars(const L: string): Boolean;
+  var
+    p: Integer;
+  begin
+    for p:= 1 to Length(L) do
+    begin
+      if L[p] = '{' then Exit(True);
+      if (p < Length(L)) and (L[p] = '(') and (L[p + 1] = '*') then Exit(True);
+      if (p < Length(L)) and (L[p] = '/') and (L[p + 1] = '/') then Exit(True);
+    end;
+    Result:= False;
+  end;
+
+  // Squeeze runs of spaces to one, OUTSIDE string literals (handles the
+  // doubled-quote escape so a string's interior is preserved byte-for-byte).
+  function Squeeze(const L: string): string;
+  var
+    p      : Integer;
+    InStr  : Boolean;
+    Sb     : TStringBuilder;
+  begin
+    Sb:= TStringBuilder.Create;
+    try
+      InStr:= False;
+      p    := 1    ;
+      while p <= Length(L) do
+      begin
+        if InStr then
+        begin
+          Sb.Append(L[p]);
+          if L[p] = '''' then
+          begin
+            if (p + 1 <= Length(L)) and (L[p + 1] = '''') then
+            begin
+              Sb.Append(L[p + 1]);
+              Inc(p, 2);
+              Continue;
+            end
+            else
+              InStr:= False;
+          end;
+          Inc(p);
+        end
+        else if L[p] = '''' then
+        begin
+          InStr:= True;
+          Sb.Append(L[p]);
+          Inc(p);
+        end
+        else if L[p] = ' ' then
+        begin
+          Sb.Append(' ');
+          while (p <= Length(L)) and (L[p] = ' ') do Inc(p);
+        end
+        else
+        begin
+          Sb.Append(L[p]);
+          Inc(p);
+        end;
+      end; // while
+      Result:= Sb.ToString;
+    finally
+      Sb.Free;
+    end;
+  end;
+
+  function LeadingWS(const L: string): string;
+  var
+    p: Integer;
+  begin
+    p:= 1;
+    while (p <= Length(L)) and ((L[p] = ' ') or (L[p] = #9)) do Inc(p);
+    Result:= Copy(L, 1, p - 1);
+  end;
+
+  // Per-line "inside a block comment" flags (a multi-line { } / (* *) interior
+  // never participates), mirroring ReflowLineBreaks' ComputeBlockCommentLock.
+  function ComputeLock(ALines: TStringList): TArray<Boolean>;
+  var
+    a, b                    : Integer;
+    Ln                      : string;
+    InBrace, InPar, InString: Boolean;
+    StartedInside           : Boolean;
+  begin
+    SetLength(Result, ALines.Count);
+    InBrace:= False;
+    InPar  := False;
+    for a:= 0 to ALines.Count - 1 do
+    begin
+      StartedInside:= InBrace or InPar;
+      Ln:= ALines[a];
+      InString:= False;
+      b       := 1    ;
+      while b <= Length(Ln) do
+      begin
+        if InBrace then
+        begin
+          if Ln[b] = '}' then InBrace:= False;
+          Inc(b);
+          Continue;
+        end;
+        if InPar then
+        begin
+          if (b + 1 <= Length(Ln)) and (Ln[b] = '*') and (Ln[b + 1] = ')') then
+          begin
+            InPar:= False;
+            Inc(b, 2);
+            Continue;
+          end;
+          Inc(b);
+          Continue;
+        end;
+        if InString then
+        begin
+          if Ln[b] = '''' then
+          begin
+            if (b + 1 <= Length(Ln)) and (Ln[b + 1] = '''') then Inc(b, 2)
+            else begin InString:= False; Inc(b); end;
+          end
+          else
+            Inc(b);
+          Continue;
+        end;
+        if Ln[b] = '''' then begin InString:= True; Inc(b); Continue; end;
+        if Ln[b] = '{'  then begin InBrace := True; Inc(b); Continue; end;
+        if (b + 1 <= Length(Ln)) and (Ln[b] = '(') and (Ln[b + 1] = '*') then
+        begin
+          InPar:= True;
+          Inc(b, 2);
+          Continue;
+        end;
+        if (b + 1 <= Length(Ln)) and (Ln[b] = '/') and (Ln[b + 1] = '/') then Break;
+        Inc(b);
+      end; // while
+      Result[a]:= StartedInside or InBrace or InPar;
+    end; // for
+  end;
+
+begin
+  Lines:= TStringList.Create;
+  try
+    Lines.LineBreak:= CRLF;
+    Lines.Text             := S     ;
+    Lock:= ComputeLock(Lines);
+    Out_:= TStringBuilder.Create;
+    try
+      i:= 0;
+      while i < Lines.Count do
+      begin
+        // trigger: control header, then a `begin`-only line
+        if (not Lock[i]) and IsHeaderEnd(Lines[i]) and (not HasCommentChars(Lines[i]))
+          and (Pos('__YADF_ML', Lines[i]) = 0)
+          and (i + 1 < Lines.Count) and (not Lock[i + 1]) and SameText(Trim(Lines[i + 1]), 'begin') then
+        begin
+          j   := i + 2;
+          Ok  := True ;
+          Body:= ''   ;
+          while True do
+          begin
+            if j >= Lines.Count then begin Ok:= False; Break; end;
+            if Lock[j] then begin Ok:= False; Break; end;
+            Tj:= Trim(Lines[j]);
+            if StartsWordCI(Tj, 'end') then Break; // matching end
+            // a shielded multi-line string/comment sentinel would re-expand to
+            // several lines after unshield -- never fold one into a one-liner
+            if (Tj = '') or HasCommentChars(Lines[j]) or (Tj[Length(Tj)] <> ';')
+              or (Pos('__YADF_ML', Lines[j]) > 0)
+              or ContainsWordCI(Tj, 'begin') or ContainsWordCI(Tj, 'end') then
+            begin Ok:= False; Break; end;
+            Body:= Body + ' ' + Tj;
+            Inc(j);
+          end; // while
+          if Ok and (j < Lines.Count) then
+          begin
+            EndLn := Trim(Lines[j]);
+            Indent:= LeadingWS(Lines[i]);
+            Joined:= Indent + Squeeze(Trim(Lines[i]) + ' begin' + Body + ' ' + EndLn);
+            if Length(Joined) <= AMaxLen then
+            begin
+              Out_.Append(Joined);
+              Out_.Append(CRLF);
+              i:= j + 1;
+              Continue;
+            end;
+          end;
+        end;
+        Out_.Append(Lines[i]);
+        Out_.Append(CRLF);
+        Inc(i);
+      end; // while
+      Result:= Out_.ToString;
+    finally
+      Out_.Free;
+    end;
+  finally
+    Lines.Free;
+  end;
+end; // function
+
 // ===== Blank-line policy =====
 // Enforces minimum blank-line counts before structurally important
 // lines. Three independent settings:
@@ -4614,6 +4910,13 @@ begin
         if AOpts.AlignSmartAssign then
           Result:= SmartAlignAssignments(Result, AOpts.AlignMaxColumn, AOpts.AlignMatchingShapes, AOpts.AlignShapeMinAnchors,
             AOpts.AlignCommentMaxShift);
+
+        // Final pass: fold a short control-statement begin..end body onto one
+        // line. Runs after alignment (so it never feeds joined lines back
+        // through the column passes) but before unshield (so multi-line string
+        // sentinels are still single-line and can be detected + skipped).
+        if AOpts.CollapseShortBlocks then
+          Result:= CollapseShortBlocks(Result, AOpts.MaxLen);
 
         // Stage 5: restore shielded multi-line strings and block comments verbatim.
         Result:= UnshieldMultilineTokens(Result, MLMap);
