@@ -8,6 +8,42 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.6] -- 2026-06-14
+
+Robustness release. Four real formatting defects were found by dogfooding YADF on
+two large production codebases (a ~530-unit VCL client and a ~450-unit Win64
+service) and fixed; both format and compile cleanly afterward. The `--d10`
+(Delphi 10.2.3) downgrade is completed so its output actually compiles on 10.2.3.
+Regression net grown to 73 golden files; all green and idempotent.
+
+### Fixed
+
+- **Inline `var` statements with multiple names keep their `var`.** A
+  `var A, B: T;` statement was split into two lines and the second lost its `var`,
+  producing uncompilable code. Such statements are now left intact.
+- **A one-line declaration with a second clause no longer duplicates it.**
+  `Cols, SelList: string; Q: TQuery;` ran the type to the final `;`, so splitting
+  the name list duplicated `Q: TQuery` onto every line (a redeclared-identifier
+  error). Such lines are now left intact.
+- **Scientific-notation real literals are no longer corrupted.** `0.10000E-2`,
+  `5E-16`, `1E+300` were getting spaces around the exponent sign (`0.10000E - 2`),
+  an invalid real number (E2053). The sign stays attached; hex subtraction
+  (`$5E - 16`) is correctly left spaced.
+- **`reference to function` / `reference to procedure` types no longer dedent the
+  declarations that follow them.** An anonymous-method-reference type (optionally
+  with a `stdcall` / `cdecl` directive) was mistaken for a procedure declaration
+  and pushed the rest of the `type` block to column 0.
+- **`--d10` now emits code that actually compiles on Delphi 10.2.3.** Untyped
+  `for var i := ...` loops are downgraded and inline `const` declarations are
+  hoisted to a `const` section; cases that cannot be safely downgraded
+  (non-inferable `for..in`, consts inside anonymous methods) are flagged with a
+  `// TODO -oYADF` marker instead of being silently emitted as 10.3+-only code.
+
+### Internal
+
+- Bare `#13` / `#10` character literals routed through named `CR` / `LF`
+  constants (output byte-identical).
+
 ## [1.0.6.5] -- 2026-06-07
 
 Formatting-quality release driven by Delphi-PRAXiS testing feedback: fixes two

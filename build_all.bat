@@ -5,7 +5,7 @@ rem ==== Single source of truth for the release version =================
 set YADF_MAJOR=1
 set YADF_MINOR=0
 set YADF_RELEASE=6
-set YADF_BUILD=5
+set YADF_BUILD=6
 set YADF_VER=%YADF_MAJOR%.%YADF_MINOR%.%YADF_RELEASE%.%YADF_BUILD%
 rem NOTE: keep YADF.Version.inc YADF_VERSION in sync with the above.
 
