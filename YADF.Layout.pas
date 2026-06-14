@@ -1091,24 +1091,25 @@ begin
           else
             Tail:= '';
 
-          // Reject if `Names` is not a clean identifier-comma list.
-          // Tolerates whitespace; rejects parens, brackets, equals
-          // (initialisers), operators, etc.
+          // Reject if `Names` is not a clean identifier-comma list. Each
+          // comma-separated NAME, trimmed, must be a single bare identifier.
+          // The previous char-scan tolerated spaces ANYWHERE, so an inline
+          // `var A, B: T;` STATEMENT (Names = 'var A, B') slipped through and
+          // split with the `var`/`const` keyword dropped from every line but
+          // the first -- producing uncompilable code. A real keyword prefix or
+          // any embedded space now poisons the match, leaving such lines alone.
           HasComma:= Pos(',', Names) > 0;
           if HasComma then
           begin
-            Body:= '';
-            for k:= 1 to Length(Names) do
+            NameTokens:= Names.Split([',']);
+            for k:= 0 to High(NameTokens) do
             begin
-              C:= Names[k];
-              if (AnsiChar(C) in IdentChars) or (C = ',') or
-                 (C = ' ') or (C = #9) then
-                Body:= Body + C
-              else
-              begin
-                HasComma:= False;  // poison: not a clean name list
-                Break;
-              end;
+              Body:= Trim(NameTokens[k]);
+              if Body = '' then begin HasComma:= False; Break; end;
+              for Col:= 1 to Length(Body) do
+                if not (AnsiChar(Body[Col]) in IdentChars) then
+                begin HasComma:= False; Break; end;
+              if not HasComma then Break;
             end;
           end;
 
