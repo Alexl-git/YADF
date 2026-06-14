@@ -8,6 +8,26 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.7] -- 2026-06-14
+
+One new opt-in formatting control. Off by default; the default output path is
+byte-identical to 1.0.6.6.
+
+### Added
+
+- **`CollapseShortBlocks` (default false; `--collapse-blocks`).** Folds a short
+  control-statement begin..end body onto one line when it fits MaxLen:
+  `if X then begin A := 1; B := 2; end;`. Fires only for an if/for/while/with/else
+  header (ending in then/do/else) whose `begin..end` holds nothing but simple
+  one-statement-per-line code; a nested block, a multi-line statement, any
+  comment, or a multi-line string literal leaves the block expanded, and routine
+  bodies are never folded. It is leaf-only (an outer block whose body contains an
+  already-folded inner block stays expanded), idempotent, and string-safe (a
+  literal's interior spaces are preserved). Proven by formatting two large
+  production projects (~530-unit VCL client + ~450-unit Win64 service): 3997
+  blocks collapsed, both still compile clean. Regression net grown to 74 golden
+  files.
+
 ## [1.0.6.6] -- 2026-06-14
 
 Robustness release. Four real formatting defects were found by dogfooding YADF on
