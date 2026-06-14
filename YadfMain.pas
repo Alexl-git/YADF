@@ -783,6 +783,8 @@ begin
   WriteStdoutLine(Format('  --no-reflow           preserve source line breaks                      [reflow=%s]', [OnOff(AOpts.ReflowLines)]));
   WriteStdoutLine(Format('  --pack-bodies         pack short loop/if bodies + case arms onto one line [pack=%s]', [OnOff(AOpts.PackShortBodies)]));
   WriteStdoutLine('  --no-pack-bodies      keep each body / case arm on its own line (default)');
+  WriteStdoutLine(Format('  --collapse-blocks     fold a short if/for/while begin..end body onto one line [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
+  WriteStdoutLine('  --no-collapse-blocks  keep begin..end blocks expanded (default)');
   WriteStdoutLine(Format('  --no-trim-trailing    keep trailing whitespace                         [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
   WriteStdoutLine('');
   WriteStdoutLine('Uses clause:');
@@ -1119,6 +1121,16 @@ begin
       else if AArgs[i] = '--no-pack-bodies' then
       begin
         AOpts.PackShortBodies:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--collapse-blocks' then
+      begin
+        AOpts.CollapseShortBlocks:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-collapse-blocks' then
+      begin
+        AOpts.CollapseShortBlocks:= False;
         Inc(i);
       end
       else

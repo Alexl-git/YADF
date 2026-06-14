@@ -59,6 +59,7 @@ type
     BreakCaseLabels    : Boolean;
     IndentComments     : Boolean;
     PackShortBodies    : Boolean;
+    CollapseShortBlocks: Boolean;
     Delphi10Compat     : Boolean;
     Backup             : Boolean;
     BackupDir          : string;
@@ -160,6 +161,7 @@ begin
   Result.BreakCaseLabels    := False  ;
   Result.IndentComments     := True   ;
   Result.PackShortBodies    := False  ;
+  Result.CollapseShortBlocks:= False  ;
   Result.Delphi10Compat     := False  ;
   Result.Backup             := False  ;
   Result.BackupDir          := ''     ;
@@ -381,6 +383,16 @@ begin
       okBool, True,
       function(const O: TYadfOptions): Variant begin Result := O.PackShortBodies end,
       procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies := V end),
+    MakeOpt('CollapseShortBlocks', 'Reflow & whitespace', 'Collapse short begin..end blocks',
+      'Fold a short control-statement begin..end body onto one line when it fits ' +
+      'MaxLen: an if/for/while/with/else header whose block holds only simple ' +
+      'one-statement-per-line code becomes "if X then begin A := 1; B := 2; end;". ' +
+      'Only pure simple-statement bodies fold -- a nested block, a multi-line ' +
+      'statement, or any comment leaves the block expanded; routine bodies are ' +
+      'never folded. Off by default. Default: false',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.CollapseShortBlocks end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks := V end),
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Downgrade inline vars',
       'Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest get a // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain. Default: false',
       okBool, True,
