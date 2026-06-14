@@ -2768,7 +2768,7 @@ begin
                 InVisibility:= False;
               ExpectSectionDecl:= True ;
             end;
-            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) and (PrevNonKind <> ptEqual) then
+            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) and (PrevNonKind <> ptEqual) and (PrevNonKind <> ptTo) then
             // ParensDepth = 0 distinguishes a real procedure/function
             // declaration from an inline anonymous method expression
             // (e.g. CallSomething(procedure(X) begin ... end)). The
@@ -2779,7 +2779,9 @@ begin
             // after the call. (Bug repro: inline anon proc, 2026-05-15.)
             // PrevNonKind <> ptEqual excludes a procedural / method-pointer
             // TYPE (`T = procedure(...)` / `T = function(...) of object`),
-            // which must NOT close the surrounding type section.
+            // and PrevNonKind <> ptTo the anonymous-method-reference TYPE
+            // (`T = reference to function(...) stdcall`) -- both must NOT
+            // close the surrounding type section or open a proc region.
             begin
               CloseSectionIfOpen;
               InVisibility:= False;

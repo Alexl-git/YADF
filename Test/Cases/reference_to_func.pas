@@ -1,0 +1,24 @@
+unit reference_to_func;
+
+interface
+
+// An anonymous-method-reference type (`reference to function/procedure`,
+// optionally with a calling-convention directive) is a TYPE, not a proc
+// declaration: it must not open a proc region or dedent the declarations
+// that follow it. Regression for the DelphiAST PR#343 construct, 2026-06-14.
+type
+  TCallback = reference to function(const A: Integer): HResult stdcall;
+  TProcRef = reference to procedure(const S: string);
+  TOther = class
+    private
+      FValue: Integer;
+    public
+      procedure DoIt;
+  end;
+  TMore = record
+    X: Integer;
+  end;
+
+implementation
+
+end.
