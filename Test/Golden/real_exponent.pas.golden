@@ -1,0 +1,23 @@
+unit real_exponent;
+
+interface
+
+// Scientific-notation real literals: the lexer splits `0.10000E-2` into
+// `0.10000E` + `-` + `2`; the operator spacer must NOT space the exponent
+// sign (`0.10000E - 2` is an invalid real, E2053). Regression for the
+// Micronite Z19b5 / Blueprint4.ViewModel corruption, 2026-06-14.
+const
+  A: array[0..3] of Double = (0.10000E-2, 1.5E-3, 2.0E+4, 0.30000E-4);
+  B                        = 1.0E-10;
+  C                        = 6.022E23;
+  D                        = 1.5;
+  // no-decimal mantissa: lexer splits 5E-16 into '5' 'E' '-' '16'
+  MachineEpsilon = 5E-16;
+  MaxRealNumber  = 1E300;
+  MinRealNumber = 1E-300;
+  Tiny          = 1E-12;
+  Big            = 2E+5;
+
+implementation
+
+end.

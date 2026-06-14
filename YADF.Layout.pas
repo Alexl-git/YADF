@@ -283,9 +283,10 @@ procedure NormalizeOperatorSpacing(const ATokens: TTokenList; const AOpts: TYadf
 var
   Src : TArray<TToken>;
   Outp: TTokenList;
-  i, j: Integer;
+  i, j, k: Integer;
   PrevKind: TptTokenKind;
   IsBinary: Boolean;
+  NewT: TToken;
 
   function MakeSpace(ALine: Integer): TToken;
   begin
@@ -320,6 +321,36 @@ begin
                          ptGreaterEqual, ptPlus, ptMinus] then
       begin
         PrevKind:= LastRealKind;
+        // Split scientific-notation exponent sign. The lexer's NumberProc
+        // swallows the exponent letter into the number token but only marks it
+        // ptFloat when a '.' was seen, so a signed exponent arrives split:
+        //   0.10000E-2 -> ptFloat('0.10000E') '-' '2'
+        //   5E-16      -> ptIntegerConst('5E')  '-' '16'
+        // Either way the preceding number token ends in E/e. Spacing the sign
+        // as a binary operator yields `... E - 2`, an invalid real (E2053), so
+        // re-merge the number + sign + digits back into one float token. The
+        // leading-digit guard excludes hex ($5E - 16 is a real subtraction).
+        if Src[i].Kind in [ptPlus, ptMinus] then
+        begin
+          k:= Outp.Count - 1;
+          while (k >= 0) and (Outp[k].Kind = ptSpace) do Dec(k);
+          j:= i + 1;
+          while (j <= High(Src)) and (Src[j].Kind = ptSpace) do Inc(j);
+          if (k >= 0) and (j <= High(Src)) and (Src[j].Kind = ptIntegerConst)
+            and (Outp[k].Kind in [ptFloat, ptIntegerConst])
+            and (Length(Outp[k].Text) > 0)
+            and CharInSet(Outp[k].Text[1], ['0'..'9'])
+            and CharInSet(Outp[k].Text[Length(Outp[k].Text)], ['E', 'e']) then
+          begin
+            while Outp.Count - 1 > k do Outp.Delete(Outp.Count - 1); // drop stray spaces
+            NewT:= Outp[k];
+            NewT.Kind:= ptFloat;
+            NewT.Text:= NewT.Text + Src[i].Text + Src[j].Text;
+            Outp[k]:= NewT;
+            i:= j + 1;
+            Continue;
+          end;
+        end;
         if Src[i].Kind in [ptPlus, ptMinus] then
           // binary only when the previous real token ends an operand;
           // otherwise it is a unary sign and stays attached.
@@ -1119,7 +1150,14 @@ begin
           if CaseArmLikeBody(Names, TypePart) then
             DoSplit:= ASplitCaseLabels
           else
+          begin
             DoSplit:= ASplitDecls;
+            // A genuine type never carries a top-level `;`. If TypePart does,
+            // the line packs a SECOND declaration ("A, B: T1; C: T2;") -- the
+            // scan ran the type to the last `;`, so splitting would duplicate
+            // the tail ("Q: T2" onto every line). Leave such lines alone.
+            if Pos(';', TypePart) > 0 then DoSplit:= False;
+          end;
           if HasComma and (TypePart <> '') and DoSplit then
           begin
             NameTokens:= Names.Split([','], TStringSplitOptions.ExcludeEmpty);
