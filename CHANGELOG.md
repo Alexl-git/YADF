@@ -8,6 +8,37 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.9] -- 2026-06-18
+
+A formatting fix plus option-discoverability improvements. Default output is
+byte-identical to 1.0.6.8.
+
+### Fixed
+
+- **`BlanksBeforeMethod` no longer breaks up the interface section.** With
+  `BlanksBeforeMethod` > 0 the blank-line floor was applied before *every*
+  `procedure`/`function` line -- including the method *declarations* inside a
+  `class` / `record` / `interface` type -- so blank lines were injected between
+  members and the interface section was visibly mangled (reported on
+  Delphi-Praxis). The floor now applies only to **top-level** routine
+  declarations (the implementations), never to indented members.
+
+### Changed
+
+- **`AlignDeclSemicolons` is now documented in the sample `yadf.ini`.** It was a
+  real, registered option (settable via the INI and in YADFSetup) but missing
+  from the documented sample, so it was hard to discover. Setting
+  `AlignDeclSemicolons` *and* `AlignTypeColon` to false yields plain
+  `Name: Type;` declarations (no aligned colons, no trailing-semicolon padding).
+- **`Demo\Sample.pas` (the YADFSetup live-preview source) is now an annotated
+  showcase.** Each block is labelled with the option(s) it demonstrates
+  (`UsesAlwaysBreak`, `AlignTypeColon`/`AlignDeclSemicolons`,
+  `AlignMatchingShapes`, `SplitMultiVarDecls`, `BlanksBeforeMethod`), and it now
+  ships in the release archive so YADFSetup's before/after preview is populated
+  out of the box.
+
+Regression net: 78 golden files + 13 behavioural suites, all green and idempotent.
+
 ## [1.0.6.8] -- 2026-06-18
 
 Two fixes, both found dogfooding YADF on the drag-lint project. The first is a
