@@ -123,6 +123,34 @@ procedure WriteDefaultIniTemplate(const APath: string);
 // when a new file was created.
 function EnsureIniExists(const APath: string): Boolean;
 
+// ---- IDE formatting profiles ------------------------------------------------
+// Two named INI profiles bound to the YADFOT IDE shortcuts: F (Ctrl+Shift+Alt+F,
+// also the EXE/CLI default) and R (Ctrl+Shift+Alt+R, YADFOT only). The mapping
+// lives in profiles.ini next to the shared yadf.ini; each value is a *.ini file
+// name resolved in that same folder. R may be empty (no second profile set).
+type
+  TYadfProfiles = record
+    F: string;   // INI file name for Ctrl+Shift+Alt+F (defaults to 'yadf.ini')
+    R: string;   // INI file name for Ctrl+Shift+Alt+R ('' = unassigned)
+  end;
+
+// Folder that holds the shared yadf.ini / profiles.ini (%APPDATA%\YADF).
+function ProfilesDir: string;
+
+// %APPDATA%\YADF\profiles.ini -- the F/R mapping file.
+function ProfilesIniPath: string;
+
+// Read the F/R mapping. Missing file or missing key falls back to F='yadf.ini',
+// R='' so existing installs behave exactly as before.
+function LoadProfiles: TYadfProfiles;
+
+// Persist the F/R mapping (creates the folder/file as needed). Best-effort.
+procedure SaveProfiles(const AProfiles: TYadfProfiles);
+
+// Resolve a profile's INI file name to a full path in ProfilesDir. Returns ''
+// for an empty name; passes an already-rooted path through unchanged.
+function ResolveProfileIniPath(const AFileName: string): string;
+
 implementation
 
 uses
@@ -619,6 +647,60 @@ begin
     // FileExists(APath) post-call.
     Result:= False;
   end;
+end;
+
+function ProfilesDir: string;
+begin
+  Result:= ExtractFilePath(SharedAppDataIniPath);
+end;
+
+function ProfilesIniPath: string;
+begin
+  Result:= TPath.Combine(ProfilesDir, 'profiles.ini');
+end;
+
+function LoadProfiles: TYadfProfiles;
+var
+  Ini: TIniFile;
+begin
+  Result.F:= 'yadf.ini';
+  Result.R:= ''        ;
+  if not FileExists(ProfilesIniPath) then Exit;
+  Ini:= TIniFile.Create(ProfilesIniPath);
+  try
+    Result.F:= Trim(Ini.ReadString('Profiles', 'F', Result.F));
+    Result.R:= Trim(Ini.ReadString('Profiles', 'R', Result.R));
+    if Result.F = '' then Result.F:= 'yadf.ini';
+  finally
+    Ini.Free;
+  end;
+end;
+
+procedure SaveProfiles(const AProfiles: TYadfProfiles);
+var
+  Ini    : TIniFile;
+  DirName: string;
+begin
+  DirName:= ProfilesDir;
+  if (DirName <> '') and (not DirectoryExists(DirName)) then
+    ForceDirectories(DirName);
+  Ini:= TIniFile.Create(ProfilesIniPath);
+  try
+    Ini.WriteString('Profiles', 'F', AProfiles.F);
+    Ini.WriteString('Profiles', 'R', AProfiles.R);
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
+  end;
+end;
+
+function ResolveProfileIniPath(const AFileName: string): string;
+begin
+  if Trim(AFileName) = '' then Exit('');
+  if TPath.IsPathRooted(AFileName) then
+    Result:= AFileName
+  else
+    Result:= TPath.Combine(ProfilesDir, AFileName);
 end;
 
 end.
