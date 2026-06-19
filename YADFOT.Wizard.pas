@@ -430,9 +430,8 @@ end;
 // The trade-off vs. the in-buffer path: this format is not on the undo stack.
 procedure FormatFormUnitViaReload(const AEditor: IOTASourceEditor; const AFileName: string);
 var
-  M         : IOTAModule;
-  Opts      : TYadfOptions;
-  BackupNote: string;
+  M   : IOTAModule;
+  Opts: TYadfOptions;
 begin
   M:= AEditor.Module;
   if M = nil then Exit;
@@ -443,18 +442,10 @@ begin
     Exit;
   end;
   Opts:= ResolveOptions(AFileName);
-  if Opts.Backup then
-    BackupNote:= 'A .BCK backup of the original is written first (Backup is on in the INI), ' +
-      'so it stays recoverable.'
-  else
-    BackupNote:= 'NOTE: Backup is OFF in the INI, so no .BCK is written -- enable ' +
-      '"Backup before overwrite" in YADFSetup to keep a safety copy.';
-  if MessageDlg('YADFOT: "' + ExtractFileName(AFileName) + '" is a form / data-module unit.' +
-       sLineBreak + sLineBreak +
-       'It will be saved, formatted on disk, and reloaded so the Form Designer ' +
-       'rebuilds cleanly (this format is not undoable). ' + BackupNote + sLineBreak + sLineBreak +
-       'Continue?', mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
-    Exit;
+  // A form / data-module unit formats seamlessly -- no confirm prompt. We save
+  // it, write a .BCK backup (when Backup=true), format the file on disk, and
+  // reload the module so the Form Designer rebuilds from a clean source-position
+  // map (the original is recoverable from the .BCK).
   if not M.Save(False, True) then
   begin
     MessageDlg('YADFOT: could not save the unit before formatting; aborted.',
