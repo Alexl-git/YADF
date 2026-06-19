@@ -8,6 +8,29 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.8] -- 2026-06-18
+
+Correctness fix. `SplitMultiVarDecls` (on by default) could silently change
+program semantics and break the build; found dogfooding YADF on the drag-lint
+project (the 44-unit format failed to compile with E2008).
+
+### Fixed
+
+- **A combined declaration whose type is an ANONYMOUS structured type is no
+  longer split.** In Object Pascal an anonymous structured type has a *distinct*
+  identity per declaration: `RowPrev, RowCurr: array of Integer;` makes the two
+  variables the **same** type, but splitting them into one declaration each makes
+  them **two incompatible types**, so shared-type code such as
+  `RowPrev := Copy(RowCurr)` then fails to compile (E2008 Incompatible types).
+  `SplitMultiVarDecls` now vetoes the split when the type is anonymous-structured
+  (`array of` / `array[..] of` / `record .. end` / `set of` / `file of` /
+  `packed ..` / `procedure` / `function`, inline `class`/`object`, or a typed
+  pointer `^T`); NAMED/simple types (`A, B: Integer;`, `A, B: TFoo;`) still split
+  as before. A new `anon_array_split` fixture formats correctly and compiles while
+  its pre-fix split form reproduces the E2008; regression net grown to 75 golden
+  files (plus a regex-only `anon_proc_split` companion covering the procedural
+  cases, which also trip a separate, pre-existing begin/end indent quirk).
+
 ## [1.0.6.7] -- 2026-06-14
 
 One new opt-in formatting control. Off by default; the default output path is

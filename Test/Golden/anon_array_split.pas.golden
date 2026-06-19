@@ -1,0 +1,36 @@
+unit anon_array_split;
+
+{ Regression: SplitMultiVarDecls must NOT split a combined declaration whose
+  type is an ANONYMOUS structured type. In Object Pascal an anonymous
+  structured type creates a DISTINCT type per declaration, so splitting
+  "RowPrev, RowCurr: array of Integer" makes two incompatible types and
+  shared-type code (RowPrev := Copy(RowCurr)) stops compiling (E2008).
+  Found 2026-06-18 formatting drag-lint (DRagLint.Query.Fuzzy.pas, Levenshtein
+  helper). NAMED / simple types (NamedA, NamedB: Integer) must STILL split. }
+
+interface
+
+implementation
+
+function AnonTypes(const A, B: string): Integer;
+var
+  RowPrev, RowCurr: array of Integer      ;
+  MatA, MatB      : array[0..2] of Integer;
+  SetA, SetB      : set of Byte           ;
+  FileA, FileB    : file of Byte          ;
+  PackA, PackB    : packed array of Byte  ;
+  RecA, RecB      : record V: Integer end ;
+  PtrA, PtrB      : ^Integer              ;
+  NamedA          : Integer               ;
+  NamedB          : Integer               ;
+  ObjA            : TObject               ;
+  ObjB            : TObject               ;
+begin
+  SetLength(RowCurr, 4);
+  RowPrev:= Copy  (RowCurr);
+  NamedA := Length(A      );
+  NamedB := Length(B      );
+  Result:= Length(RowPrev) + NamedA + NamedB;
+end;
+
+end.

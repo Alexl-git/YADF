@@ -1002,6 +1002,41 @@ begin
            (FirstWord = 'halt') or (FirstWord = 'break') or (FirstWord = 'continue');
 end;
 
+// True when TypePart is an ANONYMOUS structured type whose identity is fixed
+// per declaration: array of T / array[..] of T / record .. end / set of T /
+// file of T / packed .. / procedure / function (incl. ".. of object") / inline
+// class or object type, or a typed pointer (^T). Splitting "A, B: <such type>"
+// into one decl per name makes A and B DISTINCT, incompatible types (E2008), so
+// the formatter must leave them combined. Every matched word is RESERVED, so a
+// NAMED type can never equal one; a name that merely STARTS like a keyword
+// (TArrayHelper / SetItem) keeps its whole first word and so does NOT match --
+// those stay safe to split. ('class'/'object' combined decls do not actually
+// compile, but are matched as the safe conservative choice.)
+function TypePartIsAnonymousStructured(const ATypePart: string): Boolean;
+var
+  T, W: string;
+  p   : Integer;
+begin
+  T:= TrimLeft(ATypePart);
+  if T = '' then Exit(False);
+  // A typed pointer is anonymous (per-decl identity) just like the keyword
+  // forms; key off the leading caret before the word scan.
+  if T[1] = '^' then Exit(True);
+  // First word = leading run of letters; compare WHOLE word (not a prefix) so
+  // a named type like SetItem/TArrayHelper is not vetoed.
+  W:= '';
+  p:= 1;
+  while (p <= Length(T)) and CharInSet(T[p], ['A'..'Z', 'a'..'z']) do
+  begin
+    W:= W + T[p];
+    Inc(p);
+  end;
+  W:= LowerCase(W);
+  Result:= (W = 'array')  or (W = 'record')    or (W = 'set')      or
+           (W = 'file')   or (W = 'packed')    or (W = 'object')   or
+           (W = 'class')  or (W = 'procedure') or (W = 'function');
+end;
+
 function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;
 var
   Lines       : TStringList;
@@ -1157,6 +1192,12 @@ begin
             // scan ran the type to the last `;`, so splitting would duplicate
             // the tail ("Q: T2" onto every line). Leave such lines alone.
             if Pos(';', TypePart) > 0 then DoSplit:= False;
+            // An ANONYMOUS structured type (array/record/set/file/packed/class/
+            // object/procedure/function/reference, or a typed pointer) has a
+            // DISTINCT identity per declaration, so splitting "A, B: array of
+            // Integer" makes two incompatible types and changes semantics
+            // (E2008). Never split these; NAMED types (TFoo, Integer) still do.
+            if TypePartIsAnonymousStructured(TypePart) then DoSplit:= False;
           end;
           if HasComma and (TypePart <> '') and DoSplit then
           begin

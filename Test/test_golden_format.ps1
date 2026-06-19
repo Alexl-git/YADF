@@ -24,8 +24,11 @@ $ErrorActionPreference = 'Stop'
 $exe     = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
 $goldDir = Join-Path $PSScriptRoot 'Golden'
 # WIP fixtures (known-bad output we're about to fix) can be excluded so they don't
-# lock in a bug. (Empty now -- #333 is fixed and class_var_sections.pas is a golden.)
-$exclude = @()
+# lock in a bug. anon_proc_split.pas exercises the anonymous-procedural-type no-split
+# guard but ALSO trips a separate, pre-existing procedural-indent quirk (begin/end
+# over-indent); it is asserted via regex in test_format_regressions.ps1 instead of a
+# byte-golden so we don't lock in that unrelated indent bug.
+$exclude = @('anon_proc_split.pas')
 
 if (-not (Test-Path $goldDir)) { New-Item -ItemType Directory -Path $goldDir | Out-Null }
 $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRoot 'Snippets') -Filter *.pas -Recurse |
