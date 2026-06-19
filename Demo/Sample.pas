@@ -84,6 +84,31 @@ begin
 Result:= A+B;
 end;
 
+// --- CollapseShortBlocks ('Collapse short begin..end') ----------------------
+// ON: a short control begin..end body (header ends in then/do/else, body is
+// simple one-statement-per-line code) folds onto one line ->
+//   if K > 0 then begin A := 1; B := 2; end;
+// --- BreakCaseLabels ('Break case labels') ----------------------------------
+// ON: a multi-label case arm splits one label per line, the statement
+// duplicated to each -> "1, 2, 3: A := K;" becomes "1: A := K;" "2: A := K;" ...
+procedure OptionShowcase(K: Integer);
+var
+A, B: Integer;
+begin
+if K > 0 then
+begin
+A := 1;
+B := 2;
+end;
+case K of
+1, 2, 3: A := K;
+4, 5: B := K;
+else
+A := 0;
+end;
+Writeln(A, B);
+end;
+
 procedure Demo;
 var
 I,J: Integer; // combined -> split
