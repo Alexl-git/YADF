@@ -67,6 +67,7 @@ type
   TYadfotKeyboardBinding = class(TNotifierObject, IOTAKeyboardBinding)
   public
     procedure FormatBufferAction(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
+    procedure FormatBufferActionR(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
     function  GetBindingType: TBindingType;
     function  GetDisplayName: string;
     function  GetName       : string;
@@ -344,13 +345,14 @@ end;
 //      dialog rather than an IDE crash.
 //   5. Skip the write if formatting was a no-op, so we don't dirty the
 //      buffer or add an empty entry to the IDE's undo stack.
-procedure DoFormatCurrentBuffer;
+procedure DoFormatCurrentBuffer(AProfileR: Boolean = False);
 var
   Editor   : IOTASourceEditor;
   FileName : string;
   Opts     : TYadfOptions;
   Original : string;
   Formatted: string;
+  RIni     : string;
 begin
   Editor:= GetActiveSourceEditor(FileName);
   if Editor = nil then
@@ -382,7 +384,24 @@ begin
     Exit;
   end;
 
-  Opts:= ResolveOptions(FileName);
+  // Profile R uses the INI explicitly assigned in YADFSetup (no project walk);
+  // profile F (default) walks for the nearest yadf.ini, exactly as before.
+  if AProfileR then
+  begin
+    RIni:= ResolveProfileIniPath(LoadProfiles.R);
+    if (RIni = '') or (not FileExists(RIni)) then
+    begin
+      MessageDlg('YADFOT: no second (R) profile is configured.' + sLineBreak +
+        'Open YADFSetup, click an INI in the Profiles list and press R to assign ' +
+        'it to Ctrl+Shift+Alt+R.',
+        mtInformation, [mbOK], 0);
+      Exit;
+    end;
+    Opts:= DefaultOptions;
+    LoadIniDefaults(Opts, RIni);
+  end
+  else
+    Opts:= ResolveOptions(FileName);
 
   try
     Original := ReadEditorText(Editor);
@@ -432,7 +451,13 @@ end;
 
 procedure TYadfotKeyboardBinding.FormatBufferAction(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
 begin
-  DoFormatCurrentBuffer;
+  DoFormatCurrentBuffer(False);
+  BindingResult:= krHandled;
+end;
+
+procedure TYadfotKeyboardBinding.FormatBufferActionR(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
+begin
+  DoFormatCurrentBuffer(True);
   BindingResult:= krHandled;
 end;
 
@@ -456,6 +481,12 @@ begin
   BindingServices.AddKeyBinding(
     [Vcl.Menus.ShortCut(Ord('F'), [ssCtrl, ssShift, ssAlt])],
     FormatBufferAction,
+    nil);
+  // Second shortcut: Ctrl+Shift+Alt+R formats with the R profile assigned in
+  // YADFSetup. If none is assigned the action shows a one-line hint.
+  BindingServices.AddKeyBinding(
+    [Vcl.Menus.ShortCut(Ord('R'), [ssCtrl, ssShift, ssAlt])],
+    FormatBufferActionR,
     nil);
 end;
 

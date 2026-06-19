@@ -7,6 +7,7 @@ uses
   System.UITypes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
   Vcl.Samples.Spin, Vcl.Clipbrd,
+  System.IOUtils,
   YADF.Options, YADF.Layout;
 
 type
@@ -33,6 +34,15 @@ type
     dlgOpen: TOpenDialog;
     dlgSaveIni: TSaveDialog;
     tmrReformat: TTimer;
+    pnlProfiles: TPanel;
+    lblProfHdr: TLabel;
+    lblProfHelp1: TLabel;
+    lblProfHelp2: TLabel;
+    lblProfHelp3: TLabel;
+    lstProfiles: TListBox;
+    lblEditing: TLabel;
+    btnNewProfile: TButton;
+    splProfiles: TSplitter;
     procedure FormCreate(Sender: TObject);
     procedure btnOpenSourceClick(Sender: TObject);
     procedure btnLoadSettingsClick(Sender: TObject);
@@ -41,6 +51,9 @@ type
     procedure btnCopyClick(Sender: TObject);
     procedure memSourceChange(Sender: TObject);
     procedure tmrReformatTimer(Sender: TObject);
+    procedure lstProfilesClick(Sender: TObject);
+    procedure lstProfilesKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure btnNewProfileClick(Sender: TObject);
   private
     FOpts: TYadfOptions;
     FIniPath: string;
@@ -48,6 +61,8 @@ type
     FUpdating: Boolean;             // True while we push FOpts -> controls;
                                     // suppresses OptionChanged so the
                                     // programmatic writes don't clobber FOpts.
+    FProfiles: TYadfProfiles;       // current F/R shortcut mapping
+    FProfileFiles: TArray<string>;  // *.ini names, index-aligned to lstProfiles
     procedure BuildOptionControls;
     procedure OptionsToControls;
     procedure ControlsToOptions;
@@ -55,6 +70,8 @@ type
     procedure Reformat;
     procedure AutoSave;
     procedure LoadSample;
+    procedure RefreshProfileList;
+    procedure SwitchEditTo(const AIniFile: string);
   end;
 
 var
@@ -93,13 +110,16 @@ var
 begin
   Ver := GetExeVersion;
   if Ver = '' then Ver := YADF_VERSION;
-  Caption := 'YADFSetup ' + Ver + '  -  Settings | Source | Result';
-  FIniPath := SharedAppDataIniPath;
+  Caption := 'YADFSetup ' + Ver + '  -  Profiles | Settings | Source | Result';
+  FProfiles := LoadProfiles;
+  FIniPath := ResolveProfileIniPath(FProfiles.F);
+  if FIniPath = '' then FIniPath := SharedAppDataIniPath;
   EnsureIniExists(FIniPath);
   FOpts := LoadOptionsFromIni(FIniPath);
   lblIniPath.Caption := 'INI: ' + FIniPath;
   BuildOptionControls;
   OptionsToControls;
+  RefreshProfileList;
   LoadSample;
   Reformat;
 end;
@@ -354,6 +374,118 @@ begin
   end
   else
     lblSourceFile.Caption := 'file: (paste or open a .pas)';
+end;
+
+// ---- Profiles panel --------------------------------------------------------
+
+procedure TfrmMain.RefreshProfileList;
+var
+  Files     : TArray<string>;
+  Dir, Name : string;
+  Badge, Cur: string;
+  i, Sel    : Integer;
+begin
+  Dir := ProfilesDir;
+  if not DirectoryExists(Dir) then ForceDirectories(Dir);
+  Files := TDirectory.GetFiles(Dir, '*.ini', TSearchOption.soTopDirectoryOnly);
+  SetLength(FProfileFiles, 0);
+  Cur := ExtractFileName(FIniPath);
+  Sel := -1;
+  lstProfiles.Items.BeginUpdate;
+  try
+    lstProfiles.Items.Clear;
+    for i := 0 to High(Files) do
+    begin
+      Name := ExtractFileName(Files[i]);
+      if SameText(Name, 'profiles.ini') then Continue;   // mapping file, not a profile
+      if SameText(Name, FProfiles.F) then Badge := '[F]  '
+      else if SameText(Name, FProfiles.R) then Badge := '[R]  '
+      else Badge := '       ';
+      lstProfiles.Items.Add(Badge + Name);
+      SetLength(FProfileFiles, Length(FProfileFiles) + 1);
+      FProfileFiles[High(FProfileFiles)] := Name;
+      if SameText(Name, Cur) then Sel := High(FProfileFiles);
+    end;
+  finally
+    lstProfiles.Items.EndUpdate;
+  end;
+  if Sel >= 0 then lstProfiles.ItemIndex := Sel;
+  lblEditing.Caption := 'Editing: ' + Cur;
+end;
+
+procedure TfrmMain.SwitchEditTo(const AIniFile: string);
+var
+  Path: string;
+begin
+  Path := ResolveProfileIniPath(AIniFile);
+  if Path = '' then Exit;
+  EnsureIniExists(Path);
+  FIniPath := Path;
+  FOpts := LoadOptionsFromIni(FIniPath);
+  OptionsToControls;
+  lblIniPath.Caption := 'INI: ' + FIniPath;
+  lblEditing.Caption := 'Editing: ' + ExtractFileName(FIniPath);
+  Reformat;
+end;
+
+// Single-click a row -> the option grid below edits THAT profile's INI.
+procedure TfrmMain.lstProfilesClick(Sender: TObject);
+var
+  i: Integer;
+begin
+  i := lstProfiles.ItemIndex;
+  if (i < 0) or (i > High(FProfileFiles)) then Exit;
+  if not SameText(FProfileFiles[i], ExtractFileName(FIniPath)) then
+    SwitchEditTo(FProfileFiles[i]);
+end;
+
+// Highlight a row + press F / R to assign the IDE shortcut, Del to unassign.
+procedure TfrmMain.lstProfilesKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+var
+  i   : Integer;
+  Name: string;
+begin
+  i := lstProfiles.ItemIndex;
+  if (i < 0) or (i > High(FProfileFiles)) then Exit;
+  Name := FProfileFiles[i];
+  case Key of
+    Ord('F'): begin FProfiles.F := Name; SaveProfiles(FProfiles); RefreshProfileList; Key := 0; end;
+    Ord('R'): begin FProfiles.R := Name; SaveProfiles(FProfiles); RefreshProfileList; Key := 0; end;
+    VK_DELETE:
+      begin
+        // F always keeps a value (the EXE needs it); reset it to the default
+        // rather than leave it blank. R may be cleared outright.
+        if SameText(FProfiles.R, Name) then FProfiles.R := ''
+        else if SameText(FProfiles.F, Name) then FProfiles.F := 'yadf.ini';
+        SaveProfiles(FProfiles);
+        RefreshProfileList;
+        Key := 0;
+      end;
+  end;
+end;
+
+procedure TfrmMain.btnNewProfileClick(Sender: TObject);
+var
+  Nm, FileName, Path: string;
+  k: Integer;
+begin
+  Nm := '';
+  if not InputQuery('New profile', 'Profile name (creates yadf-<name>.ini):', Nm) then Exit;
+  Nm := Trim(Nm);
+  if Nm = '' then Exit;
+  for k := 1 to Length(Nm) do
+    if CharInSet(Nm[k], ['\', '/', ':', '*', '?', '"', '<', '>', '|', ' ']) then Nm[k] := '-';
+  FileName := 'yadf-' + Nm + '.ini';
+  Path := ResolveProfileIniPath(FileName);
+  if FileExists(Path) then
+  begin
+    if MessageDlg(FileName + ' already exists. Edit it instead?',
+         mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
+  end
+  else
+    SaveOptionsToIni(FOpts, Path);   // seed the new profile with current settings
+  SwitchEditTo(FileName);
+  RefreshProfileList;
 end;
 
 end.

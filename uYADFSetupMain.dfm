@@ -80,11 +80,93 @@ object frmMain: TfrmMain
         OnClick = btnResetClick
       end
     end
-    object sbSettings: TScrollBox
+    object pnlProfiles: TPanel
       Left = 0
       Top = 56
       Width = 360
-      Height = 584
+      Height = 180
+      Align = alTop
+      BevelOuter = bvNone
+      Caption = ''
+      TabOrder = 2
+      object lblProfHdr: TLabel
+        Left = 6
+        Top = 4
+        Width = 320
+        Height = 15
+        Caption = 'Profiles  -  which yadf.ini each IDE shortcut uses'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -12
+        Font.Name = 'Segoe UI'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lblProfHelp1: TLabel
+        Left = 6
+        Top = 22
+        Width = 348
+        Height = 15
+        Caption = 'Click a file, then press  F  or  R  to assign it.   Del = unassign'
+      end
+      object lblProfHelp2: TLabel
+        Left = 6
+        Top = 38
+        Width = 348
+        Height = 15
+        Caption = 'F = Ctrl+Shift+Alt+F  (YADF.exe default; or  YADF.exe --ini <file>)'
+      end
+      object lblProfHelp3: TLabel
+        Left = 6
+        Top = 54
+        Width = 348
+        Height = 15
+        Caption = 'R = Ctrl+Shift+Alt+R  (YADFOT only)'
+      end
+      object lstProfiles: TListBox
+        Left = 6
+        Top = 74
+        Width = 348
+        Height = 70
+        Anchors = [akLeft, akTop, akRight, akBottom]
+        ItemHeight = 15
+        TabOrder = 0
+        OnClick = lstProfilesClick
+        OnKeyDown = lstProfilesKeyDown
+      end
+      object lblEditing: TLabel
+        Left = 6
+        Top = 152
+        Width = 230
+        Height = 15
+        Anchors = [akLeft, akBottom]
+        Caption = 'Editing: yadf.ini'
+      end
+      object btnNewProfile: TButton
+        Left = 250
+        Top = 148
+        Width = 104
+        Height = 25
+        Anchors = [akRight, akBottom]
+        Caption = 'New profile...'
+        TabOrder = 1
+        OnClick = btnNewProfileClick
+      end
+    end
+    object splProfiles: TSplitter
+      Left = 0
+      Top = 236
+      Width = 360
+      Height = 4
+      Cursor = crVSplit
+      Align = alTop
+      ExplicitTop = 236
+    end
+    object sbSettings: TScrollBox
+      Left = 0
+      Top = 240
+      Width = 360
+      Height = 400
       Align = alClient
       BorderStyle = bsNone
       TabOrder = 1
