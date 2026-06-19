@@ -324,10 +324,50 @@ begin
     Result:= TEncoding.ANSI;
 end;
 
+// Lowest unused `<file>.BCK<n>` sibling name (mirrors the YADF CLI --b scheme).
+function NextSiblingBackupName(const AFile: string): string;
+var
+  Base: string;
+  Dir : string;
+  n   : Integer;
+begin
+  Dir := ExtractFilePath(AFile);
+  Base:= ExtractFileName(AFile);
+  n:= 1;
+  repeat
+    Result:= TPath.Combine(Dir, Base + '.BCK' + IntToStr(n));
+    if not TFile.Exists(Result) then Exit;
+    Inc(n);
+  until False;
+end;
+
+// Copy AFile aside before it is overwritten -- same scheme as the CLI's --b:
+// a timestamped `.bak` under ABackupDir when set, else a `<file>.BCK<n>`
+// sibling. The form-reload path ALWAYS calls this, so a form unit can be
+// restored from its `.BCK` if the reformat or the IDE reload goes wrong.
+procedure BackupOriginalFile(const AFile: string; const ABackupDir: string);
+var
+  Stamp : string;
+  Target: string;
+begin
+  if Trim(ABackupDir) = '' then
+  begin
+    TFile.Copy(AFile, NextSiblingBackupName(AFile), True);
+    Exit;
+  end;
+  if not TDirectory.Exists(ABackupDir) then
+    TDirectory.CreateDirectory(ABackupDir);
+  Stamp:= FormatDateTime('yyyymmdd-hhnnss', Now);
+  Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '.bak');
+  TFile.Copy(AFile, Target, True);
+end;
+
 // Format AFileName in place ON DISK (read -> FormatSource -> write), preserving
 // the file's encoding. Returns True when the content changed (and was written).
 // This is exactly what the YADF CLI does to a file: it deliberately does NOT go
 // through the live editor buffer, so an open Form Designer is never desynced.
+// A `.BCK` backup of the ORIGINAL is always written first (the file is about to
+// be overwritten on disk; the in-buffer path keeps Ctrl+Z, this one cannot).
 // Used only on the form-reload path below.
 function FormatFileOnDisk(const AFileName: string; const AOpts: TYadfOptions): Boolean;
 var
@@ -344,7 +384,10 @@ begin
   Formatted:= FormatSource(Original, AOpts);
   Result   := Formatted <> Original;
   if Result then
+  begin
+    BackupOriginalFile(AFileName, AOpts.BackupDir);
     TFile.WriteAllText(AFileName, Formatted, Enc);
+  end;
 end;
 
 // True when the module that owns AEditor also exposes a Form Designer
@@ -395,8 +438,9 @@ begin
   end;
   if MessageDlg('YADFOT: "' + ExtractFileName(AFileName) + '" is a form / data-module unit.' +
        sLineBreak + sLineBreak +
-       'It will be saved, formatted on disk, and reloaded so the Form Designer ' +
-       'rebuilds cleanly (this format is not undoable).' + sLineBreak + sLineBreak +
+       'It will be saved, backed up (.BCK), formatted on disk, and reloaded so the ' +
+       'Form Designer rebuilds cleanly. This format is not undoable, but the ' +
+       'original is recoverable from the .BCK file.' + sLineBreak + sLineBreak +
        'Continue?', mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
     Exit;
   Opts:= ResolveOptions(AFileName);
