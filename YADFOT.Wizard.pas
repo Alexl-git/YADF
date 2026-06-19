@@ -39,6 +39,7 @@ uses
   , System.Classes
   , System.IOUtils
   , System.IniFiles
+  , System.UITypes
   , Vcl.Dialogs
   , Vcl.Menus
   , YADF.Options
@@ -310,6 +311,90 @@ begin
   Writer.Insert(PAnsiChar(Utf8));
 end;
 
+// Detect a file's byte-order mark so the formatted text can be re-emitted in
+// the SAME encoding. No BOM -> ANSI (the YADF / ORM3 default).
+function DetectFileEncoding(const ABytes: TBytes): TEncoding;
+begin
+  if (Length(ABytes) >= 3) and (ABytes[0] = $EF) and (ABytes[1] = $BB) and (ABytes[2] = $BF) then
+    Result:= TEncoding.UTF8
+  else if (Length(ABytes) >= 2) and (ABytes[0] = $FF) and (ABytes[1] = $FE) then
+    Result:= TEncoding.Unicode
+  else if (Length(ABytes) >= 2) and (ABytes[0] = $FE) and (ABytes[1] = $FF) then
+    Result:= TEncoding.BigEndianUnicode
+  else
+    Result:= TEncoding.ANSI;
+end;
+
+// Lowest unused `<file>.BCK<n>` sibling name (mirrors the YADF CLI --b scheme).
+function NextSiblingBackupName(const AFile: string): string;
+var
+  Base: string;
+  Dir : string;
+  n   : Integer;
+begin
+  Dir := ExtractFilePath(AFile);
+  Base:= ExtractFileName(AFile);
+  n:= 1;
+  repeat
+    Result:= TPath.Combine(Dir, Base + '.BCK' + IntToStr(n));
+    if not TFile.Exists(Result) then Exit;
+    Inc(n);
+  until False;
+end;
+
+// Copy AFile aside before it is overwritten -- same scheme as the CLI's --b:
+// a timestamped `.bak` under ABackupDir when set, else a `<file>.BCK<n>`
+// sibling. The form-reload path ALWAYS calls this, so a form unit can be
+// restored from its `.BCK` if the reformat or the IDE reload goes wrong.
+procedure BackupOriginalFile(const AFile: string; const ABackupDir: string);
+var
+  Stamp : string;
+  Target: string;
+begin
+  if Trim(ABackupDir) = '' then
+  begin
+    TFile.Copy(AFile, NextSiblingBackupName(AFile), True);
+    Exit;
+  end;
+  if not TDirectory.Exists(ABackupDir) then
+    TDirectory.CreateDirectory(ABackupDir);
+  Stamp:= FormatDateTime('yyyymmdd-hhnnss', Now);
+  Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '.bak');
+  TFile.Copy(AFile, Target, True);
+end;
+
+// Format AFileName in place ON DISK (read -> FormatSource -> write), preserving
+// the file's encoding. Returns True when the content changed (and was written).
+// This is exactly what the YADF CLI does to a file: it deliberately does NOT go
+// through the live editor buffer, so an open Form Designer is never desynced.
+// A `.BCK` backup of the ORIGINAL is always written first (the file is about to
+// be overwritten on disk; the in-buffer path keeps Ctrl+Z, this one cannot).
+// Used only on the form-reload path below.
+function FormatFileOnDisk(const AFileName: string; const AOpts: TYadfOptions): Boolean;
+var
+  Bytes    : TBytes;
+  Enc      : TEncoding;
+  Preamble : TBytes;
+  Original : string;
+  Formatted: string;
+begin
+  Bytes    := TFile.ReadAllBytes(AFileName);
+  Enc      := DetectFileEncoding(Bytes);
+  Preamble := Enc.GetPreamble;
+  Original := Enc.GetString(Bytes, Length(Preamble), Length(Bytes) - Length(Preamble));
+  Formatted:= FormatSource(Original, AOpts);
+  Result   := Formatted <> Original;
+  if Result then
+  begin
+    // Honour the INI Backup option (same as the CLI / --b): when on, copy the
+    // original aside before overwriting. Set it once in YADFSetup and every
+    // form format keeps a .BCK without passing anything per-call.
+    if AOpts.Backup then
+      BackupOriginalFile(AFileName, AOpts.BackupDir);
+    TFile.WriteAllText(AFileName, Formatted, Enc);
+  end;
+end;
+
 // True when the module that owns AEditor also exposes a Form Designer
 // surface (an IOTAFormEditor among its module-file editors) -- i.e. the
 // .pas is paired with a .dfm/.fmx (a VCL/FMX form or data module). The
@@ -331,6 +416,62 @@ begin
   if M = nil then Exit;
   for i:= 0 to M.GetModuleFileCount - 1 do
     if Supports(M.GetModuleFileEditor(i), IOTAFormEditor, FE) then Exit(True);
+end;
+
+// Form / data-module path. Replacing the live editor buffer would desync the
+// open Form Designer's source-position map (-> AV in TVCLRootDesigner.DoSave on
+// the next Save All), so instead we perform the IDE reload handshake AUTOMATICALLY:
+//   1. Save the module (flush buffer + any pending designer edits to disk) --
+//      safe, because we have NOT touched the buffer, so the designer is still
+//      in sync at this point.
+//   2. Format the file ON DISK (never the buffer), exactly like the CLI.
+//   3. Module.Refresh(True) reloads from disk, so the editor AND the designer
+//      rebuild from clean source -- no stale map, so Save All cannot AV.
+// The trade-off vs. the in-buffer path: this format is not on the undo stack.
+procedure FormatFormUnitViaReload(const AEditor: IOTASourceEditor; const AFileName: string);
+var
+  M         : IOTAModule;
+  Opts      : TYadfOptions;
+  BackupNote: string;
+begin
+  M:= AEditor.Module;
+  if M = nil then Exit;
+  if not FileExists(AFileName) then
+  begin
+    MessageDlg('YADFOT: save the unit to disk first, then format it.',
+      mtInformation, [mbOK], 0);
+    Exit;
+  end;
+  Opts:= ResolveOptions(AFileName);
+  if Opts.Backup then
+    BackupNote:= 'A .BCK backup of the original is written first (Backup is on in the INI), ' +
+      'so it stays recoverable.'
+  else
+    BackupNote:= 'NOTE: Backup is OFF in the INI, so no .BCK is written -- enable ' +
+      '"Backup before overwrite" in YADFSetup to keep a safety copy.';
+  if MessageDlg('YADFOT: "' + ExtractFileName(AFileName) + '" is a form / data-module unit.' +
+       sLineBreak + sLineBreak +
+       'It will be saved, formatted on disk, and reloaded so the Form Designer ' +
+       'rebuilds cleanly (this format is not undoable). ' + BackupNote + sLineBreak + sLineBreak +
+       'Continue?', mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+    Exit;
+  if not M.Save(False, True) then
+  begin
+    MessageDlg('YADFOT: could not save the unit before formatting; aborted.',
+      mtWarning, [mbOK], 0);
+    Exit;
+  end;
+  try
+    if not FormatFileOnDisk(AFileName, Opts) then Exit; // no change -> leave designer alone
+  except
+    on E: Exception do
+    begin
+      MessageDlg('YADFOT: format failed.' + sLineBreak + E.ClassName + ': ' + E.Message,
+        mtError, [mbOK], 0);
+      Exit;
+    end;
+  end;
+  M.Refresh(True);
 end;
 
 // --- The action ---------------------------------------------------------
@@ -371,16 +512,12 @@ begin
     Exit;
   end;
 
+  // A form / data-module unit has a live Form Designer whose source-position
+  // map a buffer swap would corrupt. Take the safe disk-reload handshake path
+  // instead of the in-buffer write below.
   if ModuleHasFormDesigner(Editor) then
   begin
-    MessageDlg('YADFOT: "' + ExtractFileName(FileName) + '" is a form / data-module unit ' +
-      'with an open Form Designer.' + sLineBreak + sLineBreak +
-      'Reformatting its buffer in the IDE desynchronizes the designer''s source ' +
-      'map; the IDE then access-violates inside the VCL Form Designer on the ' +
-      'next File > Save All. Close this unit first and format it with the YADF ' +
-      'command-line tool, which performs the IDE-reload handshake:' + sLineBreak +
-      sLineBreak + '  yadf "' + FileName + '"',
-      mtWarning, [mbOK], 0);
+    FormatFormUnitViaReload(Editor, FileName);
     Exit;
   end;
 
