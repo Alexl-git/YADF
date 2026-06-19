@@ -3105,7 +3105,7 @@ begin
                 InVisibility:= False;
               ExpectSectionDecl:= True ;
             end;
-            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) and (PrevNonKind <> ptEqual) and (PrevNonKind <> ptTo) then
+            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) and (PrevNonKind <> ptEqual) and (PrevNonKind <> ptTo) and (PrevNonKind <> ptColon) then
             // ParensDepth = 0 distinguishes a real procedure/function
             // declaration from an inline anonymous method expression
             // (e.g. CallSomething(procedure(X) begin ... end)). The
@@ -3116,9 +3116,14 @@ begin
             // after the call. (Bug repro: inline anon proc, 2026-05-15.)
             // PrevNonKind <> ptEqual excludes a procedural / method-pointer
             // TYPE (`T = procedure(...)` / `T = function(...) of object`),
-            // and PrevNonKind <> ptTo the anonymous-method-reference TYPE
-            // (`T = reference to function(...) stdcall`) -- both must NOT
-            // close the surrounding type section or open a proc region.
+            // PrevNonKind <> ptTo the anonymous-method-reference TYPE
+            // (`T = reference to function(...) stdcall`), and
+            // PrevNonKind <> ptColon a procedural-type VARIABLE / field decl
+            // (`A, B: procedure of object;` / `F: function: Integer;`) -- none
+            // of these is a real routine, so they must NOT close the
+            // surrounding type section or open a proc region (else the
+            // routine's own begin/end over-indents). (Bug repro: leading
+            // procedure/function var type, 2026-06-18.)
             begin
               CloseSectionIfOpen;
               InVisibility:= False;

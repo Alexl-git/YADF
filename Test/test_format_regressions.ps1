@@ -55,13 +55,18 @@ MustNotMatch $o '(?m)^\s*NamedA, NamedB\s*:'     'named: Integer not left combin
 MustMatch    $o '(?m)^\s*ObjA\s*:\s*TObject'     'named: TObject DOES split (A)'
 MustMatch    $o '(?m)^\s*ObjB\s*:\s*TObject'     'named: TObject DOES split (B)'
 
-# --- anon_proc_split: anonymous PROCEDURAL types must NOT split either
-#     (regex-only; excluded from the byte-golden, see test_golden_format.ps1) ---
+# --- anon_proc_split: anonymous PROCEDURAL types must NOT split, AND a leading
+#     procedure/function var type must NOT open a proc region (which used to
+#     over-indent the routine's begin/end). ---
 $o = Fmt 'anon_proc_split.pas'
 MustMatch    $o '(?m)^\s*ProcA, ProcB\s*:'       'anon: procedure-of-object stays combined'
 MustNotMatch $o '(?m)^\s*ProcA\s*:\s*procedure'  'anon: procedure-of-object not split'
 MustMatch    $o '(?m)^\s*FuncA, FuncB\s*:'       'anon: function type stays combined'
 MustMatch    $o '(?m)^\s*NamedA\s*:\s*Integer'   'proc-fixture: Integer DOES split'
+MustMatch    $o '(?m)^begin\b'                   'proc-fixture: routine begin at column 0'
+MustNotMatch $o '(?m)^\s+begin\b'                'proc-fixture: begin not over-indented'
+MustMatch    $o '(?m)^  NamedA\s*:\s*Integer'    'proc-fixture: split var at routine var depth'
+MustMatch    $o '(?m)^end\.'                     'proc-fixture: unit end. at column 0'
 
 if ($fail -eq 0) { Write-Output "format_regressions: PASS"; exit 0 }
 else { Write-Output "format_regressions: $fail FAILED"; exit 1 }

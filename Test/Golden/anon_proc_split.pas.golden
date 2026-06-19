@@ -15,15 +15,16 @@ implementation
 procedure AnonProcs;
 var
   ProcA, ProcB: procedure of object;
-  FuncA, FuncB: function: Integer;
-  NamedA, NamedB: Integer;
+  FuncA, FuncB: function: Integer  ;
+  NamedA      : Integer            ;
+  NamedB      : Integer            ;
 begin
-  ProcA := nil;
-  ProcB := nil;
-  FuncA := nil;
-  FuncB := nil;
-  NamedA := 0;
-  NamedB := 0;
+  ProcA:= nil;
+  ProcB:= nil;
+  FuncA:= nil;
+  FuncB:= nil;
+  NamedA:= 0;
+  NamedB:= 0;
 end;
 
 end.
