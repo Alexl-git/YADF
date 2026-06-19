@@ -54,6 +54,7 @@ type
     AlignShapeMinAnchors: Integer;
     AlignCommentMaxShift: Integer;
     UsesAlwaysBreak    : Boolean;
+    UsesCommaLast      : Boolean;
     SplitMultiVarDecls : Boolean;
     AlignDeclSemicolons: Boolean;
     BreakCaseLabels    : Boolean;
@@ -156,6 +157,7 @@ begin
   Result.AlignShapeMinAnchors := 3    ;
   Result.AlignCommentMaxShift := 7    ;
   Result.UsesAlwaysBreak    := True   ;
+  Result.UsesCommaLast      := False  ;
   Result.SplitMultiVarDecls := True   ;
   Result.AlignDeclSemicolons:= True   ;
   Result.BreakCaseLabels    := False  ;
@@ -348,6 +350,15 @@ begin
       okBool, True,
       function(const O: TYadfOptions): Variant begin Result := O.UsesAlwaysBreak end,
       procedure(var O: TYadfOptions; const V: Variant) begin O.UsesAlwaysBreak := V end),
+    MakeOpt('UsesCommaLast', 'Uses clauses', 'Comma-last uses layout',
+      'Style of the broken (multi-line) uses clause. False (default) is comma-FIRST ' +
+      '(leading comma, semicolon on its own line) -- the diff-friendly layout. True is ' +
+      'comma-LAST (trailing comma per unit, semicolon on the last unit''s line: ' +
+      '"System.Classes;"). Only affects the multi-line form; the inline single-line ' +
+      'form is unchanged. Default: false',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.UsesCommaLast end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.UsesCommaLast := V end),
     MakeOpt('SplitMultiVarDecls', 'Declarations', 'Split multi-var decls',
       'Split "I, J: integer;" into one line per name so the type colons align. Default: true',
       okBool, True,

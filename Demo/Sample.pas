@@ -14,9 +14,10 @@ interface
 {$I jedi.inc}
 {$I extra.inc}
 
-// --- UsesAlwaysBreak --------------------------------------------------------
-// true  (default): one unit per line, comma-first, ';' on its own line.
-// false          : kept on a single line when it fits MaxLen (uses A, B, C;).
+// --- UsesAlwaysBreak / UsesCommaLast ----------------------------------------
+// UsesAlwaysBreak true (default): one unit per line; false: single line if it fits.
+// UsesCommaLast   false (default): comma-FIRST (', Unit', ';' on its own line);
+//                 true: comma-LAST ('Unit,' ... 'LastUnit;').
 uses
 System.SysUtils, System.Classes, System.Generics.Collections;
 

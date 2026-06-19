@@ -2271,6 +2271,7 @@ var
   CurR         : string;  // hoisted from inline vars in the merge loop (XE8/D10)
   NextT        : string;
   Sep          : string;
+  InUses       : Boolean; // inside a uses/contains/requires clause (pre-formatted)
 begin
   Lines:= TStringList.Create;
   try
@@ -2280,11 +2281,21 @@ begin
     try
       CommentLocked:= ComputeBlockCommentLock(Lines);
       i:= 0;
+      InUses:= False;
       while i < Lines.Count do
       begin
         Cur:= Lines[i];
+        // A uses/contains/requires clause is already laid out by RenderUsesGroup
+        // (comma-first OR comma-last); its lines must never be reflowed back
+        // together. Comma-first continuation lines start with `,` (caught by
+        // NextBlocksMerge); comma-last lines END with `,`, which nothing else
+        // guards -- so hold a clause flag from the keyword line to the closing `;`.
+        if StartsWordCI(TrimLeft(Cur), 'uses') or StartsWordCI(TrimLeft(Cur), 'contains')
+           or StartsWordCI(TrimLeft(Cur), 'requires') then
+          InUses:= True;
         while i + 1 < Lines.Count do
         begin
+          if InUses then Break;
           NextLn:= Lines[i + 1];
           if Trim(NextLn) = '' then Break;
           if CommentLocked[i] or CommentLocked[i + 1] then Break;
@@ -2309,6 +2320,8 @@ begin
           Cur:= Joined;
           Inc(i);
         end; // while
+        if InUses and TrimRight(Cur).EndsWith(';') then
+          InUses:= False;
         Out_.Append(Cur);
         Out_.Append(CRLF);
         Inc(i);
@@ -3331,21 +3344,43 @@ begin
   try
     Sb.Append(OpenTok.Pre);
     Sb.Append(OpenTok.Text);
-    for i:= 0 to High(Items) do
+    if AOpts.UsesCommaLast then
     begin
+      // Comma-LAST: each unit carries a trailing comma; the closing ';' sits on
+      // the last unit's line.
+      //     uses
+      //       System.SysUtils,
+      //       System.Classes;
+      for i:= 0 to High(Items) do
+      begin
+        Sb.Append(CRLF);
+        Sb.Append(Indent);
+        Sb.Append(Items[i]);
+        if i < High(Items) then
+          Sb.Append(',')
+        else
+          Sb.Append(';');
+      end;
+    end
+    else
+    begin
+      // Comma-FIRST (default): leading comma per unit, ';' on its own line.
+      for i:= 0 to High(Items) do
+      begin
+        Sb.Append(CRLF);
+        Sb.Append(Indent);
+        if i = 0 then
+          Sb.Append(Items[i])
+        else
+        begin
+          Sb.Append(', ');
+          Sb.Append(Items[i]);
+        end;
+      end;
       Sb.Append(CRLF);
       Sb.Append(Indent);
-      if i = 0 then
-        Sb.Append(Items[i])
-      else
-      begin
-        Sb.Append(', ');
-        Sb.Append(Items[i]);
-      end;
+      Sb.Append(';');
     end;
-    Sb.Append(CRLF);
-    Sb.Append(Indent);
-    Sb.Append(';');
     Result:= Sb.ToString;
   finally
     Sb.Free;
