@@ -2662,6 +2662,12 @@ function EnforceBlankLines(const S: string; const AOpts: TYadfOptions): string;
   var
     T: string;
   begin
+    // BlanksBeforeMethod targets TOP-LEVEL routine declarations only. A method
+    // declared INSIDE a class / record / interface type block is indented (this
+    // pass runs after ReindentByDepth, so leading whitespace is canonical), so a
+    // leading space/tab marks it as a member -- never separate those with blank
+    // lines, which would corrupt the interface section. (Bug repro 2026-06-19.)
+    if (ALine <> '') and CharInSet(ALine[1], [' ', #9]) then Exit(False);
     T:= TrimLeft(ALine);
     Result:= StartsWordCI(T, 'procedure') or StartsWordCI(T, 'function') or StartsWordCI(T, 'constructor') or StartsWordCI(T, 'destructor');
     if Result and StartsWordCI(T, 'class') then Result:= False;

@@ -1,0 +1,33 @@
+unit blanks_before_method;
+
+{ BlanksBeforeMethod must add its blank-line floor only before TOP-LEVEL routine
+  declarations (column 0), never before method declarations INSIDE a class /
+  record / interface type block (those are indented members). Adding blanks
+  between in-class method decls corrupts the interface section. Regression
+  2026-06-19. The golden harness formats this with defaults (BlanksBeforeMethod=0,
+  no change); the BlanksBeforeMethod>0 behaviour is asserted by
+  test_blanks_before_method.ps1. }
+
+interface
+
+type
+  TFoo = class
+    private
+      FName: string;
+    public
+      procedure DoA;
+      procedure DoB;
+  end;
+
+implementation
+
+procedure TFoo.DoA;
+begin
+  FName:= '';
+end;
+
+procedure TFoo.DoB;
+begin
+end;
+
+end.

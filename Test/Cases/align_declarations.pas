@@ -1,0 +1,21 @@
+unit align_declarations;
+
+{ AlignDeclarations master switch. With AlignDeclarations=true (default) the
+  field/var colons and trailing semicolons align into columns (AlignTypeColon +
+  AlignDeclSemicolons); with AlignDeclarations=false the declarations are emitted
+  plainly -- "Name: Type;", one space after the colon, no padding. The golden
+  harness formats this with defaults (aligned); the AlignDeclarations=false form
+  is asserted by test_align_declarations.ps1. }
+
+interface
+
+type
+  TThing = class
+  private
+    lPLUID: TGUID;
+    lProv: boolean;
+  end;
+
+implementation
+
+end.
