@@ -428,10 +428,10 @@ end;
 //   3. Module.Refresh(True) reloads from disk, so the editor AND the designer
 //      rebuild from clean source -- no stale map, so Save All cannot AV.
 // The trade-off vs. the in-buffer path: this format is not on the undo stack.
-procedure FormatFormUnitViaReload(const AEditor: IOTASourceEditor; const AFileName: string);
+procedure FormatFormUnitViaReload(const AEditor: IOTASourceEditor; const AFileName: string;
+  const AOpts: TYadfOptions);
 var
-  M   : IOTAModule;
-  Opts: TYadfOptions;
+  M: IOTAModule;
 begin
   M:= AEditor.Module;
   if M = nil then Exit;
@@ -441,11 +441,11 @@ begin
       mtInformation, [mbOK], 0);
     Exit;
   end;
-  Opts:= ResolveOptions(AFileName);
-  // A form / data-module unit formats seamlessly -- no confirm prompt. We save
-  // it, write a .BCK backup (when Backup=true), format the file on disk, and
-  // reload the module so the Form Designer rebuilds from a clean source-position
-  // map (the original is recoverable from the .BCK).
+  // A form / data-module unit formats seamlessly -- no confirm prompt. AOpts is
+  // resolved by the caller (profile F or R), so R applies on forms too. We save
+  // the unit, write a .BCK backup (when Backup=true), format the file on disk,
+  // and reload the module so the Form Designer rebuilds from a clean
+  // source-position map (the original is recoverable from the .BCK).
   if not M.Save(False, True) then
   begin
     MessageDlg('YADFOT: could not save the unit before formatting; aborted.',
@@ -453,7 +453,7 @@ begin
     Exit;
   end;
   try
-    if not FormatFileOnDisk(AFileName, Opts) then Exit; // no change -> leave designer alone
+    if not FormatFileOnDisk(AFileName, AOpts) then Exit; // no change -> leave designer alone
   except
     on E: Exception do
     begin
@@ -503,17 +503,10 @@ begin
     Exit;
   end;
 
-  // A form / data-module unit has a live Form Designer whose source-position
-  // map a buffer swap would corrupt. Take the safe disk-reload handshake path
-  // instead of the in-buffer write below.
-  if ModuleHasFormDesigner(Editor) then
-  begin
-    FormatFormUnitViaReload(Editor, FileName);
-    Exit;
-  end;
-
-  // Profile R uses the INI explicitly assigned in YADFSetup (no project walk);
-  // profile F (default) walks for the nearest yadf.ini, exactly as before.
+  // Resolve options (profile-aware) BEFORE choosing the form-reload vs in-buffer
+  // path, so Ctrl+Shift+Alt+R uses the R profile INI on a form unit too. Profile
+  // R uses the INI explicitly assigned in YADFSetup (no project walk); profile F
+  // (default) walks for the nearest yadf.ini, exactly as before.
   if AProfileR then
   begin
     RIni:= ResolveProfileIniPath(LoadProfiles.R);
@@ -530,6 +523,15 @@ begin
   end
   else
     Opts:= ResolveOptions(FileName);
+
+  // A form / data-module unit has a live Form Designer whose source-position map
+  // a buffer swap would corrupt. Take the safe disk-reload handshake path (using
+  // the options resolved above) instead of the in-buffer write below.
+  if ModuleHasFormDesigner(Editor) then
+  begin
+    FormatFormUnitViaReload(Editor, FileName, Opts);
+    Exit;
+  end;
 
   try
     Original := ReadEditorText(Editor);
