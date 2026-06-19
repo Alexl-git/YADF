@@ -8,6 +8,43 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.10] -- 2026-06-19
+
+IDE-wizard release: YADFOT can now format form units in place, plus two
+switchable format profiles and a comma-last `uses` option. The default CLI /
+engine output is byte-identical to 1.0.6.9.
+
+### Added
+
+- **YADFOT formats form / data-module units in the IDE.** Previously the wizard
+  refused any unit with an open Form Designer -- reformatting its buffer desynced
+  the designer's source-position map and access-violated in the VCL designer on
+  the next File > Save All. It now performs the reload handshake automatically:
+  save the module -> format the file *on disk* (never the live buffer) ->
+  `Module.Refresh`, so the editor and designer rebuild from a clean map. No
+  prompt -- it just formats. A `.BCK` backup of the original is written first
+  when `Backup` is on (the same flag as the CLI `--b`), so the form is
+  recoverable. Non-form units keep the existing undoable in-buffer path.
+- **Two IDE format profiles (F / R).** `Ctrl+Shift+Alt+F` formats with the
+  primary INI (existing behaviour, also the CLI default); `Ctrl+Shift+Alt+R`
+  formats with a second profile INI assigned in YADFSetup's new **Profiles**
+  panel. The F/R mapping lives in `profiles.ini` in `%APPDATA%\YADF`; an
+  unassigned R just shows a one-line hint. Existing installs are unchanged
+  (R empty by default).
+- **`UsesCommaLast` (default false).** Selects the broken (multi-line) `uses`
+  layout. False keeps the diff-friendly comma-FIRST style (leading comma, `;` on
+  its own line); true emits comma-LAST (trailing comma per unit, `;` on the last
+  unit's line). Only the multi-line form is affected; the inline single-line form
+  and the default output are unchanged.
+
+### Changed
+
+- **`Demo\Sample.pas`** (the YADFSetup live-preview source) gains labelled
+  showcases for `CollapseShortBlocks` and `BreakCaseLabels`, so toggling either
+  option visibly changes the preview.
+
+Regression net: 79 golden files + 14 behavioural suites, all green and idempotent.
+
 ## [1.0.6.9] -- 2026-06-18
 
 A formatting fix plus option-discoverability improvements. Default output is
