@@ -8,6 +8,16 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.11] -- 2026-06-19
+
+### Fixed
+
+- **`Ctrl+Shift+Alt+R` (the R format profile) now applies on form / data-module
+  units too.** In 1.0.6.10 the form-reload path resolved its own options and
+  always used the primary (F) INI, so pressing R on a form formatted it with the
+  F profile. The wizard now resolves the chosen profile's options *before* taking
+  the form path and passes them in. Non-form behaviour is unchanged.
+
 ## [1.0.6.10] -- 2026-06-19
 
 IDE-wizard release: YADFOT can now format form units in place, plus two
