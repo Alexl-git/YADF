@@ -8,6 +8,28 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.6.12] -- 2026-06-22
+
+### Changed
+
+- **Internal cleanup -- no change to formatting output.** Engine output is
+  byte-identical to 1.0.6.11 (verified: 79 golden files + 13 behavioural
+  suites + the DUnitX option tests all green, and YADF round-trips its own
+  source 134/134 with `--check-dir`).
+  - Removed an unused token-loading path (`LoadTokensFromFile`) -- it was the
+    only loader that would not strip a UTF-8 BOM, so deleting it also removes
+    a latent footgun.
+  - De-duplicated two small helpers in the core engine (a shared ASCII-letter
+    test for the include-directive shield; a single encoding-name mapper for
+    the CLI).
+  - Corrected a stale source comment that described an active Delphi-10 compat
+    pass as a "no-op".
+- **Default `yadf.ini` restored to documented opt-in behaviour.** A stray edit
+  had flipped several opt-in layout features (CollapseShortBlocks,
+  PackShortBodies, SpaceAroundOperators, SplitMultiVarDecls, IndentComments)
+  and Backup/MarkUnclosed on by default; these are off again, matching the
+  1.0.6.11 release defaults and the documentation.
+
 ## [1.0.6.11] -- 2026-06-19
 
 ### Fixed
