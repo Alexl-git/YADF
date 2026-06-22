@@ -3691,8 +3691,9 @@ end; // function
 // Delphi 10.2.3 compatibility: hoist inline `var` declarations into a classic
 // top-of-routine `var` block so the code builds on pre-10.3 compilers. A
 // self-contained token->token pass run before ParseGroups (so it cannot
-// invalidate the group tree). Implemented incrementally across the feature's
-// tasks; currently a no-op.
+// invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
+// downgrades inline var/const and untyped `for var`, flagging any residual
+// construct it cannot rewrite with a TODO comment.
 procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);

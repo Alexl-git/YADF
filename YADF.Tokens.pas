@@ -37,7 +37,6 @@ type
   TTokenList = TList<TToken>;
 
 function LoadTokensFromString(const ASource: string): TTokenList;
-function LoadTokensFromFile(const AFileName: string): TTokenList;
 function EmitTokens(const ATokens: TTokenList): string;
 
 implementation
@@ -69,6 +68,14 @@ const
   IncSentinel = 'ZQYADF'; // appended to the directive word; unique enough
                           // that real source never collides.
 
+// True for a 7-bit ASCII letter (A-Z / a-z). Shared by the include-directive
+// shield and unshield scans; deliberately ASCII-only (not Unicode-aware
+// TCharacter.IsLetter) to match the lexer's directive-word grammar.
+function IsAsciiAlpha(C: Char): Boolean;
+begin
+  Result:= ((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z'));
+end;
+
 function ShieldIncludeDirectives(const ASource: string): string;
 var
   i, n   : Integer;
@@ -76,12 +83,6 @@ var
   WordEnd: Integer;
   Wrd    : string;
   NextCh : Char;
-
-  function IsAlpha(C: Char): Boolean;
-  begin
-    Result:= ((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z'));
-  end;
-
 begin
   n:= Length(ASource);
   Sb:= TStringBuilder.Create;
@@ -147,7 +148,7 @@ begin
         begin
           // Compiler directive. Read the directive word.
           WordEnd:= i + 2;
-          while (WordEnd <= n) and IsAlpha(ASource[WordEnd]) do Inc(WordEnd);
+          while (WordEnd <= n) and IsAsciiAlpha(ASource[WordEnd]) do Inc(WordEnd);
           Wrd:= Copy(ASource, i + 2, WordEnd - (i + 2));
           if WordEnd <= n then NextCh:= ASource[WordEnd] else NextCh:= '}';
           // Include form: `{$INCLUDE ...}` always; `{$I ...}` only when
@@ -198,9 +199,7 @@ begin
   Result:= False;
   if (Length(AToken.Text) < 4) or (AToken.Text[1] <> '{') or (AToken.Text[2] <> '$') then Exit;
   WE:= 3;
-  while (WE <= Length(AToken.Text)) and
-        (((AToken.Text[WE] >= 'A') and (AToken.Text[WE] <= 'Z')) or
-         ((AToken.Text[WE] >= 'a') and (AToken.Text[WE] <= 'z'))) do Inc(WE);
+  while (WE <= Length(AToken.Text)) and IsAsciiAlpha(AToken.Text[WE]) do Inc(WE);
   Wrd:= Copy(AToken.Text, 3, WE - 3);
   if not SameText(Copy(Wrd, Length(Wrd) - Length(IncSentinel) + 1, Length(IncSentinel)), IncSentinel) then Exit;
   P:= Length(Wrd) - Length(IncSentinel);
@@ -269,19 +268,6 @@ begin
     raise;
   end; // try
 end; // function
-
-function LoadTokensFromFile(const AFileName: string): TTokenList;
-var
-  Stream: TStringStream;
-begin
-  Stream:= TStringStream.Create('', TEncoding.ANSI);
-  try
-    Stream.LoadFromFile(AFileName);
-    Result:= LoadTokensFromString(Stream.DataString);
-  finally
-    Stream.Free;
-  end;
-end;
 
 function EmitTokens(const ATokens: TTokenList): string;
 var

@@ -207,17 +207,19 @@ begin
   end;
 end;
 
-procedure LogStartup(const AArgs: TArray<string>; const AOpts: TYadfOptions; const AIniPath: string);
-
-  function EncStr(E: TYadfEncoding): string;
-  begin
-    case E of
-      encUTF8BOM : Result:= 'UTF-8-BOM' ;
-      encUTF16BOM: Result:= 'UTF-16-BOM';
-      else
-        Result:= 'ANSI';
-    end;
+// TYadfEncoding -> display name ('ANSI' / 'UTF-8-BOM' / 'UTF-16-BOM'); shared by
+// the startup log and the --help banner.
+function EncName(E: TYadfEncoding): string;
+begin
+  case E of
+    encUTF8BOM : Result:= 'UTF-8-BOM' ;
+    encUTF16BOM: Result:= 'UTF-16-BOM';
+    else
+      Result:= 'ANSI';
   end;
+end;
+
+procedure LogStartup(const AArgs: TArray<string>; const AOpts: TYadfOptions; const AIniPath: string);
 
   function BoolStr(B: Boolean): string;
   begin
@@ -239,7 +241,7 @@ begin
   LogMsg('    ResultDir       = ' + AOpts.ResultDir);
   LogMsg('    Backup          = ' + BoolStr(AOpts.Backup));
   LogMsg('    BackupDir       = ' + AOpts.BackupDir);
-  LogMsg('    Encoding        = ' + EncStr(AOpts.Encoding));
+  LogMsg('    Encoding        = ' + EncName(AOpts.Encoding));
   LogMsg('    UsesAlwaysBreak = ' + BoolStr(AOpts.UsesAlwaysBreak));
 end; // begin
 
@@ -726,16 +728,6 @@ procedure ShowUsage(const AOpts: TYadfOptions);
   function Quoted(const S: string): string;
   begin
     if S = '' then Result:= '(none)' else Result:= S;
-  end;
-
-  function EncName(E: TYadfEncoding): string;
-  begin
-    case E of
-      encUTF8BOM : Result:= 'UTF-8-BOM' ;
-      encUTF16BOM: Result:= 'UTF-16-BOM';
-      else
-        Result:= 'ANSI';
-    end;
   end;
 
 begin
