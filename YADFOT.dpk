@@ -33,6 +33,7 @@ requires
   rtl,
   vcl,
   vclx,
+  vclsmp,
   designide;
 
 contains

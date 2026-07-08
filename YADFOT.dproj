@@ -115,6 +115,7 @@
         <DCCReference Include="rtl.dcp"/>
         <DCCReference Include="vcl.dcp"/>
         <DCCReference Include="vclx.dcp"/>
+        <DCCReference Include="vclsmp.dcp"/>
         <DCCReference Include="designide.dcp"/>
         <DCCReference Include="YADFOT.Wizard.pas"/>
         <DCCReference Include="YADFOT.Options.pas"/>
