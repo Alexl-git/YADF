@@ -50,6 +50,14 @@ uses
   , YADF.Options
   ;
 
+{ Minimal .dfm resource for TYadfOptionsFrame. TCustomFrame.Create streams a
+  per-class resource via InitInheritedComponent(Self, TFrame) and raises
+  EResNotFound ("TYadfOptionsFrame not found") when none exists -- frames,
+  unlike forms, have no CreateNew to skip streaming. YADFOT.Options.dfm supplies
+  a bare streamable root object (Left/Top/Width/Height only); the real controls
+  are still code-built in BuildControls. }
+{$R *.dfm}
+
 type
   /// <summary>The generic Tools > Options frame. Controls are code-built by
   /// iterating YADF.Options.OptionTable, grouped by TOptInfo.Group into

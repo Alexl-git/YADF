@@ -118,7 +118,11 @@
         <DCCReference Include="vclsmp.dcp"/>
         <DCCReference Include="designide.dcp"/>
         <DCCReference Include="YADFOT.Wizard.pas"/>
-        <DCCReference Include="YADFOT.Options.pas"/>
+        <DCCReference Include="YADFOT.Options.pas">
+            <Form>YadfOptionsFrame</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TFrame</DesignClass>
+        </DCCReference>
         <DCCReference Include="YADF.Tokens.pas"/>
         <DCCReference Include="YADF.Options.pas"/>
         <DCCReference Include="YADF.Groups.pas"/>
