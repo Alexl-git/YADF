@@ -117,6 +117,7 @@
         <DCCReference Include="vclx.dcp"/>
         <DCCReference Include="designide.dcp"/>
         <DCCReference Include="YADFOT.Wizard.pas"/>
+        <DCCReference Include="YADFOT.Options.pas"/>
         <DCCReference Include="YADF.Tokens.pas"/>
         <DCCReference Include="YADF.Options.pas"/>
         <DCCReference Include="YADF.Groups.pas"/>

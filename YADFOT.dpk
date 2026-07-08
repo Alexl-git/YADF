@@ -37,6 +37,7 @@ requires
 
 contains
   YADFOT.Wizard in 'YADFOT.Wizard.pas',
+  YADFOT.Options in 'YADFOT.Options.pas',
   YADF.Tokens in 'YADF.Tokens.pas',
   YADF.Options in 'YADF.Options.pas',
   YADF.Groups in 'YADF.Groups.pas',

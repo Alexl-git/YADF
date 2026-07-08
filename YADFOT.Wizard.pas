@@ -44,6 +44,7 @@ uses
   , Vcl.Menus
   , YADF.Options
   , YADF.Layout
+  , YADFOT.Options
   ;
 
 type
@@ -57,6 +58,10 @@ type
     function  GetName     : string;
     function  GetState    : TWizardState;
     procedure Execute;
+    // IOTANotifier -- primary teardown hook. TNotifierObject.Destroyed is a
+    // plain (non-virtual) method, so this re-declares it WITHOUT override;
+    // the interface still binds to this class's own Destroyed.
+    procedure Destroyed;
     // IOTAMenuWizard
     function  GetMenuText : string;
   end;
@@ -577,6 +582,15 @@ begin
   DoFormatCurrentBuffer;
 end;
 
+procedure TYadfotMenuWizard.Destroyed;
+begin
+  // Fires during IDE shutdown / package unload, BEFORE the BPL code segment is
+  // dropped -- the primary hook that strips the options page so no IDE list
+  // keeps a dangling interface into our vanishing vtable. Idempotent; safe
+  // alongside the YADFOT.Options finalization (which runs later in shutdown).
+  try UnregisterYADFOptions; except end;
+end;
+
 // --- IOTAKeyboardBinding (Ctrl+Shift+Alt+F) ----------------------------
 
 procedure TYadfotKeyboardBinding.FormatBufferAction(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
@@ -637,6 +651,9 @@ begin
   KS:= BorlandIDEServices as IOTAKeyboardServices;
   if KS <> nil then
     GKeyboardBindingIndex:= KS.AddKeyboardBinding(TYadfotKeyboardBinding.Create);
+  // Add the Tools > Options > Third Party > YADF page. Tolerate failure so a
+  // missing options service never aborts the whole registration.
+  try RegisterYADFOptions; except end;
 end;
 
 initialization
