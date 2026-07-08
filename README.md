@@ -122,6 +122,16 @@ Two entry points appear in the IDE after install:
    directly under *Tools*).
 2. **Keyboard shortcut** → `Ctrl + Shift + Alt + F`
 
+A third entry point configures the formatter rather than running it:
+
+3. **Settings page** → `Tools → Options → Third Party → YADF`. This edits
+   the shared `%APPDATA%\YADF\yadf.ini` in-IDE, so you don't have to open
+   `YADFSetup.exe` to tweak the formatting options. It reads and writes the
+   same file (through the same `OptionTable`) that `YADFSetup.exe` and the
+   CLI use, so the two editors never drift; changes commit when you click
+   **OK**. The page is added when the package loads and removed when you
+   uncheck YADFOT in *Component → Install Packages*.
+
 The shortcut is registered as a Delphi keyboard binding named
 `YADFOT`. If the chord clashes with something on your machine you
 can rebind it under `Tools → Options → User Interface → Editor →

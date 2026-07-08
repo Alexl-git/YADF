@@ -8,6 +8,21 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **YADFOT: native `Tools > Options > Third Party > YADF` page.** YADF's
+  formatting settings are now editable in-IDE without launching the standalone
+  `YADFSetup.exe`. The page is built from the same `YADF.Options` descriptor
+  table (`OptionTable`) as YADFSetup and the CLI, and edits the shared
+  `%APPDATA%\YADF\yadf.ini` -- so all three editors read/write one file with no
+  duplicated schema. Changes commit when you click **OK**. YADFSetup stays as-is;
+  the two editors work on the same file. The page registers when the package
+  loads and is removed cleanly when YADFOT is unchecked in
+  `Component > Install Packages` (teardown via the wizard's `Destroyed` method
+  plus a unit-finalization net).
+
 ## [1.0.6.12] -- 2026-06-22
 
 ### Changed
@@ -496,7 +511,7 @@ consecutive ones into alignment runs.
 
 The release zip contains:
 - `YADF.exe` (Win64 console)
-- `YADFOT.bpl` (Win32 IDE wizard for RAD Studio 12 / Delphi 13)
+- `YADFOT.bpl` (Win32 IDE wizard for RAD Studio 37.0 / Delphi 13)
 - `README.md`, `CHANGELOG.md`, `LICENSE`
 - **No `yadf.ini`** — auto-created on first run.
 
