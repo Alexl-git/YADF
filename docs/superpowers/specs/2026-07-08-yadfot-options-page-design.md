@@ -155,6 +155,27 @@ add `System.SysUtils` (`Supports`) / `Vcl.Forms` / `Vcl.Controls` / `Vcl.StdCtrl
      node and no AV.
   4. Re-check the package -> confirm the page comes back.
 
+## Post-implementation corrections (bugs found in live IDE test)
+
+Two defects the "clean compile" gate did NOT catch (both are OTA/package-level,
+only reproducible by loading the BPL in a real IDE) were found and fixed:
+
+1. **Package-load collision (`vclsmp`).** The frame's `TSpinEdit` comes from
+   `Vcl.Samples.Spin`, owned by `vclsmp370.bpl`. `YADFOT.dpk` did not `require`
+   it, so the linker statically CONTAINED that unit in `YADFOT.bpl` (build warned
+   `W1033`), and the IDE nagged "Cannot load package ... also contained in
+   VclSmp370" ~40x. Fix: add `vclsmp` to `requires` + `vclsmp.dcp` to the
+   `.dproj`. Lesson: for a design-time package, treat `W1033` as an error.
+2. **`EResNotFound` on Options-page open ("TYadfOptionsFrame not found").**
+   `TCustomFrame.Create` always streams a per-class `.dfm` resource via
+   `InitInheritedComponent`; a code-built frame with NO `.dfm` still raises. Fix:
+   ship a minimal `YADFOT.Options.dfm` (bare root object) + `{$R *.dfm}` +
+   `<Form>/<FormType>/<DesignClass>` in the `.dproj`. Lesson: "code-built frame,
+   no .dfm" is WRONG; the frame always needs a streamable root resource.
+
+Both corrections are folded back into `docs/PORT-tools-options-page.md` (sections
+2 and 6) so the reusable recipe no longer misleads.
+
 ## Out of scope
 
 - Profile-aware editing (edit the F-bound INI). Ship shared-file first.

@@ -52,14 +52,40 @@ serves all pages (see section 3).
 A `TFrame` subclass with a `Load` (settings -> controls) and `Save` (controls ->
 settings) pair. Two viable approaches -- pick one for YADF:
 
-**Option A -- code-built controls, no .dfm (drag-lint's convention).** The frame
-builds `TGroupBox`/`TCheckBox`/`TEdit`/`TSpinEdit` controls in a `BuildControls`
-method called from the constructor, using small helper functions (`NewGroup`,
-`NewLabel`, `NewEdit`, `NewCheck` -- see `DLNewGroup`/`DLNewLabel`/`DLNewEdit`/
-`DLNewCheck` in `DragLint.Plugin.OptionsFrames.pas` lines 195-241). Advantage: the
-unit is pure ASCII Pascal, no binary/text .dfm resource to keep in sync, and it is
-trivial to drive from a generic table (see section 7 -- this is a strong fit for
+**Option A -- code-built controls WITH a minimal .dfm (drag-lint's convention).**
+The frame builds `TGroupBox`/`TCheckBox`/`TEdit`/`TSpinEdit` controls in a
+`BuildControls` method called from the constructor, using small helper functions
+(`NewGroup`, `NewLabel`, `NewEdit`, `NewCheck` -- see `DLNewGroup`/`DLNewLabel`/
+`DLNewEdit`/`DLNewCheck` in `DragLint.Plugin.OptionsFrames.pas` lines 195-241).
+It is trivial to drive from a generic table (see section 7 -- a strong fit for
 YADF because `YADF.Options.OptionTable` already IS such a table).
+
+**LOAD-BEARING GOTCHA (this bit the first YADF attempt -- do NOT skip):** a
+code-built frame STILL needs a minimal `.dfm`. `TCustomFrame.Create` always
+streams a per-class resource via `InitInheritedComponent(Self, TFrame)` and
+raises `EResNotFound` ("<FrameClassName> not found") when the ancestor walk finds
+no resource for any class in the chain. Frames, unlike forms, have NO `CreateNew`
+to skip streaming, so "code-built, no .dfm" does NOT compile-and-run -- it builds
+clean and then throws at Options-page-open time. Ship a bare `.dfm` next to the
+unit declaring only the frame root object:
+
+```
+object YadfOptionsFrame: TYadfOptionsFrame
+  Left = 0
+  Top = 0
+  Width = 520
+  Height = 460
+end
+```
+
+and add `{$R *.dfm}` in the unit's implementation section. The real controls stay
+code-built in `BuildControls`; the `.dfm` only supplies the streamable root. In
+the `.dproj`, the unit's `<DCCReference>` must carry `<Form>YadfOptionsFrame</Form>`
++ `<FormType>dfm</FormType>` + `<DesignClass>TFrame</DesignClass>` (the `<Form>`
+value is the root object's INSTANCE name from the `.dfm`, not the class name). The
+`.dfm` is strict ASCII/CRLF like every other resource here. See
+`DragLint.Plugin.OptionsFrames.dfm` (87 bytes) and its `{$R *.dfm}` +
+`.dproj` block for the exact working reference.
 
 **Option B -- a .dfm-backed frame**, laid out visually in the Form Designer like
 `uYADFSetupMain.dfm`. Simpler to eyeball visually, but the frame becomes a second
@@ -329,6 +355,24 @@ freshly-created unit:
   unit calls `Supports`, `SameText`, string-conversion helpers, etc. -- these look
   like they "should" be available but are not implicitly pulled in, and the error
   again may not surface until the unit is actually compiled per the .dpk rule above.
+
+**THE `requires` GOTCHA (this bit the first YADF attempt -- a package-load
+collision, ~40 dialogs at IDE start).** If the frame uses a control whose unit
+lives in a design-time package the wizard package does NOT already `require`, the
+linker STATICALLY LINKS that unit INTO your BPL instead of importing it. At IDE
+load, two loaded packages then claim the same unit and the IDE nags "Cannot load
+package <YOU>. It contains unit '<Unit>', which is also contained in package
+'<Other>'." per attempt. The build PREDICTS this with `W1033: Unit '<Unit>'
+implicitly imported into package '<YOU>'` -- treat W1033 as an ERROR for a
+design-time package (it is only harmless for a standalone .exe like YADFSetup,
+which links everything and has no sibling package to collide with). Fix: add the
+owning package to `requires` (and its `.dcp` to the `.dproj` `<DCCReference>`
+list). The concrete case here: `TSpinEdit` lives in `Vcl.Samples.Spin` (owned by
+`vclsmp370.bpl`), so `YADFOT.dpk` must `require vclsmp` and the `.dproj` must
+reference `vclsmp.dcp`. The drag-lint reference package (`dclDragLintWizard.dpk`)
+already lists `vclsmp` in `requires` for exactly this reason. To find the owning
+package for any unit, note the `W1033` package name in the build log, or check
+which `*.bpl` in the IDE `bin` dir exports the unit.
 
 
 ## 7. Wiring the frame to YADF's existing settings store
