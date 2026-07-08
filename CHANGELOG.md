@@ -8,7 +8,7 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.0.7.0] -- 2026-07-08
 
 ### Added
 
@@ -22,6 +22,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   loads and is removed cleanly when YADFOT is unchecked in
   `Component > Install Packages` (teardown via the wizard's `Destroyed` method
   plus a unit-finalization net).
+- **Live before/after preview on the Options page.** To the right of the
+  options sit a **Source** memo and a read-only **Result** memo (the same
+  layout as YADFSetup). Toggling any option -- or editing the source, or
+  loading your own `.pas` with the **Load .pas...** button -- re-runs the
+  formatter live so you can see the effect of each setting immediately. The
+  preview is live, but the `yadf.ini` is still written only on **OK**.
+
+### Engine
+
+- No change to formatting output. This release is YADFOT-only (the CLI and the
+  formatting engine are byte-identical to 1.0.6.12).
 
 ## [1.0.6.12] -- 2026-06-22
 
