@@ -23,6 +23,12 @@ param([switch]$Capture)
 $ErrorActionPreference = 'Stop'
 $exe     = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
 $goldDir = Join-Path $PSScriptRoot 'Golden'
+# Pin the config explicitly. Without --ini, YADF now resolves the per-user F
+# profile (%APPDATA%\YADF\profiles.ini -> yadf.ini), which varies per machine
+# and would make these goldens non-reproducible. The goldens were captured
+# against the repo's own yadf.ini, so pass it via --ini to test the FORMATTING
+# ENGINE independent of the developer's personal F profile.
+$testIni = Join-Path $PSScriptRoot '..\yadf.ini'
 # WIP fixtures (known-bad output we're about to fix) can be excluded so they don't
 # lock in a bug. (Empty now -- the procedural-indent quirk that kept
 # anon_proc_split.pas out is fixed, so it is a normal byte-golden again.)
@@ -36,12 +42,12 @@ $fail = 0
 foreach ($f in $files) {
   $gold = Join-Path $goldDir ($f.Name + '.golden')
   if ($Capture) {
-    & $exe $f.FullName --o $gold | Out-Null
+    & $exe $f.FullName --ini $testIni --o $gold | Out-Null
   }
   else {
     if (-not (Test-Path $gold)) { $script:fail++; Write-Output "FAIL [missing golden]: $($f.Name) (run -Capture)"; continue }
     $tmp = Join-Path $env:TEMP ("gold_" + $f.Name + ".out")
-    & $exe $f.FullName --o $tmp | Out-Null
+    & $exe $f.FullName --ini $testIni --o $tmp | Out-Null
     $a = [IO.File]::ReadAllBytes($gold)
     $b = [IO.File]::ReadAllBytes($tmp)
     $same = ($a.Length -eq $b.Length)

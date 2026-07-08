@@ -84,13 +84,6 @@ const
   WizardIDString  = 'YADFOT.FormatCurrentBuffer';
   WizardMenuText  = 'YADFOT: Format Current Buffer';
   WizardLongName  = 'YADFOT - YADF Open Tools';
-  IniFileName     = 'yadf.ini';
-  // v1.0.2: family-shared subdir so YADF.exe and YADFOT.bpl converge
-  // on the same %APPDATA%\YADF\yadf.ini. Legacy %APPDATA%\YADFOT\ is
-  // checked as a fallback so existing 1.0.1.x users don't lose their
-  // config silently.
-  AppDataSubDir   = 'YADF';
-  LegacyAppDataSubDir = 'YADFOT';
 
 // Indices returned by IOTAWizardServices.AddWizard and
 // IOTAKeyboardServices.AddKeyboardBinding. Both are kept so finalization
@@ -101,50 +94,6 @@ var
   GWizardIndex         : Integer = -1;
 
 // --- Options loading ----------------------------------------------------
-
-// TPath.GetHomePath on Windows resolves to %APPDATA% (Roaming), so the
-// returned path is %APPDATA%\YADF\yadf.ini -- the family-shared per-user
-// fallback when no project-local or source-local INI is found.
-function AppDataIniPath: string;
-var
-  Dir: string;
-begin
-  Dir:= TPath.Combine(TPath.GetHomePath, AppDataSubDir);
-  Result:= TPath.Combine(Dir, IniFileName);
-end;
-
-function LegacyAppDataIniPath: string;
-var
-  Dir: string;
-begin
-  Dir:= TPath.Combine(TPath.GetHomePath, LegacyAppDataSubDir);
-  Result:= TPath.Combine(Dir, IniFileName);
-end;
-
-// Walk up from AStartDir looking for yadf.ini, stopping at the drive
-// root or after 9 levels (whichever comes first). Returns '' if not
-// found. The depth cap exists to keep the cost bounded on pathological
-// inputs (e.g. UNC paths whose root is hard to detect); 9 levels is
-// deep enough for any realistic project layout.
-function FindIniFile(const AStartDir: string): string;
-var
-  Candidate: string;
-  Dir      : string;
-  i        : Integer;
-  Parent   : string;
-begin
-  Dir:= AStartDir;
-  for i:= 0 to 8 do
-  begin
-    if Dir = '' then Break;
-    Candidate:= TPath.Combine(Dir, IniFileName);
-    if TFile.Exists(Candidate) then Exit(Candidate);
-    Parent:= ExtractFileDir(ExcludeTrailingPathDelimiter(Dir));
-    if (Parent = '') or SameText(Parent, ExcludeTrailingPathDelimiter(Dir)) then Break;
-    Dir:= IncludeTrailingPathDelimiter(Parent);
-  end;
-  Result:= '';
-end;
 
 // Delegates to the shared, table-driven loader in YADF.Options so the
 // wizard reads EXACTLY the same [Format] keys as the CLI and YADFSetup.
@@ -159,70 +108,25 @@ begin
   AOpts:= LoadOptionsFromIni(AIniPath);
 end; // procedure
 
-// Resolves the directory of the IDE's currently active project, or ''
-// when no project is open. The IDE exposes projects via the loaded
-// project group (IOTAProjectGroup), which lives among IOTAModuleServices.
-// Modules; we look for the group first, then fall back to the first
-// module that itself implements IOTAProject (covers the rare case where
-// a lone project is loaded without a group wrapper).
-function ActiveProjectDir: string;
-var
-  Project: IOTAProject;
-  PG     : IOTAProjectGroup;
-  MS     : IOTAModuleServices;
-  i      : Integer;
-  M      : IOTAModule;
-begin
-  Result:= '';
-  MS:= BorlandIDEServices as IOTAModuleServices;
-  if MS = nil then Exit;
-  Project:= nil;
-  for i:= 0 to MS.ModuleCount - 1 do
-  begin
-    M:= MS.Modules[i];
-    if Supports(M, IOTAProjectGroup, PG) then
-    begin
-      Project:= PG.ActiveProject;
-      Break;
-    end;
-  end;
-  if (Project = nil) and (MS.ModuleCount > 0) then
-    Supports(MS.Modules[0], IOTAProject, Project);
-  if Project <> nil then
-    Result:= ExtractFilePath(Project.FileName);
-end;
-
-// Four-tier INI lookup, first hit wins:
-//   1. yadf.ini next to the source file (or any ancestor up to 9 deep)
-//   2. yadf.ini next to the active .dproj/.dpr (or any ancestor)
-//   3. legacy %APPDATA%\YADFOT\yadf.ini (1.0.1.x users; read-only)
-//   4. shared %APPDATA%\YADF\yadf.ini (materialised from template if absent)
-// If none exists, a commented template is created at tier 4.
-function ResolveOptions(const ASourceFile: string): TYadfOptions;
+// Resolve the F-profile options for the default (Ctrl+Shift+Alt+F / Tools-menu)
+// format action. The F profile is located EXACTLY as YADFSetup and the IDE
+// Options page locate it: %APPDATA%\YADF\profiles.ini names the F file
+// ([Profiles]F=<name>, default 'yadf.ini'); ResolveProfileIniPath turns that
+// name into a full path under %APPDATA%\YADF (an absolute name passes through).
+// No project-tree walk: the file the user edits and the file that formats are
+// the same, so saved settings always take effect. If the resolved F file does
+// not exist yet (fresh install), EnsureIniExists materialises the commented
+// default template there before loading -- so first-run formatting uses the
+// documented defaults, and the file is then editable from YADFSetup/the page.
+function ResolveOptions: TYadfOptions;
 var
   IniPath: string;
 begin
-  Result:= DefaultOptions;
-  IniPath:= '';
-  // 1. Walk up from the source file's folder.
-  if ASourceFile <> '' then
-    IniPath:= FindIniFile(ExtractFilePath(ASourceFile));
-  // 2. Walk up from the active project's folder.
+  Result := DefaultOptions;
+  IniPath:= ResolveProfileIniPath(LoadProfiles.F);
   if IniPath = '' then
-    IniPath:= FindIniFile(ActiveProjectDir);
-  // 3. Legacy %APPDATA%\YADFOT\yadf.ini (1.0.1.x users) -- read-only
-  //    fallback so existing configs keep working without forcing a
-  //    migration.
-  if (IniPath = '') and TFile.Exists(LegacyAppDataIniPath) then
-    IniPath:= LegacyAppDataIniPath;
-  // 4. Shared per-user fallback %APPDATA%\YADF\yadf.ini. Family-wide
-  //    location -- YADF.exe writes here on first run too. If nothing
-  //    exists, materialise a fully-commented template.
-  if IniPath = '' then
-  begin
-    IniPath:= AppDataIniPath;
-    EnsureIniExists(IniPath);
-  end;
+    IniPath:= SharedAppDataIniPath;   // defensive: F is never '' (defaults to yadf.ini)
+  EnsureIniExists(IniPath);
   LoadIniDefaults(Result, IniPath);
 end;
 
@@ -509,9 +413,12 @@ begin
   end;
 
   // Resolve options (profile-aware) BEFORE choosing the form-reload vs in-buffer
-  // path, so Ctrl+Shift+Alt+R uses the R profile INI on a form unit too. Profile
-  // R uses the INI explicitly assigned in YADFSetup (no project walk); profile F
-  // (default) walks for the nearest yadf.ini, exactly as before.
+  // path, so Ctrl+Shift+Alt+R uses the R profile INI on a form unit too. BOTH
+  // shortcuts now resolve their INI the SAME way YADFSetup and the Options page
+  // do -- via %APPDATA%\YADF\profiles.ini (no project-tree walk): F uses the
+  // profiles.ini [Profiles]F entry, R uses the R entry. This makes "edit the
+  // settings, then format" always agree on one file; a stray project-local
+  // yadf.ini no longer silently shadows the user's saved F profile.
   if AProfileR then
   begin
     RIni:= ResolveProfileIniPath(LoadProfiles.R);
@@ -527,7 +434,7 @@ begin
     LoadIniDefaults(Opts, RIni);
   end
   else
-    Opts:= ResolveOptions(FileName);
+    Opts:= ResolveOptions;   // F profile via profiles.ini (materialised if absent)
 
   // A form / data-module unit has a live Form Designer whose source-position map
   // a buffer swap would corrupt. Take the safe disk-reload handshake path (using

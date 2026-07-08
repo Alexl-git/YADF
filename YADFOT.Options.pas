@@ -7,10 +7,13 @@
   License, v. 2.0. If a copy of the MPL was not distributed with this
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-  A native IDE Options page that edits the shared per-user
-  %APPDATA%\YADF\yadf.ini through the SAME YADF.Options descriptor table
-  (OptionTable) as YADFSetup.exe and the CLI, so all three converge on one
-  file with no duplicated schema. The page is a single generic TFrame whose
+  A native IDE Options page that edits the F-profile INI (the file YADFSetup
+  assigns to profile F under %APPDATA%\YADF, defaulting to yadf.ini) through
+  the SAME YADF.Options descriptor table (OptionTable) as YADFSetup.exe and the
+  CLI, so all three converge on one file with no duplicated schema. It resolves
+  that file exactly as YADFSetup does (ResolveProfileIniPath(LoadProfiles.F)),
+  so editing here and editing in YADFSetup touch the same INI. The page is a
+  single generic TFrame whose
   controls are built by iterating OptionTable -- adding a field to
   TYadfOptions/OptionTable makes it appear here automatically.
 
@@ -65,15 +68,17 @@ type
   /// <summary>The generic Tools > Options frame. Controls are code-built by
   /// iterating YADF.Options.OptionTable, grouped by TOptInfo.Group into
   /// TGroupBoxes inside a scrolling host -- the same layout YADFSetup uses.
-  /// Load reads the shared yadf.ini into the controls; Save writes them back
-  /// (read-modify-write, so a future page split cannot clobber other fields).
+  /// Load reads the F-profile INI (the file YADFSetup assigns to profile F,
+  /// defaulting to the shared yadf.ini) into the controls; Save writes them
+  /// back (read-modify-write, so a future page split cannot clobber other
+  /// fields).
   /// A Source | Result preview pair to the right of the options re-runs
   /// FormatSource live as you toggle a control or edit the source, so you can
   /// see the effect of each option (and load your own .pas to preview).</summary>
   /// <remarks>Not thread-safe; the IDE drives Load/Save on the main thread.
   /// FControls is index-aligned to OptionTable. The preview is LIVE, but the
-  /// yadf.ini is only written on OK (DialogClosed(Accepted)) -- toggling does
-  /// not autosave (unlike the standalone YADFSetup).</remarks>
+  /// F-profile INI is only written on OK (DialogClosed(Accepted)) -- toggling
+  /// does not autosave (unlike the standalone YADFSetup).</remarks>
   TYadfOptionsFrame = class(TFrame)
   private
     FOpts    : TYadfOptions;
@@ -104,7 +109,12 @@ type
     /// <summary>Read the shared yadf.ini into FOpts, populate the controls, load
     /// a sample into the source memo, and render the first preview.</summary>
     procedure Load;
-    /// <summary>Re-read the record fresh, apply this frame's controls, write it back.</summary>
+    /// <summary>Re-read the record fresh, apply this frame's controls, write it
+    /// back to the F-profile INI, then mirror that file onto the standard
+    /// %APPDATA%\YADF\yadf.ini so the F formatting walk (which ends there) always
+    /// reflects profile F -- even when F points at a differently-named/located
+    /// file. The mirror is skipped when F already IS yadf.ini, and is best-effort
+    /// (a locked/read-only standard file does not lose the F values).</summary>
     procedure Save;
   end;
 
@@ -170,9 +180,15 @@ end;
 
 function TYadfOptionsFrame.IniPath: string;
 begin
-  // The IDE options page always edits the shared per-user profile -- the same
-  // file YADFSetup edits by default and tier 4 of the wizard's resolution.
-  Result:= SharedAppDataIniPath;
+  // Edit the F-profile INI -- the SAME file YADFSetup edits (its main-form
+  // resolution is duplicated here verbatim): the file name assigned to profile
+  // F in profiles.ini, resolved under %APPDATA%\YADF, falling back to the
+  // shared yadf.ini when F is unset. Previously this hardcoded
+  // SharedAppDataIniPath, so a custom F assignment made the page edit a file
+  // the user's F formatting never reads -- edits appeared to be ignored.
+  // F/R assignment and other-INI browsing stay in YADFSetup's Profiles list.
+  Result:= ResolveProfileIniPath(LoadProfiles.F);
+  if Result = '' then Result:= SharedAppDataIniPath;
 end;
 
 procedure TYadfOptionsFrame.BuildControls;
@@ -512,7 +528,8 @@ end;
 
 procedure TYadfOptionsFrame.Save;
 var
-  P: string;
+  P     : string;
+  Shared: string;
 begin
   // Read-modify-write: re-read the record fresh so any field NOT surfaced as a
   // control survives (none today; a guard for a future page split), then apply
@@ -522,6 +539,21 @@ begin
   FOpts:= LoadOptionsFromIni(P);
   ControlsToOptions;
   SaveOptionsToIni(FOpts, P);
+
+  // Mirror the just-saved F-profile INI onto the standard %APPDATA%\YADF\yadf.ini
+  // so the file the F formatting walk actually ends at (tier 4) always reflects
+  // profile F, even when F points at a custom file. Skip when F already IS the
+  // standard file (default F='yadf.ini') -- copying a file onto itself raises.
+  // Best-effort: a copy failure must not lose the values already written to P.
+  Shared:= SharedAppDataIniPath;
+  if not SameFileName(TPath.GetFullPath(P), TPath.GetFullPath(Shared)) then
+    try
+      TFile.Copy(P, Shared, True);
+    except
+      // A read-only or locked standard file is non-fatal: the F profile itself
+      // is saved (P), so the next Options-page open and any profile-F consumer
+      // still read the correct values.
+    end;
 end;
 
 { ==================== TYadfOptionsPage ==================== }

@@ -763,7 +763,9 @@ begin
   WriteStdoutLine('                          (default ANSI; existing BOM in input is auto-detected)');
   WriteStdoutLine('');
   WriteStdoutLine('Configuration:');
-  WriteStdoutLine('  --ini <file>          alternate INI file (default: yadf.ini, searched up from the exe folder)');
+  WriteStdoutLine('  --ini <file>          explicit INI file (overrides the F profile below)');
+  WriteStdoutLine('                          default: the F profile named in %APPDATA%\YADF\profiles.ini');
+  WriteStdoutLine('                          (F=yadf.ini out of the box; created on first run if absent)');
   WriteStdoutLine(Format('  --log / --no-log      write yadf-startup.log next to the exe + OutputDebugString  [Logging=%s]', [OnOff(AOpts.Logging)]));
   WriteStdoutLine(Format('  --d10 / --no-d10      downgrade inline vars for Delphi 10.2.3 (best-effort)        [Delphi10Compat=%s]', [OnOff(AOpts.Delphi10Compat)]));
   WriteStdoutLine('');
@@ -815,43 +817,41 @@ end; // begin
 
 // ParseEncoding now lives in YADF.Options (shared by CLI, wizard, GUI).
 
-// Lookup order:
-//   1. Walk UP from cwd up to 9 levels looking for yadf.ini (project-
-//      local override).
-//   2. Walk UP from the .exe's own folder up to 5 levels (portable-app
-//      pattern: yadf.ini ships next to YADF.exe).
-//   3. Shared per-user fallback %APPDATA%\YADF\yadf.ini -- same path
-//      YADFOT.bpl uses, so the IDE wizard and the CLI converge on the
-//      same file.
-// First hit wins. If nothing exists, returns the shared fallback path
-// (which EnsureIniExists will then materialise as a commented template).
+// Default INI resolution (when no --ini is passed). The CLI has no profile
+// flag, so the default IS the F profile -- the same source of truth the IDE
+// (YADFOT) and YADFSetup use:
+//   * %APPDATA%\YADF\profiles.ini names the F file ([Profiles]F=<name>,
+//     default 'yadf.ini'); ResolveProfileIniPath turns that name into a full
+//     path under %APPDATA%\YADF (an absolute name passes through unchanged).
+//   * If the resolved F file does not exist (fresh install), materialise the
+//     commented default yadf.ini and pin profiles.ini's F entry to it, so the
+//     CLI, the IDE, and YADFSetup all converge on that one file from then on.
+//     Until it exists the run still proceeds on compiled-in DefaultOptions
+//     (LoadIniDefaults no-ops on a missing file -- but EnsureIniExists here
+//     writes the template first, so the very first run already reads it).
+// --ini <path> still overrides this entirely (handled in ExtractIniPath).
+// NOTE: the previous cwd/exe-folder walk for a project-local yadf.ini was
+// removed on purpose -- it silently shadowed the user's saved F profile, so
+// edits made in YADFSetup / the IDE Options page appeared to be ignored.
 function DefaultIniPath: string;
-  function WalkUp(const AStart: string; ADepth: Integer): string;
-  var
-    Dir, Candidate, Parent: string;
-    i: Integer;
+var
+  Profiles: TYadfProfiles;
+begin
+  Profiles:= LoadProfiles;                       // F defaults to 'yadf.ini'
+  Result  := ResolveProfileIniPath(Profiles.F);
+  if Result = '' then
+    Result:= SharedAppDataIniPath;               // defensive; F is never ''
+  if not FileExists(Result) then
   begin
-    Result:= '';
-    Dir:= AStart;
-    for i:= 0 to ADepth do
+    // Fresh install: create the default template and make F point at it so all
+    // three front-ends (CLI / IDE / YADFSetup) share it going forward.
+    EnsureIniExists(Result);
+    if Trim(Profiles.F) = '' then
     begin
-      if Dir = '' then Break;
-      Candidate:= TPath.Combine(Dir, 'yadf.ini');
-      if TFile.Exists(Candidate) then Exit(Candidate);
-      Parent:= ExtractFileDir(ExcludeTrailingPathDelimiter(Dir));
-      if (Parent = '') or SameText(Parent,
-        ExcludeTrailingPathDelimiter(Dir)) then Break;
-      Dir:= IncludeTrailingPathDelimiter(Parent);
+      Profiles.F:= 'yadf.ini';
+      SaveProfiles(Profiles);
     end;
   end;
-var
-  Hit: string;
-begin
-  Hit:= WalkUp(IncludeTrailingPathDelimiter(GetCurrentDir), 9);
-  if Hit <> '' then Exit(Hit);
-  Hit:= WalkUp(ExtractFilePath(ParamStr(0)), 5);
-  if Hit <> '' then Exit(Hit);
-  Result:= SharedAppDataIniPath;
 end;
 
 // All [Format] keys are read by the shared, table-driven loader in

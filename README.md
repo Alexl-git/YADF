@@ -52,11 +52,15 @@ YADFSetup reads and writes the **shared per-user config**:
 ```
 
 which expands to e.g. `C:\Users\<you>\AppData\Roaming\YADF\yadf.ini`. This is
-the same file `YADF.exe` and `YADFOT.bpl` fall back to, so all three tools stay
-in sync. (The CLI and IDE wizard can also pick up a *project-local* `yadf.ini`
-placed next to your source — see the full
-[INI lookup order](#yadfot-install). YADFSetup always edits the shared file and
-shows the active path at the bottom of the Settings column.)
+the same file `YADF.exe` and `YADFOT.bpl` read, so all three tools stay in sync
+(see the full [INI lookup order](#yadfot-install)). YADFSetup always edits the
+active **F profile** and shows its path at the bottom of the Settings column.
+
+> **Since 1.0.8 you can also edit these settings without leaving the IDE:**
+> open **Tools ▸ Options ▸ Third Party ▸ YADF**. The page edits the same F
+> profile as YADFSetup (with a live before/after preview), so a change you make
+> there takes effect on the very next **Ctrl+Shift+Alt+F** — no restart, no
+> stale settings. See [Editing settings in the IDE](#edit-settings-in-ide).
 
 To keep alternative option sets, use **Save As…** to export a named `.ini`
 anywhere, and **Load Settings…** to bring one back later.
@@ -124,13 +128,23 @@ Two entry points appear in the IDE after install:
 
 A third entry point configures the formatter rather than running it:
 
-3. **Settings page** → `Tools → Options → Third Party → YADF`. This edits
-   the shared `%APPDATA%\YADF\yadf.ini` in-IDE, so you don't have to open
-   `YADFSetup.exe` to tweak the formatting options. It reads and writes the
-   same file (through the same `OptionTable`) that `YADFSetup.exe` and the
-   CLI use, so the two editors never drift; changes commit when you click
-   **OK**. The page is added when the package loads and removed when you
-   uncheck YADFOT in *Component → Install Packages*.
+3. **Settings page** → `Tools → Options → Third Party → YADF`.
+   <a id="edit-settings-in-ide"></a>
+
+   **You no longer need to leave the IDE to change how YADF formats.** This
+   page lets you edit every formatting option (with a live before/after
+   preview) directly inside Delphi — you don't have to open `YADFSetup.exe`.
+   Every control is generated from the same `OptionTable` that `YADFSetup.exe`
+   and the CLI use, so the editors never drift.
+
+   - It edits your active **F profile** and mirrors it onto the shared
+     `%APPDATA%\YADF\yadf.ini`, so YADFSetup, the CLI, and the IDE all agree.
+   - Changes commit when you click **OK**, and — since 1.0.8 — **take effect
+     immediately**: the very next **Ctrl+Shift+Alt+F** formats with your new
+     settings. No IDE restart, and no stale-settings surprise from a stray
+     project-local `yadf.ini` (those are no longer auto-detected).
+   - The page is added when the package loads and removed when you uncheck
+     YADFOT in *Component → Install Packages*.
 
 The shortcut is registered as a Delphi keyboard binding named
 `YADFOT`. If the chord clashes with something on your machine you
@@ -155,31 +169,48 @@ reader/writer; the on-disk encoding of the file is irrelevant. The CLI's
 `Encoding` INI key (`ANSI` / `UTF-8` / `UTF-16`) only affects file I/O
 and is intentionally ignored by YADFOT.
 
-**INI lookup (unified across YADF.exe and YADFOT.bpl since 1.0.2).**
+**INI lookup — profile-based (since 1.0.8).**
 
-Both the CLI and the IDE wizard look for `yadf.ini` in the same order
-(first hit wins) so whichever tool runs first creates the file the other
-will find:
+`YADF.exe` and `YADFOT.bpl` resolve their config the same way YADFSetup and the
+IDE Options page do: through the per-user **profile map** at
 
-1. The source file's directory, walking up to 8 parents (project-local
-   override; YADFOT only)
-2. The active project's directory, walking up to 8 parents (YADFOT only)
-3. The CLI's current working directory, walking up to 9 parents (YADF.exe
-   only — typically the project root)
-4. The directory of `YADF.exe` itself, walking up to 5 parents (portable-
-   app pattern: drop a `yadf.ini` next to the EXE)
-5. Legacy `%APPDATA%\YADFOT\yadf.ini` (read-only fallback for users
-   upgrading from 1.0.1.x; never written to)
-6. **`%APPDATA%\YADF\yadf.ini`** — shared per-user fallback. If nothing
-   exists anywhere above, a fully-commented template is written here on
-   first run and used. Typically
-   `C:\Users\<user>\AppData\Roaming\YADF\yadf.ini`.
+```
+%APPDATA%\YADF\profiles.ini
+```
 
-**First-run experience.** No INI ships in the release zip. The first time
-you run `YADF.exe` (or save a file with `YADFOT` registered), an INI is
-created at `%APPDATA%\YADF\yadf.ini` with every option, its default, and
-a one-line explanation. Edit values and re-run; or drop a project-local
-`yadf.ini` to override per-project.
+which names the active INI files:
+
+```ini
+[Profiles]
+F=yadf.ini              ; the default profile (Ctrl+Shift+Alt+F in the IDE, and the CLI default)
+R=yadf-D10-Test.ini     ; optional second profile (Ctrl+Shift+Alt+R in the IDE only)
+```
+
+Each value is an INI *name* resolved under `%APPDATA%\YADF\` (an absolute path
+passes through unchanged). Resolution:
+
+- **CLI (`YADF.exe`)** — with no `--ini`, uses the **F** profile. `--ini <path>`
+  overrides it explicitly.
+- **YADFOT (IDE)** — **Ctrl+Shift+Alt+F** and the Tools-menu item use the **F**
+  profile; **Ctrl+Shift+Alt+R** uses the **R** profile (if assigned).
+- **YADFSetup / IDE Options page** — always *edit* the F profile, and mirror it
+  onto `%APPDATA%\YADF\yadf.ini` so all three front-ends converge on one file.
+
+There is **no project-tree walk** and **no in-memory caching**: the file you edit
+is the file that formats, every time. To use a different config for a project,
+assign it as your F profile in YADFSetup or pass `--ini <path>` on the CLI.
+
+> **Changed in 1.0.8:** earlier versions walked up from the source file / project
+> / working directory looking for the nearest `yadf.ini`, which could silently
+> shadow your saved settings (a stray project-local `yadf.ini` would win over the
+> profile you edited). Project-local `yadf.ini` files are **no longer
+> auto-detected** — use `--ini` or the F profile instead.
+
+**First-run experience.** No INI ships in the release zip. The first time you run
+`YADF.exe` (or save a file with `YADFOT` registered), the F profile
+(`%APPDATA%\YADF\yadf.ini`) is created with every option, its default, and a
+one-line explanation, and `profiles.ini` is pinned to `F=yadf.ini`. Edit values
+in YADFSetup / the IDE Options page and re-run.
 
 The CLI prints `Created default config: <path>` on the first run that
 materialises the template, so you know where to find it.
@@ -347,15 +378,15 @@ be reworked by hand. Inline-var hoisting still removes the most common blocker.
 
 ## Configuration
 
-YADF (CLI) and YADFOT (IDE wizard) share a unified lookup hierarchy
+YADF (CLI) and YADFOT (IDE wizard) share a unified, **profile-based** config
 documented in detail under [YADFOT install → INI lookup](#yadfot-install)
-above. Summary: project-local `yadf.ini` (walked up from the source file,
-the active project, or the CLI's cwd), then the EXE's own folder, then
-the shared fallback `%APPDATA%\YADF\yadf.ini`. No INI ships in the
-release zip — first run creates a fully-commented template at the
-fallback location. CLI flags override INI values; INI values override
-compiled-in defaults. See the auto-created `yadf.ini` for the
-documented option list.
+above. Summary: the per-user `%APPDATA%\YADF\profiles.ini` names the active
+**F** profile (CLI default and Ctrl+Shift+Alt+F) and optional **R** profile
+(Ctrl+Shift+Alt+R); `--ini <path>` overrides on the CLI. There is no
+project-tree walk. No INI ships in the release zip — first run creates a
+fully-commented `%APPDATA%\YADF\yadf.ini` and pins `F=yadf.ini`. Edit it from
+**YADFSetup** or in-IDE via **Tools ▸ Options ▸ Third Party ▸ YADF**. CLI
+flags override INI values; INI values override compiled-in defaults.
 
 YADFOT (IDE wizard) reads the same `[Format]` keys with a different search
 order — see [YADFOT install](#yadfot-install) above.

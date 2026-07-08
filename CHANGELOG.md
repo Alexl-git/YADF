@@ -8,6 +8,42 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.8.0] -- 2026-07-08
+
+### Changed
+
+- **Config resolution is now profile-based (breaking).** Both `YADF.exe` and
+  YADFOT resolve their settings through the per-user profile map
+  `%APPDATA%\YADF\profiles.ini` (`[Profiles]F=<name>`, `R=<name>`) -- the same
+  source of truth YADFSetup and the IDE Options page already used:
+  - **CLI:** with no `--ini`, uses the **F** profile (`--ini <path>` still
+    overrides).
+  - **YADFOT:** Ctrl+Shift+Alt+F / the Tools-menu item use the **F** profile;
+    Ctrl+Shift+Alt+R uses the **R** profile.
+  - The previous cwd / project / exe-folder **walk for a nearest `yadf.ini`
+    was removed.** It could silently shadow the settings you saved -- a stray
+    project-local `yadf.ini` would win over the profile you edited, so changes
+    made in YADFSetup or the IDE Options page appeared to be ignored. This was
+    the reported "I edited the settings but formatting kept using the old ones"
+    bug. Project-local `yadf.ini` files are **no longer auto-detected**; use
+    `--ini <path>` or assign the file as your F profile.
+
+### Fixed
+
+- **Edited settings now take effect on the next format.** Because editing and
+  formatting resolve the *same* file (the F profile) with no caching and no
+  walk, a change you make on the IDE Options page or in YADFSetup applies to the
+  very next Ctrl+Shift+Alt+F. The Options page also mirrors the F profile onto
+  `%APPDATA%\YADF\yadf.ini` on **OK**, keeping the CLI, IDE, and YADFSetup in
+  sync even when F points at a differently-named file.
+
+### Engine
+
+- No change to formatting output. The formatting engine is byte-identical to
+  1.0.7.0 (verified against the 79-file golden-format net, with the config
+  pinned via `--ini`). This release changes only *which INI is resolved*, not
+  how source is formatted.
+
 ## [1.0.7.0] -- 2026-07-08
 
 ### Added
