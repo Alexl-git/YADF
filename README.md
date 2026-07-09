@@ -131,15 +131,22 @@ A third entry point configures the formatter rather than running it:
 3. **Settings page** → `Tools → Options → Third Party → YADF`.
    <a id="edit-settings-in-ide"></a>
 
-   **You no longer need to leave the IDE to change how YADF formats.** This
-   page lets you edit every formatting option (with a live before/after
-   preview) directly inside Delphi — you don't have to open `YADFSetup.exe`.
-   Every control is generated from the same `OptionTable` that `YADFSetup.exe`
-   and the CLI use, so the editors never drift.
+   **You no longer need to leave the IDE to change how YADF formats — or to
+   manage profiles.** This page lets you edit every formatting option (with a
+   live before/after preview) *and*, since 1.0.9, manage your **profiles** —
+   the full `YADFSetup.exe` workflow, inside Delphi. Every control is generated
+   from the same `OptionTable` that `YADFSetup.exe` and the CLI use, so the
+   editors never drift.
 
-   - It edits your active **F profile** and mirrors it onto the shared
-     `%APPDATA%\YADF\yadf.ini`, so YADFSetup, the CLI, and the IDE all agree.
-   - Changes commit when you click **OK**, and — since 1.0.8 — **take effect
+   - **Profiles panel** (top of the page): lists every `%APPDATA%\YADF\*.ini`,
+     badges which is **[F]** (`Ctrl+Shift+Alt+F` / the CLI default) and which is
+     **[R]** (`Ctrl+Shift+Alt+R`), and gives you **Set F**, **Set R**,
+     **Unassign**, and **New...** buttons. Click a profile to edit *that* one.
+   - Editing the **F** profile also mirrors it onto the shared
+     `%APPDATA%\YADF\yadf.ini`, so YADFSetup, the CLI, and the IDE all agree;
+     editing **R** (or any other profile) leaves the F file untouched.
+   - Profile actions (assign F/R, new, switch) save immediately; option-value
+     edits commit when you click **OK**, and — since 1.0.8 — **take effect
      immediately**: the very next **Ctrl+Shift+Alt+F** formats with your new
      settings. No IDE restart, and no stale-settings surprise from a stray
      project-local `yadf.ini` (those are no longer auto-detected).

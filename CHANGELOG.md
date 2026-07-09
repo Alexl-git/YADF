@@ -8,6 +8,40 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.9.0] -- 2026-07-08
+
+### Added
+
+- **Profiles panel on the IDE Options page (full YADFSetup parity).**
+  `Tools > Options > Third Party > YADF` now manages formatting **profiles**, not
+  just a single unnamed INI. A Profiles list atop the options shows every
+  `%APPDATA%\YADF\*.ini`, badges which is **[F]** (Ctrl+Shift+Alt+F / CLI
+  default) and which is **[R]** (Ctrl+Shift+Alt+R), and adds a button row:
+  - **Set F / Set R** -- assign the selected profile to the F or R shortcut.
+  - **Unassign** -- clear the selected profile's F/R role (F resets to
+    `yadf.ini`, which must always resolve; R may be cleared).
+  - **New...** -- create a `yadf-<name>.ini` seeded with the current settings.
+  - **Click a profile** to edit *that* profile's options (with the live
+    before/after preview). Profile actions save immediately (like YADFSetup);
+    switching profiles auto-saves the current one first so no edits are lost.
+  This means the whole profile workflow -- previously only in `YADFSetup.exe` --
+  is now available without leaving the IDE.
+
+### Changed
+
+- **Options-page mirror is now F-aware.** On **OK**, the page writes the profile
+  you were editing; it mirrors onto the standard `%APPDATA%\YADF\yadf.ini`
+  **only when that profile is the F profile**. Editing the R (or any non-F)
+  profile no longer risks clobbering the F/standard file (refines the 1.0.8.0
+  behavior, which always mirrored the edited file).
+
+### Engine
+
+- No change to formatting output. The formatting engine is byte-identical to
+  1.0.8.0 (golden-format net: 79/79 files unchanged, config pinned via `--ini`).
+  This release is YADFOT-only; `YADF.exe` and `YADFSetup.exe` are functionally
+  unchanged (rebuilt at 1.0.9.0 for version parity).
+
 ## [1.0.8.0] -- 2026-07-08
 
 ### Changed

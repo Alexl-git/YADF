@@ -7,15 +7,17 @@
   License, v. 2.0. If a copy of the MPL was not distributed with this
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-  A native IDE Options page that edits the F-profile INI (the file YADFSetup
-  assigns to profile F under %APPDATA%\YADF, defaulting to yadf.ini) through
-  the SAME YADF.Options descriptor table (OptionTable) as YADFSetup.exe and the
-  CLI, so all three converge on one file with no duplicated schema. It resolves
-  that file exactly as YADFSetup does (ResolveProfileIniPath(LoadProfiles.F)),
-  so editing here and editing in YADFSetup touch the same INI. The page is a
-  single generic TFrame whose
-  controls are built by iterating OptionTable -- adding a field to
-  TYadfOptions/OptionTable makes it appear here automatically.
+  A native IDE Options page with FULL YADFSetup parity: it manages the per-user
+  formatting profiles (%APPDATA%\YADF\profiles.ini) AND edits their option
+  values through the SAME YADF.Options descriptor table (OptionTable) as
+  YADFSetup.exe and the CLI, so all four surfaces converge with no duplicated
+  schema. A Profiles panel lists every %APPDATA%\YADF\*.ini, badges the F/R
+  ones, and lets you switch which profile you edit, assign F/R, unassign, or
+  create a new profile -- exactly like YADFSetup's Profiles list, and using the
+  same shared primitives (LoadProfiles/SaveProfiles/ResolveProfileIniPath/...).
+  The page opens on the F profile. The option controls are built by iterating
+  OptionTable -- adding a field to TYadfOptions/OptionTable makes it appear here
+  automatically.
 
   Teardown: RegisterYADFOptions runs from YADFOT.Wizard.Register on package
   load; UnregisterYADFOptions runs from the wizard's Destroyed method (the
@@ -68,23 +70,31 @@ type
   /// <summary>The generic Tools > Options frame. Controls are code-built by
   /// iterating YADF.Options.OptionTable, grouped by TOptInfo.Group into
   /// TGroupBoxes inside a scrolling host -- the same layout YADFSetup uses.
-  /// Load reads the F-profile INI (the file YADFSetup assigns to profile F,
-  /// defaulting to the shared yadf.ini) into the controls; Save writes them
-  /// back (read-modify-write, so a future page split cannot clobber other
-  /// fields).
+  /// A Profiles panel atop the options (full YADFSetup parity) lists every
+  /// %APPDATA%\YADF\*.ini profile, badges the F/R ones, and lets you switch
+  /// which profile you edit, assign F/R, unassign, or create a new profile.
+  /// Load starts on the F profile; Save writes whichever profile is currently
+  /// selected (FCurrentIni), read-modify-write so unrelated fields survive.
   /// A Source | Result preview pair to the right of the options re-runs
   /// FormatSource live as you toggle a control or edit the source, so you can
   /// see the effect of each option (and load your own .pas to preview).</summary>
   /// <remarks>Not thread-safe; the IDE drives Load/Save on the main thread.
-  /// FControls is index-aligned to OptionTable. The preview is LIVE, but the
-  /// F-profile INI is only written on OK (DialogClosed(Accepted)) -- toggling
-  /// does not autosave (unlike the standalone YADFSetup).</remarks>
+  /// FControls is index-aligned to OptionTable; FProfileFiles to the list rows.
+  /// The preview is LIVE, and PROFILE actions (assign F/R, unassign, new,
+  /// switch) save immediately like YADFSetup -- but the edited profile's option
+  /// VALUES are written only on OK (DialogClosed(Accepted)); switching profiles
+  /// auto-saves the current one first so no edits are lost.</remarks>
   TYadfOptionsFrame = class(TFrame)
   private
     FOpts    : TYadfOptions;
     FScroll  : TScrollBox;
     FControls: array of TControl;   // index-aligned to OptionTable
     FUpdating: Boolean;             // True while pushing FOpts -> controls
+    // --- profiles panel (mirrors YADFSetup's Profiles list) ---
+    FProfiles    : TYadfProfiles;      // current F/R mapping from profiles.ini
+    FProfileFiles: TArray<string>;     // file names, index-aligned to list rows
+    FCurrentIni  : string;             // full path of the profile being edited
+    FProfileList : TListBox;           // the profiles list control
     // --- live before/after preview (mirrors YADFSetup's Source|Result) ---
     FSource     : TMemo;            // editable sample source (input)
     FResult     : TMemo;            // formatted output (read-only)
@@ -92,11 +102,13 @@ type
     FResultStat : TLabel;          // "OK" / "error"
     FOpenDlg    : TOpenDialog;      // load-your-own-.pas dialog
     FReformatTmr: TTimer;          // debounce reformat on rapid changes
+    procedure BuildProfilePanel(AHost: TWinControl);
     procedure BuildControls;
     procedure BuildPreview;
     procedure OptionsToControls;
     procedure ControlsToOptions;
-    function  IniPath: string;
+    procedure RefreshProfileList;
+    procedure SwitchEditTo(const AIniFile: string);
     procedure Reformat;
     procedure LoadSample;
     // event handlers
@@ -104,17 +116,25 @@ type
     procedure SourceChanged(Sender: TObject);
     procedure ReformatTimer(Sender: TObject);
     procedure OpenSourceClick(Sender: TObject);
+    procedure ProfileListClick(Sender: TObject);
+    procedure SetFClick(Sender: TObject);
+    procedure SetRClick(Sender: TObject);
+    procedure UnassignClick(Sender: TObject);
+    procedure NewProfileClick(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
     /// <summary>Read the shared yadf.ini into FOpts, populate the controls, load
     /// a sample into the source memo, and render the first preview.</summary>
     procedure Load;
     /// <summary>Re-read the record fresh, apply this frame's controls, write it
-    /// back to the F-profile INI, then mirror that file onto the standard
-    /// %APPDATA%\YADF\yadf.ini so the F formatting walk (which ends there) always
-    /// reflects profile F -- even when F points at a differently-named/located
-    /// file. The mirror is skipped when F already IS yadf.ini, and is best-effort
-    /// (a locked/read-only standard file does not lose the F values).</summary>
+    /// back to the profile CURRENTLY being edited (FCurrentIni). When that
+    /// profile is the F profile, also mirror it onto the standard
+    /// %APPDATA%\YADF\yadf.ini so the F shortcut / CLI default reflect the
+    /// values even if F is a custom-named file; when editing R (or any non-F
+    /// profile) the mirror is skipped so it cannot clobber the F file. The
+    /// mirror is also skipped when the edited file already IS yadf.ini, and is
+    /// best-effort (a locked/read-only standard file does not lose the values).
+    /// </summary>
     procedure Save;
   end;
 
@@ -147,7 +167,8 @@ type
 
 constructor TYadfOptionsFrame.Create(AOwner: TComponent);
 var
-  Splitter: TSplitter;
+  Splitter : TSplitter;
+  LeftHost : TPanel;
 begin
   inherited Create(AOwner);
   Width := 900;
@@ -159,18 +180,26 @@ begin
   FReformatTmr.Interval:= 200;
   FReformatTmr.OnTimer := ReformatTimer;
 
-  // Options on the LEFT (scrolling group-boxes), a splitter, then the
-  // Source | Result preview filling the rest -- same left-to-right order as
-  // YADFSetup (Settings | Source | Result).
+  // The LEFT region is a host panel holding the Profiles panel (docked top, so it
+  // stays visible) above the scrolling option group-boxes (alClient). A splitter
+  // separates it from the Source | Result preview that fills the rest -- same
+  // left-to-right order as YADFSetup (Profiles + Settings | Source | Result).
+  LeftHost:= TPanel.Create(Self);
+  LeftHost.Parent    := Self;
+  LeftHost.Align     := alLeft;
+  LeftHost.Width     := 360;
+  LeftHost.BevelOuter:= bvNone;
+
+  BuildProfilePanel(LeftHost);   // docks itself alTop within LeftHost
+
   FScroll:= TScrollBox.Create(Self);
-  FScroll.Parent  := Self;
-  FScroll.Align   := alLeft;
-  FScroll.Width   := 360;
+  FScroll.Parent     := LeftHost;
+  FScroll.Align      := alClient;   // fills LeftHost below the profiles panel
   FScroll.BorderStyle:= bsNone;
 
   Splitter:= TSplitter.Create(Self);
   Splitter.Parent := Self;
-  Splitter.Left   := FScroll.Left + FScroll.Width;   // dock right of FScroll
+  Splitter.Left   := LeftHost.Left + LeftHost.Width;   // dock right of LeftHost
   Splitter.Align  := alLeft;
   Splitter.Width  := 5;
 
@@ -178,17 +207,114 @@ begin
   BuildPreview;
 end;
 
-function TYadfOptionsFrame.IniPath: string;
+procedure TYadfOptionsFrame.BuildProfilePanel(AHost: TWinControl);
+var
+  Panel: TPanel;
+  Bar  : TPanel;
+  Lbl  : TLabel;
+
+  function AddBtn(ALeft: Integer; const ACap: string; AOnClick: TNotifyEvent;
+    const AHint: string): TButton;
+  begin
+    Result:= TButton.Create(Self);
+    Result.Parent := Bar;
+    Result.Left   := ALeft; Result.Top:= 1; Result.Width:= 62; Result.Height:= 23;
+    Result.Caption:= ACap;
+    Result.Hint   := AHint; Result.ShowHint:= True;
+    Result.OnClick:= AOnClick;
+  end;
+
 begin
-  // Edit the F-profile INI -- the SAME file YADFSetup edits (its main-form
-  // resolution is duplicated here verbatim): the file name assigned to profile
-  // F in profiles.ini, resolved under %APPDATA%\YADF, falling back to the
-  // shared yadf.ini when F is unset. Previously this hardcoded
-  // SharedAppDataIniPath, so a custom F assignment made the page edit a file
-  // the user's F formatting never reads -- edits appeared to be ignored.
-  // F/R assignment and other-INI browsing stay in YADFSetup's Profiles list.
-  Result:= ResolveProfileIniPath(LoadProfiles.F);
-  if Result = '' then Result:= SharedAppDataIniPath;
+  // Profiles group docked at the TOP of the left host, above the scrolling
+  // options -- mirrors YADFSetup's Profiles list. The list shows every *.ini in
+  // %APPDATA%\YADF (except profiles.ini), badged [F]/[R]; the button row assigns
+  // F/R, unassigns, or creates a new profile. Actions save immediately (like
+  // YADFSetup), independent of the dialog's OK/Cancel.
+  Panel:= TPanel.Create(Self);
+  Panel.Parent    := AHost;
+  Panel.Align     := alTop;
+  Panel.Height    := 150;
+  Panel.BevelOuter:= bvNone;
+
+  Lbl:= TLabel.Create(Self);
+  Lbl.Parent := Panel;
+  Lbl.Left   := 4; Lbl.Top:= 2;
+  Lbl.Caption:= 'Profiles (F = Ctrl+Shift+Alt+F, R = Ctrl+Shift+Alt+R)';
+
+  // Button row at the bottom of the panel.
+  Bar:= TPanel.Create(Self);
+  Bar.Parent    := Panel;
+  Bar.Align     := alBottom;
+  Bar.Height    := 26;
+  Bar.BevelOuter:= bvNone;
+  AddBtn(  2, 'Set F'   , SetFClick     , 'Assign the selected profile to Ctrl+Shift+Alt+F (and the CLI default)');
+  AddBtn( 66, 'Set R'   , SetRClick     , 'Assign the selected profile to Ctrl+Shift+Alt+R');
+  AddBtn(130, 'Unassign', UnassignClick , 'Clear the F/R assignment of the selected profile (F resets to yadf.ini)');
+  AddBtn(194, 'New...'  , NewProfileClick, 'Create a new yadf-<name>.ini seeded with the current settings');
+
+  // The list fills the space between the label and the button row.
+  FProfileList:= TListBox.Create(Self);
+  FProfileList.Parent  := Panel;
+  FProfileList.Align   := alClient;
+  FProfileList.AlignWithMargins:= True;
+  FProfileList.Margins.SetBounds(4, 18, 4, 2);
+  FProfileList.OnClick := ProfileListClick;
+end;
+
+procedure TYadfOptionsFrame.RefreshProfileList;
+var
+  Files     : TArray<string>;
+  Dir, Name : string;
+  Badge, Cur: string;
+  i, Sel    : Integer;
+begin
+  // Ports YADFSetup.RefreshProfileList: enumerate ProfilesDir\*.ini (skip the
+  // profiles.ini mapping file), badge the F/R rows, rebuild the index-aligned
+  // FProfileFiles, and re-select the row matching the profile now being edited.
+  Dir:= ProfilesDir;
+  if not DirectoryExists(Dir) then ForceDirectories(Dir);
+  Files:= TDirectory.GetFiles(Dir, '*.ini', TSearchOption.soTopDirectoryOnly);
+  SetLength(FProfileFiles, 0);
+  Cur:= ExtractFileName(FCurrentIni);
+  Sel:= -1;
+  FProfileList.Items.BeginUpdate;
+  try
+    FProfileList.Items.Clear;
+    for i:= 0 to High(Files) do
+    begin
+      Name:= ExtractFileName(Files[i]);
+      if SameText(Name, 'profiles.ini') then Continue;   // mapping file, not a profile
+      if      SameText(Name, FProfiles.F) then Badge:= '[F]  '
+      else if SameText(Name, FProfiles.R) then Badge:= '[R]  '
+      else                                      Badge:= '      ';
+      FProfileList.Items.Add(Badge + Name);
+      SetLength(FProfileFiles, Length(FProfileFiles) + 1);
+      FProfileFiles[High(FProfileFiles)]:= Name;
+      if SameText(Name, Cur) then Sel:= High(FProfileFiles);
+    end;
+  finally
+    FProfileList.Items.EndUpdate;
+  end;
+  if Sel >= 0 then FProfileList.ItemIndex:= Sel;
+end;
+
+procedure TYadfOptionsFrame.SwitchEditTo(const AIniFile: string);
+var
+  Path: string;
+begin
+  // Switch which profile the option controls edit. AUTO-SAVE the current
+  // profile's values first (profile actions are live on this page), so clicking
+  // another row never silently discards edits. Then load the target into the
+  // controls and refresh the preview.
+  Path:= ResolveProfileIniPath(AIniFile);
+  if (Path = '') or SameFileName(Path, FCurrentIni) then Exit;
+  ControlsToOptions;
+  SaveOptionsToIni(FOpts, FCurrentIni);   // flush current profile before leaving
+  FCurrentIni:= Path;
+  EnsureIniExists(FCurrentIni);
+  FOpts:= LoadOptionsFromIni(FCurrentIni);
+  OptionsToControls;
+  Reformat;
 end;
 
 procedure TYadfOptionsFrame.BuildControls;
@@ -475,6 +601,95 @@ begin
   end;
 end;
 
+// Returns the file name of the selected profile row, or '' if none is selected.
+function SelectedProfile(AList: TListBox; const AFiles: TArray<string>): string;
+var
+  i: Integer;
+begin
+  Result:= '';
+  i:= AList.ItemIndex;
+  if (i >= 0) and (i <= High(AFiles)) then Result:= AFiles[i];
+end;
+
+procedure TYadfOptionsFrame.ProfileListClick(Sender: TObject);
+var
+  Name: string;
+begin
+  // Single-click a row -> edit THAT profile (SwitchEditTo auto-saves the
+  // current one first). No-op when the row is already the one being edited.
+  Name:= SelectedProfile(FProfileList, FProfileFiles);
+  if Name <> '' then SwitchEditTo(Name);
+end;
+
+procedure TYadfOptionsFrame.SetFClick(Sender: TObject);
+var
+  Name: string;
+begin
+  // Assign the selected profile to F. Saved immediately (like YADFSetup); the
+  // dialog OK/Cancel governs only the option VALUES, not the F/R mapping.
+  Name:= SelectedProfile(FProfileList, FProfileFiles);
+  if Name = '' then Exit;
+  FProfiles.F:= Name;
+  SaveProfiles(FProfiles);
+  RefreshProfileList;
+end;
+
+procedure TYadfOptionsFrame.SetRClick(Sender: TObject);
+var
+  Name: string;
+begin
+  Name:= SelectedProfile(FProfileList, FProfileFiles);
+  if Name = '' then Exit;
+  FProfiles.R:= Name;
+  SaveProfiles(FProfiles);
+  RefreshProfileList;
+end;
+
+procedure TYadfOptionsFrame.UnassignClick(Sender: TObject);
+var
+  Name: string;
+begin
+  // Clear the selected profile's F/R assignment. F must always resolve to a
+  // file (the CLI + shortcut need one), so unassigning F resets it to the
+  // default 'yadf.ini' rather than leaving it blank; R may be cleared outright.
+  Name:= SelectedProfile(FProfileList, FProfileFiles);
+  if Name = '' then Exit;
+  if      SameText(FProfiles.R, Name) then FProfiles.R:= ''
+  else if SameText(FProfiles.F, Name) then FProfiles.F:= 'yadf.ini';
+  SaveProfiles(FProfiles);
+  RefreshProfileList;
+end;
+
+procedure TYadfOptionsFrame.NewProfileClick(Sender: TObject);
+var
+  Nm, FileName, Path: string;
+  k: Integer;
+begin
+  // Create a new yadf-<name>.ini seeded with the CURRENT settings, then switch
+  // to editing it (ports YADFSetup.btnNewProfileClick). Sanitise the name so it
+  // is a legal single-segment file name.
+  Nm:= '';
+  if not InputQuery('New profile', 'Profile name (creates yadf-<name>.ini):', Nm) then Exit;
+  Nm:= Trim(Nm);
+  if Nm = '' then Exit;
+  for k:= 1 to Length(Nm) do
+    if CharInSet(Nm[k], ['\', '/', ':', '*', '?', '"', '<', '>', '|', ' ']) then Nm[k]:= '-';
+  FileName:= 'yadf-' + Nm + '.ini';
+  Path:= ResolveProfileIniPath(FileName);
+  if FileExists(Path) then
+  begin
+    if MessageDlg(FileName + ' already exists. Edit it instead?',
+         mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
+  end
+  else
+  begin
+    ControlsToOptions;
+    SaveOptionsToIni(FOpts, Path);   // seed the new profile with current settings
+  end;
+  SwitchEditTo(FileName);
+  RefreshProfileList;
+end;
+
 procedure TYadfOptionsFrame.LoadSample;
 const
   // Built-in fallback so the preview always shows something even when no
@@ -515,43 +730,50 @@ begin
 end;
 
 procedure TYadfOptionsFrame.Load;
-var
-  P: string;
 begin
-  P:= IniPath;
-  EnsureIniExists(P);
-  FOpts:= LoadOptionsFromIni(P);
+  // Start editing the F profile (the file YADFSetup + the F shortcut + the CLI
+  // default all resolve). Then populate the profiles list so the user can see
+  // F/R and switch to any other profile.
+  FProfiles  := LoadProfiles;
+  FCurrentIni:= ResolveProfileIniPath(FProfiles.F);
+  if FCurrentIni = '' then FCurrentIni:= SharedAppDataIniPath;
+  EnsureIniExists(FCurrentIni);
+  FOpts:= LoadOptionsFromIni(FCurrentIni);
   OptionsToControls;    // FUpdating guards the ~40 OnChange fires here
+  RefreshProfileList;   // list all profiles, badge F/R, select the current one
   LoadSample;           // populate the source memo
   Reformat;             // render the first before/after view
 end;
 
 procedure TYadfOptionsFrame.Save;
 var
-  P     : string;
   Shared: string;
 begin
-  // Read-modify-write: re-read the record fresh so any field NOT surfaced as a
-  // control survives (none today; a guard for a future page split), then apply
-  // this frame's controls and write the whole record back through the shared
-  // OptionTable serializer (comments in the template are preserved).
-  P:= IniPath;
-  FOpts:= LoadOptionsFromIni(P);
+  // Read-modify-write the profile CURRENTLY being edited: re-read the record
+  // fresh so any field NOT surfaced as a control survives, apply this frame's
+  // controls, and write it back through the shared OptionTable serializer
+  // (comments in the template are preserved).
+  FOpts:= LoadOptionsFromIni(FCurrentIni);
   ControlsToOptions;
-  SaveOptionsToIni(FOpts, P);
+  SaveOptionsToIni(FOpts, FCurrentIni);
 
-  // Mirror the just-saved F-profile INI onto the standard %APPDATA%\YADF\yadf.ini
-  // so the file the F formatting walk actually ends at (tier 4) always reflects
-  // profile F, even when F points at a custom file. Skip when F already IS the
-  // standard file (default F='yadf.ini') -- copying a file onto itself raises.
-  // Best-effort: a copy failure must not lose the values already written to P.
+  // Mirror onto the standard %APPDATA%\YADF\yadf.ini ONLY when the profile being
+  // edited IS the F profile, so the F shortcut / CLI default (which read the
+  // standard file) reflect these values even if F points at a custom-named file.
+  // When editing R (or any non-F profile), do NOT mirror -- that would clobber
+  // the F/standard file with R's values. Skip when the edited file already IS
+  // the standard file (copying a file onto itself raises). Best-effort: a copy
+  // failure must not lose the values already written to FCurrentIni.
+  if not SameFileName(TPath.GetFullPath(FCurrentIni),
+                      TPath.GetFullPath(ResolveProfileIniPath(FProfiles.F))) then
+    Exit;   // editing a non-F profile -> nothing to mirror
   Shared:= SharedAppDataIniPath;
-  if not SameFileName(TPath.GetFullPath(P), TPath.GetFullPath(Shared)) then
+  if not SameFileName(TPath.GetFullPath(FCurrentIni), TPath.GetFullPath(Shared)) then
     try
-      TFile.Copy(P, Shared, True);
+      TFile.Copy(FCurrentIni, Shared, True);
     except
       // A read-only or locked standard file is non-fatal: the F profile itself
-      // is saved (P), so the next Options-page open and any profile-F consumer
+      // is saved (FCurrentIni), so the next open and any profile-F consumer
       // still read the correct values.
     end;
 end;
