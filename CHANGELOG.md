@@ -8,6 +8,32 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.10.0] -- 2026-07-10
+
+### Added
+
+- **IDE splash-screen entry + About-box entry for YADFOT.** When the design-time
+  package loads, YADFOT now paints a **splash entry** (YADF icon +
+  `YADFOT (MIT) <version>`) on the RAD Studio startup splash, and registers a
+  **plugin entry in the IDE's About dialog** (icon + MIT + version + a short
+  description of the menu item, shortcuts, and settings page).
+  - The About entry appears **inside** `Help > About Embarcadero RAD Studio`
+    (via `IOTAAboutBoxServices.AddPluginInfo`) -- it is *not* a standalone menu
+    item; scroll to the **YADFOT** entry in that dialog's plugin list.
+  - Registered in the package's `Register` (zero startup cost -- static version
+    string, no subprocess calls), and torn down cleanly on package unload
+    (wizard `Destroyed` + a unit-finalization backstop, idempotent).
+  - The version shown is the single shared `YADF_VERSION` (from
+    `YADF.Version.inc`) -- one source of truth across the CLI, YADFSetup, and the
+    package, so it never drifts.
+
+### Engine
+
+- No change to formatting output. The formatting engine is byte-identical to
+  1.0.9.0 (golden-format net: 79/79 files unchanged, config pinned via `--ini`).
+  This release is YADFOT-only (cosmetic IDE branding); `YADF.exe` and
+  `YADFSetup.exe` are functionally unchanged (rebuilt at 1.0.10.0 for parity).
+
 ## [1.0.9.0] -- 2026-07-08
 
 ### Added

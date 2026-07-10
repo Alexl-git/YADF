@@ -40,12 +40,25 @@ uses
   , System.IOUtils
   , System.IniFiles
   , System.UITypes
+  , Winapi.Windows        // LoadImage / HICON for the splash bitmap
   , Vcl.Dialogs
   , Vcl.Menus
+  , Vcl.Graphics          // TIcon / TBitmap for the splash + About image
+  , DesignIntf            // ForceDemandLoadState / dlDisable live HERE, not ToolsAPI
   , YADF.Options
   , YADF.Layout
   , YADFOT.Options
   ;
+
+// Named icon resource for the IDE splash-screen + About-box entry (compiled from
+// YADFOTSplash.rc -> YADFOTSplash.RES via brcc32). This is an ADDITIONAL resource
+// alongside the package's auto-generated {$R *.res}; the case-insensitive Windows
+// resolver matches the uppercase .RES brcc32 emits.
+{$R 'YADFOTSplash.res'}
+
+// Single source of truth for the plugin version string (shared with the CLI /
+// YADFSetup). Avoids the drift trap: one const, no stray literals.
+{$I YADF.Version.inc}
 
 type
   // IOTAMenuWizard adds a single item ("YADFOT: Format Current Buffer")
@@ -84,6 +97,16 @@ const
   WizardIDString  = 'YADFOT.FormatCurrentBuffer';
   WizardMenuText  = 'YADFOT: Format Current Buffer';
   WizardLongName  = 'YADFOT - YADF Open Tools';
+  // Splash / About-box copy. The version comes from YADF.Version.inc so there is
+  // exactly one source of truth across the CLI, YADFSetup, and this package.
+  SplashCaption   = 'YADFOT';
+  AboutLicense    = 'MIT';
+  AboutDescription =
+    'YADFOT -- YADF Open Tools.' + sLineBreak +
+    'Formats the current editor buffer with YADF (Yet Another Delphi Formatter).' +
+    sLineBreak +
+    'Tools menu: "YADFOT: Format Current Buffer"; shortcuts Ctrl+Shift+Alt+F (F profile) ' +
+    'and Ctrl+Shift+Alt+R (R profile). Settings: Tools > Options > Third Party > YADF.';
 
 // Indices returned by IOTAWizardServices.AddWizard and
 // IOTAKeyboardServices.AddKeyboardBinding. Both are kept so finalization
@@ -92,6 +115,16 @@ const
 var
   GKeyboardBindingIndex: Integer = -1;
   GWizardIndex         : Integer = -1;
+  // Splash / About-box state. GIconBmp is retained for the lifetime of the
+  // package because both the splash and the About entry reference its handle.
+  // GAboutIndex is the AddPluginInfo slot, handed back on teardown (-1 = none).
+  GIconBmp   : TBitmap = nil;
+  GAboutIndex: Integer = -1;
+
+// Forward-declared so the wizard's Destroyed (defined above the body) can call
+// the teardown; the full bodies live down by Register.
+procedure RegisterYadfotAbout; forward;
+procedure UnregisterYadfotAbout; forward;
 
 // --- Options loading ----------------------------------------------------
 
@@ -495,7 +528,10 @@ begin
   // dropped -- the primary hook that strips the options page so no IDE list
   // keeps a dangling interface into our vanishing vtable. Idempotent; safe
   // alongside the YADFOT.Options finalization (which runs later in shutdown).
-  try UnregisterYADFOptions; except end;
+  try UnregisterYADFOptions;  except end;
+  // Strip the About-box entry + free the retained icon here too (primary hook,
+  // before the code segment is dropped); the finalization below is a backstop.
+  try UnregisterYadfotAbout;  except end;
 end;
 
 // --- IOTAKeyboardBinding (Ctrl+Shift+Alt+F) ----------------------------
@@ -541,6 +577,74 @@ begin
     nil);
 end;
 
+// --- Splash + About-box entry ------------------------------------------
+
+// Load the embedded SPLASH_ICON_1 into GIconBmp (once). Both the splash and the
+// About entry take the bitmap's HBITMAP handle, so the TBitmap is retained for
+// the package's lifetime and freed only in UnregisterYadfotAbout. No-op (leaves
+// GIconBmp nil) if the resource is missing, so a bitmap-less IDE still loads.
+procedure EnsureSplashBitmap;
+var
+  HIco: HICON;
+  Icon: TIcon;
+begin
+  if GIconBmp <> nil then Exit;
+  HIco:= LoadImage(HInstance, 'SPLASH_ICON_1', IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
+  if HIco = 0 then Exit;
+  Icon:= TIcon.Create;
+  try
+    Icon.Handle:= HIco;          // Icon owns HIco now; freed with Icon
+    GIconBmp:= TBitmap.Create;
+    GIconBmp.Assign(Icon);       // rasterise the icon into a bitmap
+  finally
+    Icon.Free;
+  end;
+end;
+
+// Register the IDE splash-screen bitmap and the static About-box entry. Called
+// from Register (i.e. during IDE startup), so it does NO work that could stall
+// startup -- no exe calls, just OTA registration with a static version string.
+// Each OTA step is guarded so a nil/absent service never aborts registration.
+// ForceDemandLoadState(dlDisable) makes the IDE load this package eagerly at
+// startup, which is required for the splash to paint (a demand-loaded package
+// would register too late to appear on the splash).
+procedure RegisterYadfotAbout;
+var
+  ABS: IOTAAboutBoxServices;
+begin
+  EnsureSplashBitmap;
+  // Splash bitmap (startup-only; not removable, which is fine).
+  try
+    if Assigned(SplashScreenServices) and Assigned(GIconBmp) then
+      SplashScreenServices.AddPluginBitmap(
+        SplashCaption, GIconBmp.Handle, False, AboutLicense, YADF_VERSION);
+  except
+    // A splash failure must never break package load.
+  end;
+  // About-box entry (static text; no live self-info in this build).
+  try
+    if Supports(BorlandIDEServices, IOTAAboutBoxServices, ABS) and Assigned(GIconBmp) then
+      GAboutIndex:= ABS.AddPluginInfo(
+        SplashCaption, AboutDescription, GIconBmp.Handle, False, AboutLicense, YADF_VERSION);
+  except
+  end;
+  // Eager-load so Register runs at startup (needed for the splash to paint).
+  try ForceDemandLoadState(dlDisable); except end;
+end;
+
+// Hand back the About-box entry and free the retained bitmap. Idempotent: the
+// GAboutIndex >= 0 guard makes a double call (Destroyed + finalization) safe.
+// Splash entries are startup-only and not removable -- that is expected.
+procedure UnregisterYadfotAbout;
+var
+  ABS: IOTAAboutBoxServices;
+begin
+  if Supports(BorlandIDEServices, IOTAAboutBoxServices, ABS) and (GAboutIndex >= 0) then
+    try ABS.RemovePluginInfo(GAboutIndex); except end;
+  GAboutIndex:= -1;
+  FreeAndNil(GIconBmp);
+end;
+
 // --- Register ----------------------------------------------------------
 
 // Register is the entry point the IDE invokes when the design-time
@@ -561,6 +665,9 @@ begin
   // Add the Tools > Options > Third Party > YADF page. Tolerate failure so a
   // missing options service never aborts the whole registration.
   try RegisterYADFOptions; except end;
+  // Add the IDE splash bitmap + the static About-box entry. Guarded so a
+  // missing splash/about service never aborts the whole registration.
+  try RegisterYadfotAbout; except end;
 end;
 
 initialization
@@ -574,5 +681,8 @@ finalization
     (BorlandIDEServices as IOTAWizardServices).RemoveWizard(GWizardIndex);
   if GKeyboardBindingIndex <> -1 then
     (BorlandIDEServices as IOTAKeyboardServices).RemoveKeyboardBinding(GKeyboardBindingIndex);
+  // Backstop for the About-box entry + retained icon (primary hook is the
+  // wizard's Destroyed above). Idempotent via the GAboutIndex >= 0 guard.
+  try UnregisterYadfotAbout; except end;
 
 end.

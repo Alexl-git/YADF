@@ -153,6 +153,14 @@ A third entry point configures the formatter rather than running it:
    - The page is added when the package loads and removed when you uncheck
      YADFOT in *Component → Install Packages*.
 
+Since 1.0.10, YADFOT also paints a **splash-screen entry** (the YADF icon +
+`YADFOT (MIT) <version>`) while the IDE starts up, and registers a **plugin
+entry in the About dialog**. To see the About entry, open *Help → About
+Embarcadero RAD Studio* and scroll to the **YADFOT** entry in the installed-
+plugins list — it shows the icon, MIT licence, version, and a short
+description. (It lives inside the IDE's own About dialog; there is intentionally
+no separate "About YADFOT" menu item.)
+
 The shortcut is registered as a Delphi keyboard binding named
 `YADFOT`. If the chord clashes with something on your machine you
 can rebind it under `Tools → Options → User Interface → Editor →
