@@ -5,9 +5,9 @@
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
-        <Platform Condition="'$(Platform)'==''">Win32</Platform>
+        <Platform Condition="'$(Platform)'==''">Win64</Platform>
         <ProjectName Condition="'$(ProjectName)'==''">YADFOT</ProjectName>
-        <TargetedPlatforms>1</TargetedPlatforms>
+        <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Package</AppType>
         <MainSource>YADFOT.dpk</MainSource>
     </PropertyGroup>
@@ -48,7 +48,13 @@
     <PropertyGroup Condition="'$(Base)'!=''">
         <DCC_UnitSearchPath>..\DelphiAST\Source;..\DelphiAST\Source\SimpleParser;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_DcuOutput>.\$(Platform)\$(Config)\DCU</DCC_DcuOutput>
-        <DCC_DcpOutput>$(BDSCOMMONDIR)\Dcp</DCC_DcpOutput>
+        <!-- Emit the .dcp into the project tree, platform-split (like the DCU/BPL
+             outputs), NOT the shared $(BDSCOMMONDIR)\Dcp. The shared folder is
+             (a) flat for Win32 but split for Win64 on this box, and (b) under
+             OneDrive-redirected Public Documents, so a Win64 build to the shared
+             path hit E2042/F2039 write errors. A per-project path is
+             self-contained and cannot collide across platforms. -->
+        <DCC_DcpOutput>.\$(Platform)\$(Config)\DCP</DCC_DcpOutput>
         <DCC_BplOutput>.\$(Platform)\$(Config)\EXE</DCC_BplOutput>
         <DCC_ExeOutput>.\$(Platform)\$(Config)\EXE</DCC_ExeOutput>
         <DCC_E>false</DCC_E>
@@ -156,7 +162,7 @@
             </Delphi.Personality>
             <Platforms>
                 <Platform value="Win32">True</Platform>
-                <Platform value="Win64">False</Platform>
+                <Platform value="Win64">True</Platform>
                 <Platform value="Win64x">False</Platform>
             </Platforms>
         </BorlandProject>

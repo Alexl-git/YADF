@@ -94,15 +94,22 @@ preview — they're saved for `YADF.exe` to use.
 
 ## YADFOT install
 
-YADFOT is a design-time, Win32-only Delphi IDE package. The IDE itself
-is 32-bit, so the BPL must be Win32 even on a 64-bit machine.
+YADFOT is a design-time Delphi IDE package, built for **both Win32 and Win64**
+(since 1.0.11). Install the BPL that matches your IDE's architecture:
+
+- **RAD Studio 12+ / Delphi 13** — the IDE is a **64-bit** application, so use
+  **`YADFOT-Win64.bpl`** (from `Win64\Release\EXE\YADFOT.bpl`).
+- **Older 32-bit IDEs** — use **`YADFOT-Win32.bpl`**
+  (from `Win32\Release\EXE\YADFOT.bpl`).
+
+The release zip ships both, renamed `YADFOT-Win32.bpl` / `YADFOT-Win64.bpl`.
 
 ### From the IDE
 
 1. Open `YADFOT.dproj` in Delphi 13.
-2. Active platform: **Win32**, configuration **Release** (Debug works too).
-3. Project → Build YADFOT. The output is `Win32\Release\EXE\YADFOT.bpl`,
-   right next to where `YADF.exe` lands.
+2. Active platform: **Win64** (for the 64-bit IDE) or **Win32**; configuration
+   **Release** (Debug works too).
+3. Project → Build YADFOT. The output is `<Platform>\Release\EXE\YADFOT.bpl`.
 4. Component → Install Packages → Add… → browse to that `YADFOT.bpl` → OK.
 
 The wizard registers itself on package load -- no IDE restart needed.

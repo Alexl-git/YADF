@@ -8,6 +8,34 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.11.0] -- 2026-07-14
+
+### Added
+
+- **64-bit YADFOT IDE package.** `YADFOT.bpl` is now built for **Win64** as well
+  as Win32, so it can be installed into the 64-bit RAD Studio IDE (RAD Studio has
+  been a 64-bit application since Delphi 12). The release now ships **both**
+  `YADFOT-Win32.bpl` and `YADFOT-Win64.bpl`; install the one matching your IDE
+  (Win64 for a stock Delphi 13 install). `build_all.bat` builds both.
+
+### Fixed
+
+- **YADFOT Win64 build (`.dcp` write error).** Building the package for Win64
+  failed with `E2042 Write error on ...YADFOT.dcp` / `F2039 Could not create
+  output file`, because the project wrote its compiled-package `.dcp` to the
+  shared `$(BDSCOMMONDIR)\Dcp` folder with no `$(Platform)` split (and that
+  folder is under OneDrive-redirected Public Documents on some setups). The
+  `.dcp` output now goes to the project tree, platform-split
+  (`.\<Platform>\<Config>\DCP`), like the DCU/BPL outputs -- self-contained and
+  collision-free across platforms. Win32 is unaffected.
+
+### Engine
+
+- No change to formatting output or to any source code -- this release only adds
+  the Win64 package target and fixes its build output path. The engine is
+  byte-identical to 1.0.10.0 (golden-format net: 79/79 files unchanged). All
+  artifacts rebuilt at 1.0.11.0.
+
 ## [1.0.10.0] -- 2026-07-10
 
 ### Added
