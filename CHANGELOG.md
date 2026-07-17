@@ -27,6 +27,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Single test entry point (`Test\run_tests.ps1`).** Runs every
+  `Test\test_*.ps1`, prints a summary table (status + seconds per script),
+  and returns an aggregate exit code. Warns when `YADF.exe` is older than
+  any engine source (the stale-build trap). `OptionsTest` gains a wrapper
+  (`test_options.ps1`); both console-test wrappers exit 2 = skip when their
+  exe is not built.
+- **Golden harness hardening.** The golden run now also verifies corpus-wide
+  IDEMPOTENCY (`format(format(x)) == format(x)` for all 79 fixtures), flags
+  orphaned goldens whose fixture was renamed/deleted, and skips cleanly
+  (exit 2) when the exe is missing.
 - **Content-preservation safety net (`YADF.Guard`).** `FormatSource` now
   re-lexes its own output and verifies that all user content survived the
   format: string literals byte-exact and in order, comments unaltered and in

@@ -34,9 +34,18 @@ $testIni = Join-Path $PSScriptRoot '..\yadf.ini'
 # anon_proc_split.pas out is fixed, so it is a normal byte-golden again.)
 $exclude = @()
 
+if (-not (Test-Path $exe)) { Write-Output "golden_format: SKIP (no exe at $exe -- build YADF.dproj Debug Win64)"; exit 2 }
 if (-not (Test-Path $goldDir)) { New-Item -ItemType Directory -Path $goldDir | Out-Null }
 $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRoot 'Snippets') -Filter *.pas -Recurse |
          Where-Object { $exclude -notcontains $_.Name }
+
+function SameBytes([string]$p1, [string]$p2) {
+  $a = [IO.File]::ReadAllBytes($p1)
+  $b = [IO.File]::ReadAllBytes($p2)
+  if ($a.Length -ne $b.Length) { return $false }
+  for ($k = 0; $k -lt $a.Length; $k++) { if ($a[$k] -ne $b[$k]) { return $false } }
+  return $true
+}
 
 $fail = 0
 foreach ($f in $files) {
@@ -46,16 +55,28 @@ foreach ($f in $files) {
   }
   else {
     if (-not (Test-Path $gold)) { $script:fail++; Write-Output "FAIL [missing golden]: $($f.Name) (run -Capture)"; continue }
-    $tmp = Join-Path $env:TEMP ("gold_" + $f.Name + ".out")
+    $tmp  = Join-Path $env:TEMP ("gold_" + $f.Name + ".out")
+    $tmp2 = Join-Path $env:TEMP ("gold_" + $f.Name + ".out2")
     & $exe $f.FullName --ini $testIni --o $tmp | Out-Null
-    $a = [IO.File]::ReadAllBytes($gold)
-    $b = [IO.File]::ReadAllBytes($tmp)
-    $same = ($a.Length -eq $b.Length)
-    if ($same) { for ($k=0; $k -lt $a.Length; $k++) { if ($a[$k] -ne $b[$k]) { $same = $false; break } } }
-    if (-not $same) { $script:fail++; Write-Output "FAIL [changed]: $($f.Name)" }
+    if (-not (SameBytes $gold $tmp)) { $script:fail++; Write-Output "FAIL [changed]: $($f.Name)" }
+    # Corpus-wide idempotency: formatting the formatted output must be a
+    # fixed point. format(format(x)) != format(x) means some pass keeps
+    # rewriting its own output -- a non-idempotency bug even when the first
+    # output matches the golden.
+    & $exe $tmp --ini $testIni --o $tmp2 | Out-Null
+    if (-not (SameBytes $tmp $tmp2)) { $script:fail++; Write-Output "FAIL [not idempotent]: $($f.Name)" }
+    Remove-Item $tmp, $tmp2 -Force -ErrorAction SilentlyContinue
   }
 }
 
+# Orphaned goldens: a golden whose fixture was renamed/deleted silently stops
+# guarding anything -- flag it so the corpus stays honest.
+if (-not $Capture) {
+  $caseNames = $files | ForEach-Object { $_.Name + '.golden' }
+  Get-ChildItem $goldDir -Filter *.golden | Where-Object { $caseNames -notcontains $_.Name } |
+    ForEach-Object { $script:fail++; Write-Output "FAIL [orphaned golden]: $($_.Name) (no matching fixture)" }
+}
+
 if ($Capture) { Write-Output ("golden_format: captured {0} files" -f $files.Count); exit 0 }
-if ($fail -eq 0) { Write-Output ("golden_format: PASS ({0} files unchanged)" -f $files.Count); exit 0 }
-else { Write-Output "golden_format: $fail FILE(S) CHANGED"; exit 1 }
+if ($fail -eq 0) { Write-Output ("golden_format: PASS ({0} files unchanged + idempotent)" -f $files.Count); exit 0 }
+else { Write-Output "golden_format: $fail FAILURE(S)"; exit 1 }
