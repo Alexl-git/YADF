@@ -45,13 +45,16 @@ type
   /// of the ready-made SetupPersistPolicy / IdePersistPolicy constants to the
   /// frame's Policy property right after Create (default: both False -- the
   /// frame is inert until told otherwise).</summary>
-  /// <remarks>AutoSave: write the edited profile INI on every option change
-  /// (YADFSetup model; no OK/Cancel). MirrorF: whenever the F profile's values
-  /// are persisted (autosave, profile switch, or Commit), best-effort copy the
-  /// file onto the standard %APPDATA%\YADF\yadf.ini so the F shortcut / CLI
-  /// default stay in sync even when F points at a custom-named file. Both
-  /// shipping hosts set MirrorF=True -- the two UIs must never disagree about
-  /// what yadf.ini holds.</remarks>
+  /// <remarks>AutoSave: persist the edited profile INI on every option change
+  /// (YADFSetup model; no OK/Cancel), debounced onto the preview timer so
+  /// per-keystroke spin-edit transients never hit the disk. MirrorF: when the
+  /// F profile's values are persisted, best-effort copy the file onto the
+  /// standard %APPDATA%\YADF\yadf.ini so the F shortcut / CLI default stay in
+  /// sync even when F points at a custom-named file; under a commit-on-OK
+  /// policy the mirror runs only on Commit (a profile-row click must not
+  /// propagate edits Cancel cannot undo), and it never overwrites a file that
+  /// is itself assigned as the R profile. Both shipping hosts set
+  /// MirrorF=True -- the two UIs must never disagree about yadf.ini.</remarks>
   TYadfOptionsPersistPolicy = record
     AutoSave: Boolean;
     MirrorF : Boolean;
@@ -79,6 +82,8 @@ type
     FOpts       : TYadfOptions;
     FPolicy     : TYadfOptionsPersistPolicy;
     FOnIniStatus: TYadfIniStatusEvent;
+    FPendingSave    : Boolean;    // a debounced autosave is queued on the timer
+    FPendingReformat: Boolean;    // a debounced preview refresh is queued
     FScroll     : TScrollBox;
     FControls   : array of TControl;  // index-aligned to OptionTable
     FUpdating   : Boolean;            // True while pushing FOpts -> controls;
@@ -124,7 +129,14 @@ type
     procedure UnassignClick(Sender: TObject);
     procedure NewProfileClick(Sender: TObject);
   public
+    /// <summary>Builds the complete control tree in code -- profiles panel,
+    /// option grid host, splitter, preview panes, debounce timer; the .dfm
+    /// resource supplies only the bare streamable root. Host call sequence:
+    /// Create -> Policy := ... -> [OnIniStatus := ...] -> Load.</summary>
     constructor Create(AOwner: TComponent); override;
+    /// <summary>Flushes a still-pending debounced autosave so closing the
+    /// host right after an option click cannot lose the edit.</summary>
+    destructor Destroy; override;
     /// <summary>Start editing the F profile (the file the F shortcut, the CLI
     /// default and YADFSetup all resolve): read it into FOpts, populate the
     /// controls and the profiles list, load a sample and render the first
@@ -219,6 +231,21 @@ begin
 
   BuildControls;
   BuildPreview;
+end;
+
+destructor TYadfOptionsFrame.Destroy;
+begin
+  // A debounced autosave may still be queued; FOpts already holds the edited
+  // values (ControlsToOptions ran at change time), so flushing here touches
+  // no child controls. Drop the status sink first -- the host's label may be
+  // mid-destruction.
+  FOnIniStatus:= nil;
+  if FPendingSave then
+  begin
+    FPendingSave:= False;
+    SaveCurrentProfile;
+  end;
+  inherited;
 end;
 
 procedure TYadfOptionsFrame.BuildProfilePanel(AHost: TWinControl);
@@ -550,6 +577,14 @@ begin
                       TPath.GetFullPath(ResolveProfileIniPath(FProfiles.F))) then
     Exit;   // editing a non-F profile -> nothing to mirror
   Shared:= SharedAppDataIniPath;
+  // Never clobber ANOTHER profile: with F pointing at a custom file and R
+  // assigned to yadf.ini itself, mirroring F onto the standard file would
+  // silently overwrite R's saved values. The R shortcut reads that file
+  // directly, so it must win over the convenience mirror.
+  if (FProfiles.R <> '') and
+     SameFileName(TPath.GetFullPath(Shared),
+                  TPath.GetFullPath(ResolveProfileIniPath(FProfiles.R))) then
+    Exit;
   if not SameFileName(TPath.GetFullPath(FCurrentIni), TPath.GetFullPath(Shared)) then
     try
       TFile.Copy(FCurrentIni, Shared, True);
@@ -582,17 +617,25 @@ var
 begin
   // A control changed. Ignore programmatic population (OptionsToControls sets
   // FUpdating), otherwise each of ~40 writes would pull+reformat. Pull the
-  // live control values into FOpts, persist if the policy autosaves, and
-  // refresh the preview (debounced) -- unless the changed option cannot alter
-  // the preview (AffectsPreview=False -> output would be byte-identical).
+  // live control values into FOpts and queue the DEBOUNCED work: the autosave
+  // (if the policy autosaves) and the preview refresh -- unless the changed
+  // option cannot alter the preview (AffectsPreview=False). Debouncing the
+  // save matters twice over: a TSpinEdit fires OnChange per keystroke, so an
+  // immediate save would persist the transient mid-edit value (deleting "180"
+  // to type "120" briefly reads 0 -> MaxLen=0 on disk) AND write+mirror the
+  // INI three times for one number.
   if FUpdating then Exit;
   ControlsToOptions;
-  if FPolicy.AutoSave then SaveCurrentProfile;
+  if FPolicy.AutoSave then FPendingSave:= True;
   T  := OptionTable;
   idx:= TControl(Sender).Tag;
-  if (idx >= 0) and (idx <= High(T)) and not T[idx].AffectsPreview then Exit;
-  FReformatTmr.Enabled:= False;   // debounce
-  FReformatTmr.Enabled:= True;
+  if not ((idx >= 0) and (idx <= High(T)) and not T[idx].AffectsPreview) then
+    FPendingReformat:= True;
+  if FPendingSave or FPendingReformat then
+  begin
+    FReformatTmr.Enabled:= False;   // debounce
+    FReformatTmr.Enabled:= True;
+  end;
 end;
 
 procedure TYadfOptionsFrame.Commit;
@@ -601,11 +644,19 @@ begin
   // fresh so any field NOT surfaced as a control survives, apply this frame's
   // controls, and write it back through the shared OptionTable serializer
   // (comments in the template are preserved). Then mirror per policy.
-  FOpts:= LoadOptionsFromIni(FCurrentIni);
-  ControlsToOptions;
-  SaveOptionsToIni(FOpts, FCurrentIni);
-  MirrorFProfile;
-  DoIniStatus('  (saved)');
+  // GUARDED: Commit is invoked from the IDE's OTA DialogClosed callback -- a
+  // read-only/locked profile file must report via the status sink, never
+  // raise into the IDE's dialog dispatch.
+  try
+    FOpts:= LoadOptionsFromIni(FCurrentIni);
+    ControlsToOptions;
+    SaveOptionsToIni(FOpts, FCurrentIni);
+    MirrorFProfile;
+    DoIniStatus('  (saved)');
+  except
+    on E: Exception do
+      DoIniStatus('  (save failed: ' + E.Message + ')');
+  end;
 end;
 
 procedure TYadfOptionsFrame.LoadOptionsFromFile(const APath: string);
@@ -688,14 +739,33 @@ begin
   // values first so clicking another row never silently discards edits: under
   // AutoSave this rewrites the bytes already on disk (harmless); under the
   // OK-commit policy it is the documented profile-actions-are-live semantic.
+  // The yadf.ini MIRROR however runs here only under AutoSave: on the IDE page
+  // (commit-on-OK) the standard file must change on OK alone -- mirroring on a
+  // mere row click would propagate edits that Cancel then cannot undo.
+  // I/O is guarded: this runs inside a VCL OnClick (in the IDE process for
+  // the options page) and a locked profile file must not raise into it.
   Path:= ResolveProfileIniPath(AIniFile);
   if (Path = '') or SameFileName(Path, FCurrentIni) then Exit;
   ControlsToOptions;
-  SaveOptionsToIni(FOpts, FCurrentIni);   // flush current profile before leaving
-  MirrorFProfile;                         // keep yadf.ini in sync if it was F
+  try
+    SaveOptionsToIni(FOpts, FCurrentIni);   // flush current profile before leaving
+    FPendingSave:= False;                   // queued autosave now redundant
+    if FPolicy.AutoSave then MirrorFProfile;
+  except
+    on E: Exception do
+      DoIniStatus('  (save failed: ' + E.Message + ')');
+  end;
   FCurrentIni:= Path;
   EnsureIniExists(FCurrentIni);
-  FOpts:= LoadOptionsFromIni(FCurrentIni);
+  try
+    FOpts:= LoadOptionsFromIni(FCurrentIni);
+  except
+    on E: Exception do
+    begin
+      FOpts:= DefaultOptions;
+      DoIniStatus('  (load failed: ' + E.Message + ' -- showing defaults)');
+    end;
+  end;
   OptionsToControls;
   FEditingLbl.Caption:= 'Editing: ' + ExtractFileName(FCurrentIni);
   DoIniStatus('');
@@ -820,14 +890,27 @@ end;
 
 procedure TYadfOptionsFrame.SourceChanged(Sender: TObject);
 begin
+  FPendingReformat:= True;
   FReformatTmr.Enabled:= False;   // debounce
   FReformatTmr.Enabled:= True;
 end;
 
 procedure TYadfOptionsFrame.ReformatTimer(Sender: TObject);
 begin
+  // The single debounce tick runs whatever was queued: the autosave first
+  // (so a save error shows in the status line even when no reformat is due),
+  // then the preview refresh.
   FReformatTmr.Enabled:= False;
-  Reformat;
+  if FPendingSave then
+  begin
+    FPendingSave:= False;
+    SaveCurrentProfile;
+  end;
+  if FPendingReformat then
+  begin
+    FPendingReformat:= False;
+    Reformat;
+  end;
 end;
 
 procedure TYadfOptionsFrame.OpenSourceClick(Sender: TObject);
@@ -890,12 +973,23 @@ procedure TYadfOptionsFrame.Load;
 begin
   // Start editing the F profile (the file YADFSetup + the F shortcut + the CLI
   // default all resolve). Then populate the profiles list so the user can see
-  // F/R and switch to any other profile.
+  // F/R and switch to any other profile. GUARDED: Load runs from the IDE's
+  // OTA FrameCreated callback; unreadable profile files fall back to the
+  // compiled defaults (reported via the status sink) instead of raising into
+  // the IDE's options-dialog construction.
   FProfiles  := LoadProfiles;
   FCurrentIni:= ResolveProfileIniPath(FProfiles.F);
   if FCurrentIni = '' then FCurrentIni:= SharedAppDataIniPath;
   EnsureIniExists(FCurrentIni);
-  FOpts:= LoadOptionsFromIni(FCurrentIni);
+  try
+    FOpts:= LoadOptionsFromIni(FCurrentIni);
+  except
+    on E: Exception do
+    begin
+      FOpts:= DefaultOptions;
+      DoIniStatus('  (load failed: ' + E.Message + ' -- showing defaults)');
+    end;
+  end;
   OptionsToControls;    // FUpdating guards the ~40 OnChange fires here
   RefreshProfileList;   // list all profiles, badge F/R, select the current one
   LoadSample;           // populate the source memo

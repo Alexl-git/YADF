@@ -74,7 +74,14 @@ uses
   , YADF.Options
   ;
 
-function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
+// Format ASource per AOpts. The overload with ADeclineReason reports the
+// content guard's verdict: '' when the output was accepted, otherwise the
+// reason FormatSource DECLINED and returned the input unchanged (see
+// YADF.Guard) -- callers that talk to a user should surface it instead of
+// silently pretending the file was formatted.
+function FormatSource(const ASource: string; const AOpts: TYadfOptions): string; overload;
+function FormatSource(const ASource: string; const AOpts: TYadfOptions;
+  out ADeclineReason: string): string; overload;
 
 implementation
 
@@ -1011,7 +1018,7 @@ var
   i, k, Col   : Integer;
   Line        : string;
   Indent, Body, Names, TypePart, Tail: string;
-  ColonPos, SemiPos, CommentPos, FirstNonWs: Integer;
+  ColonPos, SemiPos, FirstNonWs: Integer;
   C           : Char;
   St          : TLineScanState;
   SkipLine    : Boolean;
@@ -1041,16 +1048,16 @@ begin
         SkipLine:= (St.Depth > 0) or St.InBlockComment;
 
         // One scan does double duty: it advances the cross-line tracker AND
-        // (for candidate lines) finds `:` / `;` at this line's top level plus
-        // any trailing `//` comment so it can be preserved.
-        ColonPos:= 0; SemiPos:= 0; CommentPos:= 0;
+        // (for candidate lines) finds `:` / `;` at this line's top level (the
+        // trailing-comment tail is taken from everything after the final `;`).
+        ColonPos:= 0; SemiPos:= 0;
         St.BeginLine;
         Col := 1;
         Done:= False;
         while not Done do
           case St.SkipNonCode(Line, Col) of
             seEndOfLine  : Done:= True;
-            seLineComment: begin CommentPos:= Col; Done:= True; end;
+            seLineComment: Done:= True;
             seCode:
               begin
                 C:= Line[Col];
@@ -1090,10 +1097,13 @@ begin
         begin
           Names:= Trim(Copy(Line, FirstNonWs, ColonPos - FirstNonWs));
           TypePart:= Trim(Copy(Line, ColonPos + 1, SemiPos - ColonPos - 1));
-          if CommentPos > 0 then
-            Tail:= Trim(Copy(Line, CommentPos, Length(Line) - CommentPos + 1))
-          else
-            Tail:= '';
+          // The TAIL is everything after the FINAL top-level `;`: a trailing
+          // `//`, `{...}` or `(*...*)` comment that must ride on the first
+          // split line. (Capturing only `//` tails dropped a brace comment,
+          // which tripped the content guard and silently declined the whole
+          // file.) Anything here can only be comments/whitespace -- real code
+          // after the `;` would have moved SemiPos or poisoned TypePart.
+          Tail:= Trim(Copy(Line, SemiPos + 1, Length(Line) - SemiPos));
 
           // Reject if `Names` is not a clean identifier-comma list. Each
           // comma-separated NAME, trimmed, must be a single bare identifier.
@@ -1137,6 +1147,10 @@ begin
             // (E2008). Never split these; NAMED types (TFoo, Integer) still do.
             if TypePartIsAnonymousStructured(TypePart) then DoSplit:= False;
           end;
+          // A block comment left OPEN at the end of the line continues on the
+          // next line; it cannot be re-attached to a single split line, so
+          // leave such lines alone.
+          if St.InBlockComment then DoSplit:= False;
           if HasComma and (TypePart <> '') and DoSplit then
           begin
             NameTokens:= Names.Split([','], TStringSplitOptions.ExcludeEmpty);
@@ -1872,6 +1886,10 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     if R[Length(R)] = ';' then Exit(True);
     if R[Length(R)] = '.' then Exit(True);
     if R[Length(R)] = '}' then Exit(True);
+    // A closed `(*...*)` tail comment ends the line exactly like a `}` tail
+    // does (the `*)` pair cannot occur in code outside a comment). Without
+    // this, `C, D: Integer; (* note *)` merged with the following line.
+    if (Length(R) >= 2) and (R[Length(R) - 1] = '*') and (R[Length(R)] = ')') then Exit(True);
     // A line ending in `:` is a case-arm (or goto) label. Keep its body on the
     // next line unless body-packing is on -- then a short arm collapses onto
     // the label. (`:=` ends in `=`, so it is not caught here.)
@@ -2585,6 +2603,20 @@ var
       StackPop;
   end;
 
+  // True when a `case` met at the current stack state is the VARIANT PART of
+  // a record/object declaration: the nearest non-section stack entry --
+  // probing past an open var/const/type section, which shares this stack
+  // (advanced records may declare `var A: Integer;` before the variant part)
+  // -- is a record/object block. Group-level twin: YADF.Groups.IsVariantPartCase.
+  function CaseIsVariantPart: Boolean;
+  var
+    k: Integer;
+  begin
+    k:= Stack.Count - 1;
+    while (k >= 0) and (Stack[k] in [ptType, ptVar, ptConst]) do Dec(k);
+    Result:= (k >= 0) and (Stack[k] in [ptRecord, ptObject]);
+  end;
+
   // True when token AIdx is the `class` of a class-static section header
   // `class var` / `class const` / `class type` -- i.e. `class` immediately
   // followed by a section keyword. Such a line starts a section, so it must
@@ -2827,10 +2859,14 @@ begin
               // block here made the record's end close the case instead,
               // leaving the record open and creeping every declaration after
               // it one level right (variant_record.pas fixture). The parens
-              // are not on this stack, so "top is record/object" identifies
-              // the variant part in both the direct and the nested position.
-              if not ((Stack.Count > 0) and
-                      (Stack[Stack.Count - 1] in [ptRecord, ptObject])) then
+              // are not on this stack, so probing past section entries down to
+              // a record/object identifies the variant part in the direct, the
+              // nested, and the after-a-var-section (advanced record) position.
+              // Like `end`, the variant part closes any open var/const/type
+              // section: the case line dedents back to the record level.
+              if CaseIsVariantPart then
+                CloseSectionIfOpen
+              else
                 StackPush(T.Kind);
               InVisibility:= False;
             end;
@@ -3839,6 +3875,17 @@ begin
         begin PendingAnon:= True; Inc(i); Continue; end;
         if Ki in [ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject] then
         begin
+          // `of object` (method-pointer type in an inline var) is a modifier,
+          // not a block opener -- same exclusion ParseGroups applies. Without
+          // it, `var P: procedure of object;` would push a dangling entry
+          // that both mis-pairs the next `end` and makes the variant-part
+          // guard below swallow a genuine `case` statement.
+          if Ki = ptObject then
+          begin
+            pv:= PrevSig(i - 1);
+            if (pv >= 0) and (ATokens[pv].Kind = ptOf) then
+            begin Inc(i); Continue; end;
+          end;
           // Variant-part `case` inside a local record/object declaration
           // shares the record's end -- pushing an entry for it would leave the
           // record's entry dangling and skew the anon accounting for the rest
@@ -4041,7 +4088,8 @@ end; // procedure
 //                  the label is computed at the moment we leave a
 //                  child group, but must appear AFTER the `end`
 //                  token text and BEFORE the next CRLF.
-function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
+function FormatSource(const ASource: string; const AOpts: TYadfOptions;
+  out ADeclineReason: string): string;
 var
   CurCol      : Integer;
   CurLine     : Integer;
@@ -4490,6 +4538,7 @@ var
 // FormatSource body: see the pipeline diagram in the unit header.
 // The code below is a literal rendering of those stages.
 begin
+  ADeclineReason:= '';
   Tokens:= LoadTokensFromString(ASource);
   MLMap := TStringList.Create;
   try
@@ -4599,10 +4648,13 @@ begin
         // Stage 6: content-preservation safety net (see YADF.Guard). If any
         // user content -- a string literal, a comment, a compiler directive --
         // was dropped or altered by the passes above, DECLINE to format and
-        // return the input unchanged. This converts any future corruption bug
-        // in the line passes into a harmless "file left as-is" instead of a
-        // shipped source-mangling edit.
-        if not FormatPreservesContent(ASource, Result) then
+        // return the input unchanged, reporting WHY via ADeclineReason. This
+        // converts any future corruption bug in the line passes into a
+        // harmless (and now visible) "file left as-is" instead of a shipped
+        // source-mangling edit. BreakCaseLabels legitimately duplicates arm
+        // bodies, so string duplication is tolerated exactly when it is on.
+        if not FormatPreservesContent(ASource, Result,
+                 AOpts.BreakCaseLabels, ADeclineReason) then
           Result:= ASource;
       finally
         Sb.Free;
@@ -4615,5 +4667,12 @@ begin
     MLMap.Free;
   end; // try
 end; // begin
+
+function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
+var
+  Reason: string;
+begin
+  Result:= FormatSource(ASource, AOpts, Reason);
+end;
 
 end.

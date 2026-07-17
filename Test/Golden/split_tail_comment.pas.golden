@@ -1,0 +1,21 @@
+unit split_tail_comment;
+
+interface
+
+procedure Go;
+
+implementation
+
+procedure Go;
+var
+  A: Integer; { shared counters }
+  B: Integer;
+  C: Integer; (* paren-star tail *)
+  D: Integer;
+  E: Integer; // line tail
+  F: Integer;
+begin
+  A:= 0; B:= A; C:= B; D:= C; E:= D; F:= E;
+end;
+
+end.

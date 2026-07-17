@@ -38,6 +38,33 @@ MustMatch    $on '(?m)^\s*6:\s*begin'    'on: label 6 split with begin body'
 MustNotMatch $on '0, 1, 2'               'on: no multi-label arm remains'
 MustMatch    $on '(?m)^\s*A: Integer;'   'on: var A still split'
 
+# ----- string literals in arm bodies: split must still work -----
+# BreakCaseLabels duplicates the arm body per label; the content guard
+# tolerates exactly that duplication (2026-07-17 review: it used to veto the
+# whole file, leaving --break-case silently inert on any arm with a string).
+$strSrc = Join-Path $env:TEMP 'bc_str.pas'
+@'
+unit bcstr;
+interface
+procedure Go(X: Integer);
+implementation
+procedure Go(X: Integer);
+begin
+  case X of
+    1, 2: Writeln('hello');
+    3: Writeln('three');
+  end;
+end;
+end.
+'@ | Set-Content $strSrc -Encoding ascii
+$strOut = Join-Path $env:TEMP 'bc_str_out.pas'
+& $exe --ini $ini $strSrc --break-case --o $strOut | Out-Null
+$so = Get-Content $strOut -Raw
+MustMatch    $so "(?m)^\s*1: Writeln\('hello'\);" 'string-body: label 1 split with body'
+MustMatch    $so "(?m)^\s*2: Writeln\('hello'\);" 'string-body: label 2 split with body'
+MustNotMatch $so '1, 2'                           'string-body: no multi-label arm remains'
+Remove-Item $strSrc, $strOut -Force -ErrorAction SilentlyContinue
+
 # ----- idempotency + byte-faithful round-trip for both modes -----
 foreach ($flag in @('--no-break-case','--break-case')) {
   $o1 = Join-Path $env:TEMP "bc1.pas"; $o2 = Join-Path $env:TEMP "bc2.pas"

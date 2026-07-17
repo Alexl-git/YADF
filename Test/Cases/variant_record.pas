@@ -29,6 +29,18 @@ type
         1: (B1: Word););
   end;
 
+  TAdvanced = record
+    var
+      Count: Integer;
+    case Roomy: Boolean of
+      True: (Big: Int64);
+      False: (Small: Byte);
+  end;
+
+  TAfterAdvanced = record
+    X: Integer;
+  end;
+
 implementation
 
 end.

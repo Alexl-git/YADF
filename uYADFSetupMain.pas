@@ -3,9 +3,8 @@ unit uYADFSetupMain;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, System.Variants,
-  System.UITypes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
+  Winapi.Windows, System.SysUtils, System.Classes, System.UITypes,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
   YADF.OptionsFrame;
 
 type
@@ -72,7 +71,7 @@ begin
   FFrame := TYadfOptionsFrame.Create(Self);
   FFrame.Parent := Self;
   FFrame.Align  := alClient;
-  FFrame.Policy := SetupPersistPolicy;   // autosave; no yadf.ini mirroring
+  FFrame.Policy := SetupPersistPolicy;   // autosave + F -> yadf.ini mirror
   FFrame.OnIniStatus := HandleIniStatus;
   FFrame.Load;
 end;

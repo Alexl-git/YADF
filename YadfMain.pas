@@ -245,22 +245,13 @@ begin
   LogMsg('    UsesAlwaysBreak = ' + BoolStr(AOpts.UsesAlwaysBreak));
 end; // begin
 
-function ResolveEncoding(const AOpts: TYadfOptions): TEncoding;
-begin
-  case AOpts.Encoding of
-    encUTF8BOM : Result:= TEncoding.UTF8   ;
-    encUTF16BOM: Result:= TEncoding.Unicode;
-    else
-      Result:= TEncoding.ANSI;
-  end;
-end;
-
-// Read AFileName honouring its BOM; without a BOM, sniff BOM-less UTF-8 before
-// falling back to the option encoding (blind ANSI mojibakes real UTF-8 files
-// on rewrite). AWriteEnc/AWriteBOM say how the file should be written BACK:
-// Encoding=ANSI (the default) means "ANSI, or preserve what was detected" --
-// the file keeps its own encoding and BOM-ness; an explicit utf8/utf16 setting
-// is a conversion request and wins over detection.
+// Read AFileName by DETECTING its encoding (shared DetectSourceEncoding: BOM,
+// else BOM-less multi-byte UTF-8, else ANSI) -- detection is independent of
+// the options, so a conversion request can never decode the file wrongly.
+// AWriteEnc/AWriteBOM say how the file should be written BACK: Encoding=ANSI
+// (the default) means "ANSI, or preserve what was detected" -- the file keeps
+// its own encoding and BOM-ness; an explicit utf8/utf16 setting is a
+// conversion request applied at WRITE time only (+BOM).
 function LoadFile(const AFileName: string; const AOpts: TYadfOptions;
   out AWriteEnc: TEncoding; out AWriteBOM: Boolean): string; overload;
 var
@@ -269,10 +260,7 @@ var
   PreLen  : Integer;
 begin
   Bytes:= TFile.ReadAllBytes(AFileName);
-  Detected:= nil;
-  PreLen:= TEncoding.GetBufferEncoding(Bytes, Detected, ResolveEncoding(AOpts));
-  if (PreLen = 0) and (AOpts.Encoding = encANSI) and LooksLikeUtf8(Bytes) then
-    Detected:= TEncoding.UTF8;   // BOM-less UTF-8: the ANSI fallback would mojibake
+  DetectSourceEncoding(Bytes, Detected, PreLen);
   Result:= Detected.GetString(Bytes, PreLen, Length(Bytes) - PreLen);
   if AOpts.Encoding = encANSI then
   begin
@@ -281,7 +269,7 @@ begin
   end
   else
   begin
-    AWriteEnc:= ResolveEncoding(AOpts);   // explicit conversion (+BOM)
+    AWriteEnc:= EncodingOf(AOpts.Encoding);   // explicit conversion (+BOM)
     AWriteBOM:= True;
   end;
 end;
@@ -400,25 +388,34 @@ end;
 
 procedure FormatToStdout(const AFileName: string; const AOpts: TYadfOptions);
 var
-  Source: string;
+  Source  : string;
+  Declined: string;
 begin
   Source:= LoadFile(AFileName, AOpts);
-  WriteStdoutRaw(FormatSource(Source, AOpts));
+  WriteStdoutRaw(FormatSource(Source, AOpts, Declined));
+  // stdout carries the (unchanged) source; the decline note goes to stderr so
+  // pipelines still work while the user learns the file was left as-is.
+  if Declined <> '' then
+    Writeln(ErrOutput, 'declined ' + AFileName + ' (content guard: ' + Declined + ') -- output is the unchanged input');
 end;
 
 procedure FormatToFile(const AInFile, AOutFile: string; const AOpts: TYadfOptions);
 var
-  Dir   : string;
-  Source: string;
-  WEnc  : TEncoding;
-  WBom  : Boolean;
+  Dir     : string;
+  Source  : string;
+  Declined: string;
+  WEnc    : TEncoding;
+  WBom    : Boolean;
 begin
   Source:= LoadFile(AInFile, AOpts, WEnc, WBom);
   Dir:= TPath.GetDirectoryName(AOutFile);
   if Dir <> '' then
     TDirectory.CreateDirectory(Dir);
-  SaveFile(AOutFile, FormatSource(Source, AOpts), WEnc, WBom);
-  WriteStdoutLine('wrote ' + AOutFile);
+  SaveFile(AOutFile, FormatSource(Source, AOpts, Declined), WEnc, WBom);
+  if Declined <> '' then
+    WriteStdoutLine('declined ' + AInFile + ' (content guard: ' + Declined + ') -- wrote the unchanged input')
+  else
+    WriteStdoutLine('wrote ' + AOutFile);
 end;
 
 function NextSiblingBackupName(const AFile: string): string;
@@ -486,14 +483,15 @@ end; // procedure
 
 procedure BatchFormat(const AInDir, AOutDir: string; const AOpts: TYadfOptions);
 var
-  Count  : Integer;
-  F      : string;
-  Files  : TArray<string>;
-  Out_   : string;
-  RelName: string;
-  Source : string;
-  WEnc   : TEncoding;
-  WBom   : Boolean;
+  Count   : Integer;
+  F       : string;
+  Files   : TArray<string>;
+  Out_    : string;
+  RelName : string;
+  Source  : string;
+  Declined: string;
+  WEnc    : TEncoding;
+  WBom    : Boolean;
 begin
   if not TDirectory.Exists(AInDir) then
   begin
@@ -509,8 +507,11 @@ begin
     Source:= LoadFile(F, AOpts, WEnc, WBom);
     RelName:= ExtractFileName(F);
     Out_:= TPath.Combine(AOutDir, RelName);
-    SaveFile(Out_, FormatSource(Source, AOpts), WEnc, WBom);
-    WriteStdoutLine(Format('wrote %s', [Out_]));
+    SaveFile(Out_, FormatSource(Source, AOpts, Declined), WEnc, WBom);
+    if Declined <> '' then
+      WriteStdoutLine(Format('declined %s (content guard: %s) -- wrote the unchanged input', [F, Declined]))
+    else
+      WriteStdoutLine(Format('wrote %s', [Out_]));
     Inc(Count);
   end;
   WriteStdoutLine(Format('--- %d file(s) formatted into %s ---', [Count, AOutDir]));
@@ -669,17 +670,28 @@ end; // function
 
 function ProcessOneFile(const AFile: string; const AOpts: TYadfOptions): Boolean;
 var
-  OutFile: string;
-  Output : string;
-  Source : string;
-  WEnc   : TEncoding;
-  WBom   : Boolean;
+  OutFile : string;
+  Output  : string;
+  Source  : string;
+  Declined: string;
+  WEnc    : TEncoding;
+  WBom    : Boolean;
 begin
   Result:= True;
   LogMsg('  ProcessOneFile: ' + AFile);
   try
     Source:= LoadFile    (AFile , AOpts, WEnc, WBom);
-    Output:= FormatSource(Source, AOpts);
+    Output:= FormatSource(Source, AOpts, Declined);
+    if Declined <> '' then
+    begin
+      // The content guard vetoed the output (see YADF.Guard): the file is
+      // left byte-identical. Say so -- a silent decline reads as "formatter
+      // mysteriously does nothing on this file" and masks the very bug the
+      // guard caught.
+      LogMsg('    DECLINED by content guard: ' + Declined);
+      WriteStdoutLine('declined ' + AFile + ' (content guard: ' + Declined + ') -- left unchanged');
+      Exit;
+    end;
     if Trim(AOpts.ResultDir) <> '' then
     begin
       if not TDirectory.Exists(AOpts.ResultDir) then
@@ -1202,6 +1214,11 @@ begin
         AOpts.CollapseShortBlocks:= False;
         Inc(i);
       end
+      else if AArgs[i] = '--ini' then
+        // ExtractIniPath already consumed every valid `--ini <path>` pair; a
+        // bare `--ini` reaching this parser means the value was forgotten --
+        // say that, instead of the misleading "unknown option --ini".
+        raise Exception.Create('--ini requires a path value')
       else if AArgs[i].StartsWith('--') and (AArgs[i] <> '--check') and
               (AArgs[i] <> '--check-dir') and (AArgs[i] <> '--batch') and
               (AArgs[i] <> '--debug-tree') then

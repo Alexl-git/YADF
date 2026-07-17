@@ -12,6 +12,42 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **Review sweep (2026-07-17, 10 verified findings from an 8-angle review of
+  the whole unreleased range):**
+  - *Guard declines are no longer silent.* `FormatSource` now reports WHY the
+    content guard vetoed an output; the CLI prints
+    `declined <file> (content guard: ...)` instead of a misleading
+    `wrote`/`unchanged`, and the reason names the first lost element.
+  - *Trailing `{ }` / `(* *)` comments on multi-var declarations survive the
+    split* (they rode only `//` before -- the dropped comment tripped the
+    guard and silently unformatted the whole file). A line ending in a closed
+    `(*...*)` comment also no longer gets merged with the next line by reflow.
+  - *`--break-case` works on arms containing string literals.* The guard now
+    tolerates the string duplication that splitting a multi-label arm
+    legitimately produces (only while BreakCaseLabels is on; loss/alteration
+    still declines, directives stay strict).
+  - *Advanced records: a `var`/`const` section before the variant part no
+    longer resurrects the rightward-creep bug* (the variant-part probe now
+    looks past open section keywords); the `--d10` scanner also no longer
+    mistakes `procedure of object` for a block opener.
+  - *Conversion decodes by detection.* `--encoding utf8/utf16` used the TARGET
+    encoding to decode BOM-less input, mangling legacy ANSI files (invalid
+    bytes became U+FFFD); the source is now detected first, then transcoded.
+    The wizard's on-disk path follows the same contract (it used to always
+    preserve, so IDE and CLI produced different bytes for identical settings).
+  - *IDE options page hardening:* `Commit`/`Load` guard their file I/O (a
+    read-only profile INI can no longer raise into the IDE's dialog
+    dispatch); a free-notification watcher prevents `Commit` running on a
+    frame the IDE already destroyed; clicking another profile row under the
+    commit-on-OK policy no longer mirrors uncommitted edits onto `yadf.ini`
+    (Cancel really cancels them now).
+  - *Autosave is debounced* in YADFSetup: a spin-edit's transient mid-typing
+    value (e.g. `MaxLen=0` while retyping `180`) is no longer persisted and
+    mirrored per keystroke.
+  - *The F -> yadf.ini mirror never overwrites another profile:* with F on a
+    custom file and R assigned to `yadf.ini` itself, mirroring would have
+    silently destroyed R's values.
+
 - **Variant records no longer creep the rest of the unit rightward.** The
   variant part of a record/object (`case Tag: T of` inside the declaration)
   has no `end` of its own, but all three block trackers (ParseGroups,

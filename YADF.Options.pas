@@ -96,6 +96,18 @@ function OptionTable: TArray<TOptInfo>;
 function ParseEncoding(const S: string; const ADefault: TYadfEncoding): TYadfEncoding;
 function EncodingToStr(const E: TYadfEncoding): string;
 
+// TYadfEncoding -> the TEncoding used to WRITE it (ANSI / UTF-8 / UTF-16 LE).
+function EncodingOf(const E: TYadfEncoding): TEncoding;
+
+// THE source-encoding detector, shared by the CLI and the wizard so both
+// hosts decode and re-encode the same file identically: BOM first (UTF-8,
+// UTF-16 LE, UTF-16 BE), then BOM-less content that validates as multi-byte
+// UTF-8 (LooksLikeUtf8), else ANSI. APreambleLen is the BOM length to skip on
+// read AND re-emit on write -- 0 for BOM-less files, so a detected BOM-less
+// UTF-8 file stays BOM-less when preserved.
+procedure DetectSourceEncoding(const ABytes: TBytes; out AEnc: TEncoding;
+  out APreambleLen: Integer);
+
 // Reads a textual boolean (1/0, true/false, yes/no, on/off; case-insensitive);
 // unrecognised values return ADefault. Delphi's TIniFile.ReadBool only honours
 // numeric 0/1, but yadf.ini ships textual booleans.
@@ -274,6 +286,44 @@ begin
   Result.EnumValues := AEnumValues;
   Result.GetVal := AGet;
   Result.SetVal := ASet;
+end;
+
+function EncodingOf(const E: TYadfEncoding): TEncoding;
+begin
+  case E of
+    encUTF8BOM : Result:= TEncoding.UTF8   ;
+    encUTF16BOM: Result:= TEncoding.Unicode;
+  else
+    Result:= TEncoding.ANSI;
+  end;
+end;
+
+procedure DetectSourceEncoding(const ABytes: TBytes; out AEnc: TEncoding;
+  out APreambleLen: Integer);
+begin
+  if (Length(ABytes) >= 3) and (ABytes[0] = $EF) and (ABytes[1] = $BB) and (ABytes[2] = $BF) then
+  begin
+    AEnc:= TEncoding.UTF8;
+    APreambleLen:= 3;
+  end
+  else if (Length(ABytes) >= 2) and (ABytes[0] = $FF) and (ABytes[1] = $FE) then
+  begin
+    AEnc:= TEncoding.Unicode;
+    APreambleLen:= 2;
+  end
+  else if (Length(ABytes) >= 2) and (ABytes[0] = $FE) and (ABytes[1] = $FF) then
+  begin
+    AEnc:= TEncoding.BigEndianUnicode;
+    APreambleLen:= 2;
+  end
+  else
+  begin
+    if LooksLikeUtf8(ABytes) then
+      AEnc:= TEncoding.UTF8
+    else
+      AEnc:= TEncoding.ANSI;
+    APreambleLen:= 0;
+  end;
 end;
 
 function ReadIntIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: Integer): Integer;

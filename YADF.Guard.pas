@@ -44,13 +44,31 @@ interface
 /// AOriginal (decline to format rather than corrupt).</returns>
 /// <remarks>Pure and thread-safe; lexes both inputs once. If lexing the inputs
 /// raises, the guard fails CLOSED (returns False).</remarks>
-function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean;
+function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; overload;
+
+/// <summary>Extended check used by FormatSource. AAllowStringDuplication
+/// relaxes the string comparison from exact-sequence to ordered-subsequence:
+/// BreakCaseLabels legitimately DUPLICATES a case-arm body (one copy per
+/// label), string literals included, so with that option on the original
+/// string sequence need only survive IN ORDER inside the formatted one --
+/// a lost or altered literal still fails. AReason receives '' on success or
+/// a short human-readable cause on failure (which stream diverged + a
+/// preview of the first unpreserved element), so callers can REPORT a
+/// decline instead of silently returning the input.</summary>
+/// <param name="AOriginal">Source text before formatting.</param>
+/// <param name="AFormatted">Candidate formatter output to validate.</param>
+/// <param name="AAllowStringDuplication">True when the active options may
+/// legitimately duplicate statements (BreakCaseLabels).</param>
+/// <param name="AReason">'' when preserved; otherwise the decline cause.</param>
+/// <returns>True when the content is fully preserved.</returns>
+/// <remarks>Same purity/fail-closed contract as the two-argument overload.</remarks>
+function FormatPreservesContent(const AOriginal, AFormatted: string;
+  AAllowStringDuplication: Boolean; out AReason: string): Boolean; overload;
 
 implementation
 
 uses
   System.SysUtils
-  , System.Classes
   , System.Generics.Collections
   , SimpleParser.Lexer.Types
   , YADF.Tokens
@@ -148,12 +166,37 @@ begin
   Result:= ia = A.Count;
 end;
 
-function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean;
+// First element of A not matched in B by the ordered-subsequence walk
+// ('' when every element matched) -- the preview for the decline reason.
+function FirstUnmatched(const A, B: TList<string>): string;
+var
+  ia, ib: Integer;
+begin
+  ia:= 0;
+  ib:= 0;
+  while (ia < A.Count) and (ib < B.Count) do
+  begin
+    if A[ia] = B[ib] then Inc(ia);
+    Inc(ib);
+  end;
+  if ia < A.Count then
+  begin
+    Result:= A[ia];
+    if Length(Result) > 40 then Result:= Copy(Result, 1, 40) + '...';
+  end
+  else
+    Result:= '';
+end;
+
+function FormatPreservesContent(const AOriginal, AFormatted: string;
+  AAllowStringDuplication: Boolean; out AReason: string): Boolean;
 var
   OrigStr, FmtStr  : TList<string>;
   OrigCom, FmtCom  : TList<string>;
   OrigDir, FmtDir  : TList<string>;
+  StrOk            : Boolean;
 begin
+  AReason:= '';
   OrigStr:= TList<string>.Create;  FmtStr:= TList<string>.Create;
   OrigCom:= TList<string>.Create;  FmtCom:= TList<string>.Create;
   OrigDir:= TList<string>.Create;  FmtDir:= TList<string>.Create;
@@ -161,11 +204,23 @@ begin
     try
       ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir);
       ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir );
-      Result:= SameSequence (OrigStr, FmtStr) and
-               SameSequence (OrigDir, FmtDir) and
-               IsSubsequence(OrigCom, FmtCom);
+      // Directives stay STRICT even under duplication-tolerant mode: a
+      // duplicated {$IFDEF}/{$ENDIF} inside a duplicated case arm would
+      // unbalance conditional compilation -- that must decline.
+      if AAllowStringDuplication then
+        StrOk:= IsSubsequence(OrigStr, FmtStr)
+      else
+        StrOk:= SameSequence(OrigStr, FmtStr);
+      if not StrOk then
+        AReason:= 'string literal lost or altered: ' + FirstUnmatched(OrigStr, FmtStr)
+      else if not SameSequence(OrigDir, FmtDir) then
+        AReason:= 'compiler directive lost, altered or duplicated: ' + FirstUnmatched(OrigDir, FmtDir)
+      else if not IsSubsequence(OrigCom, FmtCom) then
+        AReason:= 'comment lost or altered: ' + FirstUnmatched(OrigCom, FmtCom);
+      Result:= AReason = '';
     except
       // Cannot verify -> fail closed; the caller keeps the original text.
+      AReason:= 'content could not be verified (lexing failed)';
       Result:= False;
     end;
   finally
@@ -173,6 +228,13 @@ begin
     OrigCom.Free;  FmtCom.Free;
     OrigDir.Free;  FmtDir.Free;
   end;
+end;
+
+function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean;
+var
+  Reason: string;
+begin
+  Result:= FormatPreservesContent(AOriginal, AFormatted, False, Reason);
 end;
 
 end.

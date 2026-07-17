@@ -41,12 +41,28 @@ implementation
 
 uses
   System.SysUtils
+  , System.Classes
   , Vcl.Forms
   , ToolsAPI
   , YADF.OptionsFrame
   ;
 
 type
+  TYadfOptionsPage = class;
+
+  /// <summary>Free-notification sink for TYadfOptionsPage: the page is a
+  /// TInterfacedObject (cannot receive component notifications itself), yet it
+  /// holds a raw TYadfOptionsFrame reference the IDE owns and may destroy
+  /// WITHOUT calling DialogClosed (theme rebuild, teardown-order changes
+  /// across IDE versions). This sink registers FreeNotification on the frame
+  /// and clears the page's reference when the frame dies, so Commit can never
+  /// run on a freed frame.</summary>
+  TYadfFrameWatch = class(TComponent)
+  private
+    FPage: TYadfOptionsPage;
+  protected
+    procedure Notification(AComponent: TComponent; Operation: TOperation); override;
+  end;
   /// <summary>INTAAddInOptions page carrying the shared TYadfOptionsFrame.
   /// GetArea returns '' so the page lands under the "Third Party" branch; a
   /// dotted caption would nest sub-pages under a 'YADF' node. One instance per
@@ -61,9 +77,11 @@ type
   private
     FCaption   : string;
     FFrameClass: TCustomFrameClass;
-    FFrame     : TYadfOptionsFrame;
+    FFrame     : TYadfOptionsFrame;   // cleared by FWatch if the IDE frees the frame
+    FWatch     : TYadfFrameWatch;
   public
     constructor Create(const ACaption: string; AFrameClass: TCustomFrameClass);
+    destructor Destroy; override;
     { INTAAddInOptions }
     function  GetArea         : string;
     function  GetCaption      : string;
@@ -75,6 +93,15 @@ type
     function  IncludeInIDEInsight: Boolean;
   end;
 
+{ ==================== TYadfFrameWatch ==================== }
+
+procedure TYadfFrameWatch.Notification(AComponent: TComponent; Operation: TOperation);
+begin
+  inherited;
+  if (Operation = opRemove) and (FPage <> nil) and (AComponent = FPage.FFrame) then
+    FPage.FFrame:= nil;
+end;
+
 { ==================== TYadfOptionsPage ==================== }
 
 constructor TYadfOptionsPage.Create(const ACaption: string; AFrameClass: TCustomFrameClass);
@@ -82,6 +109,14 @@ begin
   inherited Create;
   FCaption   := ACaption;
   FFrameClass:= AFrameClass;
+  FWatch     := TYadfFrameWatch.Create(nil);
+  FWatch.FPage:= Self;
+end;
+
+destructor TYadfOptionsPage.Destroy;
+begin
+  FWatch.Free;
+  inherited;
 end;
 
 function TYadfOptionsPage.GetArea: string;
@@ -105,6 +140,7 @@ begin
   if AFrame is TYadfOptionsFrame then
   begin
     FFrame:= TYadfOptionsFrame(AFrame);
+    FWatch.FreeNotification(FFrame);    // clear FFrame if the IDE frees it early
     FFrame.Policy:= IdePersistPolicy;   // commit-on-OK + F -> yadf.ini mirror
     FFrame.Load;
   end;
@@ -113,8 +149,10 @@ end;
 procedure TYadfOptionsPage.DialogClosed(Accepted: Boolean);
 begin
   // Commit on OK (IDE convention); discard on Cancel. Nil the ref either way --
-  // the IDE may destroy/recreate the frame between dialog opens.
+  // the IDE may destroy/recreate the frame between dialog opens; FWatch covers
+  // the case where it is destroyed WITHOUT this callback ever firing.
   if Accepted and Assigned(FFrame) then FFrame.Commit;
+  if Assigned(FFrame) then FWatch.RemoveFreeNotification(FFrame);
   FFrame:= nil;
 end;
 

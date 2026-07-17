@@ -36,17 +36,6 @@ function WriteCase([string]$name, [byte[]]$markerBytes, [byte[]]$preamble) {
   return $path
 }
 
-function BytesContain([byte[]]$hay, [byte[]]$needle) {
-  for ($i = 0; $i -le $hay.Length - $needle.Length; $i++) {
-    $ok = $true
-    for ($j = 0; $j -lt $needle.Length; $j++) {
-      if ($hay[$i + $j] -ne $needle[$j]) { $ok = $false; break }
-    }
-    if ($ok) { return $true }
-  }
-  return $false
-}
-
 function CountBytes([byte[]]$hay, [byte[]]$needle) {
   $n = 0
   for ($i = 0; $i -le $hay.Length - $needle.Length; $i++) {
@@ -58,6 +47,8 @@ function CountBytes([byte[]]$hay, [byte[]]$needle) {
   }
   return $n
 }
+
+function BytesContain([byte[]]$hay, [byte[]]$needle) { (CountBytes $hay $needle) -gt 0 }
 
 $utf8Bom  = [byte[]](0xEF, 0xBB, 0xBF)
 $eAcute8  = [byte[]](0xC3, 0xA9)          # U+00E9 as UTF-8
@@ -97,6 +88,16 @@ try {
   $b = [IO.File]::ReadAllBytes($f)
   if (-not ($b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)) { Fail 'utf8-bom: BOM stripped' }
   if ((CountBytes $b $eAcute8) -ne 1) { Fail 'utf8-bom: UTF-8 e-acute not preserved' }
+
+  # ----- 5b. ANSI input + --encoding utf8: DETECT then transcode -----
+  # The source must be decoded as what it IS (ANSI), not as the conversion
+  # target: decoding cp1252 0xE9 as UTF-8 yields U+FFFD and destroys the char.
+  $f = WriteCase 'ansi_convert.pas' $eAcuteA @()
+  & $exe --ini $ini --encoding utf8 $f | Out-Null
+  $b = [IO.File]::ReadAllBytes($f)
+  if (-not ($b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)) { Fail 'ansi-convert: BOM missing' }
+  if ((CountBytes $b $eAcute8) -ne 1) { Fail 'ansi-convert: e-acute not transcoded to UTF-8' }
+  if (BytesContain $b ([byte[]](0xEF, 0xBF, 0xBD))) { Fail 'ansi-convert: U+FFFD replacement char in output' }
 
   # ----- 5. Pure-ASCII file, default: no BOM, still ASCII (nothing sniffed) -----
   $f = WriteCase 'ascii.pas' ([Text.Encoding]::ASCII.GetBytes('plain')) @()

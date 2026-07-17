@@ -132,9 +132,10 @@ procedure UnregisterYadfotAbout; forward;
 // wizard reads EXACTLY the same [Format] keys as the CLI and YADFSetup.
 // (This also picks up AlignMatchingShapes / AlignShapeMinAnchors /
 // AlignCommentMaxShift, which the previous hand-maintained reader here had
-// drifted and silently ignored.) The Encoding field is loaded but unused
-// by the wizard -- it writes through the IDE editor buffer (UTF-8), not a
-// file -- which is harmless.
+// drifted and silently ignored.) The Encoding field applies only on the
+// FormatFileOnDisk path (form units), where it follows the CLI's contract
+// (ANSI = preserve detected, utf8/utf16 = convert); the editor-buffer path
+// writes through the IDE (UTF-8) and ignores it, which is harmless.
 procedure LoadIniDefaults(var AOpts: TYadfOptions; const AIniPath: string);
 begin
   if (AIniPath = '') or (not FileExists(AIniPath)) then Exit;
@@ -253,39 +254,9 @@ begin
   Writer.Insert(PAnsiChar(Utf8));
 end;
 
-// Detect a file's encoding so the formatted text can be re-emitted in the
-// SAME encoding: byte-order mark first; without one, bytes that validate as
-// multi-byte UTF-8 are UTF-8 (the historical blind-ANSI fallback mojibaked
-// such files on rewrite); only then ANSI (the YADF / ORM3 default).
-// APreambleLen is the BOM length to skip on read AND re-emit on write --
-// 0 for BOM-less files (detected UTF-8 stays BOM-less).
-procedure DetectFileEncoding(const ABytes: TBytes; out AEnc: TEncoding;
-  out APreambleLen: Integer);
-begin
-  if (Length(ABytes) >= 3) and (ABytes[0] = $EF) and (ABytes[1] = $BB) and (ABytes[2] = $BF) then
-  begin
-    AEnc:= TEncoding.UTF8;
-    APreambleLen:= 3;
-  end
-  else if (Length(ABytes) >= 2) and (ABytes[0] = $FF) and (ABytes[1] = $FE) then
-  begin
-    AEnc:= TEncoding.Unicode;
-    APreambleLen:= 2;
-  end
-  else if (Length(ABytes) >= 2) and (ABytes[0] = $FE) and (ABytes[1] = $FF) then
-  begin
-    AEnc:= TEncoding.BigEndianUnicode;
-    APreambleLen:= 2;
-  end
-  else
-  begin
-    if LooksLikeUtf8(ABytes) then
-      AEnc:= TEncoding.UTF8
-    else
-      AEnc:= TEncoding.ANSI;
-    APreambleLen:= 0;
-  end;
-end;
+// Encoding detection lives in YADF.Options.DetectSourceEncoding -- ONE
+// detector shared with the CLI, so both hosts decode and re-encode the same
+// file identically.
 
 // Lowest unused `<file>.BCK<n>` sibling name (mirrors the YADF CLI --b scheme).
 function NextSiblingBackupName(const AFile: string): string;
@@ -336,13 +307,15 @@ function FormatFileOnDisk(const AFileName: string; const AOpts: TYadfOptions): B
 var
   Bytes    : TBytes;
   Enc      : TEncoding;
+  WriteEnc : TEncoding;
+  WriteBom : Boolean;
   PreLen   : Integer;
   OutBytes : TBytes;
   Original : string;
   Formatted: string;
 begin
   Bytes    := TFile.ReadAllBytes(AFileName);
-  DetectFileEncoding(Bytes, Enc, PreLen);
+  DetectSourceEncoding(Bytes, Enc, PreLen);
   Original := Enc.GetString(Bytes, PreLen, Length(Bytes) - PreLen);
   Formatted:= FormatSource(Original, AOpts);
   Result   := Formatted <> Original;
@@ -353,12 +326,24 @@ begin
     // form format keeps a .BCK without passing anything per-call.
     if AOpts.Backup then
       BackupOriginalFile(AFileName, AOpts.BackupDir);
-    // Re-emit in the DETECTED encoding, keeping the file's BOM-ness: a BOM is
-    // written back only if the original had one (TFile.WriteAllText would
-    // force a BOM onto detected BOM-less UTF-8).
-    OutBytes:= Enc.GetBytes(Formatted);
-    if PreLen > 0 then
-      OutBytes:= Enc.GetPreamble + OutBytes;
+    // Same write contract as the CLI (LoadFile/SaveFile): Encoding=ANSI means
+    // "preserve what was detected" -- re-emit in the detected encoding with
+    // the original BOM-ness; an explicit utf8/utf16 option is a conversion
+    // request (+BOM). Before this, the wizard always preserved while the CLI
+    // converted, so identical settings produced different bytes per host.
+    if AOpts.Encoding = encANSI then
+    begin
+      WriteEnc:= Enc;
+      WriteBom:= PreLen > 0;
+    end
+    else
+    begin
+      WriteEnc:= EncodingOf(AOpts.Encoding);
+      WriteBom:= True;
+    end;
+    OutBytes:= WriteEnc.GetBytes(Formatted);
+    if WriteBom then
+      OutBytes:= WriteEnc.GetPreamble + OutBytes;
     TFile.WriteAllBytes(AFileName, OutBytes);
   end;
 end;

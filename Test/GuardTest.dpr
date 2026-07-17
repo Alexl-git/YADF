@@ -111,6 +111,30 @@ begin
       'S := ''''''' + CRLF + '  keep this' + CRLF + ''''''';'));
 end;
 
+// The extended overload: BreakCaseLabels duplicates arm bodies (strings
+// included), so with AAllowStringDuplication the original sequence need only
+// survive IN ORDER; loss/alteration still fails, and AReason names the cause.
+procedure TestDuplicationToleranceAndReason;
+var
+  Reason: string;
+begin
+  Check('strict mode rejects duplicated string',
+    not FormatPreservesContent('1, 2: Log(''x'');', '1: Log(''x''); 2: Log(''x'');', False, Reason));
+  Check('strict rejection carries a reason', Reason <> '');
+  Check('duplication-tolerant mode accepts duplicated string',
+    FormatPreservesContent('1, 2: Log(''x'');', '1: Log(''x''); 2: Log(''x'');', True, Reason));
+  Check('acceptance carries empty reason', Reason = '');
+  Check('duplication-tolerant mode still rejects a LOST string',
+    not FormatPreservesContent('S := ''a'' + ''b'';', 'S := ''a'';', True, Reason));
+  Check('lost-string reason names the stream', Pos('string', Reason) > 0);
+  Check('duplication-tolerant mode still rejects an ALTERED string',
+    not FormatPreservesContent('S := ''a  b'';', 'S := ''a b'';', True, Reason));
+  Check('directives stay strict under duplication tolerance',
+    not FormatPreservesContent('{$IFDEF X} A; {$ENDIF}', '{$IFDEF X} A; {$ENDIF} {$IFDEF X} B; {$ENDIF}', True, Reason));
+  Check('dropped-comment reason names the stream',
+    (not FormatPreservesContent('X; { note }', 'X;', False, Reason)) and (Pos('comment', Reason) > 0));
+end;
+
 // --- YADF.LineScan: the shared line scanner --------------------------------
 
 // Walks ALine with the shared scanner, returning only the CODE characters
@@ -258,6 +282,7 @@ begin
     TestRejectsDroppedInclude;
     TestRejectsCommentDamage;
     TestRejectsStringDamage;
+    TestDuplicationToleranceAndReason;
     TestLineScanCore;
     TestLineScanDepth;
     TestBlockCommentLock;

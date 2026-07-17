@@ -24,6 +24,17 @@ MustMatch $o '(?m)^  TThing = class' 'of_object: class keeps type-section indent
 MustMatch $o '(?m)^    FHandler: function\(P1: Integer\): HResult of object stdcall;' 'of_object: method-pointer field indented + intact'
 MustMatch $o '(?m)^end\.\s*$' 'of_object: unit end. unlabeled'
 
+# --- split_tail_comment: a trailing { } / (* *) / // comment after a multi-var
+#     declaration must ride on the FIRST split line -- dropping it tripped the
+#     content guard, which silently declined the WHOLE file (2026-07-17 review). ---
+$o = Fmt 'split_tail_comment.pas'
+MustMatch $o '(?m)^\s*A\s*: Integer\s*;\s*\{ shared counters \}' 'tail: brace comment kept on first split line'
+MustMatch $o '(?m)^\s*B\s*: Integer\s*;\s*$'                     'tail: brace pair actually split'
+MustMatch $o '(?m)^\s*C\s*: Integer\s*;\s*\(\* paren-star tail \*\)' 'tail: paren-star comment kept'
+MustMatch $o '(?m)^\s*D\s*: Integer\s*;\s*$'                     'tail: paren-star pair actually split'
+MustMatch $o '(?m)^\s*E\s*: Integer\s*;\s*// line tail'          'tail: // comment still kept'
+MustMatch $o '(?m)^\s*F\s*: Integer\s*;\s*$'                     'tail: // pair actually split'
+
 # --- directive_levels: {$IF}/{$ELSE}/{$ENDIF} of one group share a level (no drift) ---
 $o = Fmt 'directive_levels.pas'
 MustMatch    $o '(?m)^\{\$IF Defined\(MSWINDOWS\)\}' 'directives: $IF at column 0'
