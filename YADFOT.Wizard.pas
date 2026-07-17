@@ -253,18 +253,38 @@ begin
   Writer.Insert(PAnsiChar(Utf8));
 end;
 
-// Detect a file's byte-order mark so the formatted text can be re-emitted in
-// the SAME encoding. No BOM -> ANSI (the YADF / ORM3 default).
-function DetectFileEncoding(const ABytes: TBytes): TEncoding;
+// Detect a file's encoding so the formatted text can be re-emitted in the
+// SAME encoding: byte-order mark first; without one, bytes that validate as
+// multi-byte UTF-8 are UTF-8 (the historical blind-ANSI fallback mojibaked
+// such files on rewrite); only then ANSI (the YADF / ORM3 default).
+// APreambleLen is the BOM length to skip on read AND re-emit on write --
+// 0 for BOM-less files (detected UTF-8 stays BOM-less).
+procedure DetectFileEncoding(const ABytes: TBytes; out AEnc: TEncoding;
+  out APreambleLen: Integer);
 begin
   if (Length(ABytes) >= 3) and (ABytes[0] = $EF) and (ABytes[1] = $BB) and (ABytes[2] = $BF) then
-    Result:= TEncoding.UTF8
+  begin
+    AEnc:= TEncoding.UTF8;
+    APreambleLen:= 3;
+  end
   else if (Length(ABytes) >= 2) and (ABytes[0] = $FF) and (ABytes[1] = $FE) then
-    Result:= TEncoding.Unicode
+  begin
+    AEnc:= TEncoding.Unicode;
+    APreambleLen:= 2;
+  end
   else if (Length(ABytes) >= 2) and (ABytes[0] = $FE) and (ABytes[1] = $FF) then
-    Result:= TEncoding.BigEndianUnicode
+  begin
+    AEnc:= TEncoding.BigEndianUnicode;
+    APreambleLen:= 2;
+  end
   else
-    Result:= TEncoding.ANSI;
+  begin
+    if LooksLikeUtf8(ABytes) then
+      AEnc:= TEncoding.UTF8
+    else
+      AEnc:= TEncoding.ANSI;
+    APreambleLen:= 0;
+  end;
 end;
 
 // Lowest unused `<file>.BCK<n>` sibling name (mirrors the YADF CLI --b scheme).
@@ -316,14 +336,14 @@ function FormatFileOnDisk(const AFileName: string; const AOpts: TYadfOptions): B
 var
   Bytes    : TBytes;
   Enc      : TEncoding;
-  Preamble : TBytes;
+  PreLen   : Integer;
+  OutBytes : TBytes;
   Original : string;
   Formatted: string;
 begin
   Bytes    := TFile.ReadAllBytes(AFileName);
-  Enc      := DetectFileEncoding(Bytes);
-  Preamble := Enc.GetPreamble;
-  Original := Enc.GetString(Bytes, Length(Preamble), Length(Bytes) - Length(Preamble));
+  DetectFileEncoding(Bytes, Enc, PreLen);
+  Original := Enc.GetString(Bytes, PreLen, Length(Bytes) - PreLen);
   Formatted:= FormatSource(Original, AOpts);
   Result   := Formatted <> Original;
   if Result then
@@ -333,7 +353,13 @@ begin
     // form format keeps a .BCK without passing anything per-call.
     if AOpts.Backup then
       BackupOriginalFile(AFileName, AOpts.BackupDir);
-    TFile.WriteAllText(AFileName, Formatted, Enc);
+    // Re-emit in the DETECTED encoding, keeping the file's BOM-ness: a BOM is
+    // written back only if the original had one (TFile.WriteAllText would
+    // force a BOM onto detected BOM-less UTF-8).
+    OutBytes:= Enc.GetBytes(Formatted);
+    if PreLen > 0 then
+      OutBytes:= Enc.GetPreamble + OutBytes;
+    TFile.WriteAllBytes(AFileName, OutBytes);
   end;
 end;
 

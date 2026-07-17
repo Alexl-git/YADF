@@ -255,7 +255,14 @@ begin
   end;
 end;
 
-function LoadFile(const AFileName: string; const AOpts: TYadfOptions): string;
+// Read AFileName honouring its BOM; without a BOM, sniff BOM-less UTF-8 before
+// falling back to the option encoding (blind ANSI mojibakes real UTF-8 files
+// on rewrite). AWriteEnc/AWriteBOM say how the file should be written BACK:
+// Encoding=ANSI (the default) means "ANSI, or preserve what was detected" --
+// the file keeps its own encoding and BOM-ness; an explicit utf8/utf16 setting
+// is a conversion request and wins over detection.
+function LoadFile(const AFileName: string; const AOpts: TYadfOptions;
+  out AWriteEnc: TEncoding; out AWriteBOM: Boolean): string; overload;
 var
   Bytes   : TBytes;
   Detected: TEncoding;
@@ -264,10 +271,33 @@ begin
   Bytes:= TFile.ReadAllBytes(AFileName);
   Detected:= nil;
   PreLen:= TEncoding.GetBufferEncoding(Bytes, Detected, ResolveEncoding(AOpts));
+  if (PreLen = 0) and (AOpts.Encoding = encANSI) and LooksLikeUtf8(Bytes) then
+    Detected:= TEncoding.UTF8;   // BOM-less UTF-8: the ANSI fallback would mojibake
   Result:= Detected.GetString(Bytes, PreLen, Length(Bytes) - PreLen);
+  if AOpts.Encoding = encANSI then
+  begin
+    AWriteEnc:= Detected;        // preserve mode: write back as read
+    AWriteBOM:= PreLen > 0;
+  end
+  else
+  begin
+    AWriteEnc:= ResolveEncoding(AOpts);   // explicit conversion (+BOM)
+    AWriteBOM:= True;
+  end;
 end;
 
-procedure SaveFile(const AFileName, AContent: string; const AOpts: TYadfOptions);
+function LoadFile(const AFileName: string; const AOpts: TYadfOptions): string; overload;
+var
+  WEnc: TEncoding;
+  WBom: Boolean;
+begin
+  Result:= LoadFile(AFileName, AOpts, WEnc, WBom);
+end;
+
+// Write AContent as AEnc, prepending the BOM only when AWithBOM (pass the pair
+// LoadFile detected to preserve the input file's encoding, or an explicit
+// encoding to convert).
+procedure SaveFile(const AFileName, AContent: string; AEnc: TEncoding; AWithBOM: Boolean);
 
   procedure WriteAllBytesFlushed(const AFile: string; const ABytes: TBytes);
   var
@@ -301,13 +331,14 @@ procedure SaveFile(const AFileName, AContent: string; const AOpts: TYadfOptions)
 var
   All     : TBytes;
   Bytes   : TBytes;
-  Enc     : TEncoding;
   Preamble: TBytes;
   Tmp     : string;
 begin
-  Enc:= ResolveEncoding(AOpts);
-  Preamble:= Enc.GetPreamble;
-  Bytes:= Enc.GetBytes(AContent);
+  if AWithBOM then
+    Preamble:= AEnc.GetPreamble
+  else
+    Preamble:= nil;
+  Bytes:= AEnc.GetBytes(AContent);
   if Length(Preamble) > 0 then
   begin
     SetLength(All, Length(Preamble) + Length(Bytes));
@@ -379,12 +410,14 @@ procedure FormatToFile(const AInFile, AOutFile: string; const AOpts: TYadfOption
 var
   Dir   : string;
   Source: string;
+  WEnc  : TEncoding;
+  WBom  : Boolean;
 begin
-  Source:= LoadFile(AInFile, AOpts);
+  Source:= LoadFile(AInFile, AOpts, WEnc, WBom);
   Dir:= TPath.GetDirectoryName(AOutFile);
   if Dir <> '' then
     TDirectory.CreateDirectory(Dir);
-  SaveFile(AOutFile, FormatSource(Source, AOpts), AOpts);
+  SaveFile(AOutFile, FormatSource(Source, AOpts), WEnc, WBom);
   WriteStdoutLine('wrote ' + AOutFile);
 end;
 
@@ -459,6 +492,8 @@ var
   Out_   : string;
   RelName: string;
   Source : string;
+  WEnc   : TEncoding;
+  WBom   : Boolean;
 begin
   if not TDirectory.Exists(AInDir) then
   begin
@@ -471,10 +506,10 @@ begin
   Count:= 0;
   for F in Files do
   begin
-    Source:= LoadFile(F, AOpts);
+    Source:= LoadFile(F, AOpts, WEnc, WBom);
     RelName:= ExtractFileName(F);
     Out_:= TPath.Combine(AOutDir, RelName);
-    SaveFile(Out_, FormatSource(Source, AOpts), AOpts);
+    SaveFile(Out_, FormatSource(Source, AOpts), WEnc, WBom);
     WriteStdoutLine(Format('wrote %s', [Out_]));
     Inc(Count);
   end;
@@ -637,11 +672,13 @@ var
   OutFile: string;
   Output : string;
   Source : string;
+  WEnc   : TEncoding;
+  WBom   : Boolean;
 begin
   Result:= True;
   LogMsg('  ProcessOneFile: ' + AFile);
   try
-    Source:= LoadFile    (AFile , AOpts);
+    Source:= LoadFile    (AFile , AOpts, WEnc, WBom);
     Output:= FormatSource(Source, AOpts);
     if Trim(AOpts.ResultDir) <> '' then
     begin
@@ -649,7 +686,7 @@ begin
         TDirectory.CreateDirectory(AOpts.ResultDir);
       OutFile:= TPath.Combine(AOpts.ResultDir, ExtractFileName(AFile));
       LogMsg('    mode = result-dir, writing to ' + OutFile);
-      SaveFile(OutFile, Output, AOpts);
+      SaveFile(OutFile, Output, WEnc, WBom);
       WriteStdoutLine('wrote ' + OutFile);
     end
     else
@@ -667,7 +704,7 @@ begin
       end
       else
         LogMsg('    backup off, writing in-place');
-      SaveFile(AFile, Output, AOpts);
+      SaveFile(AFile, Output, WEnc, WBom);
       WriteStdoutLine('wrote ' + AFile);
     end; // else
   except
@@ -759,7 +796,7 @@ begin
   WriteStdoutLine('  --no-b                skip backup (default)');
   WriteStdoutLine('');
   WriteStdoutLine('Encoding:');
-  WriteStdoutLine(Format('  --encoding ansi|utf8|utf16   read/write as ANSI / UTF-8+BOM / UTF-16+BOM   [Encoding=%s]', [EncName(AOpts.Encoding)]));
+  WriteStdoutLine(Format('  --encoding ansi|utf8|utf16   ansi = keep the file''s own encoding (BOM or detected UTF-8); utf8/utf16 = convert (+BOM)   [Encoding=%s]', [EncName(AOpts.Encoding)]));
   WriteStdoutLine('                          (default ANSI; existing BOM in input is auto-detected)');
   WriteStdoutLine('');
   WriteStdoutLine('Configuration:');

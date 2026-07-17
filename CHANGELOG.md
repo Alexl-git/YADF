@@ -10,8 +10,30 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **BOM-less UTF-8 and BOM'd files are no longer silently transcoded.** The
+  CLI and the wizard's on-disk path used a blind ANSI fallback for files
+  without a byte-order mark, and the CLI always wrote in the option encoding:
+  a BOM-less UTF-8 file could mojibake on rewrite (guaranteed on multi-byte
+  system codepages), and a UTF-8/UTF-16 file WITH a BOM was silently rewritten
+  as BOM-less ANSI. Detection now validates BOM-less content as UTF-8 before
+  falling back to ANSI (strict scan -- overlongs, surrogates and truncated
+  sequences stay ANSI; pure ASCII is unaffected), and the default
+  `Encoding=ANSI` now means "ANSI, or preserve the file's own detected
+  encoding and BOM-ness"; an explicit `--encoding utf8|utf16` remains a
+  conversion request. Covered by the new `Test\test_encoding.ps1` suite +
+  `LooksLikeUtf8` unit checks in OptionsTest; the `umlauts.pas` golden
+  baseline was re-blessed (it had captured the lossy UTF-16 -> ANSI rewrite).
+
 ### Changed
 
+- **Both settings UIs now mirror the F profile onto `yadf.ini` on save.**
+  Previously only the IDE options page did; editing a custom-named F profile
+  in YADFSetup left the standard `yadf.ini` stale, so the two UIs could
+  disagree about the effective defaults. Enum option combos are also now
+  driven by a `EnumValues` column in the shared descriptor table instead of
+  being hardcoded in the UI builder.
 - **One shared options UI (`YADF.OptionsFrame`).** The Profiles panel, the
   option grid built from `OptionTable`, and the live Source | Result preview
   were ~350 lines copy-pasted (and diverging) between `YADFSetup.exe` and the

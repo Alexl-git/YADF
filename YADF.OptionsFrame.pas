@@ -46,12 +46,15 @@ type
   /// frame's Policy property right after Create (default: both False -- the
   /// frame is inert until told otherwise).</summary>
   /// <remarks>AutoSave: write the edited profile INI on every option change
-  /// (YADFSetup model; no OK/Cancel). MirrorFOnCommit: when Commit writes the
-  /// F profile, also copy it onto the standard %APPDATA%\YADF\yadf.ini
-  /// (IDE-page model, where values persist only on OK).</remarks>
+  /// (YADFSetup model; no OK/Cancel). MirrorF: whenever the F profile's values
+  /// are persisted (autosave, profile switch, or Commit), best-effort copy the
+  /// file onto the standard %APPDATA%\YADF\yadf.ini so the F shortcut / CLI
+  /// default stay in sync even when F points at a custom-named file. Both
+  /// shipping hosts set MirrorF=True -- the two UIs must never disagree about
+  /// what yadf.ini holds.</remarks>
   TYadfOptionsPersistPolicy = record
-    AutoSave       : Boolean;
-    MirrorFOnCommit: Boolean;
+    AutoSave: Boolean;
+    MirrorF : Boolean;
   end;
 
   /// <summary>Fired whenever the frame loads, saves, or switches the edited
@@ -104,6 +107,7 @@ type
     procedure Reformat;
     procedure LoadSample;
     procedure SaveCurrentProfile;
+    procedure MirrorFProfile;
     procedure DoIniStatus(const ASuffix: string);
     procedure AssignShortcut(AWhich: Char);
     procedure UnassignSelected;
@@ -130,7 +134,7 @@ type
     /// (the IDE dialog's OK). Read-modify-write of the profile CURRENTLY being
     /// edited: re-read the record fresh so any field not surfaced as a control
     /// survives, apply this frame's controls, write it back. When
-    /// Policy.MirrorFOnCommit is True and the edited profile IS the F profile,
+    /// Policy.MirrorF is True and the edited profile IS the F profile,
     /// best-effort copy it onto the standard %APPDATA%\YADF\yadf.ini (skipped
     /// when the edited file already IS yadf.ini; a locked/read-only standard
     /// file does not lose the values written to the profile itself).</summary>
@@ -155,14 +159,15 @@ type
   end;
 
 const
-  /// <summary>YADFSetup.exe: autosave every change; no yadf.ini mirroring
-  /// beyond the profile itself.</summary>
+  /// <summary>YADFSetup.exe: autosave every change; every persist of the F
+  /// profile mirrors onto the standard yadf.ini.</summary>
   SetupPersistPolicy: TYadfOptionsPersistPolicy =
-    (AutoSave: True; MirrorFOnCommit: False);
-  /// <summary>IDE Tools > Options page: values persist only on Commit (OK),
-  /// which also mirrors the F profile onto the standard yadf.ini.</summary>
+    (AutoSave: True; MirrorF: True);
+  /// <summary>IDE Tools > Options page: values persist only on Commit (OK) or
+  /// a profile switch; every persist of the F profile mirrors onto the
+  /// standard yadf.ini.</summary>
   IdePersistPolicy: TYadfOptionsPersistPolicy =
-    (AutoSave: False; MirrorFOnCommit: True);
+    (AutoSave: False; MirrorF: True);
 
 implementation
 
@@ -363,10 +368,8 @@ begin
           cmb:= TComboBox.Create(Self);
           cmb.Parent := parent; cmb.Left:= 240; cmb.Top:= yIn; cmb.Width:= 110;
           cmb.Style  := csDropDownList;
-          // The only okEnum option today is the output encoding, so the value
-          // list is hardcoded HERE and nowhere else. A second okEnum option
-          // needs a Values column in TOptInfo instead (tracked in TODO.md).
-          cmb.Items.Add('ANSI'); cmb.Items.Add('UTF-8'); cmb.Items.Add('UTF-16');
+          for var V in T[i].EnumValues do   // value list lives in the descriptor
+            cmb.Items.Add(V);
           cmb.Hint   := T[i].Hint; cmb.ShowHint:= True;
           cmb.Tag    := i;
           cmb.OnChange:= OptionChanged;
@@ -530,6 +533,33 @@ begin
     FOnIniStatus('INI: ' + FCurrentIni + ASuffix);
 end;
 
+procedure TYadfOptionsFrame.MirrorFProfile;
+var
+  Shared: string;
+begin
+  // Mirror the edited file onto the standard %APPDATA%\YADF\yadf.ini ONLY when
+  // the policy asks for it AND the profile being edited IS the F profile, so
+  // the F shortcut / CLI default (which read the standard file) reflect these
+  // values even if F points at a custom-named file. When editing R (or any
+  // non-F profile), do NOT mirror -- that would clobber the F/standard file
+  // with R's values. Skip when the edited file already IS the standard file
+  // (copying a file onto itself raises). Best-effort: a copy failure must not
+  // lose the values already written to FCurrentIni.
+  if not FPolicy.MirrorF then Exit;
+  if not SameFileName(TPath.GetFullPath(FCurrentIni),
+                      TPath.GetFullPath(ResolveProfileIniPath(FProfiles.F))) then
+    Exit;   // editing a non-F profile -> nothing to mirror
+  Shared:= SharedAppDataIniPath;
+  if not SameFileName(TPath.GetFullPath(FCurrentIni), TPath.GetFullPath(Shared)) then
+    try
+      TFile.Copy(FCurrentIni, Shared, True);
+    except
+      // A read-only or locked standard file is non-fatal: the F profile itself
+      // is saved (FCurrentIni), so the next open and any profile-F consumer
+      // still read the correct values.
+    end;
+end;
+
 procedure TYadfOptionsFrame.SaveCurrentProfile;
 begin
   // AutoSave write of the edited profile. A failed write (locked/read-only
@@ -537,6 +567,7 @@ begin
   // line instead.
   try
     SaveOptionsToIni(FOpts, FCurrentIni);
+    MirrorFProfile;
     DoIniStatus('  (saved)');
   except
     on E: Exception do
@@ -565,39 +596,16 @@ begin
 end;
 
 procedure TYadfOptionsFrame.Commit;
-var
-  Shared: string;
 begin
   // Read-modify-write the profile CURRENTLY being edited: re-read the record
   // fresh so any field NOT surfaced as a control survives, apply this frame's
   // controls, and write it back through the shared OptionTable serializer
-  // (comments in the template are preserved).
+  // (comments in the template are preserved). Then mirror per policy.
   FOpts:= LoadOptionsFromIni(FCurrentIni);
   ControlsToOptions;
   SaveOptionsToIni(FOpts, FCurrentIni);
+  MirrorFProfile;
   DoIniStatus('  (saved)');
-
-  // Mirror onto the standard %APPDATA%\YADF\yadf.ini ONLY when the policy asks
-  // for it AND the profile being edited IS the F profile, so the F shortcut /
-  // CLI default (which read the standard file) reflect these values even if F
-  // points at a custom-named file. When editing R (or any non-F profile), do
-  // NOT mirror -- that would clobber the F/standard file with R's values.
-  // Skip when the edited file already IS the standard file (copying a file
-  // onto itself raises). Best-effort: a copy failure must not lose the values
-  // already written to FCurrentIni.
-  if not FPolicy.MirrorFOnCommit then Exit;
-  if not SameFileName(TPath.GetFullPath(FCurrentIni),
-                      TPath.GetFullPath(ResolveProfileIniPath(FProfiles.F))) then
-    Exit;   // editing a non-F profile -> nothing to mirror
-  Shared:= SharedAppDataIniPath;
-  if not SameFileName(TPath.GetFullPath(FCurrentIni), TPath.GetFullPath(Shared)) then
-    try
-      TFile.Copy(FCurrentIni, Shared, True);
-    except
-      // A read-only or locked standard file is non-fatal: the F profile itself
-      // is saved (FCurrentIni), so the next open and any profile-F consumer
-      // still read the correct values.
-    end;
 end;
 
 procedure TYadfOptionsFrame.LoadOptionsFromFile(const APath: string);
@@ -684,6 +692,7 @@ begin
   if (Path = '') or SameFileName(Path, FCurrentIni) then Exit;
   ControlsToOptions;
   SaveOptionsToIni(FOpts, FCurrentIni);   // flush current profile before leaving
+  MirrorFProfile;                         // keep yadf.ini in sync if it was F
   FCurrentIni:= Path;
   EnsureIniExists(FCurrentIni);
   FOpts:= LoadOptionsFromIni(FCurrentIni);

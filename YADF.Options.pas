@@ -82,6 +82,7 @@ type
     Hint          : string;      // one-line help: GUI tooltip, ';' comment, --help line
     Kind          : TOptKind;
     AffectsPreview: Boolean;     // False for file/CLI-only options
+    EnumValues    : TArray<string>; // okEnum only: the combo's value list (in order)
     GetVal        : TOptGetter;
     SetVal        : TOptSetter;
   end;
@@ -99,6 +100,15 @@ function EncodingToStr(const E: TYadfEncoding): string;
 // unrecognised values return ADefault. Delphi's TIniFile.ReadBool only honours
 // numeric 0/1, but yadf.ini ships textual booleans.
 function ReadBoolIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: Boolean): Boolean;
+
+// True when ABytes are valid UTF-8 AND contain at least one multi-byte
+// sequence. Used by the CLI and the wizard to promote BOM-less files from the
+// blind ANSI fallback to UTF-8 on load (a file that validates as multi-byte
+// UTF-8 is overwhelmingly likely UTF-8; reading it as ANSI mojibakes on
+// rewrite). Pure ASCII returns False -- ANSI and UTF-8 agree there, so the
+// ANSI path stays. Strict: overlong forms, UTF-16 surrogates, >U+10FFFF and
+// truncated sequences all return False.
+function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 
 // Load every [Format] key into a TYadfOptions, falling back to DefaultOptions
 // per field. Returns DefaultOptions unchanged if the file is missing.
@@ -239,7 +249,8 @@ var
   GOptTable: TArray<TOptInfo>;
 
 function MakeOpt(const AIdent, AGroup, ACaption, AHint: string; AKind: TOptKind;
-  AAffects: Boolean; const AGet: TOptGetter; const ASet: TOptSetter): TOptInfo;
+  AAffects: Boolean; const AGet: TOptGetter; const ASet: TOptSetter;
+  const AEnumValues: TArray<string> = nil): TOptInfo;
 begin
   Result.Ident := AIdent;
   Result.Group := AGroup;
@@ -247,8 +258,49 @@ begin
   Result.Hint := AHint;
   Result.Kind := AKind;
   Result.AffectsPreview := AAffects;
+  Result.EnumValues := AEnumValues;
   Result.GetVal := AGet;
   Result.SetVal := ASet;
+end;
+
+function LooksLikeUtf8(const ABytes: TBytes): Boolean;
+var
+  i, n, Need: Integer;
+  Len       : Integer;
+  B         : Byte;
+  Cp, MinCp : Cardinal;
+  HasMulti  : Boolean;
+begin
+  HasMulti := False;
+  Len := Length(ABytes);
+  i := 0;
+  while i < Len do
+  begin
+    B := ABytes[i];
+    if B < $80 then
+    begin
+      Inc(i);
+      Continue;
+    end;
+    // Lead byte -> continuation count + minimum code point (overlong check).
+    if (B >= $C2) and (B <= $DF) then begin Need := 1; Cp := B and $1F; MinCp := $80    ; end
+    else if (B >= $E0) and (B <= $EF) then begin Need := 2; Cp := B and $0F; MinCp := $800   ; end
+    else if (B >= $F0) and (B <= $F4) then begin Need := 3; Cp := B and $07; MinCp := $10000 ; end
+    else
+      Exit(False);   // stray continuation, overlong C0/C1 lead, or F5..FF
+    if i + Need >= Len then Exit(False);   // truncated sequence at buffer end
+    for n := 1 to Need do
+    begin
+      B := ABytes[i + n];
+      if (B and $C0) <> $80 then Exit(False);
+      Cp := (Cp shl 6) or (B and $3F);
+    end;
+    if (Cp < MinCp) or (Cp > $10FFFF) or ((Cp >= $D800) and (Cp <= $DFFF)) then
+      Exit(False);
+    HasMulti := True;
+    Inc(i, Need + 1);
+  end;
+  Result := HasMulti;
 end;
 
 function OptionTable: TArray<TOptInfo>;
@@ -468,10 +520,11 @@ begin
       function(const O: TYadfOptions): Variant begin Result := O.ResultDir end,
       procedure(var O: TYadfOptions; const V: Variant) begin O.ResultDir := VarToStr(V) end),
     MakeOpt('Encoding', 'File & CLI (no preview effect)', 'Output encoding',
-      'File encoding to write: ANSI, UTF-8 (with BOM), or UTF-16 (with BOM). Default: ANSI',
+      'ANSI keeps each file''s own encoding (BOM or detected UTF-8 preserved); UTF-8/UTF-16 convert the output (with BOM). Default: ANSI',
       okEnum, False,
       function(const O: TYadfOptions): Variant begin Result := EncodingToStr(O.Encoding) end,
-      procedure(var O: TYadfOptions; const V: Variant) begin O.Encoding := ParseEncoding(VarToStr(V), encANSI) end),
+      procedure(var O: TYadfOptions; const V: Variant) begin O.Encoding := ParseEncoding(VarToStr(V), encANSI) end,
+      ['ANSI', 'UTF-8', 'UTF-16']),
     MakeOpt('Logging', 'File & CLI (no preview effect)', 'Logging',
       'Write a log file with details of every option resolved and file processed. Default: false',
       okBool, False,
