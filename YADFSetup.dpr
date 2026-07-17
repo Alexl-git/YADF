@@ -3,6 +3,7 @@ program YADFSetup;
 uses
   Vcl.Forms,
   uYADFSetupMain in 'uYADFSetupMain.pas' {frmMain},
+  YADF.OptionsFrame in 'YADF.OptionsFrame.pas' {YadfOptionsFrame: TFrame},
   YADF.Tokens in 'YADF.Tokens.pas',
   YADF.Options in 'YADF.Options.pas',
   YADF.Groups in 'YADF.Groups.pas',

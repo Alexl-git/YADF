@@ -12,6 +12,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **One shared options UI (`YADF.OptionsFrame`).** The Profiles panel, the
+  option grid built from `OptionTable`, and the live Source | Result preview
+  were ~350 lines copy-pasted (and diverging) between `YADFSetup.exe` and the
+  IDE's Tools > Options > Third Party > YADF page. Both hosts now embed the
+  SAME `TYadfOptionsFrame`, parameterized only by a persistence-policy record:
+  YADFSetup keeps its autosave-on-every-change model, the IDE page keeps
+  commit-on-OK plus the F -> yadf.ini mirror. Visible upgrades from the merge:
+  both UIs now offer the profile buttons (Set F / Set R / Unassign / New...)
+  AND the F / R / Del keyboard shortcuts, both get a Copy button on the
+  preview and a built-in sample fallback, and both skip the preview reformat
+  for options that cannot change it. `uYADFSetupMain` is now a thin shell;
+  `YADFOT.Options` is Open Tools API page plumbing only.
 - **One shared line scanner (`YADF.LineScan`).** The "am I inside a string /
   brace comment / paren-star comment / at what bracket depth?" state machine
   was hand-copied ~10 times across `YADF.Layout.pas`, and the copies had
