@@ -15,6 +15,6 @@ pwsh Test\test_golden_format.ps1 -Capture   # regenerate after an INTENTIONAL fo
 ```
 
 When you intentionally change formatting, the diff shows here — review it, confirm it's
-the improvement you meant, then re-capture. WIP fixtures with known-bad output (e.g.
-`class_var_sections.pas` while #333 is open) are excluded in the harness so they don't
-lock in a bug.
+the improvement you meant, then re-capture. A WIP fixture with known-bad output can be
+added to the `$exclude` list in the harness so it doesn't lock in a bug (the list is
+empty right now — the historical #333 / procedural-indent exclusions are all fixed).

@@ -326,7 +326,7 @@ begin
           cb.Parent := parent;
           cb.Left   := 10; cb.Top:= yIn; cb.Width:= gb.Width - 20;
           cb.Caption:= T[i].Caption;
-          cb.Hint   := T[i].Hint; cb.ShowHint:= True;
+          cb.Hint   := OptionHint(T[i]); cb.ShowHint:= True;
           cb.Tag    := i;
           cb.OnClick:= OptionChanged;
           FControls[i]:= cb;
@@ -340,7 +340,7 @@ begin
           se:= TSpinEdit.Create(Self);
           se.Parent := parent; se.Left:= 240; se.Top:= yIn; se.Width:= 80;
           se.MinValue:= 0; se.MaxValue:= 100000;
-          se.Hint   := T[i].Hint; se.ShowHint:= True;
+          se.Hint   := OptionHint(T[i]); se.ShowHint:= True;
           se.Tag    := i;
           se.OnChange:= OptionChanged;
           FControls[i]:= se;
@@ -354,7 +354,7 @@ begin
           ed:= TEdit.Create(Self);
           ed.Parent := parent; ed.Left:= 240; ed.Top:= yIn; ed.Width:= gb.Width - 250;
           ed.Anchors:= [akLeft, akTop, akRight];
-          ed.Hint   := T[i].Hint; ed.ShowHint:= True;
+          ed.Hint   := OptionHint(T[i]); ed.ShowHint:= True;
           ed.Tag    := i;
           ed.OnChange:= OptionChanged;
           FControls[i]:= ed;
@@ -370,7 +370,7 @@ begin
           cmb.Style  := csDropDownList;
           for var V in T[i].EnumValues do   // value list lives in the descriptor
             cmb.Items.Add(V);
-          cmb.Hint   := T[i].Hint; cmb.ShowHint:= True;
+          cmb.Hint   := OptionHint(T[i]); cmb.ShowHint:= True;
           cmb.Tag    := i;
           cmb.OnChange:= OptionChanged;
           FControls[i]:= cmb;
