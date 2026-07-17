@@ -50,6 +50,7 @@ Test/__*.pas
 
 # Incidental build-generated resource for the console test (no {$R} reference)
 Test/OptionsTest.res
+Test/GuardTest.res
 Test/YADF.TXT
 
 # OS junk

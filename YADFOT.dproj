@@ -1,4 +1,4 @@
-﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{C0FE2FE4-7BA2-4A4D-9F36-7BBB1E2B22F1}</ProjectGuid>
         <ProjectVersion>20.4</ProjectVersion>
@@ -135,6 +135,7 @@
         <DCCReference Include="YADF.Tokens.pas"/>
         <DCCReference Include="YADF.Options.pas"/>
         <DCCReference Include="YADF.Groups.pas"/>
+        <DCCReference Include="YADF.Guard.pas"/>
         <DCCReference Include="YADF.Layout.pas"/>
         <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas"/>
         <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas"/>

@@ -6,6 +6,7 @@ uses
   YADF.Tokens in 'YADF.Tokens.pas',
   YADF.Options in 'YADF.Options.pas',
   YADF.Groups in 'YADF.Groups.pas',
+  YADF.Guard in 'YADF.Guard.pas',
   YADF.Layout in 'YADF.Layout.pas',
   YADF.Debug in 'YADF.Debug.pas';
 

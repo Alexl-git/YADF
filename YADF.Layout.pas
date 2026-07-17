@@ -87,6 +87,7 @@ uses
   , SimpleParser.Lexer
   , SimpleParser.Lexer.Types
   , YADF.Groups
+  , YADF.Guard
   ;
 
 const
@@ -5008,6 +5009,15 @@ begin
 
         // Stage 5: restore shielded multi-line strings and block comments verbatim.
         Result:= UnshieldMultilineTokens(Result, MLMap);
+
+        // Stage 6: content-preservation safety net (see YADF.Guard). If any
+        // user content -- a string literal, a comment, a compiler directive --
+        // was dropped or altered by the passes above, DECLINE to format and
+        // return the input unchanged. This converts any future corruption bug
+        // in the line passes into a harmless "file left as-is" instead of a
+        // shipped source-mangling edit.
+        if not FormatPreservesContent(ASource, Result) then
+          Result:= ASource;
       finally
         Sb.Free;
       end; // try

@@ -10,6 +10,22 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- **Content-preservation safety net (`YADF.Guard`).** `FormatSource` now
+  re-lexes its own output and verifies that all user content survived the
+  format: string literals byte-exact and in order, comments unaltered and in
+  order (formatter-added comments such as block labels and `--d10` TODO flags
+  are allowed), and compiler directives present in order (case/whitespace
+  normalized, so `UpperDirectives` and ifdef-spacing normalization still
+  pass). On any mismatch the formatter DECLINES and returns the input
+  unchanged -- converting the historical corruption bug class (dropped
+  `$I` include directives, comment merge/loss, multiline-string interior
+  damage) into a harmless no-op instead of a source-mangling edit. Covered
+  by a new console test project (`Test\GuardTest.dpr`, 17 checks, runnable
+  via `Test\test_guard.ps1`) plus the full golden net (guard trips on none
+  of the 79 baselines).
+
 ### Fixed
 
 - **CLI: unknown `--flags` are now rejected** with `unknown option <flag> (run

@@ -1,4 +1,4 @@
-﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{CC83CBF4-525F-4A6E-B168-80E43DFA5ED3}</ProjectGuid>
         <ProjectVersion>20.4</ProjectVersion>
@@ -132,6 +132,7 @@
         <DCCReference Include="YADF.Tokens.pas"/>
         <DCCReference Include="YADF.Options.pas"/>
         <DCCReference Include="YADF.Groups.pas"/>
+        <DCCReference Include="YADF.Guard.pas"/>
         <DCCReference Include="YADF.Layout.pas"/>
         <DCCReference Include="YADF.Debug.pas"/>
         <DCCReference Include="YadfMain.pas"/>
