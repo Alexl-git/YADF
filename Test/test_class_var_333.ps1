@@ -8,10 +8,11 @@
 #
 # Usage: pwsh Test\test_class_var_333.ps1   (exit 0 = pass, 1 = fail)
 $ErrorActionPreference = 'Stop'
-$exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
-$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe = Get-YadfExe
+$ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
+Assert-ToolOrSkip 'class_var_333' $exe
 $src = Join-Path $PSScriptRoot 'Cases\class_var_sections.pas'
-$fail = 0
 function Ind([string]$s) { $s.Length - $s.TrimStart().Length }
 
 $tmp = Join-Path $env:TEMP "cv333.out"
@@ -25,23 +26,22 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
   if ($tr -eq 'var' -or $tr -eq 'class var') { $sectionIdx += $i }
 }
 if ($sectionIdx.Count -lt 3) {
-  $fail++; Write-Output "FAIL [333]: expected 3 section keywords (var/class var/var), found $($sectionIdx.Count)"
+  Fail "333: expected 3 section keywords (var/class var/var), found $($sectionIdx.Count)"
 }
 else {
   $secInd = $sectionIdx | ForEach-Object { Ind $lines[$_] }
   if (($secInd | Select-Object -Unique).Count -ne 1) {
-    $fail++; Write-Output "FAIL [333]: section keywords at inconsistent indents: $($secInd -join ', ')"
+    Fail "333: section keywords at inconsistent indents: $($secInd -join ', ')"
   }
   $base = $secInd[0]
   # Every field declaration (Name: Type;) must be indented deeper than $base.
   foreach ($ln in $lines) {
     if ($ln -match '^\s*\w+\s*:\s*\w+\s*;') {
       if ((Ind $ln) -le $base) {
-        $fail++; Write-Output "FAIL [333]: field not indented under its var section: '$($ln.Trim())' (indent $(Ind $ln) <= section $base)"
+        Fail "333: field not indented under its var section: '$($ln.Trim())' (indent $(Ind $ln) <= section $base)"
       }
     }
   }
 }
 
-if ($fail -eq 0) { Write-Output "class_var_333: PASS"; exit 0 }
-else { Write-Output "class_var_333: $fail FAILED (expected until #333 is fixed)"; exit 1 }
+Finish 'class_var_333'

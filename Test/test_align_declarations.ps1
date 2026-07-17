@@ -2,7 +2,9 @@
 # => plain "Name: Type;" declarations; both true (default) => colon + trailing-semicolon
 # column alignment. Exit 0 = pass.
 $ErrorActionPreference = 'Stop'
-$exe  = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe  = Get-YadfExe
+Assert-ToolOrSkip 'align_declarations' $exe
 $case = Join-Path $PSScriptRoot 'Cases\align_declarations.pas'
 $tmp  = Join-Path $env:TEMP 'aligndecl_test'
 New-Item -ItemType Directory $tmp -Force | Out-Null
@@ -13,9 +15,6 @@ function Fmt([string]$iniBody) {
   & $exe $case --ini $ini --o $out | Out-Null
   return (Get-Content $out -Raw)
 }
-$fail = 0
-function MustMatch([string]$o,[string]$rx,[string]$label){ if ($o -notmatch $rx){ $script:fail++; Write-Output "FAIL [$label]: expected /$rx/" } }
-function MustNotMatch([string]$o,[string]$rx,[string]$label){ if ($o -match $rx){ $script:fail++; Write-Output "FAIL [$label]: should NOT match /$rx/" } }
 
 # Atomic off -> plain declarations (no colon align, no ; padding).
 $off = Fmt "AlignTypeColon=false`r`nAlignDeclSemicolons=false"
@@ -29,5 +28,4 @@ $on = Fmt 'AlignTypeColon=true'
 MustMatch    $on '(?m)lProv\s+:\s*boolean;'  'on: colon aligned (lProv padded before colon)'
 MustMatch    $on '(?m)TGUID[ ]+;'            'on: trailing semicolon aligned (TGUID padded)'
 
-if ($fail -eq 0) { Write-Output "align_declarations: PASS"; exit 0 }
-else { Write-Output "align_declarations: $fail FAILED"; exit 1 }
+Finish 'align_declarations'

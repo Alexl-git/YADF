@@ -61,6 +61,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Compile-the-output gate (`Test\test_compile_output.ps1`).** The real
+  dcc64 now compiles every corpus fixture's FORMATTED output (46 fixtures;
+  the rest are auto-skipped because the original doesn't compile standalone).
+  Byte-goldens catch shape changes and --check catches round-trip losses, but
+  neither proves the output still compiles -- the E2008 anonymous-structured-
+  type split shipped precisely through that gap.
+- **Shared test library (`Test\TestLib.ps1`).** The per-script copies of
+  MustMatch / MustNotMatch / MustContain, the exe/ini prolog + skip check,
+  SameBytes and the idempotency+round-trip CheckStable helper now live in one
+  dot-sourced file; every suite reads the same way and every suite now SKIPs
+  cleanly (exit 2) instead of erroring when the exe is not built.
 - **Single test entry point (`Test\run_tests.ps1`).** Runs every
   `Test\test_*.ps1`, prints a summary table (status + seconds per script),
   and returns an aggregate exit code. Warns when `YADF.exe` is older than

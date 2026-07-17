@@ -6,11 +6,12 @@
 # Exit 0 = pass, 1 = fail.
 
 $ErrorActionPreference = 'Stop'
-$exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
-$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe = Get-YadfExe
+$ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
 $src = Join-Path $PSScriptRoot 'Cases\multiline_closing_at_col1.pas'
 
-if (-not (Test-Path $exe)) { Write-Error "exe not found: $exe"; exit 2 }
+Assert-ToolOrSkip 'multiline_preserve' $exe
 if (-not (Test-Path $src)) { Write-Error "source not found: $src"; exit 2 }
 
 $tmp = [System.IO.Path]::GetTempFileName()

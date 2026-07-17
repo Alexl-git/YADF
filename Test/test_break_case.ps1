@@ -3,10 +3,11 @@
 # label. Genuine var/field declarations still split per SplitMultiVarDecls
 # regardless. Exit 0 = all pass, 1 = any fail.
 $ErrorActionPreference = 'Stop'
-$exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
-$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe = Get-YadfExe
+$ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
+Assert-ToolOrSkip 'break_case' $exe
 $src = Join-Path $PSScriptRoot 'Cases\case_labels.pas'
-$fail = 0
 
 function Fmt([string]$flag) {
   $tmp = Join-Path $env:TEMP ("bc_" + ($flag -replace '\W','') + ".out")
@@ -14,12 +15,6 @@ function Fmt([string]$flag) {
   $out = Get-Content $tmp -Raw
   Remove-Item $tmp -Force -ErrorAction SilentlyContinue
   return $out
-}
-function MustMatch([string]$out, [string]$rx, [string]$label) {
-  if ($out -notmatch $rx) { $script:fail++; Write-Output "FAIL [$label]: expected /$rx/" }
-}
-function MustNotMatch([string]$out, [string]$rx, [string]$label) {
-  if ($out -match $rx) { $script:fail++; Write-Output "FAIL [$label]: should not match /$rx/" }
 }
 
 # ----- DEFAULT (--no-break-case): arms kept on one line -----
@@ -48,13 +43,10 @@ foreach ($flag in @('--no-break-case','--break-case')) {
   $o1 = Join-Path $env:TEMP "bc1.pas"; $o2 = Join-Path $env:TEMP "bc2.pas"
   & $exe --ini $ini $src $flag --o $o1 | Out-Null
   & $exe --ini $ini $o1  $flag --o $o2 | Out-Null
-  if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) {
-    $script:fail++; Write-Output "FAIL [idempotent]: $flag"
-  }
+  if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail "idempotent: $flag" }
   $chk = & $exe --ini $ini --check $o1 2>&1
-  if ("$chk" -notmatch 'PASS') { $script:fail++; Write-Output "FAIL [roundtrip]: $flag" }
+  if ("$chk" -notmatch 'PASS') { Fail "roundtrip: $flag" }
   Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
 }
 
-if ($fail -eq 0) { Write-Output "break_case: PASS"; exit 0 }
-else { Write-Output "break_case: $fail FAILED"; exit 1 }
+Finish 'break_case'

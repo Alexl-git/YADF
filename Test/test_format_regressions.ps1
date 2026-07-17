@@ -1,10 +1,11 @@
 # Format-correctness regressions (things --check / round-trip cannot catch because
 # they verify byte coverage, not the formatted shape). Exit 0 = pass, 1 = any fail.
 $ErrorActionPreference = 'Stop'
-$exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
-$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe = Get-YadfExe
+$ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
+Assert-ToolOrSkip 'format_regressions' $exe
 $casesDir = Join-Path $PSScriptRoot 'Cases'
-$fail = 0
 
 function Fmt([string]$name) {
   $src = Join-Path $casesDir $name
@@ -12,12 +13,6 @@ function Fmt([string]$name) {
   & $exe --ini $ini $src --o $tmp | Out-Null
   $out = Get-Content $tmp -Raw
   return $out
-}
-function MustMatch([string]$out, [string]$rx, [string]$label) {
-  if ($out -notmatch $rx) { $script:fail++; Write-Output "FAIL [$label]: expected /$rx/" }
-}
-function MustNotMatch([string]$out, [string]$rx, [string]$label) {
-  if ($out -match $rx) { $script:fail++; Write-Output "FAIL [$label]: should NOT match /$rx/" }
 }
 
 # --- of_object_types: 'of object' must not be parsed as an object...end block,
@@ -69,5 +64,4 @@ MustNotMatch $o '(?m)^\s+begin\b'                'proc-fixture: begin not over-i
 MustMatch    $o '(?m)^  NamedA\s*:\s*Integer'    'proc-fixture: split var at routine var depth'
 MustMatch    $o '(?m)^end\.'                     'proc-fixture: unit end. at column 0'
 
-if ($fail -eq 0) { Write-Output "format_regressions: PASS"; exit 0 }
-else { Write-Output "format_regressions: $fail FAILED"; exit 1 }
+Finish 'format_regressions'

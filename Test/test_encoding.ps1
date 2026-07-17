@@ -7,11 +7,10 @@
 # real text, not the mojibake (the old double-encode turned C3 A9 into
 # C3 83 C2 A9). Exit 0 = all pass, 1 = any fail, 2 = skip (exe not built).
 $ErrorActionPreference = 'Stop'
-$exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
-$ini = Join-Path $PSScriptRoot '..\yadf.ini'
-$fail = 0
-
-if (-not (Test-Path $exe)) { Write-Output "encoding: SKIP (no exe at $exe)"; exit 2 }
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe = Get-YadfExe
+$ini = Get-RepoIni
+Assert-ToolOrSkip 'encoding' $exe
 
 $tmpDir = Join-Path $env:TEMP ("yadf_encoding_" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmpDir | Out-Null
@@ -59,8 +58,6 @@ function CountBytes([byte[]]$hay, [byte[]]$needle) {
   }
   return $n
 }
-
-function Fail([string]$msg) { $script:fail++; Write-Output "FAIL [$msg]" }
 
 $utf8Bom  = [byte[]](0xEF, 0xBB, 0xBF)
 $eAcute8  = [byte[]](0xC3, 0xA9)          # U+00E9 as UTF-8
@@ -111,5 +108,4 @@ finally {
   Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-if ($fail -eq 0) { Write-Output "encoding: PASS"; exit 0 }
-else { Write-Output "encoding: $fail FAILED"; exit 1 }
+Finish 'encoding'

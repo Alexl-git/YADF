@@ -21,7 +21,8 @@
 param([switch]$Capture)
 
 $ErrorActionPreference = 'Stop'
-$exe     = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe     = Get-YadfExe
 $goldDir = Join-Path $PSScriptRoot 'Golden'
 # Pin the config explicitly. Without --ini, YADF now resolves the per-user F
 # profile (%APPDATA%\YADF\profiles.ini -> yadf.ini), which varies per machine
@@ -39,14 +40,7 @@ if (-not (Test-Path $goldDir)) { New-Item -ItemType Directory -Path $goldDir | O
 $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRoot 'Snippets') -Filter *.pas -Recurse |
          Where-Object { $exclude -notcontains $_.Name }
 
-function SameBytes([string]$p1, [string]$p2) {
-  $a = [IO.File]::ReadAllBytes($p1)
-  $b = [IO.File]::ReadAllBytes($p2)
-  if ($a.Length -ne $b.Length) { return $false }
-  for ($k = 0; $k -lt $a.Length; $k++) { if ($a[$k] -ne $b[$k]) { return $false } }
-  return $true
-}
-
+# SameBytes comes from TestLib.ps1.
 $fail = 0
 foreach ($f in $files) {
   $gold = Join-Path $goldDir ($f.Name + '.golden')

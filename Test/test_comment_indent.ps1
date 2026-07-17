@@ -3,18 +3,16 @@
 # starting with `//.` which always keeps its authored indentation. OFF keeps
 # every comment's authored indentation. Exit 0 = pass.
 $ErrorActionPreference = 'Stop'
-$exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
-$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe = Get-YadfExe
+$ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
+Assert-ToolOrSkip 'comment_indent' $exe
 $src = Join-Path $PSScriptRoot 'Cases\comment_indent.pas'
-$fail = 0
 
 function Fmt([string]$flag) {
   $tmp = Join-Path $env:TEMP ("ci_" + ($flag -replace '\W','') + ".out")
   & $exe --ini $ini $src $flag --o $tmp | Out-Null
   $o = Get-Content $tmp -Raw; Remove-Item $tmp -Force -ErrorAction SilentlyContinue; return $o
-}
-function MustMatch([string]$o, [string]$rx, [string]$label) {
-  if ($o -notmatch $rx) { $script:fail++; Write-Output "FAIL [$label]: expected /$rx/" }
 }
 
 # ----- DEFAULT (--indent-comments): comments snap to code depth, //. pinned -----
@@ -34,11 +32,10 @@ foreach ($flag in @('--indent-comments','--no-indent-comments')) {
   $o1 = Join-Path $env:TEMP 'ci1.pas'; $o2 = Join-Path $env:TEMP 'ci2.pas'
   & $exe --ini $ini $src $flag --o $o1 | Out-Null
   & $exe --ini $ini $o1  $flag --o $o2 | Out-Null
-  if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { $script:fail++; Write-Output "FAIL [idempotent]: $flag" }
+  if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail "idempotent: $flag" }
   $chk = & $exe --ini $ini --check $o1 2>&1
-  if ("$chk" -notmatch 'PASS') { $script:fail++; Write-Output "FAIL [roundtrip]: $flag" }
+  if ("$chk" -notmatch 'PASS') { Fail "roundtrip: $flag" }
   Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
 }
 
-if ($fail -eq 0) { Write-Output 'comment_indent: PASS'; exit 0 }
-else { Write-Output "comment_indent: $fail FAILED"; exit 1 }
+Finish 'comment_indent'

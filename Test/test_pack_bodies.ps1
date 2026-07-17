@@ -3,21 +3,16 @@
 # onto the header line. A nested control header (if under for) is never pulled
 # up in either mode (no half-merge). Exit 0 = pass.
 $ErrorActionPreference = 'Stop'
-$exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
-$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe = Get-YadfExe
+$ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
+Assert-ToolOrSkip 'pack_bodies' $exe
 $src = Join-Path $PSScriptRoot 'Cases\pack_bodies.pas'
-$fail = 0
 
 function Fmt([string[]]$flags) {
   $tmp = Join-Path $env:TEMP 'pb.out'
   & $exe --ini $ini $src $flags --o $tmp | Out-Null
   $o = Get-Content $tmp -Raw; Remove-Item $tmp -Force -ErrorAction SilentlyContinue; return $o
-}
-function MustMatch([string]$o, [string]$rx, [string]$label) {
-  if ($o -notmatch $rx) { $script:fail++; Write-Output "FAIL [$label]: expected /$rx/" }
-}
-function MustNotMatch([string]$o, [string]$rx, [string]$label) {
-  if ($o -match $rx) { $script:fail++; Write-Output "FAIL [$label]: should not match /$rx/" }
 }
 
 # ----- DEFAULT (off): structural -----
@@ -45,18 +40,8 @@ MustMatch    $on '0: DoZero\s*;'                 'on: case arm 0 packed'
 MustMatch    $on '1: if Flag then DoOne;'        'on: case arm if fully packed (no half-merge)'
 MustMatch    $on 'else DoDefault;'               'on: case-else body packed'
 
-# idempotency + round-trip, both modes
-function CheckStable([string]$label, [string[]]$flags) {
-  $o1 = Join-Path $env:TEMP 'pb1.pas'; $o2 = Join-Path $env:TEMP 'pb2.pas'
-  & $exe --ini $ini $src $flags --o $o1 | Out-Null
-  & $exe --ini $ini $o1  $flags --o $o2 | Out-Null
-  if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { $script:fail++; Write-Output "FAIL [idempotent]: $label" }
-  $chk = & $exe --ini $ini --check $o1 2>&1
-  if ("$chk" -notmatch 'PASS') { $script:fail++; Write-Output "FAIL [roundtrip]: $label" }
-  Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
-}
+# idempotency + round-trip, both modes (CheckStable from TestLib)
 CheckStable 'off' @('--no-pack-bodies')
 CheckStable 'on'  @('--pack-bodies')
 
-if ($fail -eq 0) { Write-Output 'pack_bodies: PASS'; exit 0 }
-else { Write-Output "pack_bodies: $fail FAILED"; exit 1 }
+Finish 'pack_bodies'
