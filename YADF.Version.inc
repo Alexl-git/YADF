@@ -3,4 +3,4 @@
   /p:VerInfo_* properties using the same value. When releasing, bump BOTH
   this constant and the version variables at the top of build_all.bat. }
 const
-  YADF_VERSION = '1.0.11.0';
+  YADF_VERSION = '1.0.12.0';
