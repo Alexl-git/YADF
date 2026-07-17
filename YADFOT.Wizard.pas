@@ -100,7 +100,7 @@ const
   // Splash / About-box copy. The version comes from YADF.Version.inc so there is
   // exactly one source of truth across the CLI, YADFSetup, and this package.
   SplashCaption   = 'YADFOT';
-  AboutLicense    = 'MIT';
+  AboutLicense    = 'MPL-2.0';   // must match the repo LICENSE / unit headers
   AboutDescription =
     'YADFOT -- YADF Open Tools.' + sLineBreak +
     'Formats the current editor buffer with YADF (Yet Another Delphi Formatter).' +
@@ -412,87 +412,99 @@ end;
 // Sole entry point for "format the current buffer". Both the Tools menu
 // item and the keyboard binding call this. Flow:
 //   1. Locate the source editor that owns the focused edit view.
-//   2. Refuse non-code buffers (form designer, project options, ...).
+//   2. Refuse non-code buffers (form designer, project options, ...) and
+//      read-only buffers.
 //   3. Resolve options from the nearest yadf.ini (or defaults).
-//   4. Read editor text -> FormatSource -> write back, all within a
-//      single try/except so any lexer/parser exception surfaces as a
-//      dialog rather than an IDE crash.
+//   4. Read editor text -> FormatSource -> write back.
 //   5. Skip the write if formatting was a no-op, so we don't dirty the
 //      buffer or add an empty entry to the IDE's undo stack.
+// The ENTIRE flow runs inside one try/except: this procedure is invoked
+// straight from the IDE's key-dispatch / menu-dispatch, and any exception
+// escaping it (options I/O, OTA buffer write, module save/refresh -- not
+// just the formatter itself) would unwind through the IDE's own stack and
+// can destabilise it. Everything surfaces as a dialog instead.
 procedure DoFormatCurrentBuffer(AProfileR: Boolean = False);
 var
   Editor   : IOTASourceEditor;
+  Buffer   : IOTAEditBuffer;
   FileName : string;
   Opts     : TYadfOptions;
   Original : string;
   Formatted: string;
   RIni     : string;
 begin
-  Editor:= GetActiveSourceEditor(FileName);
-  if Editor = nil then
-  begin
-    MessageDlg('YADFOT: no source editor is active.' + sLineBreak +
-      'Open a .pas / .dpr / .dpk / .inc file and try again.',
-      mtInformation, [mbOK], 0);
-    Exit;
-  end;
-  if not IsCodeBufferExt(FileName) then
-  begin
-    MessageDlg('YADFOT: active buffer is not a Pascal source file.' + sLineBreak +
-      'File: ' + FileName + sLineBreak +
-      'Supported extensions: .pas .dpr .dpk .inc',
-      mtInformation, [mbOK], 0);
-    Exit;
-  end;
-
-  // Resolve options (profile-aware) BEFORE choosing the form-reload vs in-buffer
-  // path, so Ctrl+Shift+Alt+R uses the R profile INI on a form unit too. BOTH
-  // shortcuts now resolve their INI the SAME way YADFSetup and the Options page
-  // do -- via %APPDATA%\YADF\profiles.ini (no project-tree walk): F uses the
-  // profiles.ini [Profiles]F entry, R uses the R entry. This makes "edit the
-  // settings, then format" always agree on one file; a stray project-local
-  // yadf.ini no longer silently shadows the user's saved F profile.
-  if AProfileR then
-  begin
-    RIni:= ResolveProfileIniPath(LoadProfiles.R);
-    if (RIni = '') or (not FileExists(RIni)) then
+  try
+    Editor:= GetActiveSourceEditor(FileName);
+    if Editor = nil then
     begin
-      MessageDlg('YADFOT: no second (R) profile is configured.' + sLineBreak +
-        'Open YADFSetup, click an INI in the Profiles list and press R to assign ' +
-        'it to Ctrl+Shift+Alt+R.',
+      MessageDlg('YADFOT: no source editor is active.' + sLineBreak +
+        'Open a .pas / .dpr / .dpk / .inc file and try again.',
         mtInformation, [mbOK], 0);
       Exit;
     end;
-    Opts:= DefaultOptions;
-    LoadIniDefaults(Opts, RIni);
-  end
-  else
-    Opts:= ResolveOptions;   // F profile via profiles.ini (materialised if absent)
+    if not IsCodeBufferExt(FileName) then
+    begin
+      MessageDlg('YADFOT: active buffer is not a Pascal source file.' + sLineBreak +
+        'File: ' + FileName + sLineBreak +
+        'Supported extensions: .pas .dpr .dpk .inc',
+        mtInformation, [mbOK], 0);
+      Exit;
+    end;
+    // Refuse read-only buffers politely. Without this, the failure happens
+    // deep inside IOTAEditWriter.Insert (or as a silent no-op) instead of
+    // telling the user why nothing was formatted.
+    if Supports(Editor, IOTAEditBuffer, Buffer) and Buffer.IsReadOnly then
+    begin
+      MessageDlg('YADFOT: the active buffer is read-only.' + sLineBreak +
+        'File: ' + FileName + sLineBreak +
+        'Clear the read-only state and try again.',
+        mtInformation, [mbOK], 0);
+      Exit;
+    end;
 
-  // A form / data-module unit has a live Form Designer whose source-position map
-  // a buffer swap would corrupt. Take the safe disk-reload handshake path (using
-  // the options resolved above) instead of the in-buffer write below.
-  if ModuleHasFormDesigner(Editor) then
-  begin
-    FormatFormUnitViaReload(Editor, FileName, Opts);
-    Exit;
-  end;
+    // Resolve options (profile-aware) BEFORE choosing the form-reload vs in-buffer
+    // path, so Ctrl+Shift+Alt+R uses the R profile INI on a form unit too. BOTH
+    // shortcuts now resolve their INI the SAME way YADFSetup and the Options page
+    // do -- via %APPDATA%\YADF\profiles.ini (no project-tree walk): F uses the
+    // profiles.ini [Profiles]F entry, R uses the R entry. This makes "edit the
+    // settings, then format" always agree on one file; a stray project-local
+    // yadf.ini no longer silently shadows the user's saved F profile.
+    if AProfileR then
+    begin
+      RIni:= ResolveProfileIniPath(LoadProfiles.R);
+      if (RIni = '') or (not FileExists(RIni)) then
+      begin
+        MessageDlg('YADFOT: no second (R) profile is configured.' + sLineBreak +
+          'Open YADFSetup, click an INI in the Profiles list and press R to assign ' +
+          'it to Ctrl+Shift+Alt+R.',
+          mtInformation, [mbOK], 0);
+        Exit;
+      end;
+      Opts:= DefaultOptions;
+      LoadIniDefaults(Opts, RIni);
+    end
+    else
+      Opts:= ResolveOptions;   // F profile via profiles.ini (materialised if absent)
 
-  try
+    // A form / data-module unit has a live Form Designer whose source-position map
+    // a buffer swap would corrupt. Take the safe disk-reload handshake path (using
+    // the options resolved above) instead of the in-buffer write below.
+    if ModuleHasFormDesigner(Editor) then
+    begin
+      FormatFormUnitViaReload(Editor, FileName, Opts);
+      Exit;
+    end;
+
     Original := ReadEditorText(Editor);
     Formatted:= FormatSource(Original, Opts);
+    if Formatted = Original then Exit;
+    WriteEditorText(Editor, Formatted);
   except
     on E: Exception do
-    begin
       MessageDlg('YADFOT: format failed.' + sLineBreak +
         E.ClassName + ': ' + E.Message,
         mtError, [mbOK], 0);
-      Exit;
-    end;
   end;
-
-  if Formatted = Original then Exit;
-  WriteEditorText(Editor, Formatted);
 end;
 
 // --- IOTAWizard / IOTAMenuWizard ---------------------------------------
@@ -651,16 +663,19 @@ end;
 // package loads. It hands the IDE one IOTAWizard (the Tools-menu item)
 // and one IOTAKeyboardBinding (the Ctrl+Shift+Alt+F shortcut). Both
 // indices are stored so finalization can hand them back cleanly on
-// package unload; IOTAKeyboardServices may be unavailable in some IDE
-// configurations, so we tolerate its absence rather than failing the
-// whole registration.
+// package unload. Services are queried via Supports(): an interface `as`
+// cast raises EIntfCastError when the service is unsupported (so the old
+// `KS <> nil` check after `as` could never fire), and yields a nil
+// interface when BorlandIDEServices itself is nil -- Supports handles
+// both, tolerating an absent service instead of failing registration.
 procedure Register;
 var
+  WS: IOTAWizardServices;
   KS: IOTAKeyboardServices;
 begin
-  GWizardIndex:= (BorlandIDEServices as IOTAWizardServices).AddWizard(TYadfotMenuWizard.Create);
-  KS:= BorlandIDEServices as IOTAKeyboardServices;
-  if KS <> nil then
+  if Supports(BorlandIDEServices, IOTAWizardServices, WS) then
+    GWizardIndex:= WS.AddWizard(TYadfotMenuWizard.Create);
+  if Supports(BorlandIDEServices, IOTAKeyboardServices, KS) then
     GKeyboardBindingIndex:= KS.AddKeyboardBinding(TYadfotKeyboardBinding.Create);
   // Add the Tools > Options > Third Party > YADF page. Tolerate failure so a
   // missing options service never aborts the whole registration.
@@ -670,6 +685,25 @@ begin
   try RegisterYadfotAbout; except end;
 end;
 
+// Hand back the wizard slot and keyboard binding. Called from finalization;
+// a separate procedure so it can have locals and so the call site can be
+// exception-guarded. Supports() instead of `as`: in late IDE shutdown
+// BorlandIDEServices can already be nil, and `as` on a nil interface yields
+// nil (-> AV on the call) while an unsupported service raises EIntfCastError
+// -- either one inside package finalization crashes the IDE on exit.
+procedure UnregisterYadfotWizard;
+var
+  WS: IOTAWizardServices;
+  KS: IOTAKeyboardServices;
+begin
+  if (GWizardIndex <> -1) and Supports(BorlandIDEServices, IOTAWizardServices, WS) then
+    WS.RemoveWizard(GWizardIndex);
+  GWizardIndex:= -1;
+  if (GKeyboardBindingIndex <> -1) and Supports(BorlandIDEServices, IOTAKeyboardServices, KS) then
+    KS.RemoveKeyboardBinding(GKeyboardBindingIndex);
+  GKeyboardBindingIndex:= -1;
+end;
+
 initialization
 
 // Hand back the wizard slot and keyboard binding when the package
@@ -677,10 +711,7 @@ initialization
 // is essential -- if the slot is left dangling, the next package load
 // can leave duplicate menu items behind.
 finalization
-  if GWizardIndex <> -1 then
-    (BorlandIDEServices as IOTAWizardServices).RemoveWizard(GWizardIndex);
-  if GKeyboardBindingIndex <> -1 then
-    (BorlandIDEServices as IOTAKeyboardServices).RemoveKeyboardBinding(GKeyboardBindingIndex);
+  try UnregisterYadfotWizard; except end;
   // Backstop for the About-box entry + retained icon (primary hook is the
   // wizard's Destroyed above). Idempotent via the GAboutIndex >= 0 guard.
   try UnregisterYadfotAbout; except end;

@@ -4,12 +4,13 @@
 # up in either mode (no half-merge). Exit 0 = pass.
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
+$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
 $src = Join-Path $PSScriptRoot 'Cases\pack_bodies.pas'
 $fail = 0
 
 function Fmt([string[]]$flags) {
   $tmp = Join-Path $env:TEMP 'pb.out'
-  & $exe $src $flags --o $tmp | Out-Null
+  & $exe --ini $ini $src $flags --o $tmp | Out-Null
   $o = Get-Content $tmp -Raw; Remove-Item $tmp -Force -ErrorAction SilentlyContinue; return $o
 }
 function MustMatch([string]$o, [string]$rx, [string]$label) {
@@ -47,10 +48,10 @@ MustMatch    $on 'else DoDefault;'               'on: case-else body packed'
 # idempotency + round-trip, both modes
 function CheckStable([string]$label, [string[]]$flags) {
   $o1 = Join-Path $env:TEMP 'pb1.pas'; $o2 = Join-Path $env:TEMP 'pb2.pas'
-  & $exe $src $flags --o $o1 | Out-Null
-  & $exe $o1  $flags --o $o2 | Out-Null
+  & $exe --ini $ini $src $flags --o $o1 | Out-Null
+  & $exe --ini $ini $o1  $flags --o $o2 | Out-Null
   if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { $script:fail++; Write-Output "FAIL [idempotent]: $label" }
-  $chk = & $exe --check $o1 2>&1
+  $chk = & $exe --ini $ini --check $o1 2>&1
   if ("$chk" -notmatch 'PASS') { $script:fail++; Write-Output "FAIL [roundtrip]: $label" }
   Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
 }

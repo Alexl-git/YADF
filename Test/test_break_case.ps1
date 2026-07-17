@@ -4,12 +4,13 @@
 # regardless. Exit 0 = all pass, 1 = any fail.
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
+$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
 $src = Join-Path $PSScriptRoot 'Cases\case_labels.pas'
 $fail = 0
 
 function Fmt([string]$flag) {
   $tmp = Join-Path $env:TEMP ("bc_" + ($flag -replace '\W','') + ".out")
-  & $exe $src $flag --o $tmp | Out-Null
+  & $exe --ini $ini $src $flag --o $tmp | Out-Null
   $out = Get-Content $tmp -Raw
   Remove-Item $tmp -Force -ErrorAction SilentlyContinue
   return $out
@@ -45,12 +46,12 @@ MustMatch    $on '(?m)^\s*A: Integer;'   'on: var A still split'
 # ----- idempotency + byte-faithful round-trip for both modes -----
 foreach ($flag in @('--no-break-case','--break-case')) {
   $o1 = Join-Path $env:TEMP "bc1.pas"; $o2 = Join-Path $env:TEMP "bc2.pas"
-  & $exe $src $flag --o $o1 | Out-Null
-  & $exe $o1  $flag --o $o2 | Out-Null
+  & $exe --ini $ini $src $flag --o $o1 | Out-Null
+  & $exe --ini $ini $o1  $flag --o $o2 | Out-Null
   if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) {
     $script:fail++; Write-Output "FAIL [idempotent]: $flag"
   }
-  $chk = & $exe --check $o1 2>&1
+  $chk = & $exe --ini $ini --check $o1 2>&1
   if ("$chk" -notmatch 'PASS') { $script:fail++; Write-Output "FAIL [roundtrip]: $flag" }
   Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
 }

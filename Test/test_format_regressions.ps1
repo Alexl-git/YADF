@@ -2,13 +2,14 @@
 # they verify byte coverage, not the formatted shape). Exit 0 = pass, 1 = any fail.
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
+$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
 $casesDir = Join-Path $PSScriptRoot 'Cases'
 $fail = 0
 
 function Fmt([string]$name) {
   $src = Join-Path $casesDir $name
   $tmp = Join-Path $env:TEMP ("fmt_" + [IO.Path]::GetFileNameWithoutExtension($name) + ".out")
-  & $exe $src --o $tmp | Out-Null
+  & $exe --ini $ini $src --o $tmp | Out-Null
   $out = Get-Content $tmp -Raw
   return $out
 }

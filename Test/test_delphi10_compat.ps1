@@ -2,13 +2,14 @@
 # the expected hoisted/flagged output. Exit 0 = all pass, 1 = any fail.
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
+$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
 $casesDir = Join-Path $PSScriptRoot 'Cases'
 $fail = 0
 
 function Fmt([string]$name) {
   $src = Join-Path $casesDir $name
   $tmp = Join-Path $env:TEMP ("d10_" + [IO.Path]::GetFileNameWithoutExtension($name) + ".out")
-  & $exe $src --d10 --o $tmp | Out-Null
+  & $exe --ini $ini $src --d10 --o $tmp | Out-Null
   $out = Get-Content $tmp -Raw
   Remove-Item $tmp -Force -ErrorAction SilentlyContinue
   return $out
@@ -106,12 +107,12 @@ MustContain $o "var Z: Integer:= 3; // TODO -oYADF : inline var inside an anonym
 Get-ChildItem $casesDir -Filter 'd10_*.pas' | ForEach-Object {
   $o1 = Join-Path $env:TEMP ($_.BaseName + '.1.pas')
   $o2 = Join-Path $env:TEMP ($_.BaseName + '.2.pas')
-  & $exe $_.FullName --d10 --o $o1 | Out-Null
-  & $exe $o1 --d10 --o $o2 | Out-Null
+  & $exe --ini $ini $_.FullName --d10 --o $o1 | Out-Null
+  & $exe --ini $ini $o1 --d10 --o $o2 | Out-Null
   if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) {
     $script:fail++; Write-Output "FAIL [idempotent]: $($_.Name)"
   }
-  $chk = & $exe --check $o1 2>&1
+  $chk = & $exe --ini $ini --check $o1 2>&1
   if ("$chk" -notmatch 'PASS') { $script:fail++; Write-Output "FAIL [roundtrip]: $($_.Name)" }
   Remove-Item $o1 -Force -ErrorAction SilentlyContinue
   Remove-Item $o2 -Force -ErrorAction SilentlyContinue
@@ -119,7 +120,7 @@ Get-ChildItem $casesDir -Filter 'd10_*.pas' | ForEach-Object {
 
 # --- option OFF must not hoist ---
 $tmp = Join-Path $env:TEMP "d10_off.pas"
-& $exe (Join-Path $casesDir 'd10_explicit_basic.pas') --no-d10 --o $tmp | Out-Null
+& $exe --ini $ini (Join-Path $casesDir 'd10_explicit_basic.pas') --no-d10 --o $tmp | Out-Null
 $off = Get-Content $tmp -Raw
 Remove-Item $tmp -Force -ErrorAction SilentlyContinue
 MustMatch $off 'var N: Integer:= 5;' 'option-off: inline var preserved'

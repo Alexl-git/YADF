@@ -4,11 +4,12 @@
 # nesting is visible (reflow merges some controllers onto one line). Exit 0=pass.
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
+$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
 $src = Join-Path $PSScriptRoot 'Cases\nested_indent.pas'
 $fail = 0
 
 $tmp = Join-Path $env:TEMP 'ni.out'
-& $exe $src --no-reflow --o $tmp | Out-Null
+& $exe --ini $ini $src --no-reflow --o $tmp | Out-Null
 $o = Get-Content $tmp -Raw
 Remove-Item $tmp -Force -ErrorAction SilentlyContinue
 
@@ -38,10 +39,10 @@ MustMatch    '(?m)^    DoOther;'         'E: ladder body at 4'
 # idempotency + round-trip helper
 function CheckStable([string]$label, [string[]]$flags) {
   $o1 = Join-Path $env:TEMP 'ni1.pas'; $o2 = Join-Path $env:TEMP 'ni2.pas'
-  & $exe $src $flags --o $o1 | Out-Null
-  & $exe $o1  $flags --o $o2 | Out-Null
+  & $exe --ini $ini $src $flags --o $o1 | Out-Null
+  & $exe --ini $ini $o1  $flags --o $o2 | Out-Null
   if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { $script:fail++; Write-Output "FAIL [idempotent]: $label" }
-  $chk = & $exe --check $o1 2>&1
+  $chk = & $exe --ini $ini --check $o1 2>&1
   if ("$chk" -notmatch 'PASS') { $script:fail++; Write-Output "FAIL [roundtrip]: $label" }
   Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
 }

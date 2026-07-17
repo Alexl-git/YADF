@@ -4,12 +4,13 @@
 # every comment's authored indentation. Exit 0 = pass.
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
+$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
 $src = Join-Path $PSScriptRoot 'Cases\comment_indent.pas'
 $fail = 0
 
 function Fmt([string]$flag) {
   $tmp = Join-Path $env:TEMP ("ci_" + ($flag -replace '\W','') + ".out")
-  & $exe $src $flag --o $tmp | Out-Null
+  & $exe --ini $ini $src $flag --o $tmp | Out-Null
   $o = Get-Content $tmp -Raw; Remove-Item $tmp -Force -ErrorAction SilentlyContinue; return $o
 }
 function MustMatch([string]$o, [string]$rx, [string]$label) {
@@ -31,10 +32,10 @@ MustMatch $off '(?m)^//\. pinned note stays'        'off: //. line stays at colu
 # ----- idempotency + round-trip, both modes -----
 foreach ($flag in @('--indent-comments','--no-indent-comments')) {
   $o1 = Join-Path $env:TEMP 'ci1.pas'; $o2 = Join-Path $env:TEMP 'ci2.pas'
-  & $exe $src $flag --o $o1 | Out-Null
-  & $exe $o1  $flag --o $o2 | Out-Null
+  & $exe --ini $ini $src $flag --o $o1 | Out-Null
+  & $exe --ini $ini $o1  $flag --o $o2 | Out-Null
   if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { $script:fail++; Write-Output "FAIL [idempotent]: $flag" }
-  $chk = & $exe --check $o1 2>&1
+  $chk = & $exe --ini $ini --check $o1 2>&1
   if ("$chk" -notmatch 'PASS') { $script:fail++; Write-Output "FAIL [roundtrip]: $flag" }
   Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
 }

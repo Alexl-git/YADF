@@ -1125,6 +1125,17 @@ begin
         AOpts.CollapseShortBlocks:= False;
         Inc(i);
       end
+      else if AArgs[i].StartsWith('--') and (AArgs[i] <> '--check') and
+              (AArgs[i] <> '--check-dir') and (AArgs[i] <> '--batch') and
+              (AArgs[i] <> '--debug-tree') then
+      begin
+        // Anything else that looks like a flag is a typo or an unsupported
+        // option; reject it loudly instead of treating it as a file spec
+        // (which used to produce a confusing "file not found" run). The four
+        // positional mode flags above are parsed later by RunYadf and must
+        // pass through untouched.
+        raise Exception.Create('unknown option ' + AArgs[i] + ' (run yadf --help for the flag list)');
+      end
       else
       begin
         Out_.Add(AArgs[i]);

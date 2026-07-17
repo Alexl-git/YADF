@@ -8,6 +8,35 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+
+- **CLI: unknown `--flags` are now rejected** with `unknown option <flag> (run
+  yadf --help for the flag list)` instead of being silently treated as file
+  specs (a typo like `--max-length` used to produce a confusing
+  "file not found" run and could still format the other named files). The
+  positional mode flags (`--check`, `--check-dir`, `--batch`, `--debug-tree`)
+  are unaffected. New test: `Test\test_cli_errors.ps1`.
+- **YADFOT: IDE-stability hardening.** (1) The whole format action now runs
+  inside one top-level `try/except` -- previously an exception from options
+  I/O, the OTA buffer write, or the form-unit save/refresh escaped into the
+  IDE's key-dispatch stack. (2) The package `finalization` and `Register` now
+  query OTA services via `Supports()` instead of interface `as` casts, which
+  could AV (nil `BorlandIDEServices` in late shutdown) or raise
+  `EIntfCastError` -- the classic "IDE crashes on exit" plugin signature.
+  (3) Read-only buffers are refused with a clear dialog instead of failing
+  inside `IOTAEditWriter`.
+- **YADFOT: About-box/splash license string** corrected from `MIT` to
+  `MPL-2.0` (matches `LICENSE` and the unit headers).
+
+### Changed
+
+- **Tests: config pinned.** The 10 fixture scripts that previously ran
+  `YADF.exe` bare now pass `--ini <repo>\yadf.ini`, so a developer's personal
+  `%APPDATA%\YADF` profile can no longer flip test results (same pinning the
+  golden harness already had).
+
 ## [1.0.11.0] -- 2026-07-14
 
 ### Added

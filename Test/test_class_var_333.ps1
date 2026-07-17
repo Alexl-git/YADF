@@ -9,12 +9,13 @@
 # Usage: pwsh Test\test_class_var_333.ps1   (exit 0 = pass, 1 = fail)
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe'
+$ini = Join-Path $PSScriptRoot '..\yadf.ini'  # pin config: personal %APPDATA% profile must not affect tests
 $src = Join-Path $PSScriptRoot 'Cases\class_var_sections.pas'
 $fail = 0
 function Ind([string]$s) { $s.Length - $s.TrimStart().Length }
 
 $tmp = Join-Path $env:TEMP "cv333.out"
-& $exe $src --o $tmp | Out-Null
+& $exe --ini $ini $src --o $tmp | Out-Null
 $lines = Get-Content $tmp
 
 # Section-keyword lines: a line whose trimmed text is exactly 'var' or 'class var'.
