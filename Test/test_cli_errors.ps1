@@ -29,6 +29,19 @@ try {
   if ($LASTEXITCODE -eq 0) { Fail "typo-flag exit: expected nonzero, got 0" }
   MustMatch $out 'unknown option --max-length' 'typo-flag message'
 
+  # ----- symmetric bool flags: the positive form must override an INI false -----
+  # (the --no-* forms always existed; the positive twins were missing, so an
+  # INI false could not be re-enabled per run)
+  $ini2 = Join-Path $tmpDir 'flags.ini'
+  [IO.File]::WriteAllText($ini2, "[Format]`r`nUpperHexNumbers=false`r`n", (New-Object Text.ASCIIEncoding))
+  $pas = Join-Path $tmpDir 'hex.pas'
+  [IO.File]::WriteAllText($pas, "unit hex;`r`ninterface`r`nconst`r`n  K = `$00ab;`r`nimplementation`r`nend.`r`n", (New-Object Text.ASCIIEncoding))
+  $ho = Join-Path $tmpDir 'hex_out.pas'
+  & $exe --ini $ini2 $pas --o $ho | Out-Null
+  MustMatch (Get-Content $ho -Raw) '\$00ab' 'ini UpperHexNumbers=false honored (baseline)'
+  & $exe --ini $ini2 $pas --upper-hex --o $ho | Out-Null
+  MustMatch (Get-Content $ho -Raw) '\$00AB' '--upper-hex overrides INI false'
+
   # ----- mode flags still pass through ParseFlags -----
   $fmt = Join-Path $tmpDir 'formatted.pas'
   & $exe --ini $ini $src --o $fmt | Out-Null

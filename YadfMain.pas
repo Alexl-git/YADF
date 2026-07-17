@@ -811,12 +811,12 @@ begin
   WriteStdoutLine(Format('  --indent N            indent step in spaces                            [%d]', [AOpts.Indent]));
   WriteStdoutLine(Format('  --tab-width N         a leading tab = N spaces                         [%d]', [AOpts.TabWidth]));
   WriteStdoutLine(Format('  --max-blank-lines N   cap consecutive blank lines                      [%d]', [AOpts.MaxBlankLines]));
-  WriteStdoutLine(Format('  --no-reflow           preserve source line breaks                      [reflow=%s]', [OnOff(AOpts.ReflowLines)]));
+  WriteStdoutLine(Format('  --reflow|--no-reflow  reflow long lines / preserve source line breaks  [reflow=%s]', [OnOff(AOpts.ReflowLines)]));
   WriteStdoutLine(Format('  --pack-bodies         pack short loop/if bodies + case arms onto one line [pack=%s]', [OnOff(AOpts.PackShortBodies)]));
   WriteStdoutLine('  --no-pack-bodies      keep each body / case arm on its own line (default)');
   WriteStdoutLine(Format('  --collapse-blocks     fold a short if/for/while begin..end body onto one line [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
   WriteStdoutLine('  --no-collapse-blocks  keep begin..end blocks expanded (default)');
-  WriteStdoutLine(Format('  --no-trim-trailing    keep trailing whitespace                         [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
+  WriteStdoutLine(Format('  --[no-]trim-trailing  trim / keep trailing whitespace                  [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
   WriteStdoutLine('');
   WriteStdoutLine('Uses clause:');
   WriteStdoutLine(Format('  --uses-break          always break uses one-per-line, comma-first      [break=%s]', [OnOff(AOpts.UsesAlwaysBreak)]));
@@ -833,14 +833,14 @@ begin
   WriteStdoutLine('');
   WriteStdoutLine('Block labels & markers:');
   WriteStdoutLine(Format('  --label-min-lines N   min block size for `// while`                    [%d]', [AOpts.LabelMinLines]));
-  WriteStdoutLine(Format('  --no-label-blocks     disable block-end labels                         [labels=%s]', [OnOff(AOpts.LabelLongBlocks)]));
-  WriteStdoutLine(Format('  --mark-unclosed       mark unclosed begin/record                       [marker=%s]', [OnOff(AOpts.MarkUnclosed)]));
+  WriteStdoutLine(Format('  --[no-]label-blocks   enable / disable block-end labels                [labels=%s]', [OnOff(AOpts.LabelLongBlocks)]));
+  WriteStdoutLine(Format('  --[no-]mark-unclosed  mark unclosed begin/record (or not)              [marker=%s]', [OnOff(AOpts.MarkUnclosed)]));
   WriteStdoutLine('');
   WriteStdoutLine('Capitalization:');
-  WriteStdoutLine(Format('  --no-lowercase-keywords  keep keyword casing                           [lowercase=%s]', [OnOff(AOpts.LowercaseKeywords)]));
-  WriteStdoutLine(Format('  --no-upper-hex           keep hex digit casing                         [uppercase=%s]', [OnOff(AOpts.UpperHexNumbers)]));
-  WriteStdoutLine(Format('  --no-upper-directives    keep directive casing                         [uppercase=%s]', [OnOff(AOpts.UpperDirectives)]));
-  WriteStdoutLine(Format('  --no-first-occ           keep identifier casing                        [normalize=%s]', [OnOff(AOpts.FirstOccCasing)]));
+  WriteStdoutLine(Format('  --[no-]lowercase-keywords  lowercase / keep keyword casing             [lowercase=%s]', [OnOff(AOpts.LowercaseKeywords)]));
+  WriteStdoutLine(Format('  --[no-]upper-hex           uppercase / keep hex digit casing           [uppercase=%s]', [OnOff(AOpts.UpperHexNumbers)]));
+  WriteStdoutLine(Format('  --[no-]upper-directives    uppercase / keep directive casing           [uppercase=%s]', [OnOff(AOpts.UpperDirectives)]));
+  WriteStdoutLine(Format('  --[no-]first-occ           normalize / keep identifier casing          [normalize=%s]', [OnOff(AOpts.FirstOccCasing)]));
   WriteStdoutLine('');
   WriteStdoutLine('Blank-line policy:');
   WriteStdoutLine(Format('  --blanks-before-section N   blanks before interface/etc               [%d]', [AOpts.BlanksBeforeSection]));
@@ -1010,6 +1010,16 @@ begin
         AOpts.MarkUnclosed:= True;
         Inc(i);
       end
+      else if AArgs[i] = '--no-mark-unclosed' then
+      begin
+        AOpts.MarkUnclosed:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--label-blocks' then
+      begin
+        AOpts.LabelLongBlocks:= True;
+        Inc(i);
+      end
       else if AArgs[i] = '--no-label-blocks' then
       begin
         AOpts.LabelLongBlocks:= False;
@@ -1029,9 +1039,19 @@ begin
         AOpts.MaxBlankLines:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
+      else if AArgs[i] = '--trim-trailing' then
+      begin
+        AOpts.TrimTrailing:= True;
+        Inc(i);
+      end
       else if AArgs[i] = '--no-trim-trailing' then
       begin
         AOpts.TrimTrailing:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--reflow' then
+      begin
+        AOpts.ReflowLines:= True;
         Inc(i);
       end
       else if AArgs[i] = '--no-reflow' then
@@ -1039,9 +1059,19 @@ begin
         AOpts.ReflowLines:= False;
         Inc(i);
       end
+      else if AArgs[i] = '--lowercase-keywords' then
+      begin
+        AOpts.LowercaseKeywords:= True;
+        Inc(i);
+      end
       else if AArgs[i] = '--no-lowercase-keywords' then
       begin
         AOpts.LowercaseKeywords:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--upper-hex' then
+      begin
+        AOpts.UpperHexNumbers:= True;
         Inc(i);
       end
       else if AArgs[i] = '--no-upper-hex' then
@@ -1049,9 +1079,19 @@ begin
         AOpts.UpperHexNumbers:= False;
         Inc(i);
       end
+      else if AArgs[i] = '--upper-directives' then
+      begin
+        AOpts.UpperDirectives:= True;
+        Inc(i);
+      end
       else if AArgs[i] = '--no-upper-directives' then
       begin
         AOpts.UpperDirectives:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--first-occ' then
+      begin
+        AOpts.FirstOccCasing:= True;
         Inc(i);
       end
       else if AArgs[i] = '--no-first-occ' then

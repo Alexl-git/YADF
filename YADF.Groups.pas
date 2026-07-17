@@ -69,6 +69,23 @@ begin
     Dec(Result);
 end;
 
+// True when a `case` at the current nesting position is the VARIANT PART of a
+// record/object declaration (`case Tag: T of` inside the decl, possibly nested
+// inside the variant parens): the nearest enclosing BLOCK -- looking through
+// parens/brackets -- is a record/object. A variant part has NO `end` of its
+// own (the record's end closes it), so it must not open a block group: doing
+// so made the record's end close the case instead, leaving the record group
+// open and creeping everything after it one level right.
+function IsVariantPartCase(ACur: TGroup): Boolean;
+var
+  G: TGroup;
+begin
+  G:= ACur;
+  while (G <> nil) and (G.Kind in [gkParens, gkBrackets]) do G:= G.Parent;
+  Result:= (G <> nil) and (G.Kind = gkBlock) and
+           (G.OpenerKind in [ptRecord, ptObject]);
+end;
+
 function ParseGroups(const ATokens: TTokenList): TGroup;
 var
   Root: TGroup;
@@ -94,7 +111,9 @@ begin
         Cur.CloseIdx:= i;
         Cur:= Cur.Parent;
       end;
-      ptBegin, ptRecord, ptCase, ptTry, ptAsm: Cur:= TGroup.Create(gkBlock, i, K, Cur);
+      ptBegin, ptRecord, ptTry, ptAsm: Cur:= TGroup.Create(gkBlock, i, K, Cur);
+      ptCase: if not IsVariantPartCase(Cur) then
+        Cur:= TGroup.Create(gkBlock, i, K, Cur);
       ptObject:
         begin
           // `object` opens a block in `type T = object ... end`, but in `of object`

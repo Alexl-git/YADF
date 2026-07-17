@@ -12,6 +12,27 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **Variant records no longer creep the rest of the unit rightward.** The
+  variant part of a record/object (`case Tag: T of` inside the declaration)
+  has no `end` of its own, but all three block trackers (ParseGroups,
+  ReindentByDepth, the --d10 body scanner) opened an end-expecting block for
+  it -- so the record's own `end` closed the *case*, the record stayed open,
+  and every following declaration indented one level deeper than the last
+  (cumulative). New `variant_record.pas` fixture (plain, untagged, and nested
+  variant parts); the `VariantRecordFieldAttributes` golden was re-blessed
+  (it had locked in the over-indented `end`).
+- **Lenient integer INI reads (`ReadIntIni`).** `TIniFile.ReadInteger`
+  silently fell back to the default for values like `MaxLen=120 ; note` --
+  the same silent-ignore class as the old textual-boolean defect. Trailing
+  `;`/`//` comments, padding and `$`-hex now parse; garbage still falls back.
+- **CLI bool flags are now symmetric.** Eight options had only one direction
+  on the command line (`--mark-unclosed` but no `--no-mark-unclosed`,
+  `--no-reflow` but no `--reflow`, ...), so an INI setting could not be
+  overridden both ways per run. Every bool flag now has its twin
+  (`--[no-]mark-unclosed`, `--[no-]label-blocks`, `--[no-]trim-trailing`,
+  `--[no-]reflow`, `--[no-]lowercase-keywords`, `--[no-]upper-hex`,
+  `--[no-]upper-directives`, `--[no-]first-occ`).
+
 - **BOM-less UTF-8 and BOM'd files are no longer silently transcoded.** The
   CLI and the wizard's on-disk path used a blind ANSI fallback for files
   without a byte-order mark, and the CLI always wrote in the option encoding:
@@ -28,6 +49,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **The `Default: N` suffix in option help is now generated.** The 40 table
+  hints carried a hand-written copy of each default; `OptionHint` now renders
+  the suffix live from `DefaultOptions` (INI template, tooltips), so it can
+  never drift from the real value. The shipped `yadf.ini` header also no
+  longer claims the removed next-to-exe resolution -- it documents the
+  F-profile lookup.
 - **Both settings UIs now mirror the F profile onto `yadf.ini` on save.**
   Previously only the IDE options page did; editing a custom-named F profile
   in YADFSetup left the standard `yadf.ini` stale, so the two UIs could

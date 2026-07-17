@@ -1,0 +1,31 @@
+unit variant_record;
+
+interface
+
+type
+  TShape = (skDot, skRect, skText);
+
+  TVariantRec = record
+    Name     : string ;
+    Count    : Integer;
+    case Kind: TShape of
+    skDot    : (X, Y: Integer)                    ;
+    skRect   : (Left, Top, Right, Bottom: Integer);
+    skText   : (FontSize: Integer; Bold: Boolean) ;
+  end;
+
+  TUntagged = record
+    case Boolean of
+    False: (AsInt: Integer)                 ;
+    True : (AsBytes: array [0 .. 3] of Byte);
+  end;
+
+  TNested = record
+    case Boolean of
+    False: (I: Integer)                                ;
+    True : (case Byte of 0: (B0: Byte); 1: (B1: Word););
+  end;
+
+implementation
+
+end.

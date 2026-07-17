@@ -2814,9 +2814,24 @@ begin
               StackPushBegin;
               InVisibility:= False;
             end;
-            ptRecord, ptCase, ptTry, ptAsm, ptRepeat:
+            ptRecord, ptTry, ptAsm, ptRepeat:
             begin
               StackPush(T.Kind);
+              InVisibility:= False;
+            end;
+            ptCase:
+            begin
+              // The VARIANT PART of a record/object (`case Tag: T of` inside
+              // the declaration, possibly nested inside the variant parens)
+              // has NO end of its own -- the record's end closes it. Pushing a
+              // block here made the record's end close the case instead,
+              // leaving the record open and creeping every declaration after
+              // it one level right (variant_record.pas fixture). The parens
+              // are not on this stack, so "top is record/object" identifies
+              // the variant part in both the direct and the nested position.
+              if not ((Stack.Count > 0) and
+                      (Stack[Stack.Count - 1] in [ptRecord, ptObject])) then
+                StackPush(T.Kind);
               InVisibility:= False;
             end;
             ptUntil:
@@ -3374,6 +3389,7 @@ var
   ForTodos : TDictionary<Integer, string>;            // non-inferable for-var -> TODO before the `for`
   RNames   : TDictionary<string, string>;             // per-routine name -> hoisted type
   BlkAnon  : TList<Boolean>;                           // open blocks in body; True = anon-method body
+  BlkKind  : TList<TptTokenKind>;                      // opener kinds, index-aligned to BlkAnon
   G        : TGroup;
   i, k, pv, AnonCount: Integer;
   PendingAnon, IsAnon: Boolean;
@@ -3798,6 +3814,7 @@ begin
   ForTodos := TDictionary<Integer, string>.Create;
   RNames   := TDictionary<string, string>.Create;
   BlkAnon  := TList<Boolean>.Create;
+  BlkKind  := TList<TptTokenKind>.Create;
   try
     // 1) Analyse. A routine body is a gkBlock opened by `begin` that is a direct
     //    child of Root (top-level proc/func/method bodies AND nested-routine
@@ -3809,6 +3826,7 @@ begin
       if G.CloseIdx <= G.OpenIdx then Continue;
       RNames.Clear; // names are scoped per routine
       BlkAnon.Clear;
+      BlkKind.Clear;
       AnonCount  := 0;
       PendingAnon:= False;
       i:= G.OpenIdx + 1;
@@ -3821,8 +3839,16 @@ begin
         begin PendingAnon:= True; Inc(i); Continue; end;
         if Ki in [ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject] then
         begin
+          // Variant-part `case` inside a local record/object declaration
+          // shares the record's end -- pushing an entry for it would leave the
+          // record's entry dangling and skew the anon accounting for the rest
+          // of the body (same rule as ReindentByDepth / ParseGroups).
+          if (Ki = ptCase) and (BlkKind.Count > 0) and
+             (BlkKind[BlkKind.Count - 1] in [ptRecord, ptObject]) then
+          begin Inc(i); Continue; end;
           IsAnon:= PendingAnon and (Ki = ptBegin);
           BlkAnon.Add(IsAnon);
+          BlkKind.Add(Ki);
           if IsAnon then Inc(AnonCount);
           PendingAnon:= False;
           Inc(i); Continue;
@@ -3833,6 +3859,7 @@ begin
           begin
             if BlkAnon[BlkAnon.Count - 1] then Dec(AnonCount);
             BlkAnon.Delete(BlkAnon.Count - 1);
+            BlkKind.Delete(BlkKind.Count - 1);
           end;
           Inc(i); Continue;
         end;
@@ -3985,6 +4012,7 @@ begin
     ForTodos.Free;
     RNames.Free;
     BlkAnon.Free;
+    BlkKind.Free;
     Root.Free;
   end;
 end; // procedure
