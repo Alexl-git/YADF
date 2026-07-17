@@ -8,10 +8,12 @@ program GuardTest;
 
 uses
   System.SysUtils,
+  System.Classes,
   YADF.Tokens in '..\YADF.Tokens.pas',
   YADF.Options in '..\YADF.Options.pas',
   YADF.Groups in '..\YADF.Groups.pas',
   YADF.Debug in '..\YADF.Debug.pas',
+  YADF.LineScan in '..\YADF.LineScan.pas',
   YADF.Layout in '..\YADF.Layout.pas',
   YADF.Guard in '..\YADF.Guard.pas';
 
@@ -109,6 +111,120 @@ begin
       'S := ''''''' + CRLF + '  keep this' + CRLF + ''''''';'));
 end;
 
+// --- YADF.LineScan: the shared line scanner --------------------------------
+
+// Walks ALine with the shared scanner, returning only the CODE characters
+// (string literals and comment interiors skipped). Stops at a // comment.
+// AState carries block-comment state across calls (i.e. across lines).
+function CodeChars(var AState: TLineScanState; const ALine: string): string;
+var
+  i: Integer;
+begin
+  Result:= '';
+  AState.BeginLine;
+  i:= 1;
+  while True do
+    case AState.SkipNonCode(ALine, i) of
+      seEndOfLine  : Exit;
+      seLineComment: Exit;
+      seCode:
+        begin
+          Result:= Result + ALine[i];
+          AState.StepCode(ALine, i);
+        end;
+    end;
+end;
+
+procedure TestLineScanCore;
+var
+  St: TLineScanState;
+begin
+  St.Reset;
+  Check('string with doubled-quote escape fully skipped',
+    CodeChars(St, 'a ''it''''s'' b') = 'a  b');
+  St.Reset;
+  Check('brace comment skipped', CodeChars(St, 'x { c } y') = 'x  y');
+  St.Reset;
+  Check('paren-star comment skipped', CodeChars(St, 'x (* c *) y') = 'x  y');
+  St.Reset;
+  Check('line comment stops the scan', CodeChars(St, 'a; // b c') = 'a; ');
+  // Block comments carry across lines; strings do not.
+  St.Reset;
+  Check('open brace consumes rest of line', CodeChars(St, 'a { open') = 'a ');
+  Check('...and next line up to the closer', CodeChars(St, 'in } b') = ' b');
+  St.Reset;
+  Check('open (* consumes rest of line', CodeChars(St, 'a (* open') = 'a ');
+  Check('...and next line up to *)', CodeChars(St, 'in *) c') = ' c');
+  St.Reset;
+  CodeChars(St, 'S := ''unterminated');
+  Check('unterminated string does not leak into next line',
+    CodeChars(St, 'plain') = 'plain');
+end;
+
+procedure TestLineScanDepth;
+var
+  St: TLineScanState;
+begin
+  St.Reset;
+  CodeChars(St, 'f(a[1');
+  Check('depth counts ( and [', St.Depth = 2);
+  CodeChars(St, '])');
+  Check('depth counts ) and ]', St.Depth = 0);
+  CodeChars(St, ')');
+  Check('unclamped depth goes negative', St.Depth = -1);
+  St.Reset;
+  St.ClampDepth:= True;
+  CodeChars(St, ')');
+  Check('clamped depth stays at zero', St.Depth = 0);
+  St.Reset;
+  CodeChars(St, 'a (1)');
+  Check('paren-star opener is not counted as depth', St.Depth = 0);
+end;
+
+procedure TestBlockCommentLock;
+var
+  L   : TStringList;
+  Lock: TArray<Boolean>;
+begin
+  L:= TStringList.Create;
+  try
+    L.Add('a := 1;');
+    L.Add('b := { open');
+    L.Add('  interior');
+    L.Add('close } c;');
+    L.Add('d := 2; // tail');
+    Lock:= ComputeBlockCommentLock(L);
+    Check('plain line not locked'          , not Lock[0]);
+    Check('opening line locked'            ,     Lock[1]);
+    Check('interior line locked'           ,     Lock[2]);
+    Check('closing line locked'            ,     Lock[3]);
+    Check('line after the comment unlocked', not Lock[4]);
+  finally
+    L.Free;
+  end;
+end;
+
+procedure TestLineStartDepths;
+var
+  L: TStringList;
+  D: TArray<Integer>;
+begin
+  L:= TStringList.Create;
+  try
+    L.Add('call(');
+    L.Add('  x, ''('',   // paren in string+comment must not count');
+    L.Add(');');
+    L.Add('done;');
+    D:= ComputeLineStartDepths(L);
+    Check('depth 0 before the opener'    , D[0] = 0);
+    Check('depth 1 inside the group'     , D[1] = 1);
+    Check('depth 1 at the closing line'  , D[2] = 1);
+    Check('depth 0 after the group'      , D[3] = 0);
+  finally
+    L.Free;
+  end;
+end;
+
 // --- integration: FormatSource must still format normal code --------------
 
 procedure TestFormatSourceStillFormats;
@@ -142,6 +258,10 @@ begin
     TestRejectsDroppedInclude;
     TestRejectsCommentDamage;
     TestRejectsStringDamage;
+    TestLineScanCore;
+    TestLineScanDepth;
+    TestBlockCommentLock;
+    TestLineStartDepths;
     TestFormatSourceStillFormats;
     Writeln('');
     if GFailures = 0 then

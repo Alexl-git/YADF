@@ -10,6 +10,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- **One shared line scanner (`YADF.LineScan`).** The "am I inside a string /
+  brace comment / paren-star comment / at what bracket depth?" state machine
+  was hand-copied ~10 times across `YADF.Layout.pas`, and the copies had
+  drifted: some missed the doubled-quote escape, `HasDeclShape` missed
+  `(* *)` comments entirely, and `SplitMultiVarDeclarations`' shape scan did
+  not carry an unclosed `{` comment into the next line. All of them now
+  delegate to one `TLineScanState` record (plus shared
+  `ComputeBlockCommentLock` / `ComputeLineStartDepths` helpers), so the
+  passes can no longer disagree about what is inside a string or comment --
+  the root cause of the historical corruption bug class. Behavior is
+  golden-verified: all 79 baselines byte-identical, full suite green.
+  Scanner semantics covered by new checks in `Test\GuardTest.dpr`.
+
 ### Added
 
 - **Content-preservation safety net (`YADF.Guard`).** `FormatSource` now

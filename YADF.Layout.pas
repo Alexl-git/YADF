@@ -88,6 +88,7 @@ uses
   , SimpleParser.Lexer.Types
   , YADF.Groups
   , YADF.Guard
+  , YADF.LineScan
   ;
 
 const
@@ -642,78 +643,43 @@ end; // begin
 // pass from latching onto the wrong character on the same line.
 function FindAnchorAtTopLevel(const ALine: string; const AAnchor: string): Integer;
 var
-  Depth   : Integer;
-  i       : Integer;
-  InBrace : Boolean;
-  InPar   : Boolean;
-  InString: Boolean;
+  St: TLineScanState;
+  i : Integer;
 begin
-  Result  := 0    ;
-  InString:= False;
-  InBrace := False;
-  InPar   := False;
-  Depth   := 0    ;
-  i       := 1    ;
-  while i <= Length(ALine) - Length(AAnchor) + 1 do
-  begin
-    if InBrace then
-    begin
-      if ALine[i] = '}' then InBrace:= False;
-      Inc(i); Continue;
+  Result:= 0;
+  St.Reset;
+  i:= 1;
+  while True do
+    case St.SkipNonCode(ALine, i) of
+      seEndOfLine  : Exit;
+      seLineComment: Exit(0);
+      seCode:
+        begin
+          if (St.Depth = 0) and (Copy(ALine, i, Length(AAnchor)) = AAnchor) then
+          begin
+            // Looking for `:`: skip the `:` of a `:=` assignment.
+            if (AAnchor = ':') and (i + 1 <= Length(ALine)) and (ALine[i + 1] = '=') then
+            begin
+              Inc(i, 2);
+              Continue;
+            end;
+            // Looking for `=`: skip the trailing `=` of any two-char operator
+            // that ends in it: `:=` assignment, `<=` less-or-equal, `>=`
+            // greater-or-equal. Without this, the const-equals alignment pass
+            // mistakes the second char of `<=`/`>=` for a const-block `=` and
+            // right-pads it -- producing `>          = N`, which dcc32
+            // rejects. (Bug repro: BUG_LE_OPERATOR.md, 2026-05-14.)
+            if (AAnchor = '=') and (i > 1) and
+               ((ALine[i - 1] = ':') or (ALine[i - 1] = '<') or (ALine[i - 1] = '>')) then
+            begin
+              Inc(i);
+              Continue;
+            end;
+            Exit(i);
+          end;
+          St.StepCode(ALine, i);
+        end;
     end;
-    if InPar then
-    begin
-      if (i + 1 <= Length(ALine)) and (ALine[i] = '*') and (ALine[i + 1] = ')') then
-      begin
-        InPar:= False;
-        Inc(i, 2); Continue;
-      end;
-      Inc(i); Continue;
-    end;
-    if InString then
-    begin
-      if ALine[i] = '''' then
-      begin
-        if (i + 1 <= Length(ALine)) and (ALine[i + 1] = '''') then Inc(i, 2)
-        else begin InString:= False; Inc(i); end;
-      end
-      else
-        Inc(i);
-      Continue;
-    end;
-    if ALine[i] = '''' then begin InString:= True; Inc(i); Continue; end;
-    if ALine[i] = '{'  then begin InBrace := True; Inc(i); Continue; end;
-    if (i + 1 <= Length(ALine)) and (ALine[i] = '/') and (ALine[i + 1] = '/') then
-      Exit(0);
-    if (i + 1 <= Length(ALine)) and (ALine[i] = '(') and (ALine[i + 1] = '*') then
-    begin
-      InPar:= True;
-      Inc(i, 2); Continue;
-    end;
-    if CharInSet(ALine[i], ['(', '[']) then begin Inc(Depth); Inc(i); Continue; end;
-    if CharInSet(ALine[i], [')', ']']) then begin Dec(Depth); Inc(i); Continue; end;
-    if (Depth = 0) and (Copy(ALine, i, Length(AAnchor)) = AAnchor) then
-    begin
-      if AAnchor = ':' then
-      if (i + 1 <= Length(ALine)) and (ALine[i + 1] = '=') then
-      begin
-        Inc(i, 2); Continue;
-      end;
-      if AAnchor = '=' then
-      // Skip the trailing `=` of any two-char operator that ends in
-      // it: `:=` assignment, `<=` less-or-equal, `>=` greater-or-
-      // equal. Without this, the const-equals alignment pass mistakes
-      // the second char of `<=`/`>=` for a const-block `=` and right-
-      // pads it -- producing `>          = N`, which dcc32 rejects.
-      // (Bug repro: BUG_LE_OPERATOR.md, 2026-05-14.)
-      if (i > 1) and ((ALine[i - 1] = ':') or (ALine[i - 1] = '<') or (ALine[i - 1] = '>')) then
-      begin
-        Inc(i); Continue;
-      end;
-      Exit(i);
-    end;
-    Inc(i);
-  end; // while
 end; // function
 
 // True iff ALine starts with a structural keyword that breaks any
@@ -1046,11 +1012,10 @@ var
   Line        : string;
   Indent, Body, Names, TypePart, Tail: string;
   ColonPos, SemiPos, CommentPos, FirstNonWs: Integer;
-  Depth       : Integer;
   C           : Char;
-  InStr       : Boolean;
-  InBrace     : Boolean;
-  InParenStar : Boolean;
+  St          : TLineScanState;
+  SkipLine    : Boolean;
+  Done        : Boolean;
   NameTokens  : TArray<string>;
   HasComma    : Boolean;
   DoSplit     : Boolean;
@@ -1063,40 +1028,50 @@ begin
     Lines.Text             := S     ;
     Out_:= TStringBuilder.Create;
     try
-      Depth      := 0;
-      InBrace    := False;
-      InParenStar:= False;
+      St.Reset;
+      St.ClampDepth:= True;
       for i:= 0 to Lines.Count - 1 do
       begin
         Line:= Lines[i];
 
-        // Track depth crossing this line BEFORE rewriting, so the next
-        // line sees the correct context regardless of whether we split.
-        if (Depth > 0) or InBrace or InParenStar then
-        begin
-          // Line lives inside a paren/brace/paren-star context. Don't
-          // split anything here; just update depth tracker.
-          InStr:= False;
-          Col:= 1;
-          while Col <= Length(Line) do
-          begin
-            C:= Line[Col];
-            if InBrace then begin if C = '}' then InBrace:= False; Inc(Col); end
-            else if InParenStar then begin
-              if (C = '*') and (Col < Length(Line)) and (Line[Col + 1] = ')') then
-                begin InParenStar:= False; Inc(Col, 2) end
-              else Inc(Col);
-            end
-            else if InStr then begin if C = '''' then InStr:= False; Inc(Col); end
-            else if C = '''' then begin InStr:= True; Inc(Col) end
-            else if C = '{' then begin InBrace:= True; Inc(Col) end
-            else if (C = '(') and (Col < Length(Line)) and (Line[Col + 1] = '*') then
-              begin InParenStar:= True; Inc(Col, 2) end
-            else if (C = '/') and (Col < Length(Line)) and (Line[Col + 1] = '/') then Break
-            else if (C = '(') or (C = '[') then begin Inc(Depth); Inc(Col) end
-            else if (C = ')') or (C = ']') then begin if Depth > 0 then Dec(Depth); Inc(Col) end
-            else Inc(Col);
+        // A line that STARTS inside a paren/bracket group or block comment
+        // is never rewritten -- but it is still scanned below so the shared
+        // tracker sees its brackets/comment closers and the NEXT line gets
+        // the correct context.
+        SkipLine:= (St.Depth > 0) or St.InBlockComment;
+
+        // One scan does double duty: it advances the cross-line tracker AND
+        // (for candidate lines) finds `:` / `;` at this line's top level plus
+        // any trailing `//` comment so it can be preserved.
+        ColonPos:= 0; SemiPos:= 0; CommentPos:= 0;
+        St.BeginLine;
+        Col := 1;
+        Done:= False;
+        while not Done do
+          case St.SkipNonCode(Line, Col) of
+            seEndOfLine  : Done:= True;
+            seLineComment: begin CommentPos:= Col; Done:= True; end;
+            seCode:
+              begin
+                C:= Line[Col];
+                if (St.Depth = 0) and (C = ':')
+                   and not ((Col < Length(Line)) and (Line[Col + 1] = '=')) then
+                begin
+                  if ColonPos = 0 then ColonPos:= Col;
+                  Inc(Col);
+                end
+                else if (St.Depth = 0) and (C = ';') then
+                begin
+                  SemiPos:= Col;
+                  Inc(Col);
+                end
+                else
+                  St.StepCode(Line, Col);
+              end;
           end;
+
+        if SkipLine then
+        begin
           Out_.Append(Line);
           Out_.Append(CRLF);
           Continue;
@@ -1107,44 +1082,6 @@ begin
         while (FirstNonWs <= Length(Line)) and
               CharInSet(Line[FirstNonWs], [' ', #9]) do Inc(FirstNonWs);
         Indent:= Copy(Line, 1, FirstNonWs - 1);
-
-        // Find `:` and `;` at this line's top level (no nested parens),
-        // and detect any trailing line comment so we can preserve it.
-        ColonPos:= 0; SemiPos:= 0; CommentPos:= 0;
-        InStr:= False;
-        Col:= FirstNonWs;
-        while Col <= Length(Line) do
-        begin
-          C:= Line[Col];
-          if InStr then begin if C = '''' then InStr:= False; Inc(Col); end
-          else if C = '''' then begin InStr:= True; Inc(Col) end
-          else if (C = '/') and (Col < Length(Line)) and (Line[Col + 1] = '/') then
-            begin CommentPos:= Col; Break end
-          else if C = '{' then
-          begin
-            // Inline brace comment. Skip to matching `}` on the same
-            // line; if it doesn't close, bail (we'll just emit the
-            // line as-is below).
-            Inc(Col);
-            while (Col <= Length(Line)) and (Line[Col] <> '}') do Inc(Col);
-            if Col <= Length(Line) then Inc(Col);
-          end
-          else if (C = '(') or (C = '[') then begin Inc(Depth); Inc(Col) end
-          else if (C = ')') or (C = ']') then begin if Depth > 0 then Dec(Depth); Inc(Col) end
-          else if (Depth = 0) and (C = ':')
-                  and not ((Col < Length(Line)) and (Line[Col + 1] = '=')) then
-          begin
-            if ColonPos = 0 then ColonPos:= Col;
-            Inc(Col);
-          end
-          else if (Depth = 0) and (C = ';') then
-          begin
-            SemiPos:= Col;
-            Inc(Col);
-          end
-          else
-            Inc(Col);
-        end;
 
         // Shape-match: indent + names + `:` + type + `;` + optional comment.
         // ColonPos > FirstNonWs AND SemiPos > ColonPos AND no trailing
@@ -1244,53 +1181,8 @@ end;
 // alignment passes; otherwise enum members and array internals get their
 // `=` / `:` / `;` aligned as if they were real declarations (and the trailing
 // `//` comments shift with them).
-function ComputeLineStartDepths(Lines: TStringList): TArray<Integer>;
-var
-  i, p, depth: Integer;
-  line       : string;
-  c          : Char;
-  InBrace, InParenStar, InString: Boolean;
-begin
-  SetLength(Result, Lines.Count);
-  depth := 0; InBrace := False; InParenStar := False;
-  for i := 0 to Lines.Count - 1 do
-  begin
-    Result[i] := depth;          // depth BEFORE this line is processed
-    line := Lines[i];
-    InString := False;           // Pascal string literals do not span lines
-    p := 1;
-    while p <= Length(line) do
-    begin
-      c := line[p];
-      if InBrace then
-      begin
-        if c = '}' then InBrace := False;
-        Inc(p); Continue;
-      end;
-      if InParenStar then
-      begin
-        if (c = '*') and (p < Length(line)) and (line[p + 1] = ')') then
-        begin InParenStar := False; Inc(p, 2); Continue; end;
-        Inc(p); Continue;
-      end;
-      if InString then
-      begin
-        if c = '''' then InString := False;
-        Inc(p); Continue;
-      end;
-      if c = '''' then begin InString := True; Inc(p); Continue; end;
-      if c = '{' then begin InBrace := True; Inc(p); Continue; end;
-      if (c = '(') and (p < Length(line)) and (line[p + 1] = '*') then
-      begin InParenStar := True; Inc(p, 2); Continue; end;
-      if (c = '/') and (p < Length(line)) and (line[p + 1] = '/') then
-        Break;                   // line comment: ignore the rest of the line
-      if (c = '(') or (c = '[') then Inc(depth)
-      else if (c = ')') or (c = ']') then
-      begin if depth > 0 then Dec(depth); end;
-      Inc(p);
-    end;
-  end;
-end;
+// (Implementation moved to YADF.LineScan.ComputeLineStartDepths -- the
+// shared scanner; the doc comment above still describes the contract.)
 
 // AlignByAnchor(':') so the colons are already in their final column;
 // this pass just adds spaces before the `;` so the right edge lines up.
@@ -1311,50 +1203,34 @@ var
   function HasDeclShape(const ALine: string;
     out AColon, ASemi: Integer): Boolean;
   var
-    p, Depth, sCol: Integer;
-    C: Char;
-    InStr: Boolean;
+    p, sCol: Integer;
+    St     : TLineScanState;
+    Done   : Boolean;
   begin
     AColon:= 0; ASemi:= 0;
-    InStr:= False; Depth:= 0;
+    St.Reset;
+    Done:= False;
     p:= 1;
-    while p <= Length(ALine) do
-    begin
-      C:= ALine[p];
-      if InStr then
-      begin
-        if C = '''' then InStr:= False;
-        Inc(p);
-      end
-      else if C = '''' then
-      begin
-        InStr:= True;
-        Inc(p);
-      end
-      else if C = '{' then  // skip inline brace comment
-      begin
-        Inc(p);
-        while (p <= Length(ALine)) and (ALine[p] <> '}') do Inc(p);
-        if p <= Length(ALine) then Inc(p);
-      end
-      else if (C = '/') and (p < Length(ALine)) and (ALine[p + 1] = '/') then
-        Break
-      else if (C = '(') or (C = '[') then begin Inc(Depth); Inc(p) end
-      else if (C = ')') or (C = ']') then begin Dec(Depth); Inc(p) end
-      else if (Depth = 0) and (C = ':') and
-              not ((p < Length(ALine)) and (ALine[p + 1] = '=')) then
-      begin
-        if AColon = 0 then AColon:= p;
-        Inc(p);
-      end
-      else if (Depth = 0) and (C = ';') then
-      begin
-        ASemi:= p;
-        Inc(p);
-      end
-      else
-        Inc(p);
-    end;
+    while not Done do
+      case St.SkipNonCode(ALine, p) of
+        seEndOfLine, seLineComment: Done:= True;
+        seCode:
+          begin
+            if (St.Depth = 0) and (ALine[p] = ':') and
+               not ((p < Length(ALine)) and (ALine[p + 1] = '=')) then
+            begin
+              if AColon = 0 then AColon:= p;
+              Inc(p);
+            end
+            else if (St.Depth = 0) and (ALine[p] = ';') then
+            begin
+              ASemi:= p;
+              Inc(p);
+            end
+            else
+              St.StepCode(ALine, p);
+          end;
+      end;
     // The line must have a top-level `:` and a `;` that lives AFTER
     // the colon (i.e., this really is a `name : type;` declaration).
     // We also require that nothing non-whitespace follows the `;`
@@ -1642,71 +1518,18 @@ end;
 // to a shared column across a shape-matched run.
 function TopLevelLineCommentCol(const ALine: string): Integer;
 var
-  i                       : Integer;
-  InString, InBrace, InPar: Boolean;
+  St: TLineScanState;
+  i : Integer;
 begin
-  Result   := 0    ;
-  InString := False;
-  InBrace  := False;
-  InPar    := False;
-  i        := 1    ;
-  while i <= Length(ALine) do
-  begin
-    if InBrace then
-    begin
-      if ALine[i] = '}' then InBrace:= False;
-      Inc(i);
-      Continue;
+  Result:= 0;
+  St.Reset;
+  i:= 1;
+  while True do
+    case St.SkipNonCode(ALine, i) of
+      seEndOfLine  : Exit;
+      seLineComment: Exit(i);
+      seCode       : St.StepCode(ALine, i);
     end;
-    if InPar then
-    begin
-      if (i + 1 <= Length(ALine)) and (ALine[i] = '*') and (ALine[i + 1] = ')') then
-      begin
-        InPar:= False;
-        Inc(i, 2);
-        Continue;
-      end;
-      Inc(i);
-      Continue;
-    end;
-    if InString then
-    begin
-      if ALine[i] = '''' then
-      begin
-        if (i + 1 <= Length(ALine)) and (ALine[i + 1] = '''') then
-          Inc(i, 2)
-        else
-        begin
-          InString:= False;
-          Inc(i);
-        end;
-      end
-      else
-        Inc(i);
-      Continue;
-    end;
-    if ALine[i] = '''' then
-    begin
-      InString:= True;
-      Inc(i);
-      Continue;
-    end;
-    if ALine[i] = '{' then
-    begin
-      InBrace:= True;
-      Inc(i);
-      Continue;
-    end;
-    if (i + 1 <= Length(ALine)) and (ALine[i] = '(') and (ALine[i + 1] = '*') then
-    begin
-      InPar:= True;
-      Inc(i, 2);
-      Continue;
-    end;
-    if (i + 1 <= Length(ALine)) and (ALine[i] = '/') and (ALine[i + 1] = '/') then
-      Exit(i);
-    Inc(i);
-  end;
 end;
 
 function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;
@@ -1977,61 +1800,18 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
   // ambiguous.
   function HasLineCommentOrOpenBlock(const ALine: string): Boolean;
   var
-    i                       : Integer;
-    InString, InBrace, InPar: Boolean;
+    St: TLineScanState;
+    i : Integer;
   begin
-    InString:= False;
-    InBrace := False;
-    InPar   := False;
-    i       := 1    ;
-    while i <= Length(ALine) do
-    begin
-      if InBrace then
-      begin
-        if ALine[i] = '}' then InBrace:= False;
-        Inc(i);
-        Continue;
+    Result:= False;
+    St.Reset;
+    i:= 1;
+    while True do
+      case St.SkipNonCode(ALine, i) of
+        seEndOfLine  : Exit(St.InBlockComment);
+        seLineComment: Exit(True);
+        seCode       : St.StepCode(ALine, i);
       end;
-      if InPar then
-      begin
-        if (i + 1 <= Length(ALine)) and (ALine[i] = '*') and (ALine[i + 1] = ')') then
-        begin
-          InPar:= False;
-          Inc(i, 2);
-          Continue;
-        end;
-        Inc(i);
-        Continue;
-      end;
-      if InString then
-      begin
-        if ALine[i] = '''' then
-        begin
-          if (i + 1 <= Length(ALine)) and (ALine[i + 1] = '''') then
-            Inc(i, 2)
-          else
-          begin
-            InString:= False;
-            Inc(i);
-          end;
-        end
-        else
-          Inc(i);
-        Continue;
-      end;
-      if ALine[i] = '''' then begin InString:= True; Inc(i); Continue; end;
-      if ALine[i] = '{'  then begin InBrace := True; Inc(i); Continue; end;
-      if (i + 1 <= Length(ALine)) and (ALine[i] = '(') and (ALine[i + 1] = '*') then
-      begin
-        InPar:= True;
-        Inc(i, 2);
-        Continue;
-      end;
-      if (i + 1 <= Length(ALine)) and (ALine[i] = '/') and (ALine[i + 1] = '/') then
-        Exit(True);
-      Inc(i);
-    end; // while
-    Result:= InBrace or InPar;
   end; // function
 
   // Detects `... class(TFoo, IBar)` / `... interface(IBaz)` style
@@ -2192,72 +1972,8 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
   // that line, OR opens a new block comment that stays open at end of
   // line. Locked lines never participate in merge decisions, so block
   // comment interiors pass through verbatim.
-  function ComputeBlockCommentLock(ALines: TStringList): TArray<Boolean>;
-  var
-    i, k                    : Integer;
-    Line                    : string;
-    InBrace, InPar, InString: Boolean;
-    StartedInside           : Boolean;
-  begin
-    SetLength(Result, ALines.Count);
-    InBrace:= False;
-    InPar  := False;
-    for i:= 0 to ALines.Count - 1 do
-    begin
-      StartedInside:= InBrace or InPar;
-      Line:= ALines[i];
-      InString:= False;
-      k       := 1    ;
-      while k <= Length(Line) do
-      begin
-        if InBrace then
-        begin
-          if Line[k] = '}' then InBrace:= False;
-          Inc(k);
-          Continue;
-        end;
-        if InPar then
-        begin
-          if (k + 1 <= Length(Line)) and (Line[k] = '*') and (Line[k + 1] = ')') then
-          begin
-            InPar:= False;
-            Inc(k, 2);
-            Continue;
-          end;
-          Inc(k);
-          Continue;
-        end;
-        if InString then
-        begin
-          if Line[k] = '''' then
-          begin
-            if (k + 1 <= Length(Line)) and (Line[k + 1] = '''') then
-              Inc(k, 2)
-            else
-            begin
-              InString:= False;
-              Inc(k);
-            end;
-          end
-          else
-            Inc(k);
-          Continue;
-        end;
-        if Line[k] = '''' then begin InString:= True; Inc(k); Continue; end;
-        if Line[k] = '{'  then begin InBrace := True; Inc(k); Continue; end;
-        if (k + 1 <= Length(Line)) and (Line[k] = '(') and (Line[k + 1] = '*') then
-        begin
-          InPar:= True;
-          Inc(k, 2);
-          Continue;
-        end;
-        if (k + 1 <= Length(Line)) and (Line[k] = '/') and (Line[k + 1] = '/') then
-          Break;
-        Inc(k);
-      end; // while
-      Result[i]:= StartedInside or InBrace or InPar;
-    end; // for
-  end; // function
+  // (Body moved to YADF.LineScan.ComputeBlockCommentLock -- the shared
+  // scanner. The contract is unchanged; see the doc comment above.)
 
 var
   CommentLocked: TArray<Boolean>;
@@ -2508,75 +2224,14 @@ var
     Result:= Copy(L, 1, p - 1);
   end;
 
-  // Per-line "inside a block comment" flags (a multi-line { } / (* *) interior
-  // never participates), mirroring ReflowLineBreaks' ComputeBlockCommentLock.
-  function ComputeLock(ALines: TStringList): TArray<Boolean>;
-  var
-    a, b                    : Integer;
-    Ln                      : string;
-    InBrace, InPar, InString: Boolean;
-    StartedInside           : Boolean;
-  begin
-    SetLength(Result, ALines.Count);
-    InBrace:= False;
-    InPar  := False;
-    for a:= 0 to ALines.Count - 1 do
-    begin
-      StartedInside:= InBrace or InPar;
-      Ln:= ALines[a];
-      InString:= False;
-      b       := 1    ;
-      while b <= Length(Ln) do
-      begin
-        if InBrace then
-        begin
-          if Ln[b] = '}' then InBrace:= False;
-          Inc(b);
-          Continue;
-        end;
-        if InPar then
-        begin
-          if (b + 1 <= Length(Ln)) and (Ln[b] = '*') and (Ln[b + 1] = ')') then
-          begin
-            InPar:= False;
-            Inc(b, 2);
-            Continue;
-          end;
-          Inc(b);
-          Continue;
-        end;
-        if InString then
-        begin
-          if Ln[b] = '''' then
-          begin
-            if (b + 1 <= Length(Ln)) and (Ln[b + 1] = '''') then Inc(b, 2)
-            else begin InString:= False; Inc(b); end;
-          end
-          else
-            Inc(b);
-          Continue;
-        end;
-        if Ln[b] = '''' then begin InString:= True; Inc(b); Continue; end;
-        if Ln[b] = '{'  then begin InBrace := True; Inc(b); Continue; end;
-        if (b + 1 <= Length(Ln)) and (Ln[b] = '(') and (Ln[b + 1] = '*') then
-        begin
-          InPar:= True;
-          Inc(b, 2);
-          Continue;
-        end;
-        if (b + 1 <= Length(Ln)) and (Ln[b] = '/') and (Ln[b + 1] = '/') then Break;
-        Inc(b);
-      end; // while
-      Result[a]:= StartedInside or InBrace or InPar;
-    end; // for
-  end;
-
 begin
   Lines:= TStringList.Create;
   try
     Lines.LineBreak:= CRLF;
     Lines.Text             := S     ;
-    Lock:= ComputeLock(Lines);
+    // Per-line "inside a block comment" flags (a multi-line { } / (* *)
+    // interior never participates) -- the shared scanner's lock helper.
+    Lock:= ComputeBlockCommentLock(Lines);
     Out_:= TStringBuilder.Create;
     try
       i:= 0;
@@ -4653,10 +4308,10 @@ var
   // documentation block.
   function FindOperatorPositionsAtTopLevel(const Line: string): TArray<Integer>;
   var
-    Positions               : TList<Integer>;
-    i                       : Integer;
-    Depth                   : Integer;
-    InString, InBrace, InPar: Boolean;
+    Positions: TList<Integer>;
+    i        : Integer;
+    St       : TLineScanState;
+    Done     : Boolean;
     procedure AddIfWord(Idx, Wlen: Integer; const W: string);
     begin
       if (Idx + Wlen - 1 > Length(Line)) then Exit;
@@ -4668,77 +4323,40 @@ var
   begin
     Positions:= TList<Integer>.Create;
     try
-      Depth   := 0    ;
-      InString:= False;
-      InBrace := False;
-      InPar   := False;
-      i       := 1    ;
-      while i <= Length(Line) do
-      begin
-        if InBrace then
-        begin
-          if Line[i] = '}' then InBrace:= False;
-          Inc(i);
-          Continue;
-        end;
-        if InPar then
-        begin
-          if (i + 1 <= Length(Line)) and (Line[i] = '*') and (Line[i+1] = ')') then
-          begin
-            InPar:= False;
-            Inc(i, 2);
-            Continue;
-          end;
-          Inc(i);
-          Continue;
-        end;
-        if InString then
-        begin
-          if Line[i] = '''' then
-          begin
-            if (i + 1 <= Length(Line)) and (Line[i+1] = '''') then
-              Inc(i, 2)
-            else
+      St.Reset;
+      Done:= False;
+      i   := 1;
+      while not Done do
+        case St.SkipNonCode(Line, i) of
+          seEndOfLine, seLineComment: Done:= True;
+          seCode:
             begin
-              InString:= False;
+              if CharInSet(Line[i], ['(', '[', ')', ']']) then
+              begin
+                St.StepCode(Line, i);
+                Continue;
+              end;
+              if (i > 1) and (Line[i - 1] = ' ') then
+              begin
+                if CharInSet(Line[i], ['+', '-']) and (i + 1 <= Length(Line)) and (Line[i+1] = ' ') then
+                begin
+                  Positions.Add(i);
+                  Inc(i);
+                  Continue;
+                end;
+                AddIfWord(i, 2, 'or');
+                AddIfWord(i, 3, 'and');
+                AddIfWord(i, 3, 'xor');
+              end;
+              if (Line[i] = ',') and (St.Depth > 0) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
+              begin
+                Positions.Add(i + 2);
+                Inc(i);
+                Continue;
+              end;
               Inc(i);
             end;
-          end
-          else
-            Inc(i);
-          Continue;
-        end;
-        if Line[i] = '''' then begin InString:= True; Inc(i); Continue; end;
-        if Line[i] = '{'  then begin InBrace := True; Inc(i); Continue; end;
-        if (i + 1 <= Length(Line)) and (Line[i] = '/') and (Line[i+1] = '/') then Break;
-        if (i + 1 <= Length(Line)) and (Line[i] = '(') and (Line[i+1] = '*') then
-        begin
-          InPar:= True;
-          Inc(i, 2);
-          Continue;
-        end;
-        if CharInSet(Line[i], ['(', '[']) then begin Inc(Depth); Inc(i); Continue; end;
-        if CharInSet(Line[i], [')', ']']) then begin Dec(Depth); Inc(i); Continue; end;
-        if (i > 1) and (Line[i - 1] = ' ') then
-        begin
-          if CharInSet(Line[i], ['+', '-']) and (i + 1 <= Length(Line)) and (Line[i+1] = ' ') then
-          begin
-            Positions.Add(i);
-            Inc(i);
-            Continue;
-          end;
-          AddIfWord(i, 2, 'or');
-          AddIfWord(i, 3, 'and');
-          AddIfWord(i, 3, 'xor');
-        end;
-        if (Line[i] = ',') and (Depth > 0) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
-        begin
-          Positions.Add(i + 2);
-          Inc(i);
-          Continue;
-        end;
-        Inc(i);
-      end; // while
+        end; // case
       Result:= Positions.ToArray;
     finally
       Positions.Free;
@@ -4824,75 +4442,15 @@ var
   // would survive the pipeline unchanged.
   function BreakLongLines(const ASrc: string): string;
   var
-    Lines                   : TStringList;
-    i, k                    : Integer;
-    Line                    : string;
-    InBrace, InPar, InString: Boolean;
-    StartedInside           : Boolean;
-    Locked                  : TArray<Boolean>;
+    Lines : TStringList;
+    i     : Integer;
+    Locked: TArray<Boolean>;
   begin
     Lines:= TStringList.Create;
     try
       Lines.LineBreak:= CRLF;
       Lines.Text             := ASrc  ;
-      SetLength(Locked, Lines.Count);
-      InBrace:= False;
-      InPar  := False;
-      for i:= 0 to Lines.Count - 1 do
-      begin
-        StartedInside:= InBrace or InPar;
-        Line:= Lines[i];
-        InString:= False;
-        k       := 1    ;
-        while k <= Length(Line) do
-        begin
-          if InBrace then
-          begin
-            if Line[k] = '}' then InBrace:= False;
-            Inc(k);
-            Continue;
-          end;
-          if InPar then
-          begin
-            if (k + 1 <= Length(Line)) and (Line[k] = '*') and (Line[k + 1] = ')') then
-            begin
-              InPar:= False;
-              Inc(k, 2);
-              Continue;
-            end;
-            Inc(k);
-            Continue;
-          end;
-          if InString then
-          begin
-            if Line[k] = '''' then
-            begin
-              if (k + 1 <= Length(Line)) and (Line[k + 1] = '''') then
-                Inc(k, 2)
-              else
-              begin
-                InString:= False;
-                Inc(k);
-              end;
-            end
-            else
-              Inc(k);
-            Continue;
-          end;
-          if Line[k] = '''' then begin InString:= True; Inc(k); Continue; end;
-          if Line[k] = '{'  then begin InBrace := True; Inc(k); Continue; end;
-          if (k + 1 <= Length(Line)) and (Line[k] = '(') and (Line[k + 1] = '*') then
-          begin
-            InPar:= True;
-            Inc(k, 2);
-            Continue;
-          end;
-          if (k + 1 <= Length(Line)) and (Line[k] = '/') and (Line[k + 1] = '/') then
-            Break;
-          Inc(k);
-        end; // while
-        Locked[i]:= StartedInside or InBrace or InPar;
-      end; // for
+      Locked:= ComputeBlockCommentLock(Lines);
       for i:= 0 to Lines.Count - 1 do if (Length(Lines[i]) > AOpts.MaxLen) and not Locked[i] then
         Lines[i]:= BreakLineByOperators(Lines[i]);
       Result:= Lines.Text;

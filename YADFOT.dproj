@@ -136,6 +136,7 @@
         <DCCReference Include="YADF.Options.pas"/>
         <DCCReference Include="YADF.Groups.pas"/>
         <DCCReference Include="YADF.Guard.pas"/>
+        <DCCReference Include="YADF.LineScan.pas"/>
         <DCCReference Include="YADF.Layout.pas"/>
         <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas"/>
         <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas"/>
