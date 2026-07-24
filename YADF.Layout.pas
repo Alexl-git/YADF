@@ -79,7 +79,33 @@ uses
 // reason FormatSource DECLINED and returned the input unchanged (see
 // YADF.Guard) -- callers that talk to a user should surface it instead of
 // silently pretending the file was formatted.
+/// <summary></summary>
+/// <param name="ASource"></param><!-- drag-lint:auto param -->
+/// <param name="AOpts"></param><!-- drag-lint:auto param -->
+/// <returns>Observed: FormatSource(ASource, AOpts, Reason).</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.Layout.FormatSource (YADF.Layout.pas) ?, YadfMain.FormatToStdout (YadfMain.pas) ?, YadfMain.FormatToFile (YadfMain.pas) ?, YadfMain.BatchFormat (YadfMain.pas) ?, YadfMain.ProcessOneFile (YadfMain.pas) ? (+4 more)
+/// Calls: YADF.Layout.FormatSource
+/// Overload 1 of 2
+/// Covered by: TestFormatSourceStillFormats
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function FormatSource(const ASource: string; const AOpts: TYadfOptions): string; overload                            ;
+/// <summary></summary>
+/// <param name="ASource"></param><!-- drag-lint:auto param -->
+/// <param name="AOpts"></param><!-- drag-lint:auto param -->
+/// <param name="ADeclineReason"></param><!-- drag-lint:auto param -->
+/// <returns>Observed: Length(InlineRenderRange(Tokens, G.OpenIdx + 1, G.CloseIdx - 1)); ''; Result + S[i]; Child; nil; True.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YadfMain.FormatToStdout (YadfMain.pas) ?, YadfMain.FormatToFile (YadfMain.pas) ?, YadfMain.BatchFormat (YadfMain.pas) ?, YadfMain.ProcessOneFile (YadfMain.pas) ?, TestFormatSourceStillFormats (GuardTest.dpr) ? (+3 more)
+/// Calls: Add, AddIfWord, Append, Assigned, BlockAlreadyLabeled, BreakLineByOperators, BreakLongLines, CharInSet, CollectParensItems, ComputeBlockCommentLock (+53 more)
+/// Overload 2 of 2
+/// Complexity: 24 (cyclomatic), 595 lines
+/// Covered by: TestFormatSourceStillFormats
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string; overload;
 
 implementation

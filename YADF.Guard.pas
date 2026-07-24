@@ -42,8 +42,17 @@ interface
 /// <returns>True when the content is fully preserved; False when anything was
 /// dropped or altered -- the caller should then discard AFormatted and keep
 /// AOriginal (decline to format rather than corrupt).</returns>
-/// <remarks>Pure and thread-safe; lexes both inputs once. If lexing the inputs
-/// raises, the guard fails CLOSED (returns False).</remarks>
+/// <remarks>
+/// Pure and thread-safe; lexes both inputs once. If lexing the inputs
+/// raises, the guard fails CLOSED (returns False).
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.Guard.FormatPreservesContent (YADF.Guard.pas) ?, TestAcceptsLegitimateFormatting (GuardTest.dpr) ?, TestRejectsDroppedInclude (GuardTest.dpr) ?, TestRejectsCommentDamage (GuardTest.dpr) ?, TestRejectsStringDamage (GuardTest.dpr) ? (+3 more)
+/// Calls: YADF.Guard.FormatPreservesContent
+/// Returns: FormatPreservesContent(AOriginal, AFormatted, False, Reason)
+/// Overload 1 of 2
+/// Covered by: TestAcceptsLegitimateFormatting, TestDuplicationToleranceAndReason, TestFormatSourceStillFormats, TestRejectsCommentDamage, TestRejectsDroppedInclude (+1 more)
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; overload;
 
 /// <summary>Extended check used by FormatSource. AAllowStringDuplication
@@ -61,7 +70,16 @@ function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; o
 /// legitimately duplicate statements (BreakCaseLabels).</param>
 /// <param name="AReason">'' when preserved; otherwise the decline cause.</param>
 /// <returns>True when the content is fully preserved.</returns>
-/// <remarks>Same purity/fail-closed contract as the two-argument overload.</remarks>
+/// <remarks>
+/// Same purity/fail-closed contract as the two-argument overload.
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: TestAcceptsLegitimateFormatting (GuardTest.dpr) ?, TestRejectsDroppedInclude (GuardTest.dpr) ?, TestRejectsCommentDamage (GuardTest.dpr) ?, TestRejectsStringDamage (GuardTest.dpr) ?, TestDuplicationToleranceAndReason (GuardTest.dpr) ? (+2 more)
+/// Calls: YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence
+/// Returns: AReason = ''; False
+/// Overload 2 of 2
+/// Covered by: TestAcceptsLegitimateFormatting, TestDuplicationToleranceAndReason, TestFormatSourceStillFormats, TestRejectsCommentDamage, TestRejectsDroppedInclude (+1 more)
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication: Boolean; out AReason: string): Boolean; overload;
 
 implementation

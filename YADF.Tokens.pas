@@ -25,18 +25,50 @@ uses
   ;
 
 type
+  /// <summary></summary>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Called from: YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas) ?, YADF.Layout.ApplyCapitalization (YADF.Layout.pas) ?, YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) ?, YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas) ?, YADF.Layout.ReindentByDepth (YADF.Layout.pas) ? (+10 more)
+  /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TToken = record
     Kind: TptTokenKind;
     ExID: TptTokenKind;
-    Text: string;
-    Pre : string;
-    Line: Integer;
-    Col : Integer;
+    Text: string      ;
+    Pre : string      ;
+    Line: Integer     ;
+    Col : Integer     ;
   end;
 
+  /// <summary></summary>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Called from: YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) ?, YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas) ?, YADF.Layout.ReindentByDepth (YADF.Layout.pas) ?, YADF.Layout.FormatSource (YADF.Layout.pas) ?, YadfMain.RoundTrip (YadfMain.pas) ? (+9 more)
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TTokenList = TList<TToken>;
 
+  /// <summary></summary>
+  /// <param name="ASource"></param><!-- drag-lint:auto param -->
+  /// <returns>Observed: TTokenList.Create.</returns>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Called from: YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) ?, YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas) ?, YADF.Layout.ReindentByDepth (YADF.Layout.pas) ?, YADF.Layout.FormatSource (YADF.Layout.pas) ?, YadfMain.RoundTrip (YadfMain.pas) ? (+3 more)
+  /// Calls: Add, Copy, Length, SimpleParser.Lexer.TmwBasePasLex.Next, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken
+  /// Covered by: TestAcceptsLegitimateFormatting, TestDuplicationToleranceAndReason, TestFormatSourceStillFormats, TestRejectsCommentDamage, TestRejectsDroppedInclude (+1 more)
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
 function LoadTokensFromString(const ASource: string): TTokenList;
+/// <summary></summary>
+/// <param name="ATokens"></param><!-- drag-lint:auto param -->
+/// <returns>Observed: Sb.ToString.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YadfMain.RoundTrip (YadfMain.pas) ?
+/// Calls: Append
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function EmitTokens(const ATokens: TTokenList): string;
 
 implementation
@@ -66,11 +98,11 @@ implementation
 // is never transformed.
 const
   IncSentinel = 'ZQYADF'; // appended to the directive word; unique enough
-                          // that real source never collides.
+  // that real source never collides.
 
-// True for a 7-bit ASCII letter (A-Z / a-z). Shared by the include-directive
-// shield and unshield scans; deliberately ASCII-only (not Unicode-aware
-// TCharacter.IsLetter) to match the lexer's directive-word grammar.
+  // True for a 7-bit ASCII letter (A-Z / a-z). Shared by the include-directive
+  // shield and unshield scans; deliberately ASCII-only (not Unicode-aware
+  // TCharacter.IsLetter) to match the lexer's directive-word grammar.
 function IsAsciiAlpha(C: Char): Boolean;
 begin
   Result:= ((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z'));
@@ -78,11 +110,12 @@ end;
 
 function ShieldIncludeDirectives(const ASource: string): string;
 var
-  i, n   : Integer;
+  i      : Integer       ;
+  n      : Integer       ;
   Sb     : TStringBuilder;
-  WordEnd: Integer;
-  Wrd    : string;
-  NextCh : Char;
+  WordEnd: Integer       ;
+  Wrd    : string        ;
+  NextCh : Char          ;
 begin
   n:= Length(ASource);
   Sb:= TStringBuilder.Create;
@@ -110,9 +143,9 @@ begin
             Break;
           end;
           Inc(i);
-        end;
+        end; // while
         Continue;
-      end;
+      end; // if
       // Skip // line comments verbatim.
       if (ASource[i] = '/') and (i + 1 <= n) and (ASource[i + 1] = '/') then
       begin
@@ -140,7 +173,7 @@ begin
           Inc(i);
         end;
         Continue;
-      end;
+      end; // if
       // `{ ... }` -- a directive `{$...}` or a plain brace comment.
       if ASource[i] = '{' then
       begin
@@ -154,8 +187,7 @@ begin
           // Include form: `{$INCLUDE ...}` always; `{$I ...}` only when
           // the char after the word is NOT `+`/`-`/`}` (those are the
           // IOCHECKS toggle, not an include).
-          if SameText(Wrd, 'INCLUDE') or
-             (SameText(Wrd, 'I') and (NextCh <> '+') and (NextCh <> '-') and (NextCh <> '}')) then
+          if SameText(Wrd, 'INCLUDE') or (SameText(Wrd, 'I') and (NextCh <> '+') and (NextCh <> '-') and (NextCh <> '}')) then
           begin
             Sb.Append(Copy(ASource, i, WordEnd - i)); // `{$` + word
             Sb.Append(IncSentinel);
@@ -169,7 +201,7 @@ begin
             Inc(i);
           end;
           Continue;
-        end;
+        end; // if
         // Plain brace comment: copy through `}` verbatim.
         while (i <= n) and (ASource[i] <> '}') do
         begin
@@ -177,7 +209,7 @@ begin
           Inc(i);
         end;
         Continue;
-      end;
+      end; // if
       Sb.Append(ASource[i]);
       Inc(i);
     end; // while
@@ -193,7 +225,7 @@ end; // function
 function UnshieldIncludeToken(var AToken: TToken): Boolean;
 var
   P  : Integer;
-  Wrd: string;
+  Wrd: string ;
   WE : Integer;
 begin
   Result:= False;
@@ -207,16 +239,16 @@ begin
   AToken.Text:= '{$' + Copy(Wrd, 1, P) + Copy(AToken.Text, WE, MaxInt);
   AToken.Kind:= ptIncludeDirect;
   Result:= True;
-end;
+end; // function
 
 function LoadTokensFromString(const ASource: string): TTokenList;
 var
-  Src     : string;
+  Src     : string   ;
   Lex     : TmwPasLex;
-  T       : TToken;
-  PrevEnd : Integer;
-  CurStart: Integer;
-  k       : Integer;
+  T       : TToken   ;
+  PrevEnd : Integer  ;
+  CurStart: Integer  ;
+  k       : Integer  ;
 begin
   Src:= ShieldIncludeDirectives(ASource);
   Result:= TTokenList.Create;
@@ -233,19 +265,19 @@ begin
         else
           T.Pre:= '';
         T.Kind:= Lex.TokenID;
-        T.ExID:= Lex.ExID   ;
-        T.Text:= Lex.Token  ;
+        T.ExID:= Lex.ExID;
+        T.Text:= Lex.Token;
         T.Line:= Lex.PosXY.Y;
         T.Col := Lex.PosXY.X;
         Result.Add(T);
         PrevEnd:= CurStart + Length(T.Text);
         Lex.Next;
-      end;
+      end; // while
       if PrevEnd < Length(Src) then
       begin
-        T.Kind:= ptNull   ;
+        T.Kind:= ptNull;
         T.ExID:= ptUnknown;
-        T.Text:= ''       ;
+        T.Text:= '';
         T.Pre:= Copy(Src, PrevEnd + 1, Length(Src) - PrevEnd);
         T.Line:= 0;
         T.Col := 0;
@@ -272,19 +304,20 @@ end; // function
 function EmitTokens(const ATokens: TTokenList): string;
 var
   Sb: TStringBuilder;
-  T : TToken;
+  T : TToken        ;
 begin
   Sb:= TStringBuilder.Create;
   try
     for T in ATokens do
     begin
-      Sb.Append(T.Pre);
+      Sb.Append(T.Pre );
       Sb.Append(T.Text);
     end;
     Result:= Sb.ToString;
   finally
     Sb.Free;
   end;
-end;
+end; // function
 
 end.
+

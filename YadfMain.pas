@@ -147,6 +147,14 @@ unit YadfMain;
 
 interface
 
+/// <summary></summary>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: RunYadf caller (YADF.dpr) ?
+/// Calls: Add, EnsureIniExists, Format, High, Length, ParamStr, SetLength, YadfMain.BatchFormat, YadfMain.CheckDir, YadfMain.CheckFile (+12 more)
+/// Complexity: 22 (cyclomatic), 140 lines
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 procedure RunYadf;
 
 implementation
@@ -158,8 +166,8 @@ uses
   , System.Classes
   , System.IOUtils
   , System.IniFiles
-  , System.Generics.Collections
-  , SimpleParser.Lexer.Types
+  , System      .Generics.Collections
+  , SimpleParser.Lexer   .Types
   , YADF.Tokens
   , YADF.Options
   , YADF.Groups
@@ -170,7 +178,7 @@ uses
 procedure WriteStdoutRaw(const S: string);
 var
   Bytes  : TBytes;
-  Written: DWORD;
+  Written: DWORD ;
 begin
   if S = '' then Exit;
   Bytes:= TEncoding.ANSI.GetBytes(S);
@@ -183,7 +191,7 @@ begin
 end;
 
 var
-  GLogPath   : string;
+  GLogPath   : string ;
   GLogEnabled: Boolean;
 
 function LogFilePath: string;
@@ -212,7 +220,7 @@ end;
 function EncName(E: TYadfEncoding): string;
 begin
   case E of
-    encUTF8BOM : Result:= 'UTF-8-BOM' ;
+    encUTF8BOM : Result:= 'UTF-8-BOM';
     encUTF16BOM: Result:= 'UTF-16-BOM';
     else
       Result:= 'ANSI';
@@ -233,7 +241,7 @@ begin
   LogMsg('==== YADF startup ====');
   LogMsg('  CWD:       ' + GetCurrentDir);
   LogMsg('  Exe:       ' + ParamStr(0));
-  LogMsg('  INI:       ' + AIniPath);
+  LogMsg('  INI:       ' + AIniPath      );
   LogMsg('  RawCmd:    ' + GetCommandLine);
   LogMsg('  Args[' + IntToStr(Length(AArgs)) + ']:');
   for i:= 0 to High(AArgs) do LogMsg('    [' + IntToStr(i) + '] ' + AArgs[i]);
@@ -241,7 +249,7 @@ begin
   LogMsg('    ResultDir       = ' + AOpts.ResultDir);
   LogMsg('    Backup          = ' + BoolStr(AOpts.Backup));
   LogMsg('    BackupDir       = ' + AOpts.BackupDir);
-  LogMsg('    Encoding        = ' + EncName(AOpts.Encoding));
+  LogMsg('    Encoding        = ' + EncName(AOpts.Encoding       ));
   LogMsg('    UsesAlwaysBreak = ' + BoolStr(AOpts.UsesAlwaysBreak));
 end; // begin
 
@@ -252,32 +260,31 @@ end; // begin
 // (the default) means "ANSI, or preserve what was detected" -- the file keeps
 // its own encoding and BOM-ness; an explicit utf8/utf16 setting is a
 // conversion request applied at WRITE time only (+BOM).
-function LoadFile(const AFileName: string; const AOpts: TYadfOptions;
-  out AWriteEnc: TEncoding; out AWriteBOM: Boolean): string; overload;
+function LoadFile(const AFileName: string; const AOpts: TYadfOptions; out AWriteEnc: TEncoding; out AWriteBOM: Boolean): string; overload;
 var
-  Bytes   : TBytes;
+  Bytes   : TBytes   ;
   Detected: TEncoding;
-  PreLen  : Integer;
+  PreLen  : Integer  ;
 begin
   Bytes:= TFile.ReadAllBytes(AFileName);
   DetectSourceEncoding(Bytes, Detected, PreLen);
   Result:= Detected.GetString(Bytes, PreLen, Length(Bytes) - PreLen);
   if AOpts.Encoding = encANSI then
   begin
-    AWriteEnc:= Detected;        // preserve mode: write back as read
+    AWriteEnc:= Detected; // preserve mode: write back as read
     AWriteBOM:= PreLen > 0;
   end
   else
   begin
-    AWriteEnc:= EncodingOf(AOpts.Encoding);   // explicit conversion (+BOM)
+    AWriteEnc:= EncodingOf(AOpts.Encoding); // explicit conversion (+BOM)
     AWriteBOM:= True;
   end;
-end;
+end; // function
 
 function LoadFile(const AFileName: string; const AOpts: TYadfOptions): string; overload;
 var
   WEnc: TEncoding;
-  WBom: Boolean;
+  WBom: Boolean  ;
 begin
   Result:= LoadFile(AFileName, AOpts, WEnc, WBom);
 end;
@@ -303,7 +310,7 @@ procedure SaveFile(const AFileName, AContent: string; AEnc: TEncoding; AWithBOM:
 
   procedure BumpModifiedTime(const AFile: string);
   var
-    H : THandle;
+    H : THandle  ;
     Ft: TFileTime;
   begin
     H:= CreateFileW(PWideChar(AFile), GENERIC_WRITE, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
@@ -401,11 +408,11 @@ end;
 
 procedure FormatToFile(const AInFile, AOutFile: string; const AOpts: TYadfOptions);
 var
-  Dir     : string;
-  Source  : string;
-  Declined: string;
+  Dir     : string   ;
+  Source  : string   ;
+  Declined: string   ;
   WEnc    : TEncoding;
-  WBom    : Boolean;
+  WBom    : Boolean  ;
 begin
   Source:= LoadFile(AInFile, AOpts, WEnc, WBom);
   Dir:= TPath.GetDirectoryName(AOutFile);
@@ -416,12 +423,12 @@ begin
     WriteStdoutLine('declined ' + AInFile + ' (content guard: ' + Declined + ') -- wrote the unchanged input')
   else
     WriteStdoutLine('wrote ' + AOutFile);
-end;
+end; // procedure
 
 function NextSiblingBackupName(const AFile: string): string;
 var
-  Base: string;
-  Dir : string;
+  Base: string ;
+  Dir : string ;
   n   : Integer;
 begin
   Dir := ExtractFilePath(AFile);
@@ -450,15 +457,15 @@ begin
   Stamp:= FormatDateTime('yyyymmdd-hhnnss', Now);
   Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '.bak');
   TFile.Copy(AFile, Target, True);
-end;
+end; // procedure
 
 procedure CheckDir(const ADir: string; const AOpts: TYadfOptions);
 var
-  Diff : Integer;
-  F    : string;
-  Fail : Integer;
+  Diff : Integer       ;
+  F    : string        ;
+  Fail : Integer       ;
   Files: TArray<string>;
-  Pass : Integer;
+  Pass : Integer       ;
 begin
   Files:= TDirectory.GetFiles(ADir, '*.pas', TSearchOption.soAllDirectories);
   Pass:= 0;
@@ -475,7 +482,7 @@ begin
       Inc(Fail);
       WriteStdoutLine(Format('FAIL  %s  (first diff at byte %d)', [F, Diff]));
     end;
-  end;
+  end; // for
   WriteStdoutLine(Format('--- %d pass, %d fail ---', [Pass, Fail]));
   if Fail > 0 then
     ExitCode:= 1;
@@ -483,15 +490,15 @@ end; // procedure
 
 procedure BatchFormat(const AInDir, AOutDir: string; const AOpts: TYadfOptions);
 var
-  Count   : Integer;
-  F       : string;
+  Count   : Integer       ;
+  F       : string        ;
   Files   : TArray<string>;
-  Out_    : string;
-  RelName : string;
-  Source  : string;
-  Declined: string;
-  WEnc    : TEncoding;
-  WBom    : Boolean;
+  Out_    : string        ;
+  RelName : string        ;
+  Source  : string        ;
+  Declined: string        ;
+  WEnc    : TEncoding     ;
+  WBom    : Boolean       ;
 begin
   if not TDirectory.Exists(AInDir) then
   begin
@@ -513,24 +520,24 @@ begin
     else
       WriteStdoutLine(Format('wrote %s', [Out_]));
     Inc(Count);
-  end;
+  end; // for
   WriteStdoutLine(Format('--- %d file(s) formatted into %s ---', [Count, AOutDir]));
 end; // procedure
 
 function ParseDprUnits(const ADprFile: string; const AOpts: TYadfOptions): TArray<string>;
 var
-  CurName    : string;
-  EndIdx     : Integer;
-  FilePath   : string;
-  i          : Integer;
-  InInClause : Boolean;
+  CurName    : string       ;
+  EndIdx     : Integer      ;
+  FilePath   : string       ;
+  i          : Integer      ;
+  InInClause : Boolean      ;
   Items      : TList<string>;
-  Raw        : string;
-  ResolvedDir: string;
-  Source     : string;
-  T          : TToken;
-  Tokens     : TTokenList;
-  UsesIdx    : Integer;
+  Raw        : string       ;
+  ResolvedDir: string       ;
+  Source     : string       ;
+  T          : TToken       ;
+  Tokens     : TTokenList   ;
+  UsesIdx    : Integer      ;
 begin
   Source:= LoadFile(ADprFile, AOpts);
   ResolvedDir:= ExtractFilePath     (ADprFile);
@@ -552,8 +559,8 @@ begin
       EndIdx:= i;
       Break;
     end;
-    CurName   := ''   ;
-    FilePath  := ''   ;
+    CurName   := '';
+    FilePath  := '';
     InInClause:= False;
     for i:= UsesIdx + 1 to EndIdx do
     begin
@@ -588,9 +595,9 @@ begin
                 FilePath:= TPath.Combine(ResolvedDir, FilePath);
               Items.Add(FilePath);
             end;
-          end;
-          CurName   := ''   ;
-          FilePath  := ''   ;
+          end; // if
+          CurName   := '';
+          FilePath  := '';
           InInClause:= False;
         end; // begin
       end; // case
@@ -604,12 +611,12 @@ end; // function
 
 function ParseDprojUnits(const ADprojFile: string; const AOpts: TYadfOptions): TArray<string>;
 var
-  AttrVal : string;
+  AttrVal : string       ;
   Items   : TList<string>;
-  P       : Integer;
-  Q       : Integer;
-  Resolved: string;
-  Source  : string;
+  P       : Integer      ;
+  Q       : Integer      ;
+  Resolved: string       ;
+  Source  : string       ;
 const
   Marker = '<DCCReference Include="';
 begin
@@ -633,7 +640,7 @@ begin
         Items.Add(AttrVal);
       end;
       P:= Q + 1;
-    end;
+    end; // while
     Result:= Items.ToArray;
   finally
     Items.Free;
@@ -670,17 +677,17 @@ end; // function
 
 function ProcessOneFile(const AFile: string; const AOpts: TYadfOptions): Boolean;
 var
-  OutFile : string;
-  Output  : string;
-  Source  : string;
-  Declined: string;
+  OutFile : string   ;
+  Output  : string   ;
+  Source  : string   ;
+  Declined: string   ;
   WEnc    : TEncoding;
-  WBom    : Boolean;
+  WBom    : Boolean  ;
 begin
   Result:= True;
   LogMsg('  ProcessOneFile: ' + AFile);
   try
-    Source:= LoadFile    (AFile , AOpts, WEnc, WBom);
+    Source:= LoadFile (AFile , AOpts, WEnc, WBom);
     Output:= FormatSource(Source, AOpts, Declined);
     if Declined <> '' then
     begin
@@ -731,7 +738,7 @@ end; // function
 
 procedure ProcessFiles(const AFiles: TArray<string>; const AOpts: TYadfOptions);
 var
-  F   : string;
+  F   : string ;
   Fail: Integer;
   Pass: Integer;
 begin
@@ -745,12 +752,12 @@ begin
     WriteStdoutLine(Format('--- %d ok, %d failed ---', [Pass, Fail]));
   if Fail > 0 then
     ExitCode:= Fail;
-end;
+end; // procedure
 
 procedure DebugTree(const AFileName: string; const AOpts: TYadfOptions);
 var
-  Root  : TGroup;
-  Source: string;
+  Root  : TGroup    ;
+  Source: string    ;
   Tokens: TTokenList;
 begin
   Source:= LoadFile(AFileName, AOpts);
@@ -765,7 +772,7 @@ begin
   finally
     Tokens.Free;
   end;
-end;
+end; // procedure
 
 procedure ShowUsage(const AOpts: TYadfOptions);
 
@@ -780,48 +787,49 @@ procedure ShowUsage(const AOpts: TYadfOptions);
   end;
 
 begin
-  WriteStdoutLine('YADF - Yet Another Delphi Formatter');
-  WriteStdoutLine('');
-  WriteStdoutLine('Usage:');
-  WriteStdoutLine('  yadf <input> [options]            format the input(s)');
-  WriteStdoutLine('  yadf --check <file.pas>           byte-faithful round-trip check');
-  WriteStdoutLine('  yadf --check-dir <dir>            round-trip check recursively');
-  WriteStdoutLine('  yadf --batch <in-dir> <out-dir>   format every *.pas in in-dir');
-  WriteStdoutLine('  yadf --debug-tree <file.pas>      print structural TGroup tree');
-  WriteStdoutLine('  yadf -h | /h | /? | --help        show this help');
-  WriteStdoutLine('');
-  WriteStdoutLine('Input forms:');
-  WriteStdoutLine('  <file.pas>            single source file');
-  WriteStdoutLine('  *.pas | dir\*.pas     wildcard, top-level only (non-recursive)');
+  WriteStdoutLine('YADF - Yet Another Delphi Formatter'                                            );
+  WriteStdoutLine(''                                                                               );
+  WriteStdoutLine('Usage:'                                                                         );
+  WriteStdoutLine('  yadf <input> [options]            format the input(s)'                        );
+  WriteStdoutLine('  yadf --check <file.pas>           byte-faithful round-trip check'             );
+  WriteStdoutLine('  yadf --check-dir <dir>            round-trip check recursively'               );
+  WriteStdoutLine('  yadf --batch <in-dir> <out-dir>   format every *.pas in in-dir'               );
+  WriteStdoutLine('  yadf --debug-tree <file.pas>      print structural TGroup tree'               );
+  WriteStdoutLine('  yadf -h | /h | /? | --help        show this help'                             );
+  WriteStdoutLine(''                                                                               );
+  WriteStdoutLine('Input forms:'                                                                   );
+  WriteStdoutLine('  <file.pas>            single source file'                                     );
+  WriteStdoutLine('  *.pas | dir\*.pas     wildcard, top-level only (non-recursive)'               );
   WriteStdoutLine('  <project>.dpr         format the .dpr and every unit named in its uses clause');
-  WriteStdoutLine('  <project>.dproj       format every .pas referenced in the .dproj XML');
-  WriteStdoutLine('');
-  WriteStdoutLine('Output (default = format in place):');
-  WriteStdoutLine('  --stdout              write formatted text to stdout (no files written)');
-  WriteStdoutLine('  --o <file>            write the result to <file> (single input only)');
+  WriteStdoutLine('  <project>.dproj       format every .pas referenced in the .dproj XML'         );
+  WriteStdoutLine(''                                                                               );
+  WriteStdoutLine('Output (default = format in place):'                                            );
+  WriteStdoutLine('  --stdout              write formatted text to stdout (no files written)'      );
+  WriteStdoutLine('  --o <file>            write the result to <file> (single input only)'         );
   WriteStdoutLine(Format('  --of <folder>         write each result to <folder>\<basename>          [%s]', [Quoted(AOpts.ResultDir)]));
-  WriteStdoutLine('  --no-o                clear --of/--o; format in place');
-  WriteStdoutLine('');
+  WriteStdoutLine('  --no-o                clear --of/--o; format in place'              );
+  WriteStdoutLine(''                                                                     );
   WriteStdoutLine('Backup (opt-in; only when in-place; skipped when --o or --of is set):');
-  WriteStdoutLine(Format('  --b                   backup; write <source>.BCKn next to source     [Backup=%s]', [OnOff(AOpts.Backup)]));
-  WriteStdoutLine(Format('  --b <folder>          backup; write timestamped .bak under <folder>   [%s]', [Quoted(AOpts.BackupDir)]));
+  WriteStdoutLine(Format('  --b                   backup; write <source>.BCKn next to source     [Backup=%s]', [OnOff (AOpts.Backup   )]));
+  WriteStdoutLine(Format('  --b <folder>          backup; write timestamped .bak under <folder>   [%s]'      , [Quoted(AOpts.BackupDir)]));
   WriteStdoutLine('  --no-b                skip backup (default)');
-  WriteStdoutLine('');
-  WriteStdoutLine('Encoding:');
-  WriteStdoutLine(Format('  --encoding ansi|utf8|utf16   ansi = keep the file''s own encoding (BOM or detected UTF-8); utf8/utf16 = convert (+BOM)   [Encoding=%s]', [EncName(AOpts.Encoding)]));
-  WriteStdoutLine('                          (default ANSI; existing BOM in input is auto-detected)');
-  WriteStdoutLine('');
-  WriteStdoutLine('Configuration:');
-  WriteStdoutLine('  --ini <file>          explicit INI file (overrides the F profile below)');
+  WriteStdoutLine(''                                             );
+  WriteStdoutLine('Encoding:'                                    );
+  WriteStdoutLine(Format(
+      '  --encoding ansi|utf8|utf16   ansi = keep the file''s own encoding (BOM or detected UTF-8); utf8/utf16 = convert (+BOM)   [Encoding=%s]', [EncName(AOpts.Encoding)]));
+  WriteStdoutLine('                          (default ANSI; existing BOM in input is auto-detected)'     );
+  WriteStdoutLine(''                                                                                     );
+  WriteStdoutLine('Configuration:'                                                                       );
+  WriteStdoutLine('  --ini <file>          explicit INI file (overrides the F profile below)'            );
   WriteStdoutLine('                          default: the F profile named in %APPDATA%\YADF\profiles.ini');
   WriteStdoutLine('                          (F=yadf.ini out of the box; created on first run if absent)');
   WriteStdoutLine(Format('  --log / --no-log      write yadf-startup.log next to the exe + OutputDebugString  [Logging=%s]', [OnOff(AOpts.Logging)]));
   WriteStdoutLine(Format('  --d10 / --no-d10      downgrade inline vars for Delphi 10.2.3 (best-effort)        [Delphi10Compat=%s]', [OnOff(AOpts.Delphi10Compat)]));
-  WriteStdoutLine('');
+  WriteStdoutLine(''                              );
   WriteStdoutLine('Layout (current values in []):');
-  WriteStdoutLine(Format('  --max-len N           max line length                                  [%d]', [AOpts.MaxLen]));
-  WriteStdoutLine(Format('  --indent N            indent step in spaces                            [%d]', [AOpts.Indent]));
-  WriteStdoutLine(Format('  --tab-width N         a leading tab = N spaces                         [%d]', [AOpts.TabWidth]));
+  WriteStdoutLine(Format('  --max-len N           max line length                                  [%d]', [AOpts.MaxLen       ]));
+  WriteStdoutLine(Format('  --indent N            indent step in spaces                            [%d]', [AOpts.Indent       ]));
+  WriteStdoutLine(Format('  --tab-width N         a leading tab = N spaces                         [%d]', [AOpts.TabWidth     ]));
   WriteStdoutLine(Format('  --max-blank-lines N   cap consecutive blank lines                      [%d]', [AOpts.MaxBlankLines]));
   WriteStdoutLine(Format('  --reflow|--no-reflow  reflow long lines / preserve source line breaks  [reflow=%s]', [OnOff(AOpts.ReflowLines)]));
   WriteStdoutLine(Format('  --pack-bodies         pack short loop/if bodies + case arms onto one line [pack=%s]', [OnOff(AOpts.PackShortBodies)]));
@@ -835,38 +843,38 @@ begin
   WriteStdoutLine(Format('  --break-if            break if then/else body onto its own line          [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine('  --no-break-if         keep the if/then/else body inline (default)');
   WriteStdoutLine(Format('  --[no-]trim-trailing  trim / keep trailing whitespace                  [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
-  WriteStdoutLine('');
+  WriteStdoutLine(''            );
   WriteStdoutLine('Uses clause:');
   WriteStdoutLine(Format('  --uses-break          always break uses one-per-line, comma-first      [break=%s]', [OnOff(AOpts.UsesAlwaysBreak)]));
   WriteStdoutLine('  --no-uses-break       keep uses inline if it fits in MaxLen');
-  WriteStdoutLine('');
-  WriteStdoutLine('Case statements:');
+  WriteStdoutLine(''                                                             );
+  WriteStdoutLine('Case statements:'                                             );
   WriteStdoutLine(Format('  --break-case          split multi-label case arms one per line          [break=%s]', [OnOff(AOpts.BreakCaseLabels)]));
   WriteStdoutLine('  --no-break-case       keep multi-label case arms on one line (default)');
-  WriteStdoutLine('');
-  WriteStdoutLine('Comments:');
+  WriteStdoutLine(''                                                                        );
+  WriteStdoutLine('Comments:'                                                               );
   WriteStdoutLine(Format('  --indent-comments     re-indent comments to code depth                   [indent=%s]', [OnOff(AOpts.IndentComments)]));
-  WriteStdoutLine('  --no-indent-comments  keep comments at their authored indentation');
+  WriteStdoutLine('  --no-indent-comments  keep comments at their authored indentation'           );
   WriteStdoutLine('                          (a comment starting with `//.` is always kept fixed)');
-  WriteStdoutLine('');
-  WriteStdoutLine('Block labels & markers:');
+  WriteStdoutLine(''                                                                              );
+  WriteStdoutLine('Block labels & markers:'                                                       );
   WriteStdoutLine(Format('  --label-min-lines N   min block size for `// while`                    [%d]', [AOpts.LabelMinLines]));
   WriteStdoutLine(Format('  --[no-]label-blocks   enable / disable block-end labels                [labels=%s]', [OnOff(AOpts.LabelLongBlocks)]));
   WriteStdoutLine(Format('  --[no-]mark-unclosed  mark unclosed begin/record (or not)              [marker=%s]', [OnOff(AOpts.MarkUnclosed)]));
-  WriteStdoutLine('');
+  WriteStdoutLine(''               );
   WriteStdoutLine('Capitalization:');
   WriteStdoutLine(Format('  --[no-]lowercase-keywords  lowercase / keep keyword casing             [lowercase=%s]', [OnOff(AOpts.LowercaseKeywords)]));
   WriteStdoutLine(Format('  --[no-]upper-hex           uppercase / keep hex digit casing           [uppercase=%s]', [OnOff(AOpts.UpperHexNumbers)]));
   WriteStdoutLine(Format('  --[no-]upper-directives    uppercase / keep directive casing           [uppercase=%s]', [OnOff(AOpts.UpperDirectives)]));
   WriteStdoutLine(Format('  --[no-]first-occ           normalize / keep identifier casing          [normalize=%s]', [OnOff(AOpts.FirstOccCasing)]));
-  WriteStdoutLine('');
+  WriteStdoutLine(''                  );
   WriteStdoutLine('Blank-line policy:');
-  WriteStdoutLine(Format('  --blanks-before-section N   blanks before interface/etc               [%d]', [AOpts.BlanksBeforeSection]));
-  WriteStdoutLine(Format('  --blanks-before-method N    blanks before procedure/func              [%d]', [AOpts.BlanksBeforeMethod]));
-  WriteStdoutLine(Format('  --blanks-before-type N      blanks before `type`                       [%d]', [AOpts.BlanksBeforeType]));
+  WriteStdoutLine(Format('  --blanks-before-section N   blanks before interface/etc               [%d]' , [AOpts.BlanksBeforeSection]));
+  WriteStdoutLine(Format('  --blanks-before-method N    blanks before procedure/func              [%d]' , [AOpts.BlanksBeforeMethod ]));
+  WriteStdoutLine(Format('  --blanks-before-type N      blanks before `type`                       [%d]', [AOpts.BlanksBeforeType   ]));
   WriteStdoutLine('');
   WriteStdoutLine(Format('Pass-2 alignment max column (INI: AlignMaxColumn): %d', [AOpts.AlignMaxColumn]));
-  WriteStdoutLine('');
+  WriteStdoutLine(''                                                          );
   WriteStdoutLine('Precedence: CLI flags > INI values > compiled-in defaults.');
 end; // begin
 
@@ -892,10 +900,10 @@ function DefaultIniPath: string;
 var
   Profiles: TYadfProfiles;
 begin
-  Profiles:= LoadProfiles;                       // F defaults to 'yadf.ini'
-  Result  := ResolveProfileIniPath(Profiles.F);
+  Profiles:= LoadProfiles; // F defaults to 'yadf.ini'
+  Result:= ResolveProfileIniPath(Profiles.F);
   if Result = '' then
-    Result:= SharedAppDataIniPath;               // defensive; F is never ''
+    Result:= SharedAppDataIniPath; // defensive; F is never ''
   if not FileExists(Result) then
   begin
     // Fresh install: create the default template and make F point at it so all
@@ -907,7 +915,7 @@ begin
       SaveProfiles(Profiles);
     end;
   end;
-end;
+end; // function
 
 // All [Format] keys are read by the shared, table-driven loader in
 // YADF.Options. The CLI seeds DefaultOptions then overlays the INI; here
@@ -926,7 +934,7 @@ end;
 function ExtractIniPath(var AArgs: TArray<string>): string;
 var
   Filtered: TList<string>;
-  i       : Integer;
+  i       : Integer      ;
 begin
   Result:= DefaultIniPath;
   Filtered:= TList<string>.Create;
@@ -944,7 +952,7 @@ begin
         Filtered.Add(AArgs[i]);
         Inc(i);
       end;
-    end;
+    end; // while
     AArgs:= Filtered.ToArray;
   finally
     Filtered.Free;
@@ -953,10 +961,10 @@ end; // function
 
 procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);
 var
-  i   : Integer;
+  i   : Integer      ;
   Out_: TList<string>;
 begin
-  AOutFile   := ''   ;
+  AOutFile   := '';
   AStdoutMode:= False;
   Out_:= TList<string>.Create;
   try
@@ -1017,7 +1025,7 @@ begin
           AOpts.BackupDir:= '';
           Inc(i);
         end;
-      end
+      end // if
       else if AArgs[i] = '--no-b' then
       begin
         AOpts.Backup:= False;
@@ -1255,9 +1263,7 @@ begin
         // bare `--ini` reaching this parser means the value was forgotten --
         // say that, instead of the misleading "unknown option --ini".
         raise Exception.Create('--ini requires a path value')
-      else if AArgs[i].StartsWith('--') and (AArgs[i] <> '--check') and
-              (AArgs[i] <> '--check-dir') and (AArgs[i] <> '--batch') and
-              (AArgs[i] <> '--debug-tree') then
+      else if AArgs[i].StartsWith('--') and (AArgs[i] <> '--check') and (AArgs[i] <> '--check-dir') and (AArgs[i] <> '--batch') and (AArgs[i] <> '--debug-tree') then
       begin
         // Anything else that looks like a flag is a typo or an unsupported
         // option; reject it loudly instead of treating it as a file spec
@@ -1280,17 +1286,17 @@ end; // procedure
 
 procedure RunYadf;
 var
-  AllFiles  : TList<string>;
+  AllFiles  : TList<string> ;
   Args      : TArray<string>;
-  Diff      : Integer;
-  F         : string;
+  Diff      : Integer       ;
+  F         : string        ;
   Files     : TArray<string>;
-  i         : Integer;
-  IniPath   : string;
-  Opts      : TYadfOptions;
-  OutFile   : string;
-  Spec      : string;
-  StdoutMode: Boolean;
+  i         : Integer       ;
+  IniPath   : string        ;
+  Opts      : TYadfOptions  ;
+  OutFile   : string        ;
+  Spec      : string        ;
+  StdoutMode: Boolean       ;
 begin
   SetLength(Args, ParamCount);
   for i:= 1 to ParamCount do Args[i - 1]:= ParamStr(i);
@@ -1421,3 +1427,4 @@ begin
 end; // procedure
 
 end.
+

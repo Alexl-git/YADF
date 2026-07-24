@@ -68,3 +68,9 @@ BUG_DROPPED_INCLUDE_DIRECTIVE.md
 
 # Release packages
 *.zip
+
+# drag-lint local index + tuning (rebuilt on demand, never shared)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.drag-lint.json
