@@ -408,4 +408,134 @@ $chk = & $exe --ini $ini --check $o1 2>&1
 if ("$chk" -notmatch 'PASS') { Fail 'roundtrip/guard: join headers' }
 Remove-Item $idem,$o1,$o2 -Force -ErrorAction SilentlyContinue
 
+# ----- Casing fidelity: JoinRoutineHeaders/WrapHeaderLine never re-case a
+# token -- both copy text verbatim (Trim + single-space join for the join;
+# straight substring slicing for the wrap). The ONLY pass that changes
+# keyword casing is the separate LowercaseKeywords option; this fixture
+# proves the join+wrap sit downstream of it without adding any casing
+# of their own.
+#
+# CRITICAL: the header below must OVERFLOW MaxLen (180), same reasoning as
+# the $call/$ac fixtures above -- a short, comment-free header is already
+# collapsed onto one line by the pre-existing Stage-2 structural emitter
+# (InlineRenderRange, which inlines ANY comment-free parens group that fits
+# under MaxLen) before JoinRoutineHeaders ever runs. A short casing fixture
+# would prove Stage-2's casing fidelity, not this pass's. The parameter
+# names below push the joined header to 222 chars, so WrapHeaderLine's
+# greedy wrap fires too -- confirmed empirically to break the header into
+# two lines at a DIFFERENT position than the source's own 2-line split
+# (source breaks after "TBytesArrayTypeName;"; formatted output breaks
+# after "IThingInterfaceTypeName;" instead) -- proof the pass actually
+# re-joined then re-wrapped, not merely left the source's own line break
+# alone.
+#
+# NOTE: TestLib's MustMatch/MustNotMatch use PowerShell's `-match`/
+# `-notmatch` operators, which are CASE-INSENSITIVE by default (a regex
+# 'FUNCTION' matches the text "function" too) -- so they cannot, by
+# themselves, prove casing fidelity: a hypothetical bug that lowercased
+# every keyword would still satisfy `MustMatch $c 'FUNCTION ...'`. The
+# assertions that actually prove the casing claims below use `-cmatch` /
+# `-cnotmatch` (case-SENSITIVE) directly and call Fail on mismatch, the
+# same direct-Fail idiom the MaxLen-overflow loops above already use.
+$caseSrcLines = @(
+  'unit probe;'
+  'interface'
+  'implementation'
+  'FUNCTION BarBarBarBarBarBarBarBarBar(CONST AlphaParameterNameQuiteLong: TBytesArrayTypeName;'
+  '  VAR BetaParameterNameQuiteLongToo: IThingInterfaceTypeName; OUT GammaParameterOutNameQuiteLong: TCommandRecordTypeName): Boolean;'
+  'begin'
+  '  Result := True;'
+  'end;'
+  'end.'
+)
+
+# Default ini (LowercaseKeywords=true): the join+wrap still fires (same
+# 222-char overflow; case does not change string length, so the break lands
+# at the identical position), and the SEPARATE LowercaseKeywords pass
+# lowercases the reserved words as usual -- a sanity check that this
+# feature does not disturb the default pipeline.
+$caseDef = Fmt $caseSrcLines
+foreach ($ln in ($caseDef -split "`r`n" | Where-Object { $_ -match 'ParameterNameQuiteLong|ParameterOutNameQuiteLong' })) {
+  if ($ln.Length -gt 180) { Fail "case(default): wrapped line exceeds MaxLen: <$ln>" }
+}
+if ($caseDef -cnotmatch '(?m)^function BarBarBarBarBarBarBarBarBar\(const AlphaParameterNameQuiteLong: TBytesArrayTypeName; var BetaParameterNameQuiteLongToo: IThingInterfaceTypeName;\s*$') {
+  Fail 'case(default): lowercased function/const/var not found verbatim on header line 1 (default LowercaseKeywords regressed)'
+}
+# NOTE: "OUT" is deliberately NOT asserted to lowercase here. Verified
+# independently (a short, non-overflowing "FUNCTION Bar(CONST A: TBytes; VAR
+# B: Integer; OUT D: TCmd): Boolean;" probe that never reaches
+# JoinRoutineHeaders at all, since it fits inline under Stage-2) that
+# LowercaseKeywords leaves a source-uppercase OUT as OUT even with the
+# option ON -- a pre-existing token-classification characteristic of that
+# SEPARATE pass (out/const/var are all "reserved words" in the language, but
+# apparently not all tagged the same lexer token kind), unrelated to this
+# join/wrap feature and out of this task's scope. This assertion only needs
+# the wrap SHAPE to survive under default casing; MustMatch is
+# case-insensitive so it does not itself assert either casing.
+MustMatch $caseDef '(?m)^\s*OUT GammaParameterOutNameQuiteLong: TCommandRecordTypeName\): Boolean;\s*$' 'case(default): wrapped continuation line shape unaffected by default casing'
+
+# --no-lowercase-keywords: turn the ONLY casing-changing pass off. The join
+# copies tokens verbatim and the wrap only inserts line breaks/indent, so the
+# source's uppercase FUNCTION/CONST/VAR/OUT must survive exactly as typed,
+# split across the SAME two physical lines as above (identical break
+# position -- casing does not change string length).
+$srcC = Join-Path $env:TEMP 'jh_case.pas'
+$outC = Join-Path $env:TEMP 'jh_case_out.pas'
+$caseSrcLines -join "`r`n" | Set-Content $srcC -Encoding ascii
+& $exe --ini $ini $srcC --no-lowercase-keywords --o $outC | Out-Null
+$c = Get-Content $outC -Raw
+foreach ($ln in ($c -split "`r`n" | Where-Object { $_ -match 'ParameterNameQuiteLong|ParameterOutNameQuiteLong' })) {
+  if ($ln.Length -gt 180) { Fail "case(--no-lowercase-keywords): wrapped line exceeds MaxLen: <$ln>" }
+}
+if ($c -cnotmatch '(?m)^FUNCTION BarBarBarBarBarBarBarBarBar\(CONST AlphaParameterNameQuiteLong: TBytesArrayTypeName; VAR BetaParameterNameQuiteLongToo: IThingInterfaceTypeName;\s*$') {
+  Fail 'case: FUNCTION/CONST/VAR casing not preserved verbatim on header line 1 after join+wrap'
+}
+if ($c -cnotmatch '(?m)^\s*OUT GammaParameterOutNameQuiteLong: TCommandRecordTypeName\): Boolean;\s*$') {
+  Fail 'case: OUT casing not preserved verbatim on the wrapped continuation line'
+}
+Remove-Item $srcC,$outC -Force -ErrorAction SilentlyContinue
+
+# ----- Compile gate: the joined/wrapped output is valid Delphi (dcc64) -----
+# Mirrors the pattern in Test\test_break_control.ps1's Task 4 compile gate.
+# Fixture covers the three shapes this pass acts on: a proc-type declaration
+# (TCb), a class method header (TFoo.Go), and a routine header long enough
+# to overflow (194 chars > MaxLen 180) and greedy-wrap (VeryLongRoutineName).
+$dcc = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc64.exe'
+if (Test-Path $dcc) {
+  $ns   = 'System;System.Win;Winapi;Vcl;Data;Soap;Xml'
+  $cdir = Join-Path $env:TEMP ('jh_c_' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $cdir | Out-Null
+  $csrc = Join-Path $cdir 'jh_compile.pas'   # file name must equal unit name
+  @'
+unit jh_compile;
+interface
+type
+  TCb = procedure(Sender: TObject;
+    const Msg: string) of object;
+  TFoo = class
+    procedure Go(const A: Integer;
+      B: Integer); virtual;
+  end;
+implementation
+procedure TFoo.Go(const A: Integer;
+  B: Integer);
+begin
+end;
+function VeryLongRoutineName(const AlphaParameter: Integer; BetaParameter: Integer;
+  GammaParameter: Integer; DeltaParameter: Integer; EpsilonParameter: Integer;
+  ZetaParameter: Integer): Boolean;
+begin
+  Result := True;
+end;
+end.
+'@ | Set-Content $csrc -Encoding ascii
+  # format IN PLACE, then compile the joined/wrapped result.
+  & $exe $csrc --ini $ini --o $csrc | Out-Null
+  & $dcc -Q "-NS$ns" "-N0$cdir" "-E$cdir" $csrc *> $null
+  if ($LASTEXITCODE -ne 0) { Fail 'compile: joined/wrapped output must compile with dcc64' }
+  Remove-Item $cdir -Recurse -Force -ErrorAction SilentlyContinue
+} else {
+  Write-Output 'join_headers: (dcc64 not found -- skipping compile check)'
+}
+
 Finish 'join_headers'

@@ -22,6 +22,12 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
     alone. Each flag also has a `--no-...` twin. Surfaced in `yadf.ini`, the YADFSetup playground,
     and the YADFOT IDE Options page via the shared option table.
 
+- **Routine headers join onto one line.** A `function`/`procedure`/`constructor`/
+  `destructor`/`operator` declaration (interface or implementation) and
+  procedure-type declarations that the source split across lines are now
+  collapsed onto a single line, greedy-wrapped at parameter separators only when
+  the result exceeds MaxLen. Always on; multi-line calls are left untouched.
+
 ## [1.0.12.0] - 2026-07-17
 
 ### Fixed
