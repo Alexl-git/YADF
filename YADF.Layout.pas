@@ -2354,9 +2354,14 @@ end; // function
 /// while a paren is still open (start line or any continuation line): joining
 /// would fold the remaining header tokens into that comment and delete them
 /// from the emitted text. Content-neutral (tokens copied verbatim, only
-/// whitespace/line breaks change) so Guard-safe and casing-preserving.
-/// Overflow wrapping is applied by WrapHeaderLine (Task 2).
-/// Idempotent. Always-on standard behavior; runs regardless of ReflowLines.</summary>
+/// whitespace/line breaks change) so Guard-safe and casing-preserving. If the
+/// joined line exceeds AOpts.MaxLen, the nested WrapHeaderLine greedy-breaks
+/// it AFTER the rightmost top-level ';'/',' that still fits the budget,
+/// continuing at (leading indent + AOpts.Indent); its scan also stops at a
+/// `//` comment, so a trailing note on the header's last line is never split.
+/// Idempotent (including the wrap: a re-joined, re-scanned wrapped header
+/// re-wraps to the same shape). Always-on standard behavior; runs regardless
+/// of ReflowLines.</summary>
 function JoinRoutineHeaders(const S: string; const AOpts: TYadfOptions): string;
 var
   Lines  : TStringList   ;
@@ -2366,6 +2371,7 @@ var
   Joined : string        ;
   Aborted: Boolean       ;
   CmtOpen: Boolean       ;
+  CmtBail: Boolean       ;
 
   // True iff X begins with the whole word Wd (case-insensitive, ident boundary after).
   function LeadWord(const X, Wd: string): Boolean;
@@ -2441,6 +2447,67 @@ var
     end;
   end;
 
+  // Greedy break of an over-long joined header AFTER top-level ';' / ',' :
+  // pick the rightmost separator whose position <= MaxLen, emit head incl. the
+  // separator, continue the tail at (leading indent + AOpts.Indent). If no
+  // separator fits, leave the line long (better than an invalid mid-token break).
+  function WrapHeaderLine(const ALine: string): string;
+  var
+    Indent, NewIndent, Cur: string;
+    W        : TLineScanState;
+    Col, Best: Integer;
+    Done     : Boolean;
+    OutB     : TStringBuilder;
+  begin
+    if Length(ALine) <= AOpts.MaxLen then Exit(ALine);
+    Col:= 1;
+    while (Col <= Length(ALine)) and CharInSet(ALine[Col], [' ', #9]) do Inc(Col);
+    Indent   := Copy(ALine, 1, Col - 1);
+    NewIndent:= Indent + StringOfChar(' ', AOpts.Indent);
+    OutB:= TStringBuilder.Create;
+    try
+      Cur:= ALine;
+      while Length(Cur) > AOpts.MaxLen do
+      begin
+        // Find the rightmost top-level ';' or ',' at position <= MaxLen.
+        // "Top-level" here means Depth <= 1, NOT Depth = 0: a routine header
+        // has exactly one enclosing '(' around its whole parameter list, so
+        // every parameter-separating ';'/',' sits at Depth 1 (Depth 0 is only
+        // reached again after the closing ')', e.g. between trailing
+        // directives like `; overload; deprecated;`). Depth 1 is the correct
+        // baseline for "not nested inside a parameter's own type/default" --
+        // Depth >= 2 (an array/generic bracket or a nested paren within one
+        // parameter) is deliberately excluded so a break never lands inside
+        // those.
+        Best:= 0;
+        W.Reset; W.ClampDepth:= True; W.BeginLine;
+        Col:= 1; Done:= False;
+        while not Done do
+        case W.SkipNonCode(Cur, Col) of
+          seEndOfLine, seLineComment: Done:= True;
+          seCode:
+            begin
+              if (W.Depth <= 1) and CharInSet(Cur[Col], [';', ',']) then
+              begin
+                if Col <= AOpts.MaxLen then Best:= Col   // break AFTER this sep
+                else Done:= True;                        // past budget: stop scanning
+              end;
+              if not Done then W.StepCode(Cur, Col);
+            end;
+        end;
+        // Don't break at the very last char (nothing to move down) or before indent.
+        if (Best <= Length(Indent)) or (Best >= Length(TrimRight(Cur))) then Break;
+        OutB.Append(TrimRight(Copy(Cur, 1, Best)));
+        OutB.Append(CRLF);
+        Cur:= NewIndent + TrimLeft(Copy(Cur, Best + 1, MaxInt));
+      end;
+      OutB.Append(Cur);
+      Result:= OutB.ToString;
+    finally
+      OutB.Free;
+    end;
+  end;
+
   // True iff the trimmed line begins a block/statement keyword that can never
   // appear inside a routine-header parameter list -- the tell-tale that an open
   // paren belongs to a call wrapping an anonymous method, not to a header.
@@ -2491,24 +2558,41 @@ begin
           // Multi-line header: accumulate until a line returns depth to 0.
           Joined := TrimRight(Lines[i]);
           Aborted:= False;
+          CmtBail:= False;
           j:= i + 1;
           while j < Lines.Count do
           begin
             if StartsBlockKeyword(Lines[j]) then begin Aborted:= True; Break; end;
             ScanLine(Lines[j], CmtOpen);
-            if CmtOpen then begin Aborted:= True; Break; end;
+            if CmtOpen then begin CmtBail:= True; Break; end;
             if Trim(Lines[j]) <> '' then Joined:= Joined + ' ' + Trim(Lines[j]);
             if St.Depth = 0 then Break;   // closing line reached (inclusive)
             Inc(j);
           end;
+          if CmtBail then
+          begin
+            // Bail (comment variant): unlike the block-keyword bail below --
+            // which Breaks BEFORE its ScanLine call, leaving line j unscanned
+            // -- this fires AFTER ScanLine(Lines[j]) already advanced St
+            // across line j. So line j must be emitted HERE (inclusive) and
+            // never re-scanned by the top-level loop's own ScanLine call;
+            // otherwise St.Depth double-counts line j's brackets (ClampDepth
+            // only floors decrements, so a net-open bracket on line j -- e.g.
+            // a split set/array default -- could leave Depth stuck above 0
+            // and silently suppress every later header-join in the file).
+            for var k:= i to j do begin Out_.Append(Lines[k]); Out_.Append(CRLF); end;
+            i:= j + 1; Continue;
+          end;
           if Aborted or (j >= Lines.Count) then
           begin
-            // Bail: emit the original span verbatim (St already advanced through it).
+            // Bail (block-keyword / ran-out-of-lines): emit the original span
+            // verbatim. Line j itself is UNSCANNED here (StartsBlockKeyword
+            // trips before its ScanLine call), so it is excluded from this
+            // range and left for the top-level loop to scan fresh.
             for var k:= i to j - 1 do begin Out_.Append(Lines[k]); Out_.Append(CRLF); end;
             i:= j; Continue;
           end;
-          // Task 2 replaces the next line with: Out_.Append(WrapHeaderLine(Joined, AOpts));
-          Out_.Append(Joined); Out_.Append(CRLF);
+          Out_.Append(WrapHeaderLine(Joined)); Out_.Append(CRLF);
           i:= j + 1; Continue;
         end
         else
