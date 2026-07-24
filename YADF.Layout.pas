@@ -2349,9 +2349,13 @@ end; // function
 /// Accumulation stops at (and includes) the line that returns paren depth to 0;
 /// it never crosses a depth-0 line break, and it aborts (emitting the span
 /// unchanged) if a block keyword appears while a paren is still open -- the
-/// signature of an anonymous method passed to a call. Content-neutral (tokens
-/// copied verbatim, only whitespace/line breaks change) so Guard-safe and
-/// casing-preserving. Overflow wrapping is applied by WrapHeaderLine (Task 2).
+/// signature of an anonymous method passed to a call. It bails the same way --
+/// leaving the header split, unjoined -- if a `//` line comment is reached
+/// while a paren is still open (start line or any continuation line): joining
+/// would fold the remaining header tokens into that comment and delete them
+/// from the emitted text. Content-neutral (tokens copied verbatim, only
+/// whitespace/line breaks change) so Guard-safe and casing-preserving.
+/// Overflow wrapping is applied by WrapHeaderLine (Task 2).
 /// Idempotent. Always-on standard behavior; runs regardless of ReflowLines.</summary>
 function JoinRoutineHeaders(const S: string; const AOpts: TYadfOptions): string;
 var
@@ -2361,6 +2365,7 @@ var
   i, j   : Integer       ;
   Joined : string        ;
   Aborted: Boolean       ;
+  CmtOpen: Boolean       ;
 
   // True iff X begins with the whole word Wd (case-insensitive, ident boundary after).
   function LeadWord(const X, Wd: string): Boolean;
@@ -2417,17 +2422,21 @@ var
   end;
 
   // Advance the shared cross-line scanner St across one physical line L.
-  procedure ScanLine(const L: string);
+  // ACmtWhileOpen reports whether L's `//` comment (if any) was reached while
+  // a paren was still open (St.Depth > 0) -- the tell-tale that joining would
+  // fold the following lines into that comment and silently delete them.
+  procedure ScanLine(const L: string; out ACmtWhileOpen: Boolean);
   var
     Col : Integer;
     Done: Boolean;
   begin
+    ACmtWhileOpen:= False;
     St.BeginLine;
     Col:= 1; Done:= False;
     while not Done do
     case St.SkipNonCode(L, Col) of
       seEndOfLine  : Done:= True;
-      seLineComment: Done:= True;
+      seLineComment: begin if St.Depth > 0 then ACmtWhileOpen:= True; Done:= True; end;
       seCode       : St.StepCode(L, Col);
     end;
   end;
@@ -2462,10 +2471,20 @@ begin
         // A joinable header starts only at top level (not mid-paren / mid-comment).
         if (St.Depth = 0) and (not St.InBlockComment) and IsHeaderStart(Lines[i]) then
         begin
-          ScanLine(Lines[i]);
+          ScanLine(Lines[i], CmtOpen);
           if St.Depth = 0 then
           begin
             // Header already complete on this single physical line -- emit as-is.
+            Out_.Append(Lines[i]); Out_.Append(CRLF);
+            Inc(i); Continue;
+          end;
+          if CmtOpen then
+          begin
+            // The header's own start line ends in a `//` comment while a
+            // paren is still open -- joining would fold every following line
+            // into that comment (silently deleting the rest of the header).
+            // Leave it split: emit the start line verbatim; the continuation
+            // lines then flow through below as ordinary top-level lines.
             Out_.Append(Lines[i]); Out_.Append(CRLF);
             Inc(i); Continue;
           end;
@@ -2476,8 +2495,9 @@ begin
           while j < Lines.Count do
           begin
             if StartsBlockKeyword(Lines[j]) then begin Aborted:= True; Break; end;
-            ScanLine(Lines[j]);
-            Joined:= Joined + ' ' + Trim(Lines[j]);
+            ScanLine(Lines[j], CmtOpen);
+            if CmtOpen then begin Aborted:= True; Break; end;
+            if Trim(Lines[j]) <> '' then Joined:= Joined + ' ' + Trim(Lines[j]);
             if St.Depth = 0 then Break;   // closing line reached (inclusive)
             Inc(j);
           end;
@@ -2493,7 +2513,7 @@ begin
         end
         else
         begin
-          ScanLine(Lines[i]);              // keep cross-line St correct
+          ScanLine(Lines[i], CmtOpen);      // keep cross-line St correct
           Out_.Append(Lines[i]); Out_.Append(CRLF);
           Inc(i);
         end;

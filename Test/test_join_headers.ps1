@@ -123,4 +123,33 @@ $call = Fmt @(
 MustMatch $call '(?m)^\s+DoStuffWithAVeryVeryVeryVeryVeryVeryLongNameThatWontFitOnOneLineAtAllNoMatterWhat\(\s*$' 'call header opener left split (line 1)'
 MustMatch $call '(?m)^\s+AlphaParameterNameIsQuiteLongIndeedYes, BetaParameterNameIsQuiteLongTooYesIndeed, GammaParameterNameAlsoQuiteLongIndeedYesVeryLong\);\s*$' 'call args left split (line 2)'
 
+# ----- REGRESSION: header interrupted by a `//` comment while a paren is
+# still open must NOT be silently mis-joined. The bug: the cross-line scanner
+# stopped on the comment without objection, so the accumulation loop folded
+# the following continuation line(s) into the comment text -- the Stage-6
+# Guard then detects the altered `// count` token and DECLINES THE WHOLE FILE
+# (reverts to the unformatted input verbatim), a regression for any file with
+# an interior parameter comment (common Delphi style) that formatted fine
+# before this pass existed. The symptom is a whole-file decline, not visibly
+# mangled output (Guard reverts the mangle), so detect it via a body
+# statement YADF always reflows (`X := 1;` -> `X:= 1;`): declined = stays
+# `X := 1;` (RED); formatted = becomes `X:= 1;` (GREEN). `X := 1;` is kept as
+# the ONLY assignment in the body so AlignMatchingShapes has no sibling
+# assignment to pad it against (which would produce `X     := 1;` instead).
+$cmt = Fmt @(
+  'unit probe;'
+  'interface'
+  'implementation'
+  'function Foo(A: Integer; // count'
+  '  B: string): Boolean;'
+  'begin'
+  '  X := 1;'
+  'end;'
+  'end.'
+)
+MustMatch    $cmt '(?m)^\s*X:= 1;\s*$'                           'comment-interrupted header: file still formatted (not Guard-declined)'
+MustMatch    $cmt '(?m)^function Foo\(A: Integer; // count\s*$' 'comment-interrupted header: comment line survives on the header start line'
+MustMatch    $cmt '(?m)^\s*B: string\): Boolean;\s*$'            'comment-interrupted header: rest of header still on its own line'
+MustNotMatch $cmt '// count.*B: string'                          'comment-interrupted header: comment text not immediately followed by rest of header on the same line'
+
 Finish 'join_headers'
