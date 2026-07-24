@@ -2339,6 +2339,174 @@ begin
   end;
 end; // function
 
+/// <summary>Collapses a routine header the source split across lines back onto
+/// one physical line: function/procedure/constructor/destructor/operator
+/// declarations (interface forward decls AND implementation headers, nested
+/// routines) and procedure-type / anonymous-method headers (inline
+/// `procedure(`/`function(`). Detection keys off PAREN DEPTH -- a split header
+/// always breaks inside an unclosed '(' -- gated on a leading routine keyword
+/// or an inline procedure/function keyword so multi-line CALLS are left alone.
+/// Accumulation stops at (and includes) the line that returns paren depth to 0;
+/// it never crosses a depth-0 line break, and it aborts (emitting the span
+/// unchanged) if a block keyword appears while a paren is still open -- the
+/// signature of an anonymous method passed to a call. Content-neutral (tokens
+/// copied verbatim, only whitespace/line breaks change) so Guard-safe and
+/// casing-preserving. Overflow wrapping is applied by WrapHeaderLine (Task 2).
+/// Idempotent. Always-on standard behavior; runs regardless of ReflowLines.</summary>
+function JoinRoutineHeaders(const S: string; const AOpts: TYadfOptions): string;
+var
+  Lines  : TStringList   ;
+  Out_   : TStringBuilder;
+  St     : TLineScanState;
+  i, j   : Integer       ;
+  Joined : string        ;
+  Aborted: Boolean       ;
+
+  // True iff X begins with the whole word Wd (case-insensitive, ident boundary after).
+  function LeadWord(const X, Wd: string): Boolean;
+  begin
+    Result:= (Length(X) >= Length(Wd)) and SameText(Copy(X, 1, Length(Wd)), Wd) and
+      ((Length(X) = Length(Wd)) or
+       not CharInSet(X[Length(Wd) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']));
+  end;
+
+  // True iff position p in L starts the whole word Kw (ident boundary before AND
+  // after) and the next non-space char after the word is '(' -- an inline routine
+  // header keyword like `procedure(` / `function(`.
+  function KwParenAt(const L, Kw: string; p: Integer): Boolean;
+  var
+    q: Integer;
+  begin
+    Result:= False;
+    if not SameText(Copy(L, p, Length(Kw)), Kw) then Exit;
+    if (p > 1) and CharInSet(L[p - 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then Exit;
+    q:= p + Length(Kw);
+    if (q <= Length(L)) and CharInSet(L[q], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then Exit;
+    while (q <= Length(L)) and (L[q] = ' ') do Inc(q);
+    Result:= (q <= Length(L)) and (L[q] = '(');
+  end;
+
+  // True iff L, at top level (outside strings/comments), is the first line of a
+  // joinable header: a leading routine keyword, or an inline procedure(/function(.
+  function IsHeaderStart(const L: string): Boolean;
+  var
+    Tr         : string ;
+    p, n       : Integer;
+    inStr, inBlk, inPar: Boolean;
+  begin
+    Tr:= TrimLeft(L);
+    if LeadWord(Tr, 'class')   then Tr:= TrimLeft(Copy(Tr, 6, MaxInt));
+    if LeadWord(Tr, 'generic') then Tr:= TrimLeft(Copy(Tr, 8, MaxInt));
+    if LeadWord(Tr, 'function') or LeadWord(Tr, 'procedure') or LeadWord(Tr, 'constructor') or
+       LeadWord(Tr, 'destructor') or LeadWord(Tr, 'operator') then Exit(True);
+    // Case B: inline `procedure(` / `function(` scanned at top level.
+    n:= Length(L); p:= 1; inStr:= False; inBlk:= False; inPar:= False;
+    while p <= n do
+    begin
+      if inStr then begin if L[p] = '''' then begin if (p < n) and (L[p + 1] = '''') then Inc(p) else inStr:= False; end; Inc(p); Continue; end;
+      if inBlk then begin if L[p] = '}' then inBlk:= False; Inc(p); Continue; end;
+      if inPar then begin if (L[p] = '*') and (p < n) and (L[p + 1] = ')') then begin inPar:= False; Inc(p); end; Inc(p); Continue; end;
+      if L[p] = '''' then begin inStr:= True; Inc(p); Continue; end;
+      if L[p] = '{'  then begin inBlk:= True; Inc(p); Continue; end;
+      if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then begin inPar:= True; Inc(p, 2); Continue; end;
+      if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then Break;
+      if KwParenAt(L, 'procedure', p) or KwParenAt(L, 'function', p) then Exit(True);
+      Inc(p);
+    end;
+    Result:= False;
+  end;
+
+  // Advance the shared cross-line scanner St across one physical line L.
+  procedure ScanLine(const L: string);
+  var
+    Col : Integer;
+    Done: Boolean;
+  begin
+    St.BeginLine;
+    Col:= 1; Done:= False;
+    while not Done do
+    case St.SkipNonCode(L, Col) of
+      seEndOfLine  : Done:= True;
+      seLineComment: Done:= True;
+      seCode       : St.StepCode(L, Col);
+    end;
+  end;
+
+  // True iff the trimmed line begins a block/statement keyword that can never
+  // appear inside a routine-header parameter list -- the tell-tale that an open
+  // paren belongs to a call wrapping an anonymous method, not to a header.
+  function StartsBlockKeyword(const L: string): Boolean;
+  var
+    Tr: string;
+  begin
+    Tr:= TrimLeft(L);
+    Result:= LeadWord(Tr, 'begin') or LeadWord(Tr, 'asm') or LeadWord(Tr, 'var') or
+      LeadWord(Tr, 'const') or LeadWord(Tr, 'type') or LeadWord(Tr, 'label') or
+      LeadWord(Tr, 'case') or LeadWord(Tr, 'while') or LeadWord(Tr, 'for') or
+      LeadWord(Tr, 'if') or LeadWord(Tr, 'repeat') or LeadWord(Tr, 'with') or
+      LeadWord(Tr, 'try');
+  end;
+
+begin
+  Lines:= TStringList.Create;
+  try
+    Lines.LineBreak:= CRLF;
+    Lines.Text     := S;
+    Out_:= TStringBuilder.Create;
+    try
+      St.Reset;
+      St.ClampDepth:= True;
+      i:= 0;
+      while i < Lines.Count do
+      begin
+        // A joinable header starts only at top level (not mid-paren / mid-comment).
+        if (St.Depth = 0) and (not St.InBlockComment) and IsHeaderStart(Lines[i]) then
+        begin
+          ScanLine(Lines[i]);
+          if St.Depth = 0 then
+          begin
+            // Header already complete on this single physical line -- emit as-is.
+            Out_.Append(Lines[i]); Out_.Append(CRLF);
+            Inc(i); Continue;
+          end;
+          // Multi-line header: accumulate until a line returns depth to 0.
+          Joined := TrimRight(Lines[i]);
+          Aborted:= False;
+          j:= i + 1;
+          while j < Lines.Count do
+          begin
+            if StartsBlockKeyword(Lines[j]) then begin Aborted:= True; Break; end;
+            ScanLine(Lines[j]);
+            Joined:= Joined + ' ' + Trim(Lines[j]);
+            if St.Depth = 0 then Break;   // closing line reached (inclusive)
+            Inc(j);
+          end;
+          if Aborted or (j >= Lines.Count) then
+          begin
+            // Bail: emit the original span verbatim (St already advanced through it).
+            for var k:= i to j - 1 do begin Out_.Append(Lines[k]); Out_.Append(CRLF); end;
+            i:= j; Continue;
+          end;
+          // Task 2 replaces the next line with: Out_.Append(WrapHeaderLine(Joined, AOpts));
+          Out_.Append(Joined); Out_.Append(CRLF);
+          i:= j + 1; Continue;
+        end
+        else
+        begin
+          ScanLine(Lines[i]);              // keep cross-line St correct
+          Out_.Append(Lines[i]); Out_.Append(CRLF);
+          Inc(i);
+        end;
+      end;
+      Result:= Out_.ToString;
+    finally
+      Out_.Free;
+    end;
+  finally
+    Lines.Free;
+  end;
+end; // function
+
 function CollapseShortBlocks(const S: string; AMaxLen: Integer): string;
 var
   Lines : TStringList    ;
@@ -4902,6 +5070,12 @@ begin
           Result:= BreakControlBodies(Result, AOpts);
           Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
         end;
+        // Join routine headers the source split across lines back onto one line.
+        // Always-on standard behavior (no option). Runs after BreakControlBodies (acts
+        // on the settled line shape) and before Stage-4 alignment. Content-neutral, so
+        // no re-indent is needed: the header keeps the start line's (already-correct)
+        // indent and its own continuation indent.
+        Result:= JoinRoutineHeaders(Result, AOpts);
         EffMaxBlanks:= AOpts.MaxBlankLines;
         if AOpts.BlanksBeforeSection > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeSection;
         if AOpts.BlanksBeforeMethod  > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeMethod;
