@@ -163,7 +163,7 @@ begin
 Result:=A-B;
 end);
 if TObject(Items) is not TStringList then Exit; // is not operator
-J:=Items.Count >= 5?100:0; // if-ternary expression
+J:= if Items.Count >= 5 then 100 else 0; // if-ternary expression
 Writeln(J, Sum);
 finally
 Items.Free;
