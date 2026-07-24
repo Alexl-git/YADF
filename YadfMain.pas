@@ -828,6 +828,12 @@ begin
   WriteStdoutLine('  --no-pack-bodies      keep each body / case arm on its own line (default)');
   WriteStdoutLine(Format('  --collapse-blocks     fold a short if/for/while begin..end body onto one line [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
   WriteStdoutLine('  --no-collapse-blocks  keep begin..end blocks expanded (default)');
+  WriteStdoutLine(Format('  --break-loop          break for/while body onto its own line             [loop=%s]', [OnOff(AOpts.BreakLoopBody)]));
+  WriteStdoutLine('  --no-break-loop       keep the loop body inline (default)');
+  WriteStdoutLine(Format('  --break-with          break with..do body onto its own line              [with=%s]', [OnOff(AOpts.BreakWithBody)]));
+  WriteStdoutLine('  --no-break-with       keep the with body inline (default)');
+  WriteStdoutLine(Format('  --break-if            break if then/else body onto its own line          [if=%s]', [OnOff(AOpts.BreakIfBody)]));
+  WriteStdoutLine('  --no-break-if         keep the if/then/else body inline (default)');
   WriteStdoutLine(Format('  --[no-]trim-trailing  trim / keep trailing whitespace                  [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
   WriteStdoutLine('');
   WriteStdoutLine('Uses clause:');
@@ -1212,6 +1218,36 @@ begin
       else if AArgs[i] = '--no-collapse-blocks' then
       begin
         AOpts.CollapseShortBlocks:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--break-loop' then
+      begin
+        AOpts.BreakLoopBody:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-break-loop' then
+      begin
+        AOpts.BreakLoopBody:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--break-with' then
+      begin
+        AOpts.BreakWithBody:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-break-with' then
+      begin
+        AOpts.BreakWithBody:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--break-if' then
+      begin
+        AOpts.BreakIfBody:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-break-if' then
+      begin
+        AOpts.BreakIfBody:= False;
         Inc(i);
       end
       else if AArgs[i] = '--ini' then

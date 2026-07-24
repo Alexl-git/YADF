@@ -61,6 +61,9 @@ type
     IndentComments     : Boolean;
     PackShortBodies    : Boolean;
     CollapseShortBlocks: Boolean;
+    BreakLoopBody      : Boolean;
+    BreakWithBody      : Boolean;
+    BreakIfBody        : Boolean;
     Delphi10Compat     : Boolean;
     Backup             : Boolean;
     BackupDir          : string;
@@ -227,6 +230,9 @@ begin
   Result.IndentComments     := True   ;
   Result.PackShortBodies    := False  ;
   Result.CollapseShortBlocks:= False  ;
+  Result.BreakLoopBody      := False  ;
+  Result.BreakWithBody      := False  ;
+  Result.BreakIfBody        := False  ;
   Result.Delphi10Compat     := False  ;
   Result.Backup             := False  ;
   Result.BackupDir          := ''     ;
@@ -561,6 +567,26 @@ begin
       okBool, True,
       function(const O: TYadfOptions): Variant begin Result := O.CollapseShortBlocks end,
       procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks := V end),
+    MakeOpt('BreakLoopBody', 'Reflow & whitespace', 'Break loop body onto its own line',
+      'Force the body of a single-line for/while loop onto its own indented line ' +
+      '("while X do Dec(k);" -> "while X do" + newline + "  Dec(k);"). A begin block, ' +
+      'a nested control header, or a body with a trailing comment is left alone. Off by default.',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.BreakLoopBody end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody := V end),
+    MakeOpt('BreakWithBody', 'Reflow & whitespace', 'Break with body onto its own line',
+      'Force the body of a single-line with..do statement onto its own indented line. ' +
+      'Same guard rails as BreakLoopBody (begin/nested-header/comment bodies left alone). Off by default.',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.BreakWithBody end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody := V end),
+    MakeOpt('BreakIfBody', 'Reflow & whitespace', 'Break if/then/else body onto its own line',
+      'Force the then/else body of a single-line if statement onto its own indented line ' +
+      '("if X then A else B;" -> "if X then" / "  A" / "else" / "  B;"). "else if" chains stay ' +
+      'glued; a begin/nested-header/comment body is left alone. Off by default.',
+      okBool, True,
+      function(const O: TYadfOptions): Variant begin Result := O.BreakIfBody end,
+      procedure(var O: TYadfOptions; const V: Variant) begin O.BreakIfBody := V end),
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Downgrade inline vars',
       'Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest get a // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.',
       okBool, True,

@@ -62,15 +62,14 @@ function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; o
 /// <param name="AReason">'' when preserved; otherwise the decline cause.</param>
 /// <returns>True when the content is fully preserved.</returns>
 /// <remarks>Same purity/fail-closed contract as the two-argument overload.</remarks>
-function FormatPreservesContent(const AOriginal, AFormatted: string;
-  AAllowStringDuplication: Boolean; out AReason: string): Boolean; overload;
+function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication: Boolean; out AReason: string): Boolean; overload;
 
 implementation
 
 uses
   System.SysUtils
-  , System.Generics.Collections
-  , SimpleParser.Lexer.Types
+  , System      .Generics.Collections
+  , SimpleParser.Lexer   .Types
   , YADF.Tokens
   ;
 
@@ -90,7 +89,7 @@ end;
 function DirectiveKey(const S: string): string;
 var
   Sb: TStringBuilder;
-  C : Char;
+  C : Char          ;
 begin
   Sb:= TStringBuilder.Create;
   try
@@ -103,19 +102,17 @@ begin
 end;
 
 const
-  DirectiveKinds = [ptIfDirect, ptIfDefDirect, ptIfNDefDirect, ptIfOptDirect,
-    ptElseDirect, ptElseIfDirect, ptEndIfDirect, ptIfEndDirect, ptDefineDirect,
-    ptUndefDirect, ptIncludeDirect, ptResourceDirect, ptCompDirect,
-    ptScopedEnumsDirect];
-  CommentKinds   = [ptAnsiComment, ptBorComment, ptSlashesComment];
-  StringKinds    = [ptStringConst, ptStringDQConst];
+  DirectiveKinds = [
+    ptIfDirect, ptIfDefDirect, ptIfNDefDirect, ptIfOptDirect, ptElseDirect, ptElseIfDirect, ptEndIfDirect, ptIfEndDirect, ptDefineDirect, ptUndefDirect, ptIncludeDirect,
+    ptResourceDirect, ptCompDirect, ptScopedEnumsDirect];
+  CommentKinds = [ptAnsiComment, ptBorComment, ptSlashesComment];
+  StringKinds  = [ptStringConst, ptStringDQConst];
 
-// Extracts the three ordered content streams from ASource in one lex.
-procedure ExtractContent(const ASource: string;
-  const AStrings, AComments, ADirectives: TList<string>);
+  // Extracts the three ordered content streams from ASource in one lex.
+procedure ExtractContent(const ASource: string; const AStrings, AComments, ADirectives: TList<string>);
 var
   Tokens: TTokenList;
-  T     : TToken;
+  T     : TToken    ;
 begin
   Tokens:= LoadTokensFromString(ASource);
   try
@@ -132,11 +129,11 @@ begin
         AComments.Add(TrimRight(NormalizeNewlines(T.Text)))
       else if T.Kind in DirectiveKinds then
         ADirectives.Add(DirectiveKey(T.Text));
-    end;
+    end; // for
   finally
     Tokens.Free;
-  end;
-end;
+  end; // try
+end; // procedure
 
 // True when A equals B element-for-element.
 function SameSequence(const A, B: TList<string>): Boolean;
@@ -154,7 +151,8 @@ end;
 // able to drop or alter one.
 function IsSubsequence(const A, B: TList<string>): Boolean;
 var
-  ia, ib: Integer;
+  ia: Integer;
+  ib: Integer;
 begin
   ia:= 0;
   ib:= 0;
@@ -170,7 +168,8 @@ end;
 // ('' when every element matched) -- the preview for the decline reason.
 function FirstUnmatched(const A, B: TList<string>): string;
 var
-  ia, ib: Integer;
+  ia: Integer;
+  ib: Integer;
 begin
   ia:= 0;
   ib:= 0;
@@ -186,20 +185,22 @@ begin
   end
   else
     Result:= '';
-end;
+end; // function
 
-function FormatPreservesContent(const AOriginal, AFormatted: string;
-  AAllowStringDuplication: Boolean; out AReason: string): Boolean;
+function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication: Boolean; out AReason: string): Boolean;
 var
-  OrigStr, FmtStr  : TList<string>;
-  OrigCom, FmtCom  : TList<string>;
-  OrigDir, FmtDir  : TList<string>;
-  StrOk            : Boolean;
+  OrigStr: TList<string>;
+  FmtStr : TList<string>;
+  OrigCom: TList<string>;
+  FmtCom : TList<string>;
+  OrigDir: TList<string>;
+  FmtDir : TList<string>;
+  StrOk  : Boolean      ;
 begin
   AReason:= '';
-  OrigStr:= TList<string>.Create;  FmtStr:= TList<string>.Create;
-  OrigCom:= TList<string>.Create;  FmtCom:= TList<string>.Create;
-  OrigDir:= TList<string>.Create;  FmtDir:= TList<string>.Create;
+  OrigStr:= TList<string>.Create; FmtStr:= TList<string>.Create;
+  OrigCom:= TList<string>.Create; FmtCom:= TList<string>.Create;
+  OrigDir:= TList<string>.Create; FmtDir:= TList<string>.Create;
   try
     try
       ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir);
@@ -221,14 +222,14 @@ begin
     except
       // Cannot verify -> fail closed; the caller keeps the original text.
       AReason:= 'content could not be verified (lexing failed)';
-      Result:= False;
-    end;
+      Result := False;
+    end; // try
   finally
-    OrigStr.Free;  FmtStr.Free;
-    OrigCom.Free;  FmtCom.Free;
-    OrigDir.Free;  FmtDir.Free;
-  end;
-end;
+    OrigStr.Free; FmtStr.Free;
+    OrigCom.Free; FmtCom.Free;
+    OrigDir.Free; FmtDir.Free;
+  end; // try
+end; // function
 
 function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean;
 var
@@ -238,3 +239,4 @@ begin
 end;
 
 end.
+

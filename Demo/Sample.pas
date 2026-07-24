@@ -110,6 +110,43 @@ end;
 Writeln(A, B);
 end;
 
+// --- BreakLoopBody / BreakWithBody / BreakIfBody ----------------------------
+// Three independent options, all OFF by default -- so with stock settings the
+// one-line control statements below stay exactly as they are. Turn one on and
+// that construct's body drops onto its own indented line:
+//   BreakLoopBody ('Break loop body') -> 'for ... do' and 'while ... do'
+//   BreakWithBody ('Break with body') -> 'with ... do'
+//   BreakIfBody   ('Break if body')   -> 'if ... then', and the 'else' arm
+// They are the inverse of PackShortBodies; when both apply, the split wins.
+// NOTE: labels are on their own lines here on purpose -- a trailing // comment
+// disqualifies a line from being split, as the last case below demonstrates.
+procedure BreakBodiesShowcase(K: Integer);
+var
+P: TPoint;
+Sum, I: Integer;
+begin
+Sum:= 0;
+P:= Origin[0];
+// BreakLoopBody -- header ends in 'do'
+for I:= 0 to High(Origin) do Sum:= Sum+Origin[I].X;
+while (K > 0) and (Sum < 100) do Dec(K);
+// BreakWithBody -- 'with' is deliberately separate from the loops
+with P do X:= 1;
+// BreakIfBody -- 'then' alone, then 'then' + 'else'
+if K > 0 then Sum:= K;
+if K > 0 then Sum:= K else Sum:= 0;
+// 'else if' chains stay glued: 'else if K = 2 then' remains one line
+if K = 1 then Sum:= 10 else if K = 2 then Sum:= 20 else Sum:= 30;
+// Never split by these options, whatever is enabled:
+// a 'begin' body is left alone (the indent engine still formats it),
+while K > 0 do begin Dec(K); Inc(Sum); end;
+// a nested control header is left alone (no ambiguous half-splits),
+while K > 0 do while Sum > 0 do Dec(Sum);
+// and a line carrying a trailing line comment is left alone.
+if K > 0 then Sum:= 1; // this comment blocks the split
+Writeln(Sum, P.Name);
+end;
+
 procedure Demo;
 var
 I,J: Integer; // combined -> split

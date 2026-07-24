@@ -8,6 +8,20 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Break control-statement bodies onto their own line (three opt-in options, all default off):**
+  - `BreakLoopBody` (`--break-loop`) -- a single-line `for`/`while` loop body drops to its own
+    indented line (`while X do Dec(k);` -> `while X do` / `  Dec(k);`).
+  - `BreakWithBody` (`--break-with`) -- same for a `with ... do` body.
+  - `BreakIfBody` (`--break-if`) -- the `then`/`else` body of a single-line `if` drops to its own
+    line (`if X then A else B;` -> `if X then` / `  A` / `else` / `  B;`); `else if` chains stay
+    glued. A `begin` block, a nested control-header body, or a line with a trailing comment is left
+    alone. Each flag also has a `--no-...` twin. Surfaced in `yadf.ini`, the YADFSetup playground,
+    and the YADFOT IDE Options page via the shared option table.
+
 ## [1.0.12.0] - 2026-07-17
 
 ### Fixed
