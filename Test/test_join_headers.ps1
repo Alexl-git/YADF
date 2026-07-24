@@ -538,4 +538,114 @@ end.
   Write-Output 'join_headers: (dcc64 not found -- skipping compile check)'
 }
 
+# ----- REGRESSION (defensive lock-in, reviewer-recommended): a routine header
+# whose parameter list is interrupted by a genuinely MULTI-LINE token (a { }
+# or (* *) block comment spanning >1 physical line, or a multi-line string
+# default) must not corrupt the file or trigger a whole-file Guard decline.
+#
+# This safety is REAL, but it does NOT live inside JoinRoutineHeaders: YADF's
+# pre-existing multi-line-token shield (ShieldMultilineTokens /
+# UnshieldMultilineTokens, YADF.Layout.pas) replaces every multi-line string
+# and block-comment TOKEN with an opaque ONE-LINE sentinel before Stage 2
+# (structural emission) ever runs, and restores the original text verbatim
+# only at Stage 5 -- AFTER JoinRoutineHeaders (Stage 3) and BEFORE Stage 6
+# Guard. So by the time JoinRoutineHeaders' line-based scanner sees the file,
+# a multi-line comment/string has already been collapsed to one line; the
+# pass never actually observes a raw multi-line span for these tokens. The
+# Task-1 regression fixed above ($cmt, $m1) was exactly this shape of bug for
+# `//` line comments (NOT shielded -- a `//` comment is already one token on
+# one line, so JoinRoutineHeaders' OWN cross-line scanner has to get it right
+# directly). This fixture locks in the OTHER half: block comments and
+# multi-line strings, which route through the shield instead. If a future
+# change reordered the pipeline (e.g. ran JoinRoutineHeaders before the
+# shield) or narrowed which token kinds get shielded, this is the fixture
+# that would catch it -- via the same "whole-file decline" symptom (X:= 1;
+# stays X := 1;) the Task-1 bug produced.
+#
+# Empirically verified asymmetry (not itself asserted as a requirement, just
+# documented so a future reader is not surprised): the { } / (* *) sentinels
+# are still COMMENT-shaped tokens post-shield (MlComSentinel produces a
+# one-line `{...}` brace comment), so WalkGroup/JoinRoutineHeaders' existing
+# "do not join across a comment" caution still applies -- the header is left
+# split exactly as authored. The multi-line STRING sentinel (MlStrSentinel)
+# is a plain one-line string CONSTANT, not comment-shaped, so it does not
+# block the join -- JoinRoutineHeaders pulls the trailing parameter onto the
+# same line as the closing sentinel. Both are safe; they just differ in
+# shape, because the "comment blocks joining" rule keys off token kind, not
+# token content.
+
+# --- (a) { ... } block comment spanning the parameter list ---
+$mlbSrc = Join-Path $env:TEMP 'jh_mlbrace_src.pas'
+@'
+unit probe;
+interface
+implementation
+function Foo(A: Integer; { this comment
+  runs across two lines } B: string): Boolean;
+begin
+  X := 1;
+end;
+end.
+'@ | Set-Content $mlbSrc -Encoding ascii
+$mlbO1 = Join-Path $env:TEMP 'jh_mlbrace_o1.pas'; $mlbO2 = Join-Path $env:TEMP 'jh_mlbrace_o2.pas'
+& $exe --ini $ini $mlbSrc --o $mlbO1 | Out-Null
+$mlb = Get-Content $mlbO1 -Raw
+MustMatch   $mlb '(?m)^\s*X:= 1;\s*$' 'brace-comment header: file still formatted (not Guard-declined)'
+MustContain $mlb "function Foo(A: Integer; { this comment`r`n  runs across two lines } B: string): Boolean;" 'brace-comment header: multi-line comment + surrounding header tokens survive verbatim'
+& $exe --ini $ini $mlbO1 --o $mlbO2 | Out-Null
+if ((Get-FileHash $mlbO1).Hash -ne (Get-FileHash $mlbO2).Hash) { Fail 'idempotent: brace-comment header' }
+$mlbchk = & $exe --ini $ini --check $mlbO1 2>&1
+if ("$mlbchk" -notmatch 'PASS') { Fail 'roundtrip/guard: brace-comment header' }
+Remove-Item $mlbSrc,$mlbO1,$mlbO2 -Force -ErrorAction SilentlyContinue
+
+# --- (b) (* ... *) block comment spanning the parameter list ---
+$mlaSrc = Join-Path $env:TEMP 'jh_mlansi_src.pas'
+@'
+unit probe;
+interface
+implementation
+function Foo(A: Integer; (* this comment
+  runs across two lines *) B: string): Boolean;
+begin
+  X := 1;
+end;
+end.
+'@ | Set-Content $mlaSrc -Encoding ascii
+$mlaO1 = Join-Path $env:TEMP 'jh_mlansi_o1.pas'; $mlaO2 = Join-Path $env:TEMP 'jh_mlansi_o2.pas'
+& $exe --ini $ini $mlaSrc --o $mlaO1 | Out-Null
+$mla = Get-Content $mlaO1 -Raw
+MustMatch   $mla '(?m)^\s*X:= 1;\s*$' 'ansi-comment header: file still formatted (not Guard-declined)'
+MustContain $mla "function Foo(A: Integer; (* this comment`r`n  runs across two lines *) B: string): Boolean;" 'ansi-comment header: multi-line comment + surrounding header tokens survive verbatim'
+& $exe --ini $ini $mlaO1 --o $mlaO2 | Out-Null
+if ((Get-FileHash $mlaO1).Hash -ne (Get-FileHash $mlaO2).Hash) { Fail 'idempotent: ansi-comment header' }
+$mlachk = & $exe --ini $ini --check $mlaO1 2>&1
+if ("$mlachk" -notmatch 'PASS') { Fail 'roundtrip/guard: ansi-comment header' }
+Remove-Item $mlaSrc,$mlaO1,$mlaO2 -Force -ErrorAction SilentlyContinue
+
+# --- (c) multi-line ('''...''') string literal as a parameter default ---
+$mlsSrc = Join-Path $env:TEMP 'jh_mlstr_src.pas'
+@'
+unit probe;
+interface
+implementation
+function Foo(A: Integer; B: string = '''
+multi
+line default''';
+  C: Boolean): Boolean;
+begin
+  X := 1;
+end;
+end.
+'@ | Set-Content $mlsSrc -Encoding ascii
+$mlsO1 = Join-Path $env:TEMP 'jh_mlstr_o1.pas'; $mlsO2 = Join-Path $env:TEMP 'jh_mlstr_o2.pas'
+& $exe --ini $ini $mlsSrc --o $mlsO1 | Out-Null
+$mls = Get-Content $mlsO1 -Raw
+MustMatch   $mls '(?m)^\s*X:= 1;\s*$' 'multi-line-string-default header: file still formatted (not Guard-declined)'
+MustContain $mls "function Foo(A: Integer; B: string = '''`r`nmulti`r`nline default'''; C: Boolean): Boolean;" 'multi-line-string-default header: string interior + surrounding header tokens survive verbatim (JoinRoutineHeaders pulls the trailing param onto the sentinel line; unshield then restores the real multi-line value)'
+& $exe --ini $ini $mlsO1 --o $mlsO2 | Out-Null
+if ((Get-FileHash $mlsO1).Hash -ne (Get-FileHash $mlsO2).Hash) { Fail 'idempotent: multi-line-string-default header' }
+$mlschk = & $exe --ini $ini --check $mlsO1 2>&1
+if ("$mlschk" -notmatch 'PASS') { Fail 'roundtrip/guard: multi-line-string-default header' }
+Remove-Item $mlsSrc,$mlsO1,$mlsO2 -Force -ErrorAction SilentlyContinue
+
 Finish 'join_headers'
