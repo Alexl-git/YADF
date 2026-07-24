@@ -2348,10 +2348,16 @@ end; // function
 /// or an inline procedure/function keyword so multi-line CALLS are left alone.
 /// Accumulation stops at (and includes) the line that returns paren depth to 0;
 /// it never crosses a depth-0 line break, and it aborts (emitting the span
-/// unchanged) if a block keyword appears while a paren is still open -- the
-/// signature of an anonymous method passed to a call. It bails the same way --
-/// leaving the header split, unjoined -- if a `//` line comment is reached
-/// while a paren is still open (start line or any continuation line): joining
+/// unchanged) if a true block/section keyword (`begin`, `asm`, `type`,
+/// `label`, `case`, `while`, `for`, `if`, `repeat`, `with`, `try`) starts a
+/// continuation line while a paren is still open -- the signature of an
+/// anonymous method's own body passed as a call argument. Ordinary parameter
+/// modifiers (`const`, `var`) are deliberately NOT in that set -- they
+/// routinely start a continuation line of a real parameter list and are
+/// joined like any other token; only a genuine block/section opener aborts
+/// the join. It bails the same way -- leaving the header split, unjoined --
+/// if a `//` line comment is reached while a paren is still open (start line
+/// or any continuation line): joining
 /// would fold the remaining header tokens into that comment and delete them
 /// from the emitted text. Content-neutral (tokens copied verbatim, only
 /// whitespace/line breaks change) so Guard-safe and casing-preserving. If the
@@ -2511,16 +2517,20 @@ var
   // True iff the trimmed line begins a block/statement keyword that can never
   // appear inside a routine-header parameter list -- the tell-tale that an open
   // paren belongs to a call wrapping an anonymous method, not to a header.
+  // Deliberately EXCLUDES const/var: those are ordinary parameter modifiers
+  // (e.g. `const D: TSomeType`) that routinely start a continuation line of a
+  // real header, so including them here used to bail real headers that never
+  // joined at all. begin/asm alone are sufficient to catch an anonymous
+  // method's own body -- every routine body reaches one of them eventually.
   function StartsBlockKeyword(const L: string): Boolean;
   var
     Tr: string;
   begin
     Tr:= TrimLeft(L);
-    Result:= LeadWord(Tr, 'begin') or LeadWord(Tr, 'asm') or LeadWord(Tr, 'var') or
-      LeadWord(Tr, 'const') or LeadWord(Tr, 'type') or LeadWord(Tr, 'label') or
-      LeadWord(Tr, 'case') or LeadWord(Tr, 'while') or LeadWord(Tr, 'for') or
-      LeadWord(Tr, 'if') or LeadWord(Tr, 'repeat') or LeadWord(Tr, 'with') or
-      LeadWord(Tr, 'try');
+    Result:= LeadWord(Tr, 'begin') or LeadWord(Tr, 'asm') or LeadWord(Tr, 'type') or
+      LeadWord(Tr, 'label') or LeadWord(Tr, 'case') or LeadWord(Tr, 'while') or
+      LeadWord(Tr, 'for') or LeadWord(Tr, 'if') or LeadWord(Tr, 'repeat') or
+      LeadWord(Tr, 'with') or LeadWord(Tr, 'try');
   end;
 
 begin

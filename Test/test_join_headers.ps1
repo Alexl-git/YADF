@@ -127,6 +127,61 @@ $call = Fmt @(
 MustMatch $call '(?m)^\s+DoStuffWithAVeryVeryVeryVeryVeryVeryLongNameThatWontFitOnOneLineAtAllNoMatterWhat\(\s*$' 'call header opener left split (line 1)'
 MustMatch $call '(?m)^\s+AlphaParameterNameIsQuiteLongIndeedYes, BetaParameterNameIsQuiteLongTooYesIndeed, GammaParameterNameAlsoQuiteLongIndeedYesVeryLong\);\s*$' 'call args left split (line 2)'
 
+# ----- GUARD (const/var bail-set fix): an anonymous method passed as a call
+# argument, spanning multiple physical lines and carrying its own real
+# `begin..end` BODY, must still be left ALONE -- not joined into the routine
+# header it is passed to. This is the scenario StartsBlockKeyword's begin/asm
+# bail exists to protect (see JoinRoutineHeaders' DocInsight): the call's own
+# '(' stays open while the anon method's inline `procedure(` matches
+# IsHeaderStart (Case B), so the accumulation loop starts scanning -- but it
+# must still abort the moment `begin` appears, discarding whatever it
+# accumulated and re-emitting the ORIGINAL lines verbatim (Aborted always
+# emits Lines[i..j-1], never the built-up Joined string -- see the
+# block-keyword bail comment in JoinRoutineHeaders). The anon method's OWN
+# header here is ALSO split across two lines with the second starting
+# "const" -- exactly the leading word just removed from the bail set -- to
+# prove that removal does not let this construct bleed into a mis-join
+# before `begin` is reached: the const-led continuation is scanned (no
+# longer an immediate bail) but the whole span still correctly bails, intact
+# and unmodified, the moment `begin` follows.
+# NOTE (deviation, same reason as the $call fixture above): a SHORT anon
+# header (e.g. `SomeCall(procedure(X: Integer; const Y: string)`) is
+# collapsed onto one physical line by the pre-existing Stage-2 structural
+# emitter (InlineRenderRange) -- same as it did for a short flat call --
+# BEFORE JoinRoutineHeaders ever runs, so it never reaches this pass as a
+# genuinely split span at all. Verified empirically against the real binary.
+# Long-enough names push the anon header itself over MaxLen so Stage 2
+# leaves it genuinely split across 2 physical lines for JoinRoutineHeaders
+# to (correctly) leave alone.
+$acSrc = Join-Path $env:TEMP 'jh_anon_src.pas'
+@'
+unit probe;
+interface
+implementation
+procedure Demo;
+begin
+  DoStuffWithAVeryVeryVeryVeryVeryVeryLongNameThatWontFitOnOneLineAtAllNoMatterWhat(procedure(AlphaParameterNameIsQuiteLongIndeedYes: Integer;
+    const BetaParameterNameIsQuiteLongTooYesIndeed: string)
+  begin
+    DoSomething(AlphaParameterNameIsQuiteLongIndeedYes, BetaParameterNameIsQuiteLongTooYesIndeed);
+  end);
+end;
+end.
+'@ | Set-Content $acSrc -Encoding ascii
+$acO1 = Join-Path $env:TEMP 'jh_anon1.pas'; $acO2 = Join-Path $env:TEMP 'jh_anon2.pas'
+& $exe --ini $ini $acSrc --o $acO1 | Out-Null
+$ac = Get-Content $acO1 -Raw
+MustMatch $ac '(?m)^\s*DoStuffWithAVeryVeryVeryVeryVeryVeryLongNameThatWontFitOnOneLineAtAllNoMatterWhat\(procedure\(AlphaParameterNameIsQuiteLongIndeedYes: Integer;\s*$' 'anon-method guard: call + inline header opener left on its own line'
+MustMatch $ac '(?m)^\s*const BetaParameterNameIsQuiteLongTooYesIndeed: string\)\s*$'                                                                                      'anon-method guard: const-led continuation of the ANON method itself left on its own line, not folded into line 1'
+MustMatch $ac '(?m)^\s*begin\s*$'                                                                                                                                         'anon-method guard: begin still starts its own line (never joined into the header)'
+MustMatch $ac '(?m)^\s*DoSomething\(AlphaParameterNameIsQuiteLongIndeedYes, BetaParameterNameIsQuiteLongTooYesIndeed\);\s*$'                                              'anon-method guard: body statement untouched'
+MustMatch $ac '(?m)^\s*end\);\s*$'                                                                                                                                        'anon-method guard: closing end); untouched'
+& $exe --ini $ini $acO1 --o $acO2 | Out-Null
+if ((Get-FileHash $acO1).Hash -ne (Get-FileHash $acO2).Hash) { Fail 'idempotent: anon-method guard' }
+$acchk = & $exe --ini $ini --check $acO1 2>&1
+if ("$acchk" -notmatch 'PASS') { Fail 'roundtrip/guard: anon-method guard' }
+Remove-Item $acSrc,$acO1,$acO2 -Force -ErrorAction SilentlyContinue
+
 # ----- REGRESSION: header interrupted by a `//` comment while a paren is
 # still open must NOT be silently mis-joined. The bug: the cross-line scanner
 # stopped on the comment without objection, so the accumulation loop folded
@@ -276,24 +331,37 @@ $wchk = & $exe --ini $ini --check $wo1 2>&1
 if ("$wchk" -notmatch 'PASS') { Fail 'roundtrip/guard: wrapped header' }
 Remove-Item $wsrc,$wo1,$wo2 -Force -ErrorAction SilentlyContinue
 
-# ----- Idempotency when the wrap point lands right before a const/var
-# parameter: WrapHeaderLine picks its break purely by position (rightmost
-# ';'/',' <= MaxLen), so nothing stops the continuation it creates from
-# starting with "const"/"var" -- exactly the leading word StartsBlockKeyword
-# (Task 1, see the $cmtWrap comment above) treats as an abort tell-tale. On a
-# second pass this makes JoinRoutineHeaders decline to re-join (it bails,
-# emitting the two lines verbatim) instead of genuinely re-joining and
-# re-wrapping -- a DIFFERENT code path than pass 1. Verified this still lands
-# on the byte-identical shape (the bailed-verbatim lines already ARE
-# WrapHeaderLine's own head/NewIndent+tail shape), so it is not a regression,
-# but the coincidence is non-obvious enough to pin down permanently.
+# ----- REGRESSION (const/var bail-set fix): a header split across 3 lines,
+# where continuation line 2 starts with "const" and line 3 starts with "var"
+# -- ordinary Delphi parameter modifiers (e.g. `const D: TSomeType`), NOT the
+# tell-tale of an anonymous method's own block/section opening inside a
+# still-open call paren (that tell-tale is `begin`/`asm` alone -- see the
+# $anonCall guard fixture above) -- must still JOIN, and since the joined
+# result overflows MaxLen, WRAP, rather than bail and stay split.
+# RED (confirmed against the pre-fix exe): StartsBlockKeyword wrongly
+# included const/var in its bail set, so line 2 ("const Gamma...") tripped
+# the block-keyword bail before line 3 was even scanned -- the header stayed
+# split exactly as authored (3 physical lines, unjoined) and every assertion
+# below failed.
+# GREEN (post-fix, const/var removed from the bail set): the header joins
+# through BOTH the const-led and var-led continuations, then WrapHeaderLine
+# greedy-wraps the over-180 result.
+# This replaces the OLDER $cvSrc fixture that lived here (Task-2 review Minor
+# #1: mislabeled). That fixture's own comment described "pass 1 joins, only
+# pass 2 bails on a re-fed wrapped continuation" -- but with const still in
+# the PRE-FIX bail set, pass 1 ALSO bailed (identically to pass 2), so it
+# never actually exercised a join at all, only the same verbatim bail shape
+# twice in a row (still idempotent, but not for the reason the comment
+# claimed). This fixture folds in the same idempotency + Guard round-trip
+# coverage the old one provided, now over a genuine join+wrap.
 $cvSrc = Join-Path $env:TEMP 'jh_constvar_wrap.pas'
 @'
 unit probe;
 interface
 implementation
-function ProbeConstWrap(AlphaParamNameQuiteLongXXXXXXX: TAlphaTypeNameQuiteLong; BetaParamNameQuiteLongYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY: TBetaTypeNameQuiteLong;
-  const GammaParamNameQuiteLong: TGammaTypeNameQuiteLong): Boolean;
+function ProbeConstVarJoin(AlphaParamNameQuiteLongXXXXXXXXXXXXXXXXXXXX: TAlphaTypeNameQuiteLong; BetaParamNameQuiteLongYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY: TBetaTypeNameQuiteLong;
+  const GammaParamNameQuiteLong: TGammaTypeNameQuiteLong;
+  var DeltaParamNameQuiteLong: TDeltaTypeNameQuiteLong): Boolean;
 begin
   Result := True;
 end;
@@ -301,11 +369,18 @@ end.
 '@ | Set-Content $cvSrc -Encoding ascii
 $cvo1 = Join-Path $env:TEMP 'jh_cv1.pas'; $cvo2 = Join-Path $env:TEMP 'jh_cv2.pas'
 & $exe --ini $ini $cvSrc --o $cvo1 | Out-Null
-& $exe --ini $ini $cvo1  --o $cvo2 | Out-Null
-if ((Get-FileHash $cvo1).Hash -ne (Get-FileHash $cvo2).Hash) { Fail 'idempotent: wrap point landing before a const/var parameter' }
-MustMatch (Get-Content $cvo1 -Raw) '(?m)^  const GammaParamNameQuiteLong: TGammaTypeNameQuiteLong\): Boolean;\s*$' 'wrap before const/var: continuation line still correctly formed'
+$cv = Get-Content $cvo1 -Raw
+foreach ($ln in ($cv -split "`r`n" | Where-Object { $_ -match 'ParamNameQuiteLong' })) {
+  if ($ln.Length -gt 180) { Fail "const/var join: wrapped line exceeds MaxLen: <$ln>" }
+}
+MustMatch    $cv '(?m)^function ProbeConstVarJoin\b.*;\s*$' 'const/var join: first line still starts the header and ends at a ; separator'
+MustNotMatch $cv '(?m)^\s*[;,]' 'const/var join: no continuation line starts with a dangling separator'
+MustMatch    $cv 'BetaParamNameQuiteLong.*const GammaParamNameQuiteLong' 'const/var join: Beta (originally line 1) and the const-led parameter (originally line 2) now share one output line -- proves an actual cross-line join, not a bail'
+MustNotMatch $cv '(?m)^\s*const GammaParamNameQuiteLong: TGammaTypeNameQuiteLong;\s*$' 'const/var join: the original const-only continuation line no longer stands alone -- header is no longer one-param-per-line-as-source'
+& $exe --ini $ini $cvo1 --o $cvo2 | Out-Null
+if ((Get-FileHash $cvo1).Hash -ne (Get-FileHash $cvo2).Hash) { Fail 'idempotent: const/var join + wrap' }
 $cvchk = & $exe --ini $ini --check $cvo1 2>&1
-if ("$cvchk" -notmatch 'PASS') { Fail 'roundtrip/guard: wrap point landing before a const/var parameter' }
+if ("$cvchk" -notmatch 'PASS') { Fail 'roundtrip/guard: const/var join + wrap' }
 Remove-Item $cvSrc,$cvo1,$cvo2 -Force -ErrorAction SilentlyContinue
 
 # ----- Idempotency + Guard round-trip over the mixed corpus -----
