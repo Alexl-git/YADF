@@ -8,6 +8,27 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.13.1] - 2026-07-24
+
+### Changed
+
+- **The engine sources now document themselves.** Every public declaration across
+  `YADF.Debug`, `YADF.Groups`, `YADF.Guard`, `YADF.Layout`, `YADF.LineScan`,
+  `YADF.Options`, `YADF.Tokens` and `YadfMain` carries a DocInsight (`///`)
+  spec-comment. Inside `<remarks>`, a delimited `<!-- drag-lint:auto BEGIN/END -->`
+  block records the call graph facts drag-lint derived from the AST index --
+  callers, callees, return shapes, overload position, and which tests cover the
+  routine. The delimiters exist so the block can be regenerated in place without
+  touching the hand-written prose around it.
+
+- **The sources were formatted by YADF itself,** with the trailing end-labels,
+  one-declaration-per-line var splitting, semicolon alignment and comma-first
+  `uses` layout enabled -- the formatter's own dogfooding pass.
+
+No behaviour change: the diff is comments and whitespace only, so 1.0.13.1
+formats byte-for-byte identically to 1.0.13.0. The full suite (21 scripts, 81
+golden files, 48 compile-gated fixtures) passes unchanged.
+
 ## [1.0.13.0] - 2026-07-24
 
 ### Added
