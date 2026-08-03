@@ -107,7 +107,7 @@ function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 /// Overload 2 of 2
 /// Complexity: 24 (cyclomatic), 603 lines
 /// Covered by: TestFormatSourceStillFormats
-/// Pure
+/// Mutates: ADeclineReason (out)
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string; overload;

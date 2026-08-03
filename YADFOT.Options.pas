@@ -33,6 +33,7 @@ interface
 /// <!-- drag-lint:auto BEGIN -->
 /// Called from: YADFOT.Wizard.Register (YADFOT.Wizard.pas)
 /// Calls: Add, Create, RegisterAddInOptions, Supports
+/// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure RegisterYADFOptions;
@@ -45,6 +46,7 @@ procedure RegisterYADFOptions;
 /// <!-- drag-lint:auto BEGIN -->
 /// Called from: UnregisterYADFOptions caller (YADFOT.Options.pas), YADFOT.Wizard.TYadfotMenuWizard.Destroyed (YADFOT.Wizard.pas)
 /// Calls: Length, SetLength, Supports, UnregisterAddInOptions
+/// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure UnregisterYADFOptions;

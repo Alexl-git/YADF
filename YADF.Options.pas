@@ -95,7 +95,17 @@ type
   /// </remarks>
   TOptKind = (okBool, okInt, okString, okEnum);
 
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: TOptGetter caller (YADF.Options.pas)
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TOptGetter = reference to function(const O: TYadfOptions): Variant;
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: TOptSetter caller (YADF.Options.pas)
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TOptSetter = reference to procedure(var O: TYadfOptions; const V: Variant);
 
   /// <summary></summary>
@@ -188,7 +198,7 @@ function EncodingOf(const E: TYadfEncoding): TEncoding;
 /// Called from: YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas), YadfMain.LoadFile (YadfMain.pas)
 /// Calls: Length, YADF.Options.LooksLikeUtf8
 /// Complexity: 12 (cyclomatic), 25 lines
-/// Pure
+/// Mutates: AEnc (out), APreambleLen (out)
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure DetectSourceEncoding(const ABytes: TBytes; out AEnc: TEncoding; out APreambleLen: Integer);
@@ -325,7 +335,7 @@ function OptionsHelpText: string;
 /// <!-- drag-lint:auto BEGIN -->
 /// Calls: Combine
 /// Returns: TPath.Combine( TPath.Combine(TPath.GetHomePath, 'YADF'), 'yadf.ini')
-/// Pure
+/// Touches: file system
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function SharedAppDataIniPath: string;
@@ -398,7 +408,7 @@ function ProfilesDir: string;
 /// <!-- drag-lint:auto BEGIN -->
 /// Calls: Combine
 /// Returns: TPath.Combine(ProfilesDir, 'profiles.ini')
-/// Pure
+/// Touches: file system
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function ProfilesIniPath: string;
@@ -437,7 +447,7 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas) (+2 more)
 /// Calls: Combine, Exit, IsPathRooted, Trim
 /// Returns: AFileName; TPath.Combine(ProfilesDir, AFileName)
-/// Pure
+/// Touches: file system
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function ResolveProfileIniPath(const AFileName: string): string;

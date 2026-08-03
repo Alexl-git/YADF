@@ -79,7 +79,7 @@ function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; o
 /// Returns: AReason = ''; False
 /// Overload 2 of 2
 /// Covered by: TestAcceptsLegitimateFormatting, TestDuplicationToleranceAndReason, TestFormatSourceStillFormats, TestRejectsCommentDamage, TestRejectsDroppedInclude (+1 more)
-/// Pure
+/// Mutates: AReason (out)
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication: Boolean; out AReason: string): Boolean; overload;

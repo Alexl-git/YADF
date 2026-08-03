@@ -77,8 +77,13 @@ type
   end;
 
   /// <summary>Fired whenever the frame loads, saves, or switches the edited
-  /// INI, with a ready-to-display line such as 'INI: C:\...\yadf.ini  (saved)'.
+  /// INI, with a ready-to-display line such as 'INI: C:\...\yadf.ini (saved)'.
   /// Hosts with a status label (YADFSetup) subscribe; others ignore it.</summary>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: TYadfIniStatusEvent caller (YADF.OptionsFrame.pas)
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TYadfIniStatusEvent = procedure(const AText: string) of object;
 
   /// <summary>The shared YADF settings frame: Profiles panel + option grid +
@@ -130,6 +135,7 @@ type
       /// Calls: AddBtn, Create, SetBounds
       /// Reads: FEditingLbl, FProfileList   Writes: FEditingLbl, FProfileList
       /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
+      /// UI thread only -- touches AHost
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure BuildProfilePanel(AHost: TWinControl);
@@ -139,6 +145,7 @@ type
       /// Calls: Add, Create, High, Inc, Length, OptionHint, SetLength
       /// Reads: FControls, FScroll
       /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
+      /// UI thread only -- touches Parent
       /// Pure
       /// <!-- drag-lint:auto END -->
       /// </remarks>
@@ -174,7 +181,7 @@ type
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected (YADF.OptionsFrame.pas)
       /// Calls: Add, DirectoryExists, ExtractFileName, ForceDirectories, GetFiles, High, Length, SameText, SetLength
       /// Reads: FProfileFiles, FCurrentIni, FProfileList, FProfiles, FEditingLbl
-      /// Pure
+      /// Touches: file system
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure RefreshProfileList;
@@ -200,7 +207,7 @@ type
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas)
       /// Calls: Exists, ExtractFileName, ExtractFilePath, GetModuleName, High, LoadFromFile
       /// Reads: FSource, FSourceName
-      /// Pure
+      /// Touches: file system
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure LoadSample;
@@ -218,7 +225,7 @@ type
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
       /// Calls: Copy, GetFullPath, ResolveProfileIniPath, SameFileName
       /// Reads: FPolicy, FCurrentIni, FProfiles
-      /// Pure
+      /// Touches: file system
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure MirrorFProfile;
@@ -297,7 +304,7 @@ type
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Calls: Ord, YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut, YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected
-      /// Pure
+      /// Mutates: Key (var)
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ProfileListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);

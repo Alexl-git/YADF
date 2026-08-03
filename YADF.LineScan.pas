@@ -73,7 +73,7 @@ type
     /// <!-- drag-lint:auto BEGIN -->
     /// Called from: TestLineScanCore (GuardTest.dpr), TestLineScanDepth (GuardTest.dpr), YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas) (+3 more)
     /// Writes: InBrace, InParenStar, InString, Depth, ClampDepth
-    /// Covered by: TestBlockCommentLock, TestLineScanCore, TestLineScanDepth, TestLineStartDepths
+    /// Covered by: TestBlockCommentLock, TestFormatSourceStillFormats, TestLineScanCore, TestLineScanDepth, TestLineStartDepths
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     procedure Reset;
@@ -117,7 +117,8 @@ type
     /// Returns: seLineComment; seCode; seEndOfLine
     /// Complexity: 20 (cyclomatic), 54 lines
     /// Reads: InBrace, InParenStar, InString   Writes: InBrace, InParenStar, InString
-    /// Covered by: CodeChars, TestBlockCommentLock, TestLineScanCore, TestLineScanDepth, TestLineStartDepths
+    /// Covered by: CodeChars, TestBlockCommentLock, TestFormatSourceStillFormats, TestLineScanCore, TestLineScanDepth (+1 more)
+    /// Mutates: i (var)
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     function SkipNonCode(const ALine: string; var i: Integer): TLineScanEvent;
@@ -131,7 +132,8 @@ type
     /// Called from: CodeChars (GuardTest.dpr), YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas) (+1 more)
     /// Calls: Dec, Inc
     /// Reads: Depth, ClampDepth   Writes: Depth
-    /// Covered by: CodeChars, TestBlockCommentLock, TestLineScanCore, TestLineScanDepth, TestLineStartDepths
+    /// Covered by: CodeChars, TestBlockCommentLock, TestFormatSourceStillFormats, TestLineScanCore, TestLineScanDepth (+1 more)
+    /// Mutates: i (var)
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     procedure StepCode(const ALine: string; var i: Integer);
