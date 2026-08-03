@@ -42,7 +42,7 @@ type
   /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Called from: TLineScanEvent caller (YADF.LineScan.pas) ?, YADF.LineScan.TLineScanState.SkipNonCode (YADF.LineScan.pas) ?
+  /// Used by: TLineScanEvent caller (YADF.LineScan.pas), YADF.LineScan.TLineScanState.SkipNonCode (YADF.LineScan.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TLineScanEvent = (seCode, seLineComment, seEndOfLine);
@@ -56,7 +56,7 @@ type
   /// Pure value record, no heap state -- copy/discard freely.
   /// Not thread-shared; give each scan its own record.
   /// <!-- drag-lint:auto BEGIN -->
-  /// Called from: TestLineScanCore (GuardTest.dpr) ?, TestLineScanDepth (GuardTest.dpr) ?, YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas) ?, YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas) ?, YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas) ? (+3 more)
+  /// Used by: TestLineScanCore (GuardTest.dpr), TestLineScanDepth (GuardTest.dpr), YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas) (+3 more)
   /// Used in units: GuardTest, YADF.Layout, YADF.LineScan
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -72,6 +72,7 @@ type
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
     /// Called from: TestLineScanCore (GuardTest.dpr), TestLineScanDepth (GuardTest.dpr), YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas) (+3 more)
+    /// Writes: InBrace, InParenStar, InString, Depth, ClampDepth
     /// Covered by: TestBlockCommentLock, TestLineScanCore, TestLineScanDepth, TestLineStartDepths
     /// <!-- drag-lint:auto END -->
     /// </remarks>
@@ -82,6 +83,7 @@ type
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
     /// Called from: CodeChars (GuardTest.dpr), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)
+    /// Writes: InString
     /// Covered by: CodeChars, TestBlockCommentLock, TestFormatSourceStillFormats, TestLineScanCore, TestLineScanDepth (+1 more)
     /// <!-- drag-lint:auto END -->
     /// </remarks>
@@ -92,8 +94,9 @@ type
     /// <returns>Observed: InBrace or InParenStar.</returns>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas) ?, YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas) ?, YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas) ?
-    /// Covered by: TestBlockCommentLock, TestFormatSourceStillFormats
+    /// Returns: InBrace or InParenStar
+    /// Reads: InBrace, InParenStar
+    /// Pure
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     function InBlockComment: Boolean;
@@ -112,6 +115,8 @@ type
     /// Called from: CodeChars (GuardTest.dpr), YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas) (+1 more)
     /// Calls: Exit, Inc, Length
     /// Returns: seLineComment; seCode; seEndOfLine
+    /// Complexity: 20 (cyclomatic), 54 lines
+    /// Reads: InBrace, InParenStar, InString   Writes: InBrace, InParenStar, InString
     /// Covered by: CodeChars, TestBlockCommentLock, TestLineScanCore, TestLineScanDepth, TestLineStartDepths
     /// <!-- drag-lint:auto END -->
     /// </remarks>
@@ -119,31 +124,33 @@ type
 
     /// <summary>Consumes ONE code character at ALine[i] (only call after
     /// SkipNonCode returned seCode), maintaining Depth for `( [ ) ]`.</summary>
-    /// <param name="ALine"></param><!-- drag-lint:auto param -->
-    /// <param name="i"></param><!-- drag-lint:auto param -->
+    /// <param name="ALine"></param>
+    /// <param name="i"></param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
     /// Called from: CodeChars (GuardTest.dpr), YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas) (+1 more)
     /// Calls: Dec, Inc
+    /// Reads: Depth, ClampDepth   Writes: Depth
     /// Covered by: CodeChars, TestBlockCommentLock, TestLineScanCore, TestLineScanDepth, TestLineStartDepths
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     procedure StepCode(const ALine: string; var i: Integer);
   end; // record
 
-  /// <summary>Per-line "inside a multi-line block comment" flags for ALines:
-  /// True for every line that starts inside, ends inside, or opens/closes a
-  /// `{ }` / `(* *)` comment. Line-level passes use this to leave block-comment
-  /// interiors verbatim (reflow, collapse, overflow breaking).</summary>
-  /// <param name="ALines">The document split into lines.</param>
-  /// <returns>One flag per line, same indexing as ALines.</returns>
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Called from: YADF.Layout.ReflowLineBreaks (YADF.Layout.pas) ?, TestBlockCommentLock (GuardTest.dpr) ?, YADF.Layout.BreakControlBodies (YADF.Layout.pas) ?, YADF.Layout.CollapseShortBlocks (YADF.Layout.pas) ?
-  /// Calls: SetLength, YADF.LineScan.TLineScanState.BeginLine, YADF.LineScan.TLineScanState.Reset, YADF.LineScan.TLineScanState.SkipNonCode, YADF.LineScan.TLineScanState.StepCode
-  /// Covered by: TestBlockCommentLock, TestCommentPreservation, TestDescriptorCompleteness, TestFormatSourceStillFormats, TestHelpCoversAll (+1 more)
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
+/// <summary>Per-line "inside a multi-line block comment" flags for ALines:
+/// True for every line that starts inside, ends inside, or opens/closes a
+/// `{ }` / `(* *)` comment. Line-level passes use this to leave block-comment
+/// interiors verbatim (reflow, collapse, overflow breaking).</summary>
+/// <param name="ALines">The document split into lines.</param>
+/// <returns>One flag per line, same indexing as ALines.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.Layout.ReflowLineBreaks (YADF.Layout.pas), TestBlockCommentLock (GuardTest.dpr), YADF.Layout.BreakControlBodies (YADF.Layout.pas), YADF.Layout.CollapseShortBlocks (YADF.Layout.pas)
+/// Calls: SetLength, YADF.LineScan.TLineScanState.BeginLine, YADF.LineScan.TLineScanState.Reset, YADF.LineScan.TLineScanState.SkipNonCode, YADF.LineScan.TLineScanState.StepCode
+/// Covered by: TestBlockCommentLock, TestFormatSourceStillFormats
+/// Pure
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function ComputeBlockCommentLock(ALines: TStringList): TArray<Boolean>;
 
 /// <summary>Bracket depth at the START of each line, tracked across lines
@@ -155,9 +162,10 @@ function ComputeBlockCommentLock(ALines: TStringList): TArray<Boolean>;
 /// <returns>One depth per line, same indexing as ALines.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: TestLineStartDepths (GuardTest.dpr) ?, YADF.Layout.AlignDeclarationSemicolons (YADF.Layout.pas) ?, YADF.Layout.AlignByAnchor (YADF.Layout.pas) ?
+/// Called from: TestLineStartDepths (GuardTest.dpr), YADF.Layout.AlignDeclarationSemicolons (YADF.Layout.pas), YADF.Layout.AlignByAnchor (YADF.Layout.pas)
 /// Calls: SetLength, YADF.LineScan.TLineScanState.BeginLine, YADF.LineScan.TLineScanState.Reset, YADF.LineScan.TLineScanState.SkipNonCode, YADF.LineScan.TLineScanState.StepCode
 /// Covered by: TestFormatSourceStillFormats, TestLineStartDepths
+/// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function ComputeLineStartDepths(ALines: TStringList): TArray<Integer>;

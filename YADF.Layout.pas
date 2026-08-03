@@ -80,30 +80,34 @@ uses
 // YADF.Guard) -- callers that talk to a user should surface it instead of
 // silently pretending the file was formatted.
 /// <summary></summary>
-/// <param name="ASource"></param><!-- drag-lint:auto param -->
-/// <param name="AOpts"></param><!-- drag-lint:auto param -->
+/// <param name="ASource"></param>
+/// <param name="AOpts"></param>
 /// <returns>Observed: FormatSource(ASource, AOpts, Reason).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Layout.FormatSource (YADF.Layout.pas) ?, YadfMain.FormatToStdout (YadfMain.pas) ?, YadfMain.FormatToFile (YadfMain.pas) ?, YadfMain.BatchFormat (YadfMain.pas) ?, YadfMain.ProcessOneFile (YadfMain.pas) ? (+4 more)
+/// Called from: YADF.Layout.FormatSource (YADF.Layout.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas) (+4 more)
 /// Calls: YADF.Layout.FormatSource
+/// Returns: FormatSource(ASource, AOpts, Reason)
 /// Overload 1 of 2
 /// Covered by: TestFormatSourceStillFormats
+/// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatSource(const ASource: string; const AOpts: TYadfOptions): string; overload ;
 /// <summary></summary>
-/// <param name="ASource"></param><!-- drag-lint:auto param -->
-/// <param name="AOpts"></param><!-- drag-lint:auto param -->
-/// <param name="ADeclineReason"></param><!-- drag-lint:auto param -->
+/// <param name="ASource"></param>
+/// <param name="AOpts"></param>
+/// <param name="ADeclineReason"></param>
 /// <returns>Observed: Length(InlineRenderRange(Tokens, G.OpenIdx + 1, G.CloseIdx - 1)); ''; Result + S[i]; Child; nil; True.</returns>
 /// <remarks>
+/// <!-- drag-lint:auto -->Shared mutable state for the walker (in scope of the nested procs): Tokens - the lexed token stream (after capitalisation / assign-spacing passes have mutated it). Root - the parsed TGroup tree. Sb - StringBuilder for the rendered output. Cursor - next un-emitted token index. Incremented as WalkGroup descends into / past child groups. CurCol, CurLine - track the current output position so the walker can decide whether a parens group fits inline at the current column or must be broken. PendingLabel - block-end label that needs to be appended to the next-emitted closing `end`. Buffered here because the label is computed at the moment we leave a child group, but must appear AFTER the `end` token text and BEFORE the next CRLF.
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.FormatToStdout (YadfMain.pas) ?, YadfMain.FormatToFile (YadfMain.pas) ?, YadfMain.BatchFormat (YadfMain.pas) ?, YadfMain.ProcessOneFile (YadfMain.pas) ?, TestFormatSourceStillFormats (GuardTest.dpr) ? (+3 more)
+/// Called from: YadfMain.FormatToStdout (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas), TestFormatSourceStillFormats (GuardTest.dpr) (+3 more)
 /// Calls: Add, AddIfWord, Append, Assigned, BlockAlreadyLabeled, BreakLineByOperators, BreakLongLines, CharInSet, CollectParensItems, ComputeBlockCommentLock (+53 more)
 /// Overload 2 of 2
-/// Complexity: 24 (cyclomatic), 595 lines
+/// Complexity: 24 (cyclomatic), 603 lines
 /// Covered by: TestFormatSourceStillFormats
+/// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string; overload;

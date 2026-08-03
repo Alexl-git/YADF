@@ -22,13 +22,15 @@ uses
   ;
 
 /// <summary></summary>
-/// <param name="ATokens"></param><!-- drag-lint:auto param -->
-/// <param name="ARoot"></param><!-- drag-lint:auto param -->
+/// <param name="ATokens"></param>
+/// <param name="ARoot"></param>
 /// <returns>Observed: Lines.Text.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.DebugTree (YadfMain.pas) ?
+/// Called from: YadfMain.DebugTree (YadfMain.pas)
 /// Calls: YADF.Debug.WalkGroup
+/// Returns: Lines.Text
+/// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function RenderGroupTree(const ATokens: TTokenList; ARoot: TGroup): string;

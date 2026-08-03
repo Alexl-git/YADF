@@ -150,9 +150,10 @@ interface
 /// <summary></summary>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: RunYadf caller (YADF.dpr) ?
+/// Called from: RunYadf caller (YADF.dpr)
 /// Calls: Add, EnsureIniExists, Format, High, Length, ParamStr, SetLength, YadfMain.BatchFormat, YadfMain.CheckDir, YadfMain.CheckFile (+12 more)
-/// Complexity: 22 (cyclomatic), 140 lines
+/// Complexity: 22 (cyclomatic), 142 lines
+/// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure RunYadf;

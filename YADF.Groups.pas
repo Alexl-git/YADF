@@ -26,7 +26,7 @@ type
   /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Called from: TGroupKind caller (YADF.Groups.pas) ?, YADF.Groups.TGroup.Create (YADF.Groups.pas) ?
+  /// Used by: TGroupKind caller (YADF.Groups.pas), YADF.Groups.TGroup.Create (YADF.Groups.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TGroupKind = ( gkRoot, gkParens, gkBrackets, gkBlock, gkUses );
@@ -34,7 +34,7 @@ type
   /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Called from: YADF.Layout.FormatSource (YADF.Layout.pas) ?, YadfMain.DebugTree (YadfMain.pas) ?, TGroup caller (YADF.Debug.pas) ?, YADF.Debug.WalkGroup (YADF.Debug.pas) ?, TGroup caller (YADF.Groups.pas) ? (+3 more)
+  /// Used by: YADF.Layout.FormatSource (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas), TGroup caller (YADF.Debug.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), TGroup caller (YADF.Groups.pas) (+3 more)
   /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -47,31 +47,41 @@ type
     Parent     : TGroup             ;
     ForceClosed: Boolean            ;
     /// <summary></summary>
-    /// <param name="AKind"></param><!-- drag-lint:auto param -->
-    /// <param name="AOpenIdx"></param><!-- drag-lint:auto param -->
-    /// <param name="AOpener"></param><!-- drag-lint:auto param -->
-    /// <param name="AParent"></param><!-- drag-lint:auto param -->
+    /// <param name="AKind"></param>
+    /// <param name="AOpenIdx"></param>
+    /// <param name="AOpener"></param>
+    /// <param name="AParent"></param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Groups.TGroup.Create (YADF.Groups.pas), DelphiAST.Classes.TExpressionTools.CreateNodeWithParentsPosition (DelphiAST.Classes.pas) ?, DelphiAST.Classes.TExpressionTools.RawNodeListToTree (DelphiAST.Classes.pas) ?, DelphiAST.Classes.TSyntaxNode.AddChild (DelphiAST.Classes.pas) ?, DelphiAST.Classes.TSyntaxNode.Clone (DelphiAST.Classes.pas) ? (+99 more)
+    /// Called from: YADF.Groups.TGroup.Create (YADF.Groups.pas), StringUsageLogging.LogStringUsageToFile (StringUsageLogging.pas) ?, uMainForm.TMainForm.Parse (uMainForm.pas) ?, DelphiAST.Classes.TExpressionTools.CreateNodeWithParentsPosition (DelphiAST.Classes.pas) ?, DelphiAST.Classes.TExpressionTools.RawNodeListToTree (DelphiAST.Classes.pas) ? (+53 more)
     /// Calls: Add, Assigned, YADF.Groups.TGroup.Create
-    /// Covered by: TestBlockCommentLock, TestLenientIntRead, TestLineStartDepths, TestLooksLikeUtf8
+    /// Writes: Kind, OpenIdx, CloseIdx, OpenerKind, ForceClosed, Parent, Children
+    /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     constructor Create(AKind: TGroupKind; AOpenIdx: Integer; AOpener: TptTokenKind; AParent: TGroup);
+    /// <remarks>
+    /// <!-- drag-lint:auto BEGIN -->
+    /// Reads: Children
+    /// Pure
+    /// <!-- drag-lint:auto END -->
+    /// </remarks>
     destructor Destroy; override;
   end;
 
-  /// <summary></summary>
-  /// <param name="ATokens"></param><!-- drag-lint:auto param -->
-  /// <returns>Observed: Root.</returns>
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Called from: YADF.Layout.FormatSource (YADF.Layout.pas) ?, YadfMain.DebugTree (YadfMain.pas) ?, YADF.Layout.DowngradeInlineVars (YADF.Layout.pas) ?
-  /// Calls: Create, YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx
-  /// Covered by: TestFormatSourceStillFormats
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
+/// <summary></summary>
+/// <param name="ATokens"></param>
+/// <returns>Observed: Root.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.Layout.FormatSource (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas)
+/// Calls: Create, YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx
+/// Returns: Root
+/// Complexity: 21 (cyclomatic), 57 lines
+/// Covered by: TestFormatSourceStillFormats
+/// Pure
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function ParseGroups(const ATokens: TTokenList): TGroup;
 
 implementation

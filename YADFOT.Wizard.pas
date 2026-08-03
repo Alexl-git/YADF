@@ -30,6 +30,13 @@ interface
 uses
   ToolsAPI;
 
+/// <summary><!-- drag-lint:auto -->--- Register ----------------------------------------------------------</summary>
+/// <remarks>
+/// <!-- drag-lint:auto -->Register is the entry point the IDE invokes when the design-time package loads. It hands the IDE one IOTAWizard (the Tools-menu item) and one IOTAKeyboardBinding (the Ctrl+Shift+Alt+F shortcut). Both indices are stored so finalization can hand them back cleanly on package unload. Services are queried via Supports(): an interface `as` cast raises EIntfCastError when the service is unsupported (so the old `KS &lt;&gt; nil` check after `as` could never fire), and yields a nil interface when BorlandIDEServices itself is nil -- Supports handles both, tolerating an absent service instead of failing registration.
+/// <!-- drag-lint:auto BEGIN -->
+/// Calls: AddKeyboardBinding, AddWizard, Supports, YADFOT.Wizard.RegisterYadfotAbout
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 procedure Register;
 
 implementation

@@ -29,12 +29,24 @@ interface
 /// <summary>Register the "Third Party > YADF" page with the IDE's environment
 /// options service. Called from YADFOT.Wizard.Register on package load.
 /// Idempotent-safe: re-registering after an unregister re-adds the page.</summary>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADFOT.Wizard.Register (YADFOT.Wizard.pas)
+/// Calls: Add, Create, RegisterAddInOptions, Supports
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 procedure RegisterYADFOptions;
 
 /// <summary>Unregister the YADF options page(s). Called from the wizard's
 /// Destroyed method (primary) and this unit's finalization (secondary).
 /// Idempotent: guarded on an empty ref array, and clears the array after,
 /// so a second call is a safe no-op.</summary>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: UnregisterYADFOptions caller (YADFOT.Options.pas), YADFOT.Wizard.TYadfotMenuWizard.Destroyed (YADFOT.Wizard.pas)
+/// Calls: Length, SetLength, Supports, UnregisterAddInOptions
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 procedure UnregisterYADFOptions;
 
 implementation
