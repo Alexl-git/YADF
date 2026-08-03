@@ -91,7 +91,7 @@ uses
 /// Covered by: TestFormatSourceStillFormats
 /// <!-- drag-lint:auto END -->
 /// </remarks>
-function FormatSource(const ASource: string; const AOpts: TYadfOptions): string; overload                            ;
+function FormatSource(const ASource: string; const AOpts: TYadfOptions): string; overload ;
 /// <summary></summary>
 /// <param name="ASource"></param><!-- drag-lint:auto param -->
 /// <param name="AOpts"></param><!-- drag-lint:auto param -->
@@ -197,7 +197,8 @@ function IsAllAlphabetic(const S: string): Boolean;
 var
   i: Integer;
 begin
-  if S = '' then Exit(False);
+  if S = '' then
+    Exit(False);
   for i:= 1 to Length(S) do if not (((S[i] >= 'a') and (S[i] <= 'z')) or ((S[i] >= 'A') and (S[i] <= 'Z'))) then
     Exit(False);
   Result:= True;
@@ -236,7 +237,8 @@ var
   NameStart: Integer;
 begin
   Result:= S;
-  if (Length(Result) < 3) or (Result[1] <> '{') or (Result[2] <> '$') then Exit;
+  if (Length(Result) < 3) or (Result[1] <> '{') or (Result[2] <> '$') then
+    Exit;
   NameStart:= 3;
   i        := NameStart;
   while (i <= Length(Result)) and (((Result[i] >= 'a') and (Result[i] <= 'z')) or ((Result[i] >= 'A') and (Result[i] <= 'Z'))) do
@@ -341,9 +343,12 @@ var
     k: Integer;
   begin
     k:= Outp.Count - 1;
-    while (k >= 0) and (Outp[k].Kind = ptSpace) do Dec(k);
-    if k < 0 then Result:= ptCRLF
-    else Result:= Outp[k].Kind;
+    while (k >= 0) and (Outp[k].Kind = ptSpace) do
+      Dec(k);
+    if k < 0 then
+      Result:= ptCRLF
+    else
+      Result:= Outp[k].Kind;
   end;
 
 begin
@@ -368,9 +373,11 @@ begin
         if Src[i].Kind in [ptPlus, ptMinus] then
         begin
           k:= Outp.Count - 1;
-          while (k >= 0) and (Outp[k].Kind = ptSpace) do Dec(k);
+          while (k >= 0) and (Outp[k].Kind = ptSpace) do
+            Dec(k);
           j:= i + 1;
-          while (j <= High(Src)) and (Src[j].Kind = ptSpace) do Inc(j);
+          while (j <= High(Src)) and (Src[j].Kind = ptSpace) do
+            Inc(j);
           if (k >= 0) and (j <= High(Src)) and (Src[j].Kind = ptIntegerConst) and (Outp[k].Kind in [ptFloat, ptIntegerConst]) and (Length(Outp[k].Text) > 0)
             and CharInSet(Outp[k].Text[1], ['0'..'9']) and CharInSet(Outp[k].Text[Length(Outp[k].Text)], ['E', 'e']) then
           begin
@@ -401,7 +408,8 @@ begin
           // line (next real token is a CRLF or end of stream), in which case
           // leave the trailing layout for the reflow pass.
           j:= i + 1;
-          while (j <= High(Src)) and (Src[j].Kind = ptSpace) do Inc(j);
+          while (j <= High(Src)) and (Src[j].Kind = ptSpace) do
+            Inc(j);
           if (j <= High(Src)) and (Src[j].Kind <> ptCRLF) then
           begin
             Outp.Add(MakeSpace(Src[i].Line));
@@ -538,7 +546,8 @@ var
   Out_ : TStringBuilder;
   Tab  : string        ;
 begin
-  if ATabWidth <= 0 then Exit(S);
+  if ATabWidth <= 0 then
+    Exit(S);
   Tab:= StringOfChar(' ', ATabWidth);
   Lines:= TStringList.Create;
   try
@@ -597,7 +606,8 @@ var
   begin
     Result:= 0;
     for k:= 1 to Length(ALine) do if ALine[k] = ' ' then Inc(Result)
-    else Break;
+    else
+      Break;
   end;
 
   function EndsWithColon(const ALine: string): Boolean;
@@ -727,27 +737,42 @@ var
     C: Char   ;
   begin
     L:= Length(AKeyword);
-    if Length(T) < L then Exit(False);
-    if not SameText(Copy(T, 1, L), AKeyword) then Exit(False);
-    if Length(T) = L then Exit(True);
+    if Length(T) < L then
+      Exit(False);
+    if not SameText(Copy(T, 1, L), AKeyword) then
+      Exit(False);
+    if Length(T) = L then
+      Exit(True);
     C:= T[L + 1];
     Result:= not (((C >= 'a') and (C <= 'z')) or ((C >= 'A') and (C <= 'Z')) or ((C >= '0') and (C <= '9')) or (C = '_'));
   end;
 
 begin
   T:= TrimLeft(ALine);
-  if T = '' then Exit(True);
-  if StartsKW('begin'         ) then Exit(True);
-  if StartsKW('end'           ) then Exit(True);
-  if StartsKW('type'          ) then Exit(True);
-  if StartsKW('var'           ) then Exit(True);
-  if StartsKW('const'         ) then Exit(True);
-  if StartsKW('procedure'     ) then Exit(True);
-  if StartsKW('function'      ) then Exit(True);
-  if StartsKW('constructor'   ) then Exit(True);
-  if StartsKW('destructor'    ) then Exit(True);
-  if StartsKW('interface'     ) then Exit(True);
-  if StartsKW('implementation') then Exit(True);
+  if T = '' then
+    Exit(True);
+  if StartsKW('begin' ) then
+    Exit(True);
+  if StartsKW('end' ) then
+    Exit(True);
+  if StartsKW('type' ) then
+    Exit(True);
+  if StartsKW('var' ) then
+    Exit(True);
+  if StartsKW('const' ) then
+    Exit(True);
+  if StartsKW('procedure' ) then
+    Exit(True);
+  if StartsKW('function' ) then
+    Exit(True);
+  if StartsKW('constructor' ) then
+    Exit(True);
+  if StartsKW('destructor' ) then
+    Exit(True);
+  if StartsKW('interface' ) then
+    Exit(True);
+  if StartsKW('implementation') then
+    Exit(True);
   Result:= False;
 end; // function
 
@@ -768,10 +793,12 @@ var
   Tokens : TTokenList    ;
 begin
   LeadLen:= 0;
-  while (LeadLen < Length(ALine)) and (ALine[LeadLen + 1] = ' ') do Inc(LeadLen);
+  while (LeadLen < Length(ALine)) and (ALine[LeadLen + 1] = ' ') do
+    Inc(LeadLen);
   Lead:= Copy(ALine, 1, LeadLen);
   Body:= Copy(ALine, LeadLen + 1, MaxInt);
-  if Body = '' then Exit(ALine);
+  if Body = '' then
+    Exit(ALine);
   Tokens:= LoadTokensFromString(Body);
   Sb:= TStringBuilder.Create;
   try
@@ -815,10 +842,12 @@ var
   Tokens  : TTokenList    ;
 begin
   LeadLen:= 0;
-  while (LeadLen < Length(ALine)) and (ALine[LeadLen + 1] = ' ') do Inc(LeadLen);
+  while (LeadLen < Length(ALine)) and (ALine[LeadLen + 1] = ' ') do
+    Inc(LeadLen);
   Lead:= Copy(ALine, 1, LeadLen);
   Body:= Copy(ALine, LeadLen + 1, MaxInt);
-  if Body = '' then Exit(ALine);
+  if Body = '' then
+    Exit(ALine);
   Tokens:= LoadTokensFromString(Body);
   Sb:= TStringBuilder.Create;
   try
@@ -831,12 +860,17 @@ begin
       begin
         NextKind:= ptNull;
         n:= i + 1;
-        while (n < Tokens.Count) and (Tokens[n].Kind = ptSpace) do Inc(n);
-        if n < Tokens.Count then NextKind:= Tokens[n].Kind;
+        while (n < Tokens.Count) and (Tokens[n].Kind = ptSpace) do
+          Inc(n);
+        if n < Tokens.Count then
+          NextKind:= Tokens[n].Kind;
         if (NextKind = ptPoint) or (NextKind = ptSemiColon) or (PrevKind = ptPoint) then
           Continue; // drop: tight before `.`/`;` and after `.`
         Sb.Append(T.Pre);
-        if Length(T.Text) > 1 then Sb.Append(' ') else Sb.Append(T.Text);
+        if Length(T.Text) > 1 then
+          Sb.Append(' ')
+        else
+          Sb.Append(T.Text);
         Continue;
       end; // if
       Sb.Append(T.Pre );
@@ -920,10 +954,13 @@ begin
   begin
     Gap:= SpacesBeforeCol(ALines[i], AAnchorCols[i]);
     Ext:= AAnchorCols[i] - 1 - Gap;
-    if Ext > MaxExt then MaxExt:= Ext;
-    if Gap < MinGap then MinGap:= Gap;
+    if Ext > MaxExt then
+      MaxExt:= Ext;
+    if Gap < MinGap then
+      MinGap:= Gap;
   end;
-  if MinGap = MaxInt then MinGap:= 0;
+  if MinGap = MaxInt then
+    MinGap:= 0;
   Result:= MaxExt + MinGap + 1;
 end; // function
 
@@ -975,12 +1012,15 @@ begin
   for k:= 0 to High(NameList) do
   begin
     T:= Trim(NameList[k]);
-    if (T <> '') and CharInSet(T[1], ['0'..'9']) then Exit(True);
+    if (T <> '') and CharInSet(T[1], ['0'..'9']) then
+      Exit(True);
   end;
   // A `:=` (assignment) or `(` (call / parenthesised expr) in the body marks
   // it as a statement rather than a type.
-  if Pos(':=', AType) > 0 then Exit(True);
-  if Pos('(' , AType) > 0 then Exit(True);
+  if Pos(':=', AType) > 0 then
+    Exit(True);
+  if Pos('(' , AType) > 0 then
+    Exit(True);
   // Body opening with a statement keyword.
   FirstWord:= '';
   p        := 1;
@@ -1012,10 +1052,12 @@ var
   p: Integer;
 begin
   T:= TrimLeft(ATypePart);
-  if T = '' then Exit(False);
+  if T = '' then
+    Exit(False);
   // A typed pointer is anonymous (per-decl identity) just like the keyword
   // forms; key off the leading caret before the word scan.
-  if T[1] = '^' then Exit(True);
+  if T[1] = '^' then
+    Exit(True);
   // First word = leading run of letters; compare WHOLE word (not a prefix) so
   // a named type like SetItem/TArrayHelper is not vetoed.
   W:= '';
@@ -1026,8 +1068,7 @@ begin
     Inc(p);
   end;
   W:= LowerCase(W);
-  Result:= (W = 'array') or (W = 'record') or (W = 'set') or (W = 'file') or (W = 'packed') or (W = 'object') or
-  (W = 'class') or (W = 'procedure') or (W = 'function');
+  Result:= (W = 'array') or (W = 'record') or (W = 'set') or (W = 'file') or (W = 'packed') or (W = 'object') or (W = 'class') or (W = 'procedure') or (W = 'function');
 end; // function
 
 function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;
@@ -1090,7 +1131,8 @@ begin
             C:= Line[Col];
             if (St.Depth = 0) and (C = ':') and not ((Col < Length(Line)) and (Line[Col + 1] = '=')) then
             begin
-              if ColonPos = 0 then ColonPos:= Col;
+              if ColonPos = 0 then
+                ColonPos:= Col;
               Inc(Col);
             end
             else if (St.Depth = 0) and (C = ';') then
@@ -1112,7 +1154,8 @@ begin
 
         // At paren depth 0. Try to shape-match the line.
         FirstNonWs:= 1;
-        while (FirstNonWs <= Length(Line)) and CharInSet(Line[FirstNonWs], [' ', #9]) do Inc(FirstNonWs);
+        while (FirstNonWs <= Length(Line)) and CharInSet(Line[FirstNonWs], [' ', #9]) do
+          Inc(FirstNonWs);
         Indent:= Copy(Line, 1, FirstNonWs - 1);
 
         // Shape-match: indent + names + `:` + type + `;` + optional comment.
@@ -1148,7 +1191,8 @@ begin
               for Col:= 1 to Length(Body) do
                 if not (AnsiChar(Body[Col]) in IdentChars) then
                 begin HasComma:= False; Break; end;
-              if not HasComma then Break;
+              if not HasComma then
+                Break;
             end;
           end; // if
 
@@ -1164,18 +1208,21 @@ begin
             // the line packs a SECOND declaration ("A, B: T1; C: T2;") -- the
             // scan ran the type to the last `;`, so splitting would duplicate
             // the tail ("Q: T2" onto every line). Leave such lines alone.
-            if Pos(';', TypePart) > 0 then DoSplit:= False;
+            if Pos(';', TypePart) > 0 then
+              DoSplit:= False;
             // An ANONYMOUS structured type (array/record/set/file/packed/class/
             // object/procedure/function/reference, or a typed pointer) has a
             // DISTINCT identity per declaration, so splitting "A, B: array of
             // Integer" makes two incompatible types and changes semantics
             // (E2008). Never split these; NAMED types (TFoo, Integer) still do.
-            if TypePartIsAnonymousStructured(TypePart) then DoSplit:= False;
+            if TypePartIsAnonymousStructured(TypePart) then
+              DoSplit:= False;
           end; // else
           // A block comment left OPEN at the end of the line continues on the
           // next line; it cannot be re-attached to a single split line, so
           // leave such lines alone.
-          if St.InBlockComment then DoSplit:= False;
+          if St.InBlockComment then
+            DoSplit:= False;
           if HasComma and (TypePart <> '') and DoSplit then
           begin
             NameTokens:= Names.Split([','], TStringSplitOptions.ExcludeEmpty);
@@ -1257,7 +1304,8 @@ var
       begin
         if (St.Depth = 0) and (ALine[p] = ':') and not ((p < Length(ALine)) and (ALine[p + 1] = '=')) then
         begin
-          if AColon = 0 then AColon:= p;
+          if AColon = 0 then
+            AColon:= p;
           Inc(p);
         end
         else if (St.Depth = 0) and (ALine[p] = ';') then
@@ -1277,7 +1325,8 @@ var
     if Result then
     begin
       sCol:= ASemi + 1;
-      while (sCol <= Length(ALine)) and CharInSet(ALine[sCol], [' ', #9]) do Inc(sCol);
+      while (sCol <= Length(ALine)) and CharInSet(ALine[sCol], [' ', #9]) do
+        Inc(sCol);
       if sCol <= Length(ALine) then
       begin
         // Only line comments allowed after the `;`.
@@ -1330,7 +1379,8 @@ begin
           // capped by AMaxColumn.
           Target:= 0;
           for k:= RunStart to RunEnd do
-            if SemiAt[k] > Target then Target:= SemiAt[k];
+            if SemiAt[k] > Target then
+              Target:= SemiAt[k];
           if Target > AMaxColumn then Target:= 0; // skip if too wide
           if Target > 0 then
           begin
@@ -1387,13 +1437,15 @@ begin
     Lines.LineBreak:= CRLF;
     Lines.Text     := S;
     SetLength(Anchors, Lines.Count);
-    for i:= 0 to Lines.Count - 1 do Anchors[i]:= FindAnchorAtTopLevel(Lines[i], AAnchor);
+    for i:= 0 to Lines.Count - 1 do
+      Anchors[i]:= FindAnchorAtTopLevel(Lines[i], AAnchor);
     // Exclude lines inside a multi-line ()/[] group (enum bodies, array
     // literals, split parameter lists): they must not be aligned as if they
     // were top-level const/var/type declarations.
     Depths:= ComputeLineStartDepths(Lines);
     for i:= 0 to Lines.Count - 1 do
-      if Depths[i] > 0 then Anchors[i]:= 0;
+      if Depths[i] > 0 then
+        Anchors[i]:= 0;
     Out_:= TStringBuilder.Create;
     try
       i:= 0;
@@ -1408,7 +1460,8 @@ begin
         end;
         StartIdx:= i;
         j:= i + 1;
-        while (j < Lines.Count) and (Anchors[j] > 0) and not StartsBlockBoundary(Lines[j]) do Inc(j);
+        while (j < Lines.Count) and (Anchors[j] > 0) and not StartsBlockBoundary(Lines[j]) do
+          Inc(j);
         if j - StartIdx >= 2 then
         begin
           SetLength(RunLines, j - StartIdx);
@@ -1502,7 +1555,8 @@ begin
     while Lex.TokenID <> ptNull do
     begin
       Tok:= Lex.TokenID;
-      if Tok = ptAssign then Result.HasAssign:= True;
+      if Tok = ptAssign then
+        Result.HasAssign:= True;
       if not (Tok in [ ptSpace, ptCRLF, ptCRLFCo, ptIdentifier, ptStringConst, ptStringDQConst, ptIntegerConst, ptFloat, ptAsciiChar, ptAnsiComment, ptBorComment,
           ptSlashesComment]) then
       begin
@@ -1526,7 +1580,8 @@ function ShapesMatch(const A, B: TArray<TptTokenKind>): Boolean;
 var
   i: Integer;
 begin
-  if Length(A) <> Length(B) then Exit(False);
+  if Length(A) <> Length(B) then
+    Exit(False);
   for i:= 0 to High(A) do if A[i] <> B[i] then Exit(False);
   Result:= True;
 end;
@@ -1574,6 +1629,7 @@ var
   ColLines : TArray<string>         ;
   i        : Integer                ;
   Info     : TArray<TLineShape>     ;
+  InUses   : TArray<Boolean>        ;
   j        : Integer                ;
   k        : Integer                ;
   Lines    : TStringList            ;
@@ -1599,8 +1655,63 @@ var
       ptAsm];
   end;
 
-  function Eligible(const AInfo: TLineShape): Boolean;
+  // Section keywords that can never occur inside a well-formed uses clause.
+  // Used only as a bail-out, so an unterminated clause in malformed source
+  // cannot switch alignment off for the whole rest of the file.
+  function SectionLead(k: TptTokenKind): Boolean;
   begin
+    Result:= k in [ptInterface, ptImplementation, ptInitialization, ptFinalization, ptType, ptVar, ptConst, ptBegin, ptEnd, ptProcedure, ptFunction, ptConstructor,
+      ptDestructor];
+  end;
+
+  // A uses clause is ONE statement spread over many lines, and each qualified
+  // unit name (System.Win.Registry) is ONE identifier -- the dots inside it are
+  // not a column layout. ComputeLineShape hands every `.` to the aligner as an
+  // anchor, so two comma-first entries sharing a [, . .] skeleton had their dots
+  // padded into columns (`System.Win     .Registry`); the 1.0.13.1 self-format
+  // pass wrote exactly that into YADF's own uses clauses. Flag every line from
+  // the `uses` keyword through its terminating `;` so Eligible can refuse them.
+  // Reading the flags off Info (not the raw text) makes this lexer-accurate: a
+  // `uses` inside a comment or a string never reaches the shape at all.
+  procedure MarkUsesLines;
+  var
+    n   : Integer;
+    Open: Boolean;
+    p   : Integer;
+    Semi: Boolean;
+  begin
+    SetLength(InUses, Lines.Count);
+    Open:= False;
+    for n:= 0 to Lines.Count - 1 do
+    begin
+      if Length(Info[n].Shape) > 0 then
+        if not Open then
+          Open:= Info[n].Shape[0] = ptUses
+        else if SectionLead(Info[n].Shape[0]) then
+          Open:= False;
+      InUses[n]:= Open;
+      if Open then
+      begin
+        Semi:= False;
+        for p:= 0 to High(Info[n].Shape) do if Info[n].Shape[p] = ptSemiColon then
+        begin
+          Semi:= True;
+          Break;
+        end;
+        if Semi then
+          Open:= False;
+      end;
+    end; // for
+  end; // procedure
+
+  function Eligible(AIdx: Integer): Boolean;
+  var
+    AInfo: TLineShape;
+  begin
+    // A uses clause never participates in column alignment (see MarkUsesLines).
+    if InUses[AIdx] then
+      Exit(False);
+    AInfo:= Info[AIdx];
     Result:= AInfo.HasAssign or
     (AMatchShapes and (Length(AInfo.Shape) >= AMinAnchors) and (Length(AInfo.Shape) > 0) and (AInfo.Shape[0] <> ptColon) and not StructuralLead(AInfo.Shape[0]));
   end;
@@ -1611,7 +1722,9 @@ begin
     Lines.LineBreak:= CRLF;
     Lines.Text     := S;
     SetLength(Info, Lines.Count);
-    for i:= 0 to Lines.Count - 1 do Info[i]:= ComputeLineShape(Lines[i]);
+    for i:= 0 to Lines.Count - 1 do
+      Info[i]:= ComputeLineShape(Lines[i]);
+    MarkUsesLines;
 
     Out_:= TStringBuilder.Create;
     try
@@ -1635,15 +1748,25 @@ begin
         // re-compact per sub-shape shatters one uniform field list
         // into staggered columns. Leave declaration colons to
         // AlignByAnchor by treating them as shape-ineligible.
-        if not Eligible(Info[i]) then
+        if not Eligible(i) then
         begin
-          Out_.Append(Lines[i]);
+          // A uses-clause line is alignment-INELIGIBLE but must still be
+          // TIGHTENED. Eligible lines get TightenAnchorSpacingInLine inside the
+          // run below; skipping the run entirely would leave padding that an
+          // earlier YADF baked into the source (`System      .Generics`) to be
+          // merely collapsed to one space by CollapseInteriorSpaces -- never
+          // removed. Tighten here so a uses clause converges on tight dots.
+          if InUses[i] then
+            Out_.Append(TightenAnchorSpacingInLine(Lines[i]))
+          else
+            Out_.Append(Lines[i]);
           Out_.Append(CRLF);
           Inc(i);
           Continue;
         end;
         j:= i + 1;
-        while (j < Lines.Count) and Eligible(Info[j]) and ShapesMatch(Info[i].Shape, Info[j].Shape) do Inc(j);
+        while (j < Lines.Count) and Eligible(j) and ShapesMatch(Info[i].Shape, Info[j].Shape) do
+          Inc(j);
         if (j - i >= 2) and (Length(Info[i].Shape) > 0) then
         begin
           SetLength(WorkLine, j - i);
@@ -1673,7 +1796,8 @@ begin
             // interior `;` (record-literal field separator, followed
             // by more anchors) is still aligned, so grid-shaped const
             // arrays keep their columns.
-            if (k = High(Info[i].Shape)) and (Info[i].Shape[k] = ptSemiColon) then Continue;
+            if (k = High(Info[i].Shape)) and (Info[i].Shape[k] = ptSemiColon) then
+              Continue;
             for L:= 0 to (j - i) - 1 do
             begin
               ColLines[L]:= WorkLine[L] ;
@@ -1698,7 +1822,8 @@ begin
               else if Pad < 0 then
                 WorkLine[L]:= Copy(WorkLine[L], 1, WorkCols[L][k] - 1 + Pad) + Copy(WorkLine[L], WorkCols[L][k], MaxInt);
               if Pad <> 0 then
-                for M:= k to High(WorkCols[L]) do WorkCols[L][M]:= WorkCols[L][M] + Pad;
+                for M:= k to High(WorkCols[L]) do
+                  WorkCols[L][M]:= WorkCols[L][M] + Pad;
             end;
           end; // for
 
@@ -1707,7 +1832,8 @@ begin
           // peer group, so trailing-comment alignment below may yet
           // apply to the originals.
           if AnyOver then
-            for k:= 0 to (j - i) - 1 do WorkLine[k]:= Lines[i + k];
+            for k:= 0 to (j - i) - 1 do
+              WorkLine[k]:= Lines[i + k];
 
           // Optional trailing-comment alignment. A shape-matched run
           // whose every member carries a top-level `//` gets those
@@ -1730,13 +1856,15 @@ begin
                 AllHaveCo:= False;
                 Break;
               end;
-              if ColCols[k] > MaxCoCol then MaxCoCol:= ColCols[k];
+              if ColCols[k] > MaxCoCol then
+                MaxCoCol:= ColCols[k];
             end;
             if AllHaveCo then
             begin
               MaxShift:= 0;
               for k:= 0 to (j - i) - 1 do
-                if MaxCoCol - ColCols[k] > MaxShift then MaxShift:= MaxCoCol - ColCols[k];
+                if MaxCoCol - ColCols[k] > MaxShift then
+                  MaxShift:= MaxCoCol - ColCols[k];
               if (MaxShift > 0) and (MaxShift <= ACommentMaxShift) and (MaxCoCol <= AMaxCol) then
                 for k:= 0 to (j - i) - 1 do
                 begin
@@ -1795,8 +1923,10 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     Trimmed: string;
   begin
     Trimmed:= TrimLeft(ALine);
-    if Length(Trimmed) < Length(AWord) then Exit(False);
-    if not SameText(Copy(Trimmed, 1, Length(AWord)), AWord) then Exit(False);
+    if Length(Trimmed) < Length(AWord) then
+      Exit(False);
+    if not SameText(Copy(Trimmed, 1, Length(AWord)), AWord) then
+      Exit(False);
     if Length(Trimmed) > Length(AWord) then
       Result:= not (((Trimmed[Length(AWord) + 1] >= 'a') and (Trimmed[Length(AWord) + 1] <= 'z')) or
         ((Trimmed[Length(AWord) + 1] >= 'A') and (Trimmed[Length(AWord) + 1] <= 'Z')) or ((Trimmed[Length(AWord) + 1] >= '0') and (Trimmed[Length(AWord) + 1] <= '9')) or
@@ -1813,9 +1943,11 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     EndPos : Integer;
   begin
     Trimmed:= TrimRight(ALine);
-    if Length(Trimmed) < Length(AWord) then Exit(False);
+    if Length(Trimmed) < Length(AWord) then
+      Exit(False);
     EndPos:= Length(Trimmed) - Length(AWord) + 1;
-    if not SameText(Copy(Trimmed, EndPos, Length(AWord)), AWord) then Exit(False);
+    if not SameText(Copy(Trimmed, EndPos, Length(AWord)), AWord) then
+      Exit(False);
     if EndPos > 1 then
       Result:= not (((Trimmed[EndPos - 1] >= 'a') and (Trimmed[EndPos - 1] <= 'z')) or ((Trimmed[EndPos - 1] >= 'A') and (Trimmed[EndPos - 1] <= 'Z')) or
         ((Trimmed[EndPos - 1] >= '0') and (Trimmed[EndPos - 1] <= '9')) or (Trimmed[EndPos - 1] = '_'))
@@ -1856,20 +1988,24 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     Level: Integer;
   begin
     R:= TrimRight(ALine);
-    if (R = '') or (R[Length(R)] <> ')') then Exit(False);
+    if (R = '') or (R[Length(R)] <> ')') then
+      Exit(False);
     Level:= 0;
     i:= Length(R);
     while i > 0 do
     begin
-      if R[i]      = ')' then Inc(Level)
+      if R[i] = ')' then
+        Inc(Level)
       else if R[i] = '(' then
       begin
         Dec(Level);
-        if Level = 0 then Break;
+        if Level = 0 then
+          Break;
       end;
       Dec(i);
     end;
-    if i <= 1 then Exit(False);
+    if i <= 1 then
+      Exit(False);
     Head:= TrimRight(Copy(R, 1, i - 1));
     Result:= EndsWordCI(Head, 'class') or EndsWordCI(Head, 'object') or EndsWordCI(Head, 'interface') or EndsWordCI(Head, 'dispinterface');
   end; // function
@@ -1894,55 +2030,86 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
   var
     R: string;
   begin
-    if HasLineCommentOrOpenBlock(ALine) then Exit(True);
-    if EndsWithTypeAncestorList (ALine) then Exit(True);
+    if HasLineCommentOrOpenBlock(ALine) then
+      Exit(True);
+    if EndsWithTypeAncestorList (ALine) then
+      Exit(True);
     R:= TrimRight(ALine);
-    if R            = '' then Exit(True);
-    if R[Length(R)] = ';' then Exit(True);
-    if R[Length(R)] = '.' then Exit(True);
-    if R[Length(R)] = '}' then Exit(True);
+    if R = '' then
+      Exit(True);
+    if R[Length(R)] = ';' then
+      Exit(True);
+    if R[Length(R)] = '.' then
+      Exit(True);
+    if R[Length(R)] = '}' then
+      Exit(True);
     // A closed `(*...*)` tail comment ends the line exactly like a `}` tail
     // does (the `*)` pair cannot occur in code outside a comment). Without
     // this, `C, D: Integer; (* note *)` merged with the following line.
-    if (Length(R) >= 2) and (R[Length(R) - 1] = '*') and (R[Length(R)] = ')') then Exit(True);
+    if (Length(R) >= 2) and (R[Length(R) - 1] = '*') and (R[Length(R)] = ')') then
+      Exit(True);
     // A line ending in `:` is a case-arm (or goto) label. Keep its body on the
     // next line unless body-packing is on -- then a short arm collapses onto
     // the label. (`:=` ends in `=`, so it is not caught here.)
-    if (R[Length(R)] = ':') and not APackShortBodies then Exit(True);
+    if (R[Length(R)] = ':') and not APackShortBodies then
+      Exit(True);
     // A line ending in an unclosed `(` / `[` is the opener of a multi-line
     // group that the structural emitter chose NOT to inline (it overflows or
     // contains a line comment -- e.g. an enum/array body). Pulling the first
     // member up onto the opener re-creates the half-merged enum bug, so keep
     // the break.
-    if (R[Length(R)] = '(') or (R[Length(R)] = '[') then Exit(True);
-    if EndsWordCI(R, 'begin'         ) then Exit(True);
-    if EndsWordCI(R, 'end'           ) then Exit(True);
-    if EndsWordCI(R, 'asm'           ) then Exit(True);
-    if EndsWordCI(R, 'try'           ) then Exit(True);
-    if EndsWordCI(R, 'finally'       ) then Exit(True);
-    if EndsWordCI(R, 'except'        ) then Exit(True);
-    if EndsWordCI(R, 'repeat'        ) then Exit(True);
-    if EndsWordCI(R, 'of'            ) then Exit(True);
-    if EndsWordCI(R, 'class'         ) then Exit(True);
-    if EndsWordCI(R, 'object'        ) then Exit(True);
-    if EndsWordCI(R, 'record'        ) then Exit(True);
-    if EndsWordCI(R, 'interface'     ) then Exit(True);
-    if EndsWordCI(R, 'dispinterface' ) then Exit(True);
-    if EndsWordCI(R, 'implementation') then Exit(True);
-    if EndsWordCI(R, 'initialization') then Exit(True);
-    if EndsWordCI(R, 'finalization'  ) then Exit(True);
-    if EndsWordCI(R, 'private'       ) then Exit(True);
-    if EndsWordCI(R, 'public'        ) then Exit(True);
-    if EndsWordCI(R, 'protected'     ) then Exit(True);
-    if EndsWordCI(R, 'published'     ) then Exit(True);
+    if (R[Length(R)] = '(') or (R[Length(R)] = '[') then
+      Exit(True);
+    if EndsWordCI(R, 'begin' ) then
+      Exit(True);
+    if EndsWordCI(R, 'end' ) then
+      Exit(True);
+    if EndsWordCI(R, 'asm' ) then
+      Exit(True);
+    if EndsWordCI(R, 'try' ) then
+      Exit(True);
+    if EndsWordCI(R, 'finally' ) then
+      Exit(True);
+    if EndsWordCI(R, 'except' ) then
+      Exit(True);
+    if EndsWordCI(R, 'repeat' ) then
+      Exit(True);
+    if EndsWordCI(R, 'of' ) then
+      Exit(True);
+    if EndsWordCI(R, 'class' ) then
+      Exit(True);
+    if EndsWordCI(R, 'object' ) then
+      Exit(True);
+    if EndsWordCI(R, 'record' ) then
+      Exit(True);
+    if EndsWordCI(R, 'interface' ) then
+      Exit(True);
+    if EndsWordCI(R, 'dispinterface' ) then
+      Exit(True);
+    if EndsWordCI(R, 'implementation') then
+      Exit(True);
+    if EndsWordCI(R, 'initialization') then
+      Exit(True);
+    if EndsWordCI(R, 'finalization' ) then
+      Exit(True);
+    if EndsWordCI(R, 'private' ) then
+      Exit(True);
+    if EndsWordCI(R, 'public' ) then
+      Exit(True);
+    if EndsWordCI(R, 'protected' ) then
+      Exit(True);
+    if EndsWordCI(R, 'published' ) then
+      Exit(True);
     // A `then`/`do` header keeps its body on the next line unless body-packing
     // is enabled. Even when it is, a nested control header (if/case/begin/...)
     // is never pulled up -- that produces the half-merged `for..do if..then`
     // shape. Only a short, simple body merges.
     if EndsWordCI(R, 'then') or EndsWordCI(R, 'do') then
     begin
-      if not APackShortBodies then Exit(True);
-      if StartsControlHeader(TrimLeft(ANext)) then Exit(True);
+      if not APackShortBodies then
+        Exit(True);
+      if StartsControlHeader(TrimLeft(ANext)) then
+        Exit(True);
     end;
     if EndsWordCI(R, 'else') then
     begin
@@ -1951,13 +2118,18 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
       // short simple statement (a control header is never pulled up).
       if not StartsWordCI(TrimLeft(ANext), 'if') then
       begin
-        if not APackShortBodies then Exit(True);
-        if StartsControlHeader(TrimLeft(ANext)) then Exit(True);
+        if not APackShortBodies then
+          Exit(True);
+        if StartsControlHeader(TrimLeft(ANext)) then
+          Exit(True);
       end;
     end;
-    if EndsWordCI(R, 'uses'    ) then Exit(True);
-    if EndsWordCI(R, 'contains') then Exit(True);
-    if EndsWordCI(R, 'requires') then Exit(True);
+    if EndsWordCI(R, 'uses' ) then
+      Exit(True);
+    if EndsWordCI(R, 'contains') then
+      Exit(True);
+    if EndsWordCI(R, 'requires') then
+      Exit(True);
     Result:= False;
   end; // function
 
@@ -1970,33 +2142,60 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     T: string;
   begin
     T:= TrimLeft(ALine);
-    if T = '' then Exit(True);
-    if T.StartsWith('//') then Exit(True);
-    if T.StartsWith('{$') then Exit(True);
-    if StartsWordCI(T, 'begin'         ) then Exit(True);
-    if StartsWordCI(T, 'end'           ) then Exit(True);
-    if StartsWordCI(T, 'else'          ) then Exit(True);
-    if StartsWordCI(T, 'until'         ) then Exit(True);
-    if StartsWordCI(T, 'finally'       ) then Exit(True);
-    if StartsWordCI(T, 'except'        ) then Exit(True);
-    if StartsWordCI(T, 'interface'     ) then Exit(True);
-    if StartsWordCI(T, 'implementation') then Exit(True);
-    if StartsWordCI(T, 'initialization') then Exit(True);
-    if StartsWordCI(T, 'finalization'  ) then Exit(True);
-    if StartsWordCI(T, 'type'          ) then Exit(True);
-    if StartsWordCI(T, 'var'           ) then Exit(True);
-    if StartsWordCI(T, 'const'         ) then Exit(True);
-    if StartsWordCI(T, 'procedure'     ) then Exit(True);
-    if StartsWordCI(T, 'function'      ) then Exit(True);
-    if StartsWordCI(T, 'constructor'   ) then Exit(True);
-    if StartsWordCI(T, 'destructor'    ) then Exit(True);
-    if StartsWordCI(T, 'private'       ) then Exit(True);
-    if StartsWordCI(T, 'public'        ) then Exit(True);
-    if StartsWordCI(T, 'protected'     ) then Exit(True);
-    if StartsWordCI(T, 'published'     ) then Exit(True);
-    if StartsWordCI(T, 'uses'          ) then Exit(True);
-    if T.StartsWith(',') then Exit(True);
-    if T.StartsWith(';') then Exit(True);
+    if T = '' then
+      Exit(True);
+    if T.StartsWith('//') then
+      Exit(True);
+    if T.StartsWith('{$') then
+      Exit(True);
+    if StartsWordCI(T, 'begin' ) then
+      Exit(True);
+    if StartsWordCI(T, 'end' ) then
+      Exit(True);
+    if StartsWordCI(T, 'else' ) then
+      Exit(True);
+    if StartsWordCI(T, 'until' ) then
+      Exit(True);
+    if StartsWordCI(T, 'finally' ) then
+      Exit(True);
+    if StartsWordCI(T, 'except' ) then
+      Exit(True);
+    if StartsWordCI(T, 'interface' ) then
+      Exit(True);
+    if StartsWordCI(T, 'implementation') then
+      Exit(True);
+    if StartsWordCI(T, 'initialization') then
+      Exit(True);
+    if StartsWordCI(T, 'finalization' ) then
+      Exit(True);
+    if StartsWordCI(T, 'type' ) then
+      Exit(True);
+    if StartsWordCI(T, 'var' ) then
+      Exit(True);
+    if StartsWordCI(T, 'const' ) then
+      Exit(True);
+    if StartsWordCI(T, 'procedure' ) then
+      Exit(True);
+    if StartsWordCI(T, 'function' ) then
+      Exit(True);
+    if StartsWordCI(T, 'constructor' ) then
+      Exit(True);
+    if StartsWordCI(T, 'destructor' ) then
+      Exit(True);
+    if StartsWordCI(T, 'private' ) then
+      Exit(True);
+    if StartsWordCI(T, 'public' ) then
+      Exit(True);
+    if StartsWordCI(T, 'protected' ) then
+      Exit(True);
+    if StartsWordCI(T, 'published' ) then
+      Exit(True);
+    if StartsWordCI(T, 'uses' ) then
+      Exit(True);
+    if T.StartsWith(',') then
+      Exit(True);
+    if T.StartsWith(';') then
+      Exit(True);
     Result:= False;
   end; // function
 
@@ -2044,12 +2243,17 @@ begin
           InUses:= True;
         while i + 1 < Lines.Count do
         begin
-          if InUses then Break;
+          if InUses then
+            Break;
           NextLn:= Lines[i + 1];
-          if Trim(NextLn) = '' then Break;
-          if CommentLocked[i] or CommentLocked[i + 1] then Break;
-          if CurBlocksMerge(Cur, NextLn) then Break;
-          if NextBlocksMerge(NextLn) then Break;
+          if Trim(NextLn) = '' then
+            Break;
+          if CommentLocked[i] or CommentLocked[i + 1] then
+            Break;
+          if CurBlocksMerge(Cur, NextLn) then
+            Break;
+          if NextBlocksMerge(NextLn) then
+            Break;
           k      := 1;
           Leading:= '';
           while (k <= Length(Cur)) and ((Cur[k] = ' ') or (Cur[k] = #9)) do
@@ -2065,7 +2269,8 @@ begin
           if (NextT <> '') and CharInSet(NextT[1], [')', ']', ',', ';', '.']) then
             Sep:= '';
           Joined:= CurR + Sep + NextT;
-          if Length(Joined) > AMaxLen then Break;
+          if Length(Joined) > AMaxLen then
+            Break;
           Cur:= Joined;
           Inc(i);
         end; // while
@@ -2128,7 +2333,7 @@ var
   BefP  : TArray<Integer>;
   AftP  : TArray<Integer>;
   Disq  : Boolean        ;
-  m     : Integer        ;
+  M     : Integer        ;
   DoIx  : Integer        ;
   Header: string         ;
   Body  : string         ;
@@ -2144,8 +2349,10 @@ var
     Tr: string;
   begin
     Tr:= TrimLeft(L);
-    if Length(Tr) < Length(Wd) then Exit(False);
-    if not SameText(Copy(Tr, 1, Length(Wd)), Wd) then Exit(False);
+    if Length(Tr) < Length(Wd) then
+      Exit(False);
+    if not SameText(Copy(Tr, 1, Length(Wd)), Wd) then
+      Exit(False);
     if Length(Tr) > Length(Wd) then
       Result:= not CharInSet(Tr[Length(Wd) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_'])
     else
@@ -2157,24 +2364,26 @@ var
     Tb: string;
   begin
     Tb:= TrimLeft(B);
-    if Tb = '' then Exit(False);
-    if StartsWordCI(Tb, 'begin' ) or StartsWordCI(Tb, 'asm'   ) then Exit(False);
-    if StartsWordCI(Tb, 'if'    ) or StartsWordCI(Tb, 'while' ) or StartsWordCI(Tb, 'for'   ) or
-       StartsWordCI(Tb, 'with'  ) or StartsWordCI(Tb, 'case'  ) or StartsWordCI(Tb, 'repeat') or
-       StartsWordCI(Tb, 'try'   ) then Exit(False);
+    if Tb = '' then
+      Exit(False);
+    if StartsWordCI(Tb, 'begin' ) or StartsWordCI(Tb, 'asm' ) then
+      Exit(False);
+    if StartsWordCI(Tb, 'if' ) or StartsWordCI(Tb, 'while' ) or StartsWordCI(Tb, 'for' ) or StartsWordCI(Tb, 'with' ) or StartsWordCI(Tb, 'case' ) or StartsWordCI(Tb, 'repeat') or
+    StartsWordCI(Tb, 'try' ) then Exit(False);
     Result:= True;
   end;
 
-  procedure ScanTop(const L: string; out AW: TArray<string>;
-    out ABef, AAft: TArray<Integer>; out ADisq: Boolean);
+  procedure ScanTop(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);
   var
-    p, n, ws    : Integer;
-    depth       : Integer;
-    inStr       : Boolean;
-    inBlk       : Boolean;
-    inPar       : Boolean;
-    wrd         : string ;
-    cnt         : Integer;
+    p    : Integer;
+    n    : Integer;
+    ws   : Integer;
+    Depth: Integer;
+    inStr: Boolean;
+    inBlk: Boolean;
+    inPar: Boolean;
+    wrd  : string ;
+    cnt  : Integer;
 
     function IsIdent(ch: Char): Boolean;
     begin
@@ -2196,20 +2405,23 @@ var
     ADisq:= False;
     cnt  := 0;
     SetLength(AW, 0); SetLength(ABef, 0); SetLength(AAft, 0);
-    n    := Length(L);
-    p    := 1; depth:= 0; inStr:= False; inBlk:= False; inPar:= False;
+    n:= Length(L);
+    p:= 1; Depth:= 0; inStr:= False; inBlk:= False; inPar:= False;
     while p <= n do
     begin
       if inStr then
       begin
         if L[p] = '''' then
-          if (p < n) and (L[p + 1] = '''') then Inc(p)
-          else inStr:= False;
+          if (p < n) and (L[p + 1] = '''') then
+            Inc(p)
+          else
+            inStr:= False;
         Inc(p); Continue;
       end;
       if inBlk then
       begin
-        if L[p] = '}' then inBlk:= False;
+        if L[p] = '}' then
+          inBlk:= False;
         Inc(p); Continue;
       end;
       if inPar then
@@ -2221,22 +2433,23 @@ var
       if L[p] = '{'  then begin inBlk:= True; Inc(p); Continue; end;
       if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then begin inPar:= True; Inc(p, 2); Continue; end;
       if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then begin ADisq:= True; Exit; end;
-      if (L[p] = '(') or (L[p] = '[') then begin Inc(depth); Inc(p); Continue; end;
-      if (L[p] = ')') or (L[p] = ']') then begin if depth > 0 then Dec(depth); Inc(p); Continue; end;
+      if (L[p] = '(') or (L[p] = '[') then begin Inc(Depth); Inc(p); Continue; end;
+      if (L[p] = ')') or (L[p] = ']') then begin if Depth > 0 then Dec(Depth); Inc(p); Continue; end;
       if IsIdent(L[p]) and ((p = 1) or not IsIdent(L[p - 1])) then
       begin
         ws := p;
         wrd:= '';
         while (p <= n) and IsIdent(L[p]) do begin wrd:= wrd + L[p]; Inc(p); end;
-        if (depth = 0) and (SameText(wrd, 'do') or SameText(wrd, 'then') or SameText(wrd, 'else')) then
+        if (Depth = 0) and (SameText(wrd, 'do') or SameText(wrd, 'then') or SameText(wrd, 'else')) then
           AddHit(LowerCase(wrd), ws, p);
         Continue;
       end;
       Inc(p);
-    end;
-    if inBlk or inPar then ADisq:= True;
+    end; // while
+    if inBlk or inPar then
+      ADisq:= True;
     SetLength(AW, cnt); SetLength(ABef, cnt); SetLength(AAft, cnt);
-  end;
+  end; // begin
 
   procedure OutLine(const L: string);
   begin
@@ -2254,22 +2467,20 @@ begin
       for i:= 0 to Lines.Count - 1 do
       begin
         Cur:= Lines[i];
-        T  := TrimLeft(Cur);
+        T:= TrimLeft(Cur);
         Indent:= Copy(Cur, 1, Length(Cur) - Length(T));
         // Loops / with: split after the first top-level `do`.
-        if (not Lock[i]) and
-           ( ((StartsWordCI(T, 'for') or StartsWordCI(T, 'while')) and AOpts.BreakLoopBody) or
-             (StartsWordCI(T, 'with') and AOpts.BreakWithBody) ) then
+        if (not Lock[i]) and ( ((StartsWordCI(T, 'for') or StartsWordCI(T, 'while')) and AOpts.BreakLoopBody) or (StartsWordCI(T, 'with') and AOpts.BreakWithBody) ) then
         begin
           ScanTop(Cur, W, BefP, AftP, Disq);
           if not Disq then
           begin
             DoIx:= -1;
-            for m:= 0 to High(W) do if W[m] = 'do' then begin DoIx:= m; Break; end;
+            for M:= 0 to High(W) do if W[M] = 'do' then begin DoIx:= M; Break; end;
             if DoIx >= 0 then
             begin
               Header:= TrimRight(Copy(Cur, 1, AftP[DoIx] - 1));
-              Body  := Trim(Copy(Cur, AftP[DoIx], Length(Cur)));
+              Body:= Trim(Copy(Cur, AftP[DoIx], Length(Cur)));
               if IsSimpleBody(Body) then
               begin
                 OutLine(Header);
@@ -2277,8 +2488,8 @@ begin
                 Continue;
               end;
             end;
-          end;
-        end;
+          end; // if
+        end; // if
         // if / else: split after `then`, before/after each top-level `else`;
         // "else if ... then" stays glued as one header line.
         isElse:= StartsWordCI(T, 'else');
@@ -2290,31 +2501,32 @@ begin
             Segs:= TStringList.Create;
             try
               Segs.LineBreak:= CRLF;
-              Ok:= True;
-              k     := 0;   // set on every Ok:=True path below; init silences W1036 + defends the else
+              Ok    := True;
+              k     := 0; // set on every Ok:=True path below; init silences W1036 + defends the else
               Cursor:= 0;
               // Establish the first header segment + cursor.
               if not isElse then
               begin
-                if (Length(W) = 0) or (W[0] <> 'then') then Ok:= False
+                if (Length(W) = 0) or (W[0] <> 'then') then
+                  Ok:= False
                 else
                 begin
-                  Segs.Add(Trim(Copy(Cur, 1, AftP[0] - 1)));   // "if COND then"
+                  Segs.Add(Trim(Copy(Cur, 1, AftP[0] - 1))); // "if COND then"
                   Cursor:= AftP[0];
-                  k     := 1;
+                  k:= 1;
                 end;
               end
               else if (Length(W) >= 2) and (W[0] = 'else') and (W[1] = 'then') then
               begin
-                Segs.Add(Trim(Copy(Cur, 1, AftP[1] - 1)));      // "else if COND then"
+                Segs.Add(Trim(Copy(Cur, 1, AftP[1] - 1))); // "else if COND then"
                 Cursor:= AftP[1];
-                k     := 2;
+                k:= 2;
               end
               else if (Length(W) >= 1) and (W[0] = 'else') then
               begin
-                Segs.Add(Copy(Cur, BefP[0], AftP[0] - BefP[0]));  // preserve source `else` casing
+                Segs.Add(Copy(Cur, BefP[0], AftP[0] - BefP[0])); // preserve source `else` casing
                 Cursor:= AftP[0];
-                k     := 1;
+                k:= 1;
               end
               else
                 Ok:= False;
@@ -2327,42 +2539,45 @@ begin
                 Segs.Add(Body);
                 if (k + 1 <= High(W)) and (W[k + 1] = 'then') then
                 begin
-                  Segs.Add(Trim(Copy(Cur, BefP[k], AftP[k + 1] - BefP[k])));  // "else if COND then"
+                  Segs.Add(Trim(Copy(Cur, BefP[k], AftP[k + 1] - BefP[k]))); // "else if COND then"
                   Cursor:= AftP[k + 1];
-                  k     := k + 2;
+                  k:= k + 2;
                 end
                 else
                 begin
-                  Segs.Add(Copy(Cur, BefP[k], AftP[k] - BefP[k]));  // preserve source `else` casing
+                  Segs.Add(Copy(Cur, BefP[k], AftP[k] - BefP[k])); // preserve source `else` casing
                   Cursor:= AftP[k];
-                  k     := k + 1;
+                  k:= k + 1;
                 end;
-              end;
+              end; // while
               if Ok then
               begin
-                Body:= Trim(Copy(Cur, Cursor, Length(Cur)));   // trailing body
-                if IsSimpleBody(Body) then Segs.Add(Body) else Ok:= False;
+                Body:= Trim(Copy(Cur, Cursor, Length(Cur))); // trailing body
+                if IsSimpleBody(Body) then
+                  Segs.Add(Body)
+                else
+                  Ok:= False;
               end;
               if Ok and (Segs.Count >= 2) then
               begin
                 for s2:= 0 to Segs.Count - 1 do
                   OutLine(Indent + Segs[s2]);
-                Continue;   // line handled; skip fallthrough
+                Continue; // line handled; skip fallthrough
               end;
             finally
               Segs.Free;
-            end;
-          end;
-        end;
+            end; // try
+          end; // if
+        end; // if
         OutLine(Cur);
-      end;
+      end; // for
       Result:= Out_.ToString;
     finally
       Out_.Free;
-    end;
+    end; // try
   finally
     Lines.Free;
-  end;
+  end; // try
 end; // function
 
 /// <summary>Collapses a routine header the source split across lines back onto
@@ -2399,7 +2614,8 @@ var
   Lines  : TStringList   ;
   Out_   : TStringBuilder;
   St     : TLineScanState;
-  i, j   : Integer       ;
+  i      : Integer       ;
+  j      : Integer       ;
   Joined : string        ;
   Aborted: Boolean       ;
   CmtOpen: Boolean       ;
@@ -2409,39 +2625,47 @@ var
   function LeadWord(const X, Wd: string): Boolean;
   begin
     Result:= (Length(X) >= Length(Wd)) and SameText(Copy(X, 1, Length(Wd)), Wd) and
-      ((Length(X) = Length(Wd)) or
-       not CharInSet(X[Length(Wd) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']));
+    ((Length(X) = Length(Wd)) or not CharInSet(X[Length(Wd) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']));
   end;
 
-  // True iff position p in L starts the whole word Kw (ident boundary before AND
-  // after) and the next non-space char after the word is '(' -- an inline routine
-  // header keyword like `procedure(` / `function(`.
+// True iff position p in L starts the whole word Kw (ident boundary before AND
+// after) and the next non-space char after the word is '(' -- an inline routine
+// header keyword like `procedure(` / `function(`.
   function KwParenAt(const L, Kw: string; p: Integer): Boolean;
   var
     q: Integer;
   begin
     Result:= False;
-    if not SameText(Copy(L, p, Length(Kw)), Kw) then Exit;
-    if (p > 1) and CharInSet(L[p - 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then Exit;
+    if not SameText(Copy(L, p, Length(Kw)), Kw) then
+      Exit;
+    if (p > 1) and CharInSet(L[p - 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then
+      Exit;
     q:= p + Length(Kw);
-    if (q <= Length(L)) and CharInSet(L[q], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then Exit;
-    while (q <= Length(L)) and (L[q] = ' ') do Inc(q);
+    if (q <= Length(L)) and CharInSet(L[q], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then
+      Exit;
+    while (q <= Length(L)) and (L[q] = ' ') do
+      Inc(q);
     Result:= (q <= Length(L)) and (L[q] = '(');
   end;
 
-  // True iff L, at top level (outside strings/comments), is the first line of a
-  // joinable header: a leading routine keyword, or an inline procedure(/function(.
+// True iff L, at top level (outside strings/comments), is the first line of a
+// joinable header: a leading routine keyword, or an inline procedure(/function(.
   function IsHeaderStart(const L: string): Boolean;
   var
-    Tr         : string ;
-    p, n       : Integer;
-    inStr, inBlk, inPar: Boolean;
+    Tr   : string ;
+    p    : Integer;
+    n    : Integer;
+    inStr: Boolean;
+    inBlk: Boolean;
+    inPar: Boolean;
   begin
     Tr:= TrimLeft(L);
-    if LeadWord(Tr, 'class')   then Tr:= TrimLeft(Copy(Tr, 6, MaxInt));
-    if LeadWord(Tr, 'generic') then Tr:= TrimLeft(Copy(Tr, 8, MaxInt));
-    if LeadWord(Tr, 'function') or LeadWord(Tr, 'procedure') or LeadWord(Tr, 'constructor') or
-       LeadWord(Tr, 'destructor') or LeadWord(Tr, 'operator') then Exit(True);
+    if LeadWord(Tr, 'class') then
+      Tr:= TrimLeft(Copy(Tr, 6, MaxInt));
+    if LeadWord(Tr, 'generic') then
+      Tr:= TrimLeft(Copy(Tr, 8, MaxInt));
+    if LeadWord(Tr, 'function') or LeadWord(Tr, 'procedure') or LeadWord(Tr, 'constructor') or LeadWord(Tr, 'destructor') or LeadWord(Tr, 'operator') then
+      Exit(True);
     // Case B: inline `procedure(` / `function(` scanned at top level.
     n:= Length(L); p:= 1; inStr:= False; inBlk:= False; inPar:= False;
     while p <= n do
@@ -2452,17 +2676,19 @@ var
       if L[p] = '''' then begin inStr:= True; Inc(p); Continue; end;
       if L[p] = '{'  then begin inBlk:= True; Inc(p); Continue; end;
       if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then begin inPar:= True; Inc(p, 2); Continue; end;
-      if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then Break;
-      if KwParenAt(L, 'procedure', p) or KwParenAt(L, 'function', p) then Exit(True);
-      Inc(p);
-    end;
+      if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then
+        Break;
+      if KwParenAt(L, 'procedure', p) or KwParenAt(L, 'function', p) then
+        Exit(True);
+      Inc   (p   );
+    end; // while
     Result:= False;
-  end;
+  end; // function
 
-  // Advance the shared cross-line scanner St across one physical line L.
-  // ACmtWhileOpen reports whether L's `//` comment (if any) was reached while
-  // a paren was still open (St.Depth > 0) -- the tell-tale that joining would
-  // fold the following lines into that comment and silently delete them.
+// Advance the shared cross-line scanner St across one physical line L.
+// ACmtWhileOpen reports whether L's `//` comment (if any) was reached while
+// a paren was still open (St.Depth > 0) -- the tell-tale that joining would
+// fold the following lines into that comment and silently delete them.
   procedure ScanLine(const L: string; out ACmtWhileOpen: Boolean);
   var
     Col : Integer;
@@ -2473,28 +2699,33 @@ var
     Col:= 1; Done:= False;
     while not Done do
     case St.SkipNonCode(L, Col) of
-      seEndOfLine  : Done:= True;
+      seEndOfLine  : Done:= True                                                      ;
       seLineComment: begin if St.Depth > 0 then ACmtWhileOpen:= True; Done:= True; end;
-      seCode       : St.StepCode(L, Col);
+      seCode       : St.StepCode(L, Col)                                              ;
     end;
-  end;
+  end; // procedure
 
-  // Greedy break of an over-long joined header AFTER top-level ';' / ',' :
-  // pick the rightmost separator whose position <= MaxLen, emit head incl. the
-  // separator, continue the tail at (leading indent + AOpts.Indent). If no
-  // separator fits, leave the line long (better than an invalid mid-token break).
+// Greedy break of an over-long joined header AFTER top-level ';' / ',' :
+// pick the rightmost separator whose position <= MaxLen, emit head incl. the
+// separator, continue the tail at (leading indent + AOpts.Indent). If no
+// separator fits, leave the line long (better than an invalid mid-token break).
   function WrapHeaderLine(const ALine: string): string;
   var
-    Indent, NewIndent, Cur: string;
+    Indent   : string        ;
+    NewIndent: string        ;
+    Cur      : string        ;
     W        : TLineScanState;
-    Col, Best: Integer;
-    Done     : Boolean;
+    Col      : Integer       ;
+    Best     : Integer       ;
+    Done     : Boolean       ;
     OutB     : TStringBuilder;
   begin
-    if Length(ALine) <= AOpts.MaxLen then Exit(ALine);
+    if Length(ALine) <= AOpts.MaxLen then
+      Exit(ALine);
     Col:= 1;
-    while (Col <= Length(ALine)) and CharInSet(ALine[Col], [' ', #9]) do Inc(Col);
-    Indent   := Copy(ALine, 1, Col - 1);
+    while (Col <= Length(ALine)) and CharInSet(ALine[Col], [' ', #9]) do
+      Inc(Col);
+    Indent:= Copy(ALine, 1, Col - 1);
     NewIndent:= Indent + StringOfChar(' ', AOpts.Indent);
     OutB:= TStringBuilder.Create;
     try
@@ -2517,46 +2748,46 @@ var
         while not Done do
         case W.SkipNonCode(Cur, Col) of
           seEndOfLine, seLineComment: Done:= True;
-          seCode:
+          seCode                    :
+          begin
+            if (W.Depth <= 1) and CharInSet(Cur[Col], [';', ',']) then
             begin
-              if (W.Depth <= 1) and CharInSet(Cur[Col], [';', ',']) then
-              begin
-                if Col <= AOpts.MaxLen then Best:= Col   // break AFTER this sep
-                else Done:= True;                        // past budget: stop scanning
-              end;
-              if not Done then W.StepCode(Cur, Col);
+              if Col <= AOpts.MaxLen then Best:= Col // break AFTER this sep
+              else Done:= True; // past budget: stop scanning
             end;
-        end;
+            if not Done then
+              W.StepCode(Cur, Col);
+          end;
+        end; // case
         // Don't break at the very last char (nothing to move down) or before indent.
-        if (Best <= Length(Indent)) or (Best >= Length(TrimRight(Cur))) then Break;
+        if (Best <= Length(Indent)) or (Best >= Length(TrimRight(Cur))) then
+          Break;
         OutB.Append(TrimRight(Copy(Cur, 1, Best)));
         OutB.Append(CRLF);
         Cur:= NewIndent + TrimLeft(Copy(Cur, Best + 1, MaxInt));
-      end;
+      end; // while
       OutB.Append(Cur);
       Result:= OutB.ToString;
     finally
       OutB.Free;
-    end;
-  end;
+    end; // try
+  end; // function
 
-  // True iff the trimmed line begins a block/statement keyword that can never
-  // appear inside a routine-header parameter list -- the tell-tale that an open
-  // paren belongs to a call wrapping an anonymous method, not to a header.
-  // Deliberately EXCLUDES const/var: those are ordinary parameter modifiers
-  // (e.g. `const D: TSomeType`) that routinely start a continuation line of a
-  // real header, so including them here used to bail real headers that never
-  // joined at all. begin/asm alone are sufficient to catch an anonymous
-  // method's own body -- every routine body reaches one of them eventually.
+// True iff the trimmed line begins a block/statement keyword that can never
+// appear inside a routine-header parameter list -- the tell-tale that an open
+// paren belongs to a call wrapping an anonymous method, not to a header.
+// Deliberately EXCLUDES const/var: those are ordinary parameter modifiers
+// (e.g. `const D: TSomeType`) that routinely start a continuation line of a
+// real header, so including them here used to bail real headers that never
+// joined at all. begin/asm alone are sufficient to catch an anonymous
+// method's own body -- every routine body reaches one of them eventually.
   function StartsBlockKeyword(const L: string): Boolean;
   var
     Tr: string;
   begin
     Tr:= TrimLeft(L);
-    Result:= LeadWord(Tr, 'begin') or LeadWord(Tr, 'asm') or LeadWord(Tr, 'type') or
-      LeadWord(Tr, 'label') or LeadWord(Tr, 'case') or LeadWord(Tr, 'while') or
-      LeadWord(Tr, 'for') or LeadWord(Tr, 'if') or LeadWord(Tr, 'repeat') or
-      LeadWord(Tr, 'with') or LeadWord(Tr, 'try');
+    Result:= LeadWord(Tr, 'begin') or LeadWord(Tr, 'asm') or LeadWord(Tr, 'type') or LeadWord(Tr, 'label') or LeadWord(Tr, 'case') or LeadWord(Tr, 'while') or
+    LeadWord(Tr, 'for') or LeadWord(Tr, 'if') or LeadWord(Tr, 'repeat') or LeadWord(Tr, 'with') or LeadWord(Tr, 'try');
   end;
 
 begin
@@ -2592,7 +2823,7 @@ begin
             Inc(i); Continue;
           end;
           // Multi-line header: accumulate until a line returns depth to 0.
-          Joined := TrimRight(Lines[i]);
+          Joined:= TrimRight(Lines[i]);
           Aborted:= False;
           CmtBail:= False;
           j:= i + 1;
@@ -2601,8 +2832,9 @@ begin
             if StartsBlockKeyword(Lines[j]) then begin Aborted:= True; Break; end;
             ScanLine(Lines[j], CmtOpen);
             if CmtOpen then begin CmtBail:= True; Break; end;
-            if Trim(Lines[j]) <> '' then Joined:= Joined + ' ' + Trim(Lines[j]);
-            if St.Depth = 0 then Break;   // closing line reached (inclusive)
+            if Trim(Lines[j]) <> '' then
+              Joined:= Joined + ' ' + Trim(Lines[j]);
+            if St.Depth = 0 then Break; // closing line reached (inclusive)
             Inc(j);
           end;
           if CmtBail then
@@ -2618,7 +2850,7 @@ begin
             // and silently suppress every later header-join in the file).
             for var k:= i to j do begin Out_.Append(Lines[k]); Out_.Append(CRLF); end;
             i:= j + 1; Continue;
-          end;
+          end; // if
           if Aborted or (j >= Lines.Count) then
           begin
             // Bail (block-keyword / ran-out-of-lines): emit the original span
@@ -2630,21 +2862,21 @@ begin
           end;
           Out_.Append(WrapHeaderLine(Joined)); Out_.Append(CRLF);
           i:= j + 1; Continue;
-        end
+        end // if
         else
         begin
-          ScanLine(Lines[i], CmtOpen);      // keep cross-line St correct
+          ScanLine(Lines[i], CmtOpen); // keep cross-line St correct
           Out_.Append(Lines[i]); Out_.Append(CRLF);
           Inc(i);
         end;
-      end;
+      end; // while
       Result:= Out_.ToString;
     finally
       Out_.Free;
-    end;
+    end; // try
   finally
     Lines.Free;
-  end;
+  end; // try
 end; // function
 
 function CollapseShortBlocks(const S: string; AMaxLen: Integer): string;
@@ -2666,8 +2898,10 @@ var
     T: string;
   begin
     T:= TrimLeft(L);
-    if Length(T) < Length(W) then Exit(False);
-    if not SameText(Copy(T, 1, Length(W)), W) then Exit(False);
+    if Length(T) < Length(W) then
+      Exit(False);
+    if not SameText(Copy(T, 1, Length(W)), W) then
+      Exit(False);
     if Length(T) > Length(W) then
       Result:= not (CharInSet(T[Length(W) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']))
     else
@@ -2680,9 +2914,11 @@ var
     p: Integer;
   begin
     T:= TrimRight(L);
-    if Length(T) < Length(W) then Exit(False);
+    if Length(T) < Length(W) then
+      Exit(False);
     p:= Length(T) - Length(W) + 1;
-    if not SameText(Copy(T, p, Length(W)), W) then Exit(False);
+    if not SameText(Copy(T, p, Length(W)), W) then
+      Exit(False);
     if p > 1 then
       Result:= not (CharInSet(T[p - 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']))
     else
@@ -2715,9 +2951,12 @@ var
       if SameText(Copy(L, p, n), AWord) then
       begin
         Good:= True;
-        if (p > 1) and CharInSet(L[p - 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then Good:= False;
-        if (p + n <= Length(L)) and CharInSet(L[p + n], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then Good:= False;
-        if Good then Exit(True);
+        if (p > 1) and CharInSet(L[p - 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then
+          Good:= False;
+        if (p + n <= Length(L)) and CharInSet(L[p + n], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then
+          Good:= False;
+        if Good then
+          Exit(True);
       end;
       Inc(p);
     end;
@@ -2732,9 +2971,12 @@ var
   begin
     for p:= 1 to Length(L) do
     begin
-      if L[p] = '{' then Exit(True);
-      if (p < Length(L)) and (L[p] = '(') and (L[p + 1] = '*') then Exit(True);
-      if (p < Length(L)) and (L[p] = '/') and (L[p + 1] = '/') then Exit(True);
+      if L[p] = '{' then
+        Exit(True);
+      if (p < Length(L)) and (L[p] = '(') and (L[p + 1] = '*') then
+        Exit(True);
+      if (p < Length(L)) and (L[p] = '/') and (L[p + 1] = '/') then
+        Exit(True);
     end;
     Result:= False;
   end;
@@ -2744,16 +2986,16 @@ var
   function Squeeze(const L: string): string;
   var
     p     : Integer       ;
-    InStr : Boolean       ;
+    inStr : Boolean       ;
     Sb    : TStringBuilder;
   begin
     Sb:= TStringBuilder.Create;
     try
-      InStr:= False;
+      inStr:= False;
       p    := 1;
       while p <= Length(L) do
       begin
-        if InStr then
+        if inStr then
         begin
           Sb.Append(L[p]);
           if L[p] = '''' then
@@ -2765,20 +3007,21 @@ var
               Continue;
             end
             else
-              InStr:= False;
+              inStr:= False;
           end;
           Inc(p);
         end // if
         else if L[p] = '''' then
         begin
-          InStr:= True;
+          inStr:= True;
           Sb.Append(L[p]);
           Inc(p);
         end
         else if L[p] = ' ' then
         begin
           Sb.Append(' ');
-          while (p <= Length(L)) and (L[p] = ' ') do Inc(p);
+          while (p <= Length(L)) and (L[p] = ' ') do
+            Inc(p);
         end
         else
         begin
@@ -2797,7 +3040,8 @@ var
     p: Integer;
   begin
     p:= 1;
-    while (p <= Length(L)) and ((L[p] = ' ') or (L[p] = #9)) do Inc(p);
+    while (p <= Length(L)) and ((L[p] = ' ') or (L[p] = #9)) do
+      Inc(p);
     Result:= Copy(L, 1, p - 1);
   end;
 
@@ -2882,8 +3126,10 @@ function EnforceBlankLines(const S: string; const AOpts: TYadfOptions): string;
     Trimmed: string;
   begin
     Trimmed:= TrimLeft(ALine);
-    if Length(Trimmed) < Length(AWord) then Exit(False);
-    if not SameText(Copy(Trimmed, 1, Length(AWord)), AWord) then Exit(False);
+    if Length(Trimmed) < Length(AWord) then
+      Exit(False);
+    if not SameText(Copy(Trimmed, 1, Length(AWord)), AWord) then
+      Exit(False);
     if Length(Trimmed) > Length(AWord) then
       Result:= not (((Trimmed[Length(AWord) + 1] >= 'a') and (Trimmed[Length(AWord) + 1] <= 'z')) or
         ((Trimmed[Length(AWord) + 1] >= 'A') and (Trimmed[Length(AWord) + 1] <= 'Z')) or ((Trimmed[Length(AWord) + 1] >= '0') and (Trimmed[Length(AWord) + 1] <= '9')) or
@@ -2911,10 +3157,12 @@ function EnforceBlankLines(const S: string; const AOpts: TYadfOptions): string;
     // pass runs after ReindentByDepth, so leading whitespace is canonical), so a
     // leading space/tab marks it as a member -- never separate those with blank
     // lines, which would corrupt the interface section. (Bug repro 2026-06-19.)
-    if (ALine <> '') and CharInSet(ALine[1], [' ', #9]) then Exit(False);
+    if (ALine <> '') and CharInSet(ALine[1], [' ', #9]) then
+      Exit(False);
     T:= TrimLeft(ALine);
     Result:= StartsWordCI(T, 'procedure') or StartsWordCI(T, 'function') or StartsWordCI(T, 'constructor') or StartsWordCI(T, 'destructor');
-    if Result and StartsWordCI(T, 'class') then Result:= False;
+    if Result and StartsWordCI(T, 'class') then
+      Result:= False;
   end; // function
 
 var
@@ -2939,9 +3187,11 @@ begin
         if (AOpts.BlanksBeforeSection > 0) and IsSectionKw(Lines[i]) then
           Need:= AOpts.BlanksBeforeSection;
         if (AOpts.BlanksBeforeType > 0) and IsTypeKw(Lines[i]) then
-          if AOpts.BlanksBeforeType > Need then Need:= AOpts.BlanksBeforeType;
+          if AOpts.BlanksBeforeType > Need then
+            Need:= AOpts.BlanksBeforeType;
         if (AOpts.BlanksBeforeMethod > 0) and IsMethodDecl(Lines[i]) then
-          if AOpts.BlanksBeforeMethod > Need then Need:= AOpts.BlanksBeforeMethod;
+          if AOpts.BlanksBeforeMethod > Need then
+            Need:= AOpts.BlanksBeforeMethod;
         if (Need > 0) and (i > 0) then
         begin
           Have:= 0;
@@ -2981,7 +3231,8 @@ var
   Lines  : TStringList   ;
   Out_   : TStringBuilder;
 begin
-  if AMax < 0 then Exit(S);
+  if AMax < 0 then
+    Exit(S);
   Lines:= TStringList.Create;
   try
     Lines.LineBreak:= CRLF;
@@ -3080,8 +3331,10 @@ var
 
   function StackTop: TptTokenKind;
   begin
-    if Stack.Count = 0 then Result:= ptUnknown
-    else Result:= Stack[Stack.Count - 1];
+    if Stack.Count = 0 then
+      Result:= ptUnknown
+    else
+      Result:= Stack[Stack.Count - 1];
   end;
 
   function InClassOrRecord: Boolean;
@@ -3147,7 +3400,8 @@ var
         CtrlStack.Delete(CtrlStack.Count - 1);
       end;
       if (IsProcBody.Count > 0) and IsProcBody[IsProcBody.Count - 1] then
-        if OpenProcRegions > 0 then Dec(OpenProcRegions);
+        if OpenProcRegions > 0 then
+          Dec(OpenProcRegions);
       if IsProcBody.Count > 0 then
         IsProcBody.Delete(IsProcBody.Count - 1);
       Stack       .Delete(Stack     .Count - 1);
@@ -3170,7 +3424,8 @@ var
     k: Integer;
   begin
     k:= Stack.Count - 1;
-    while (k >= 0) and (Stack[k] in [ptType, ptVar, ptConst]) do Dec(k);
+    while (k >= 0) and (Stack[k] in [ptType, ptVar, ptConst]) do
+      Dec(k);
     Result:= (k >= 0) and (Stack[k] in [ptRecord, ptObject]);
   end;
 
@@ -3183,9 +3438,11 @@ var
     j: Integer;
   begin
     Result:= False;
-    if (AIdx < 0) or (AIdx >= Tokens.Count) or (Tokens[AIdx].Kind <> ptClass) then Exit;
+    if (AIdx < 0) or (AIdx >= Tokens.Count) or (Tokens[AIdx].Kind <> ptClass) then
+      Exit;
     j:= AIdx + 1;
-    while (j < Tokens.Count) and (Tokens[j].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do Inc(j);
+    while (j < Tokens.Count) and (Tokens[j].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
+      Inc(j);
     Result:= (j < Tokens.Count) and (Tokens[j].Kind in [ptVar, ptConst, ptType]);
   end;
 
@@ -3252,7 +3509,8 @@ begin
 
         if ExpectSectionDecl and not (T.Kind in [ptAnsiComment, ptBorComment, ptSlashesComment]) then
         begin
-          while (Out_.Length > 0) and (Out_.Chars[Out_.Length - 1] = ' ') do Out_.Length:= Out_.Length - 1;
+          while (Out_.Length > 0) and (Out_.Chars[Out_.Length - 1] = ' ') do
+            Out_.Length:= Out_.Length - 1;
           Out_.Append(CRLF);
           AfterCRLF        := True;
           PendingWS        := '';
@@ -3400,7 +3658,8 @@ begin
             end;
             ptBegin:
             begin
-              if (not InClassOrRecord) then CloseSectionIfOpen;
+              if (not InClassOrRecord) then
+                CloseSectionIfOpen;
               StackPushBegin;
               InVisibility:= False;
             end;
@@ -3450,7 +3709,8 @@ begin
             end
             else
             begin
-              while Stack.Count > 0 do StackPop;
+              while Stack.Count > 0 do
+                StackPop;
               InVisibility      := False;
               InInterfaceSection:= True;
               OpenProcRegions   := 0;
@@ -3458,7 +3718,8 @@ begin
             end;
             ptImplementation, ptInitialization, ptFinalization:
             begin
-              while Stack.Count > 0 do StackPop;
+              while Stack.Count > 0 do
+                StackPop;
               InVisibility      := False;
               InInterfaceSection:= False;
               OpenProcRegions   := 0;
@@ -3477,7 +3738,8 @@ begin
             ptForward, ptExternal: if (not InClassOrRecord) and (PendingProcStack.Count > 0) then
             begin
               PendingProcStack.Delete(PendingProcStack.Count - 1);
-              if OpenProcRegions > 0 then Dec(OpenProcRegions);
+              if OpenProcRegions > 0 then
+                Dec(OpenProcRegions);
             end;
           end; // case
           if T.ExID in [ptPrivate, ptPublic, ptProtected, ptPublished] then
@@ -3488,7 +3750,8 @@ begin
           if (T.ExID in [ptForward, ptExternal]) and (not InClassOrRecord) and (PendingProcStack.Count > 0) then
           begin
             PendingProcStack.Delete(PendingProcStack.Count - 1);
-            if OpenProcRegions > 0 then Dec(OpenProcRegions);
+            if OpenProcRegions > 0 then
+              Dec(OpenProcRegions);
           end;
           PrevNonKind:= T.Kind;
           CurLineLast:= T.Kind;
@@ -3765,7 +4028,8 @@ begin
   Items:= TList<TItemRange>.Create;
   try
     Depth:= 0;
-    while (AOpenIdx + 1 <= ACloseIdx - 1) and (ATokens[AOpenIdx + 1].Kind in [ptSpace, ptCRLF]) do Inc(AOpenIdx);
+    while (AOpenIdx + 1 <= ACloseIdx - 1) and (ATokens[AOpenIdx + 1].Kind in [ptSpace, ptCRLF]) do
+      Inc(AOpenIdx);
     CurFirst:= AOpenIdx + 1;
     CurLast:= -1;
     i:= AOpenIdx + 1;
@@ -3780,11 +4044,13 @@ begin
         CmtL:= -1;
         while True do
         begin
-          while (k <= ACloseIdx - 1) and (ATokens[k].Kind = ptSpace) do Inc(k);
+          while (k <= ACloseIdx - 1) and (ATokens[k].Kind = ptSpace) do
+            Inc(k);
           if (k <= ACloseIdx - 1) and IsCommentKind(ATokens[k].Kind) and (ATokens[k].Line = CommaLine) then
           begin
-            if CmtF < 0 then CmtF:= k;
-            CmtL:= k;
+            if CmtF < 0 then
+              CmtF:= k;
+            CmtL  := k;
             Inc(k);
             Continue;
           end;
@@ -3797,7 +4063,8 @@ begin
         Item.CmtFirst:= CmtF;
         Item.CmtLast := CmtL;
         Items.Add(Item);
-        while (k <= ACloseIdx - 1) and (ATokens[k].Kind in [ptSpace, ptCRLF]) do Inc(k);
+        while (k <= ACloseIdx - 1) and (ATokens[k].Kind in [ptSpace, ptCRLF]) do
+          Inc(k);
         CurFirst:= k;
         CurLast:= -1;
         i:= k;
@@ -3925,7 +4192,8 @@ begin
   for i:= 0 to ATokens.Count - 1 do
   begin
     T:= ATokens[i];
-    if (Pos(LF, T.Text) = 0) and (Pos(CR, T.Text) = 0) then Continue;
+    if (Pos(LF, T.Text) = 0) and (Pos(CR, T.Text) = 0) then
+      Continue;
     if T.Kind in [ptStringConst, ptStringDQConst] then
     begin
       AMap.Add(T.Text);
@@ -4080,21 +4348,24 @@ var
   begin
     Result:= False;
     firstName:= NextSig(AVar + 1);
-    if (firstName >= ATokens.Count) or (ATokens[firstName].Kind <> ptIdentifier) then Exit;
+    if (firstName >= ATokens.Count) or (ATokens[firstName].Kind <> ptIdentifier) then
+      Exit;
     SetLength(Names, 1); Names[0]:= ATokens[firstName].Text;
     // Collect any comma-separated additional names (`var A, B: T;`).
     p:= NextSig(firstName + 1);
     while (p < ATokens.Count) and (ATokens[p].Kind = ptComma) do
     begin
       p:= NextSig(p + 1);
-      if (p >= ATokens.Count) or (ATokens[p].Kind <> ptIdentifier) then Exit;
+      if (p >= ATokens.Count) or (ATokens[p].Kind <> ptIdentifier) then
+        Exit;
       SetLength(Names, Length(Names) + 1); Names[High(Names)]:= ATokens[p].Text;
       p:= NextSig(p + 1);
     end;
     ci:= p;
     if (ci >= ATokens.Count) or (ATokens[ci].Kind <> ptColon) then Exit; // inferred types: later
     semi:= FindStmtEnd(ci + 1, ao);
-    if semi < 0 then Exit;
+    if semi < 0 then
+      Exit;
     if AlreadyFlagged(semi) then Exit; // left for the user on a previous run
     // A multi-name inline var cannot carry an initializer, so init applies only to
     // the single-name case.
@@ -4107,9 +4378,11 @@ var
       typeEnd:= semi - 1; ARec.Kind:= ikExplicitNoInit; ARec.AssignIdx:= -1;
     end;
     ty:= Trim(InlineRenderRange(ATokens, ci + 1, typeEnd));
-    if ty = '' then Exit;
+    if ty = '' then
+      Exit;
     SetLength(ARec.DeclLines, Length(Names));
-    for n:= 0 to High(Names) do ARec.DeclLines[n]:= Names[n] + ': ' + ty + ';';
+    for n:= 0 to High(Names) do
+      ARec.DeclLines[n]:= Names[n] + ': ' + ty + ';';
     ARec.Names  := Names;
     ARec.TypeStr:= ty;
     ARec.NameIdx:= firstName;
@@ -4149,12 +4422,15 @@ var
   begin
     Result:= False;
     ni:= NextSig(AVar + 1);
-    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then
+      Exit;
     ci:= NextSig(ni + 1);
     if (ci >= ATokens.Count) or (ATokens[ci].Kind <> ptColon) then Exit; // explicit only
-    if not FindForSep(ci + 1, Sep) then Exit;
+    if not FindForSep(ci + 1, Sep) then
+      Exit;
     ty:= Trim(InlineRenderRange(ATokens, ci + 1, Sep - 1));
-    if ty = '' then Exit;
+    if ty = '' then
+      Exit;
     ARec.Kind   := ikForExplicit;
     ARec.NameIdx:= ni;
     ARec.AssignIdx:= -1;
@@ -4183,13 +4459,16 @@ var
   begin
     Result:= False;
     ni:= NextSig(AVar + 1);
-    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then
+      Exit;
     ci:= NextSig(ni + 1);
     if (ci < ATokens.Count) and (ATokens[ci].Kind = ptColon) then Exit; // typed: TryParseForExplicit
-    if not FindForSep(ni + 1, Sep) then Exit;
+    if not FindForSep(ni + 1, Sep) then
+      Exit;
     if ATokens[Sep].Kind <> ptAssign then Exit; // `in` form -> not inferable
     lo:= NextSig(Sep + 1);
-    if (lo < ATokens.Count) and (ATokens[lo].Kind = ptIntegerConst) then ty:= 'Integer'
+    if (lo < ATokens.Count) and (ATokens[lo].Kind = ptIntegerConst) then
+      ty:= 'Integer'
     else Exit; // non-literal bound -> leave as-is
     ARec.Kind   := ikForExplicit; // reuse the for rewrite (strip `var`)
     ARec.NameIdx:= ni;
@@ -4218,8 +4497,10 @@ var
     Result:= '';
     S:= NextSig(AFrom);
     e:= ATo;
-    while (e >= S) and (ATokens[e].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do Dec(e);
-    if (S > e) or (S >= ATokens.Count) then Exit;
+    while (e >= S) and (ATokens[e].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
+      Dec(e);
+    if (S > e) or (S >= ATokens.Count) then
+      Exit;
     if S = e then
     begin
       case ATokens[S].Kind of
@@ -4239,7 +4520,8 @@ var
         if (dotIdx >= S) and (ATokens[dotIdx].Kind = ptPoint) then
         begin
           Result:= Trim(InlineRenderRange(ATokens, S, dotIdx - 1));
-          if Result <> '' then Exit;
+          if Result <> '' then
+            Exit;
         end;
       end;
   end; // function
@@ -4258,11 +4540,14 @@ var
   begin
     Result:= False;
     ni:= NextSig(AVar + 1);
-    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then
+      Exit;
     ao:= NextSig(ni + 1);
-    if (ao >= ATokens.Count) or (ATokens[ao].Kind <> ptAssign) then Exit;
+    if (ao >= ATokens.Count) or (ATokens[ao].Kind <> ptAssign) then
+      Exit;
     semi:= FindStmtEnd(ao + 1, dummy);
-    if semi < 0 then Exit;
+    if semi < 0 then
+      Exit;
     origLine:= Trim(InlineRenderRange(ATokens, AVar, semi));
     ARec.NameIdx  := ni;
     ARec.AssignIdx:= ao;
@@ -4283,7 +4568,8 @@ var
     begin
       // Not inferable: leave the inline var in place + a TODO marker -- unless it
       // was already flagged on a previous run (keeps the pass idempotent).
-      if AlreadyFlagged(semi) then Exit;
+      if AlreadyFlagged(semi) then
+        Exit;
       ARec.Kind:= ikFallbackTodo;
       SetLength(ARec.DeclLines, 0);
       SetLength(ARec.Names    , 0);
@@ -4314,7 +4600,8 @@ var
       nm:= ARec.Names[M];
       if RNames.ContainsKey(nm) then
       begin
-        if not SameText(RNames[nm], ARec.TypeStr) then collide:= True;
+        if not SameText(RNames[nm], ARec.TypeStr) then
+          collide:= True;
         // same-type duplicate: omit the second declaration, keep the assignment
       end
       else
@@ -4337,7 +4624,8 @@ var
       Exit;
     end; // if
     Inlines.Add(AVarIdx, ARec);
-    for M:= 0 to High(keep) do EnsureBodyDecls(ABeginIdx).Add(keep[M]);
+    for M:= 0 to High(keep) do
+      EnsureBodyDecls(ABeginIdx).Add(keep[M]);
   end; // procedure
 
 // An inline var inside an anonymous method body: we will not hoist it (its
@@ -4352,10 +4640,13 @@ var
   begin
     Result:= False;
     ni:= NextSig(AVar + 1);
-    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then
+      Exit;
     semi:= FindStmtEnd(AVar + 1, dummy);
-    if semi < 0 then Exit;
-    if AlreadyFlagged(semi) then Exit;
+    if semi < 0 then
+      Exit;
+    if AlreadyFlagged(semi) then
+      Exit;
     origLine:= Trim(InlineRenderRange(ATokens, AVar, semi));
     ARec.Kind   := ikFallbackTodo;
     ARec.NameIdx:= ni;
@@ -4382,11 +4673,14 @@ var
   begin
     Result:= False; ADecl:= '';
     ni:= NextSig(AConst + 1);
-    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then
+      Exit;
     semi:= FindStmtEnd(AConst + 1, dummy);
-    if semi < 0 then Exit;
+    if semi < 0 then
+      Exit;
     ADecl:= Trim(InlineRenderRange(ATokens, ni, semi)); // 'Name = expr;' / 'Name: T = expr;'
-    if ADecl = '' then Exit;
+    if ADecl = '' then
+      Exit;
     ARec.Kind   := ikExplicitNoInit; // the rewrite drops the whole inline line
     ARec.NameIdx:= ni;
     ARec.AssignIdx:= -1;
@@ -4411,10 +4705,13 @@ var
   begin
     Result:= False;
     ni:= NextSig(AConst + 1);
-    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then Exit;
+    if (ni >= ATokens.Count) or (ATokens[ni].Kind <> ptIdentifier) then
+      Exit;
     semi:= FindStmtEnd(AConst + 1, dummy);
-    if semi < 0 then Exit;
-    if AlreadyFlagged(semi) then Exit;
+    if semi < 0 then
+      Exit;
+    if AlreadyFlagged(semi) then
+      Exit;
     origLine:= Trim(InlineRenderRange(ATokens, AConst, semi));
     ARec.Kind   := ikFallbackTodo;
     ARec.NameIdx:= ni;
@@ -4445,8 +4742,10 @@ begin
     //    token range for inline `var` statements.
     for G in Root.Children do
     begin
-      if (G.Kind <> gkBlock) or (G.OpenerKind <> ptBegin) then Continue;
-      if G.CloseIdx <= G.OpenIdx then Continue;
+      if (G.Kind <> gkBlock) or (G.OpenerKind <> ptBegin) then
+        Continue;
+      if G.CloseIdx <= G.OpenIdx then
+        Continue;
       RNames.Clear; // names are scoped per routine
       BlkAnon.Clear;
       BlkKind.Clear;
@@ -4482,7 +4781,8 @@ begin
           IsAnon:= PendingAnon and (Ki = ptBegin);
           BlkAnon.Add(IsAnon);
           BlkKind.Add(Ki    );
-          if IsAnon then Inc(AnonCount);
+          if IsAnon then
+            Inc(AnonCount);
           PendingAnon:= False;
           Inc(i); Continue;
         end; // if
@@ -4490,7 +4790,8 @@ begin
         begin
           if BlkAnon.Count > 0 then
           begin
-            if BlkAnon[BlkAnon.Count - 1] then Dec(AnonCount);
+            if BlkAnon[BlkAnon.Count - 1] then
+              Dec(AnonCount);
             BlkAnon.Delete(BlkAnon.Count - 1);
             BlkKind.Delete(BlkKind.Count - 1);
           end;
@@ -4553,7 +4854,8 @@ begin
       end; // while
     end; // for
 
-    if (Inlines.Count = 0) and (ForTodos.Count = 0) then Exit;
+    if (Inlines.Count = 0) and (ForTodos.Count = 0) then
+      Exit;
 
     // 2) Rebuild the token list in one forward pass.
     Outp:= TTokenList.Create;
@@ -4621,7 +4923,8 @@ begin
             end;
             ikFallbackTodo: // leave in place + TODO
             begin
-              for k:= i to Rec.SemiIdx do Outp.Add(ATokens[k]);
+              for k:= i to Rec.SemiIdx do
+                Outp.Add(ATokens[k]);
               Outp.Add(MakeTok(ptSlashesComment, Rec.Comment));
               i:= Rec.SemiIdx + 1;
             end;
@@ -4979,10 +5282,14 @@ var
     Done     : Boolean       ;
     procedure AddIfWord(Idx, Wlen: Integer; const W: string);
     begin
-      if (Idx + Wlen - 1 > Length(Line)) then Exit;
-      if not SameText(Copy(Line, Idx, Wlen), W) then Exit;
-      if (Idx > 1) and IsAlphaNum(Line[Idx - 1]) then Exit;
-      if (Idx + Wlen <= Length(Line)) and IsAlphaNum(Line[Idx + Wlen]) then Exit;
+      if (Idx + Wlen - 1 > Length(Line)) then
+        Exit;
+      if not SameText(Copy(Line, Idx, Wlen), W) then
+        Exit;
+      if (Idx > 1) and IsAlphaNum(Line[Idx - 1]) then
+        Exit;
+      if (Idx + Wlen <= Length(Line)) and IsAlphaNum(Line[Idx + Wlen]) then
+        Exit;
       Positions.Add(Idx);
     end;
   begin
@@ -5033,7 +5340,8 @@ var
     i: Integer;
   begin
     i:= 1;
-    while (i <= Length(Line)) and ((Line[i] = ' ') or (Line[i] = #9)) do Inc(i);
+    while (i <= Length(Line)) and ((Line[i] = ' ') or (Line[i] = #9)) do
+      Inc(i);
     Result:= Copy(Line, 1, i - 1);
   end;
 
@@ -5217,9 +5525,12 @@ begin
         // indent and its own continuation indent.
         Result:= JoinRoutineHeaders(Result, AOpts);
         EffMaxBlanks:= AOpts.MaxBlankLines;
-        if AOpts.BlanksBeforeSection > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeSection;
-        if AOpts.BlanksBeforeMethod  > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeMethod;
-        if AOpts.BlanksBeforeType    > EffMaxBlanks then EffMaxBlanks:= AOpts.BlanksBeforeType;
+        if AOpts.BlanksBeforeSection > EffMaxBlanks then
+          EffMaxBlanks:= AOpts.BlanksBeforeSection;
+        if AOpts.BlanksBeforeMethod > EffMaxBlanks then
+          EffMaxBlanks:= AOpts.BlanksBeforeMethod;
+        if AOpts.BlanksBeforeType > EffMaxBlanks then
+          EffMaxBlanks:= AOpts.BlanksBeforeType;
         Result:= CollapseBlankLines(Result, EffMaxBlanks);
 
         // Stage 4: column alignment (Pass 2). CollapseInteriorSpaces
@@ -5279,4 +5590,5 @@ begin
 end;
 
 end.
+
 

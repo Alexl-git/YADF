@@ -43,21 +43,21 @@ uses
 function KindName(K: TGroupKind): string;
 begin
   case K of
-    gkRoot    : Result:= 'ROOT'    ;
-    gkParens  : Result:= 'PARENS'  ;
+    gkRoot    : Result:= 'ROOT';
+    gkParens  : Result:= 'PARENS';
     gkBrackets: Result:= 'BRACKETS';
-    gkBlock   : Result:= 'BLOCK'   ;
-    gkUses    : Result:= 'USES'    ;
+    gkBlock   : Result:= 'BLOCK';
+    gkUses    : Result:= 'USES';
     else
       Result:= 'UNKNOWN';
   end;
-end;
+end; // function
 
 function PreviewSpan(const ATokens: TTokenList; AStart, AEnd: Integer): string;
 var
-  i  : Integer;
+  i  : Integer       ;
   Sb : TStringBuilder;
-  Lim: Integer;
+  Lim: Integer       ;
 begin
   Lim:= AEnd;
   if Lim - AStart > 6 then
@@ -76,14 +76,14 @@ end; // function
 
 procedure WalkGroup(const ATokens: TTokenList; G: TGroup; ADepth: Integer; ALines: TStringList);
 var
-  Indent  : string;
-  Line    : string;
+  Indent  : string ;
+  Line    : string ;
   StartTok: Integer;
-  EndTok: Integer;
-  Child: TGroup;
+  EndTok  : Integer;
+  Child   : TGroup ;
 begin
   Indent:= StringOfChar(' ', ADepth * 2);
-  StartTok:= G.OpenIdx ;
+  StartTok:= G.OpenIdx;
   EndTok  := G.CloseIdx;
   if G.Kind = gkRoot then
     Line:= Indent + Format('%s [tokens 0..%d]', [KindName(G.Kind), EndTok])
@@ -92,8 +92,9 @@ begin
   if G.ForceClosed then
     Line:= Line + '  <FORCE-CLOSED at EOF>';
   ALines.Add(Line);
-  for Child in G.Children do WalkGroup(ATokens, Child, ADepth + 1, ALines);
-end;
+  for Child in G.Children do
+    WalkGroup(ATokens, Child, ADepth + 1, ALines);
+end; // procedure
 
 function RenderGroupTree(const ATokens: TTokenList; ARoot: TGroup): string;
 var
@@ -110,3 +111,4 @@ begin
 end;
 
 end.
+

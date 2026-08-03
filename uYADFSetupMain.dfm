@@ -20,12 +20,11 @@ object frmMain: TfrmMain
     Height = 36
     Align = alTop
     BevelOuter = bvNone
-    Caption = ''
     TabOrder = 0
     object lblIniPath: TLabel
       Left = 318
       Top = 10
-      Width = 16
+      Width = 18
       Height = 15
       Caption = 'INI:'
     end

@@ -86,8 +86,8 @@ implementation
 
 uses
   System.SysUtils
-  , System      .Generics.Collections
-  , SimpleParser.Lexer   .Types
+  , System.Generics.Collections
+  , SimpleParser.Lexer.Types
   , YADF.Tokens
   ;
 
@@ -112,12 +112,13 @@ begin
   Sb:= TStringBuilder.Create;
   try
     for C in S do
-      if C > ' ' then Sb.Append(C);
+      if C > ' ' then
+        Sb.Append(C);
     Result:= LowerCase(Sb.ToString);
   finally
     Sb.Free;
   end;
-end;
+end; // function
 
 const
   DirectiveKinds = [
@@ -159,9 +160,11 @@ var
   i: Integer;
 begin
   Result:= A.Count = B.Count;
-  if not Result then Exit;
+  if not Result then
+    Exit;
   for i:= 0 to A.Count - 1 do
-    if A[i] <> B[i] then Exit(False);
+    if A[i] <> B[i] then
+      Exit(False);
 end;
 
 // True when every element of A appears in B, in A's order (two-pointer
@@ -176,11 +179,12 @@ begin
   ib:= 0;
   while (ia < A.Count) and (ib < B.Count) do
   begin
-    if A[ia] = B[ib] then Inc(ia);
-    Inc(ib);
+    if A[ia] = B[ib] then
+      Inc(ia);
+    Inc  (ib);
   end;
   Result:= ia = A.Count;
-end;
+end; // function
 
 // First element of A not matched in B by the ordered-subsequence walk
 // ('' when every element matched) -- the preview for the decline reason.
@@ -193,13 +197,15 @@ begin
   ib:= 0;
   while (ia < A.Count) and (ib < B.Count) do
   begin
-    if A[ia] = B[ib] then Inc(ia);
-    Inc(ib);
+    if A[ia] = B[ib] then
+      Inc(ia);
+    Inc  (ib);
   end;
   if ia < A.Count then
   begin
     Result:= A[ia];
-    if Length(Result) > 40 then Result:= Copy(Result, 1, 40) + '...';
+    if Length(Result) > 40 then
+      Result:= Copy(Result, 1, 40) + '...';
   end
   else
     Result:= '';
@@ -257,4 +263,5 @@ begin
 end;
 
 end.
+
 

@@ -3,9 +3,17 @@ unit uYADFSetupMain;
 interface
 
 uses
-  Winapi.Windows, System.SysUtils, System.Classes, System.UITypes,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
-  YADF.OptionsFrame;
+  Winapi.Windows
+  , System.SysUtils
+  , System.Classes
+  , System.UITypes
+  , Vcl.Controls
+  , Vcl.Forms
+  , Vcl.Dialogs
+  , Vcl.StdCtrls
+  , Vcl.ExtCtrls
+  , YADF.OptionsFrame
+  ;
 
 type
   /// <summary>YADFSetup main window: a thin shell around the shared
@@ -15,20 +23,20 @@ type
   /// Save As... / Reset buttons and the INI status label -- and runs the frame
   /// under SetupPersistPolicy (autosave on every change; no OK/Cancel).</summary>
   TfrmMain = class(TForm)
-    pnlTopBar: TPanel;
-    btnLoadSettings: TButton;
-    btnSaveSettings: TButton;
-    btnReset: TButton;
-    lblIniPath: TLabel;
-    dlgOpen: TOpenDialog;
-    dlgSaveIni: TSaveDialog;
-    procedure FormCreate(Sender: TObject);
+    pnlTopBar      : TPanel     ;
+    btnLoadSettings: TButton    ;
+    btnSaveSettings: TButton    ;
+    btnReset       : TButton    ;
+    lblIniPath     : TLabel     ;
+    dlgOpen        : TOpenDialog;
+    dlgSaveIni     : TSaveDialog;
+    procedure FormCreate          (Sender: TObject);
     procedure btnLoadSettingsClick(Sender: TObject);
     procedure btnSaveSettingsClick(Sender: TObject);
-    procedure btnResetClick(Sender: TObject);
-  private
-    FFrame: TYadfOptionsFrame;      // owned by the form; fills the client area
-    procedure HandleIniStatus(const AText: string);
+    procedure btnResetClick       (Sender: TObject);
+    private
+      FFrame: TYadfOptionsFrame; // owned by the form; fills the client area
+      procedure HandleIniStatus(const AText: string);
   end;
 
 var
@@ -45,40 +53,41 @@ implementation
 // fallback if the version resource is missing).
 function GetExeVersion: string;
 var
-  Sz, H : DWORD;
-  Buf   : TBytes;
-  Fixed : PVSFixedFileInfo;
-  Len   : UINT;
+  Sz   : DWORD           ;
+  H    : DWORD           ;
+  Buf  : TBytes          ;
+  Fixed: PVSFixedFileInfo;
+  Len  : UINT            ;
 begin
-  Result := '';
-  Sz := GetFileVersionInfoSize(PChar(Application.ExeName), H);
-  if Sz = 0 then Exit;
+  Result:= '';
+  Sz:= GetFileVersionInfoSize(PChar(Application.ExeName), H);
+  if Sz = 0 then
+    Exit;
   SetLength(Buf, Sz);
   if GetFileVersionInfo(PChar(Application.ExeName), 0, Sz, Pointer(Buf)) then
     if VerQueryValue(Pointer(Buf), '\', Pointer(Fixed), Len) and (Fixed <> nil) then
-      Result := Format('%d.%d.%d.%d',
-        [HiWord(Fixed.dwFileVersionMS), LoWord(Fixed.dwFileVersionMS),
-         HiWord(Fixed.dwFileVersionLS), LoWord(Fixed.dwFileVersionLS)]);
+      Result:= Format('%d.%d.%d.%d', [HiWord(Fixed.dwFileVersionMS), LoWord(Fixed.dwFileVersionMS), HiWord(Fixed.dwFileVersionLS), LoWord(Fixed.dwFileVersionLS)]);
 end;
 
 procedure TfrmMain.FormCreate(Sender: TObject);
 var
   Ver: string;
 begin
-  Ver := GetExeVersion;
-  if Ver = '' then Ver := YADF_VERSION;
-  Caption := 'YADFSetup ' + Ver + '  -  Profiles | Settings | Source | Result';
-  FFrame := TYadfOptionsFrame.Create(Self);
-  FFrame.Parent := Self;
-  FFrame.Align  := alClient;
-  FFrame.Policy := SetupPersistPolicy;   // autosave + F -> yadf.ini mirror
-  FFrame.OnIniStatus := HandleIniStatus;
+  Ver:= GetExeVersion;
+  if Ver = '' then
+    Ver:= YADF_VERSION;
+  Caption:= 'YADFSetup ' + Ver + '  -  Profiles | Settings | Source | Result';
+  FFrame:= TYadfOptionsFrame.Create(Self);
+  FFrame.Parent     := Self;
+  FFrame.Align      := alClient;
+  FFrame.Policy     := SetupPersistPolicy; // autosave + F -> yadf.ini mirror
+  FFrame.OnIniStatus:= HandleIniStatus;
   FFrame.Load;
-end;
+end; // procedure
 
 procedure TfrmMain.HandleIniStatus(const AText: string);
 begin
-  lblIniPath.Caption := AText;
+  lblIniPath.Caption:= AText;
 end;
 
 procedure TfrmMain.btnLoadSettingsClick(Sender: TObject);
@@ -95,9 +104,8 @@ end;
 
 procedure TfrmMain.btnResetClick(Sender: TObject);
 begin
-  if MessageDlg('Reset all settings to defaults? This overwrites ' +
-       ExtractFileName(FFrame.CurrentIniPath) + '.',
-       mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
+  if MessageDlg('Reset all settings to defaults? This overwrites ' + ExtractFileName(FFrame.CurrentIniPath) + '.', mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+    Exit;
   FFrame.ResetToDefaults;
 end;
 

@@ -75,4 +75,20 @@ MustNotMatch $o '(?m)^\s+begin\b'                'proc-fixture: begin not over-i
 MustMatch    $o '(?m)^  NamedA\s*:\s*Integer'    'proc-fixture: split var at routine var depth'
 MustMatch    $o '(?m)^end\.'                     'proc-fixture: unit end. at column 0'
 
+# --- unsafe_identifier: `unsafe` is a DIRECTIVE, not a reserved word. The vendored
+#     DelphiAST lexer returned it as a hard keyword (TokenID = ptUnsafe), so
+#     LowercaseKeywords rewrote a user identifier spelled `Unsafe` to `unsafe`.
+#     Peer directives (Virtual/Overload/Static) are ExIDs and were always safe --
+#     assert both halves so the lexer fix stays consistent. (DelphiAST PR #346.) ---
+#     NOTE: (?-i) forces case-SENSITIVE matching -- PowerShell's -match ignores
+#     case by default, which would make every casing assertion here vacuous.
+$o = Fmt 'unsafe_identifier.pas'
+MustMatch    $o '(?m-i)^\s*property Unsafe: Boolean read FUnsafe;' 'unsafe: property identifier keeps casing'
+MustMatch    $o '(?m-i)procedure DoIt\(const Unsafe: Boolean\)'    'unsafe: parameter keeps casing'
+MustMatch    $o '(?m-i)^\s*if Unsafe then'                         'unsafe: expression use keeps casing'
+MustNotMatch $o '(?m-i)^\s*property unsafe:'                       'unsafe: property not lowercased as a keyword'
+MustNotMatch $o '(?m-i)\(const unsafe:'                            'unsafe: parameter not lowercased as a keyword'
+MustNotMatch $o '(?m-i)^\s*if unsafe then'                         'unsafe: expression use not lowercased'
+MustMatch    $o '(?m-i)\bVirtual\b'                                'unsafe: peer directive Virtual still keeps casing'
+
 Finish 'format_regressions'

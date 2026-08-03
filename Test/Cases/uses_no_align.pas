@@ -1,0 +1,30 @@
+unit uses_no_align;
+
+{ Column alignment must never pad INSIDE a uses clause, in EITHER direction: a
+  qualified unit name is one identifier, not a column layout.
+
+  The interface clause below arrives CLEAN, so the shape aligner must not ADD
+  padding -- two comma-first entries share the [, . .] skeleton and differ in
+  middle-segment length (Generics vs Win), which is exactly what used to make it
+  fire.
+
+  The implementation clause arrives ALREADY PADDED. That is what YADF's own
+  1.0.13.1 self-format pass wrote into YADF.Guard.pas, so re-formatting must
+  TIGHTEN it back to tight dots -- merely collapsing the run to a single space
+  would leave `System .Generics.Defaults` behind forever. }
+
+interface
+
+uses
+  System.SysUtils, System.Generics.Collections, System.Win.Registry, System.Classes;
+
+implementation
+
+uses
+  System.Math
+  , System   .Generics.Defaults
+  , System.Win     .ComObj
+  , System.StrUtils
+  ;
+
+end.

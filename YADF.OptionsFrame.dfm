@@ -3,4 +3,5 @@ object YadfOptionsFrame: TYadfOptionsFrame
   Top = 0
   Width = 900
   Height = 520
+  TabOrder = 0
 end

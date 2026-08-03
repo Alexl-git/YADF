@@ -180,7 +180,8 @@ var
   Bytes  : TBytes;
   Written: DWORD ;
 begin
-  if S = '' then Exit;
+  if S = '' then
+    Exit;
   Bytes:= TEncoding.ANSI.GetBytes(S);
   WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), Bytes[0], Length(Bytes), Written, nil);
 end;
@@ -205,7 +206,8 @@ procedure LogMsg(const S: string);
 var
   Line: string;
 begin
-  if not GLogEnabled then Exit;
+  if not GLogEnabled then
+    Exit;
   Line:= FormatDateTime('hh:nn:ss.zzz ', Now) + S;
   OutputDebugString(PChar('[YADF] ' + Line));
   try
@@ -231,20 +233,25 @@ procedure LogStartup(const AArgs: TArray<string>; const AOpts: TYadfOptions; con
 
   function BoolStr(B: Boolean): string;
   begin
-    if B then Result:= 'true' else Result:= 'false';
+    if B then
+      Result:= 'true'
+    else
+      Result:= 'false';
   end;
 
 var
   i: Integer;
 begin
-  if not GLogEnabled then Exit;
+  if not GLogEnabled then
+    Exit;
   LogMsg('==== YADF startup ====');
   LogMsg('  CWD:       ' + GetCurrentDir);
   LogMsg('  Exe:       ' + ParamStr(0));
   LogMsg('  INI:       ' + AIniPath      );
   LogMsg('  RawCmd:    ' + GetCommandLine);
   LogMsg('  Args[' + IntToStr(Length(AArgs)) + ']:');
-  for i:= 0 to High(AArgs) do LogMsg('    [' + IntToStr(i) + '] ' + AArgs[i]);
+  for i:= 0 to High(AArgs) do
+    LogMsg('    [' + IntToStr(i) + '] ' + AArgs[i]);
   LogMsg('  Resolved options:');
   LogMsg('    ResultDir       = ' + AOpts.ResultDir);
   LogMsg('    Backup          = ' + BoolStr(AOpts.Backup));
@@ -314,7 +321,8 @@ procedure SaveFile(const AFileName, AContent: string; AEnc: TEncoding; AWithBOM:
     Ft: TFileTime;
   begin
     H:= CreateFileW(PWideChar(AFile), GENERIC_WRITE, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-    if H = INVALID_HANDLE_VALUE then Exit;
+    if H = INVALID_HANDLE_VALUE then
+      Exit;
     try
       GetSystemTimeAsFileTime(Ft);
       SetFileTime(H, nil, nil, @Ft);
@@ -374,7 +382,8 @@ var
   n: Integer;
 begin
   n:= Length(A);
-  if Length(B) < n then n:= Length(B);
+  if Length(B) < n then
+    n:= Length(B);
   for i:= 1 to n do if A[i] <> B[i] then
     Exit(i);
   if Length(A) <> Length(B) then
@@ -436,7 +445,8 @@ begin
   n:= 1;
   repeat
     Result:= TPath.Combine(Dir, Base + '.BCK' + IntToStr(n));
-    if not TFile.Exists(Result) then Exit;
+    if not TFile.Exists(Result) then
+      Exit;
     Inc(n);
   until False;
 end;
@@ -628,10 +638,12 @@ begin
     while P <= Length(Source) do
     begin
       P:= Pos(Marker, Source, P);
-      if P = 0 then Break;
+      if P = 0 then
+        Break;
       Inc(P, Length(Marker));
       Q:= Pos('"', Source, P);
-      if Q = 0 then Break;
+      if Q = 0 then
+        Break;
       AttrVal:= Copy(Source, P, Q - P);
       if SameText(ExtractFileExt(AttrVal), '.pas') then
       begin
@@ -656,7 +668,8 @@ begin
   if (Pos('*', ASpec) > 0) or (Pos('?', ASpec) > 0) then
   begin
     Dir:= ExtractFilePath(ASpec);
-    if Dir = '' then Dir:= GetCurrentDir;
+    if Dir = '' then
+      Dir:= GetCurrentDir;
     Pat:= ExtractFileName(ASpec);
     if not TDirectory.Exists(Dir) then
       raise Exception.Create('Directory not found: ' + Dir);
@@ -778,12 +791,18 @@ procedure ShowUsage(const AOpts: TYadfOptions);
 
   function OnOff(B: Boolean): string;
   begin
-    if B then Result:= 'on' else Result:= 'off';
+    if B then
+      Result:= 'on'
+    else
+      Result:= 'off';
   end;
 
   function Quoted(const S: string): string;
   begin
-    if S = '' then Result:= '(none)' else Result:= S;
+    if S = '' then
+      Result:= '(none)'
+    else
+      Result:= S;
   end;
 
 begin
@@ -922,7 +941,8 @@ end; // function
 // we just delegate so the CLI, the IDE wizard, and YADFSetup stay in lockstep.
 procedure LoadIniDefaults(var AOpts: TYadfOptions; const AIniPath: string);
 begin
-  if not FileExists(AIniPath) then Exit;
+  if not FileExists(AIniPath) then
+    Exit;
   AOpts:= LoadOptionsFromIni(AIniPath);
 end; // procedure
 
@@ -1299,7 +1319,8 @@ var
   StdoutMode: Boolean       ;
 begin
   SetLength(Args, ParamCount);
-  for i:= 1 to ParamCount do Args[i - 1]:= ParamStr(i);
+  for i:= 1 to ParamCount do
+    Args[i - 1]:= ParamStr(i);
 
   for i:= 0 to High(Args) do if IsHelpArg(Args[i]) then
   begin
@@ -1386,7 +1407,8 @@ begin
     for Spec in Args do
     begin
       Files:= ExpandFileSpec(Spec, Opts);
-      for F in Files do AllFiles.Add(F);
+      for F in Files do
+        AllFiles.Add(F);
     end;
 
     if AllFiles.Count = 0 then
@@ -1427,4 +1449,5 @@ begin
 end; // procedure
 
 end.
+
 

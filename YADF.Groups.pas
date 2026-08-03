@@ -116,7 +116,8 @@ var
   G: TGroup;
 begin
   G:= ACur;
-  while (G <> nil) and (G.Kind in [gkParens, gkBrackets]) do G:= G.Parent;
+  while (G <> nil) and (G.Kind in [gkParens, gkBrackets]) do
+    G:= G.Parent;
   Result:= (G <> nil) and (G.Kind = gkBlock) and (G.OpenerKind in [ptRecord, ptObject]);
 end;
 
@@ -146,10 +147,9 @@ begin
         Cur.CloseIdx:= i;
         Cur:= Cur.Parent;
       end;
-      ptBegin, ptRecord, ptTry, ptAsm: Cur:= TGroup.Create(gkBlock, i, K, Cur);
-      ptCase                         : if not IsVariantPartCase(Cur) then
-        Cur:= TGroup.Create(gkBlock, i, K, Cur);
-      ptObject:
+      ptBegin, ptRecord, ptTry, ptAsm: Cur:= TGroup.Create(gkBlock, i, K, Cur)                                   ;
+      ptCase                         : if not IsVariantPartCase(Cur) then Cur:= TGroup.Create(gkBlock, i, K, Cur);
+      ptObject                       :
       begin
         // `object` opens a block in `type T = object ... end`, but in `of object`
         // (method-pointer / event types) it is a modifier, not a block opener.
@@ -162,9 +162,8 @@ begin
         Cur.CloseIdx:= i;
         Cur:= Cur.Parent;
       end;
-      ptUses, ptContains, ptRequires: if Cur.Kind <> gkUses then
-        Cur:= TGroup.Create(gkUses, i, K, Cur);
-      ptSemiColon: if Cur.Kind = gkUses then
+      ptUses, ptContains, ptRequires: if Cur.Kind <> gkUses then Cur:= TGroup.Create(gkUses, i, K, Cur);
+      ptSemiColon                   : if Cur.Kind = gkUses then
       begin
         Cur.CloseIdx:= i;
         Cur:= Cur.Parent;
@@ -182,4 +181,5 @@ begin
 end; // function
 
 end.
+
 

@@ -181,9 +181,13 @@ begin
         begin
           // Compiler directive. Read the directive word.
           WordEnd:= i + 2;
-          while (WordEnd <= n) and IsAsciiAlpha(ASource[WordEnd]) do Inc(WordEnd);
+          while (WordEnd <= n) and IsAsciiAlpha(ASource[WordEnd]) do
+            Inc(WordEnd);
           Wrd:= Copy(ASource, i + 2, WordEnd - (i + 2));
-          if WordEnd <= n then NextCh:= ASource[WordEnd] else NextCh:= '}';
+          if WordEnd <= n then
+            NextCh:= ASource[WordEnd]
+          else
+            NextCh:= '}';
           // Include form: `{$INCLUDE ...}` always; `{$I ...}` only when
           // the char after the word is NOT `+`/`-`/`}` (those are the
           // IOCHECKS toggle, not an include).
@@ -229,13 +233,17 @@ var
   WE : Integer;
 begin
   Result:= False;
-  if (Length(AToken.Text) < 4) or (AToken.Text[1] <> '{') or (AToken.Text[2] <> '$') then Exit;
+  if (Length(AToken.Text) < 4) or (AToken.Text[1] <> '{') or (AToken.Text[2] <> '$') then
+    Exit;
   WE:= 3;
-  while (WE <= Length(AToken.Text)) and IsAsciiAlpha(AToken.Text[WE]) do Inc(WE);
+  while (WE <= Length(AToken.Text)) and IsAsciiAlpha(AToken.Text[WE]) do
+    Inc(WE);
   Wrd:= Copy(AToken.Text, 3, WE - 3);
-  if not SameText(Copy(Wrd, Length(Wrd) - Length(IncSentinel) + 1, Length(IncSentinel)), IncSentinel) then Exit;
+  if not SameText(Copy(Wrd, Length(Wrd) - Length(IncSentinel) + 1, Length(IncSentinel)), IncSentinel) then
+    Exit;
   P:= Length(Wrd) - Length(IncSentinel);
-  if not (SameText(Copy(Wrd, 1, P), 'I') or SameText(Copy(Wrd, 1, P), 'INCLUDE')) then Exit;
+  if not (SameText(Copy(Wrd, 1, P), 'I') or SameText(Copy(Wrd, 1, P), 'INCLUDE')) then
+    Exit;
   AToken.Text:= '{$' + Copy(Wrd, 1, P) + Copy(AToken.Text, WE, MaxInt);
   AToken.Kind:= ptIncludeDirect;
   Result:= True;
@@ -320,4 +328,5 @@ begin
 end; // function
 
 end.
+
 
