@@ -439,6 +439,24 @@ project files expect DelphiAST checked out at `..\DelphiAST` relative to YADF.
 >      until False;
 > ```
 
+> **Note — second local fixup: `unsafe` is a directive, not a keyword.** Our
+> working copy also carries the one-word fix from
+> [DelphiAST PR #346](https://github.com/RomanYankovsky/DelphiAST/pull/346).
+> Upstream's `Func66` returns `ptUnsafe` as the token *kind*, so the lexer
+> reports a plain identifier spelled `Unsafe` as a reserved word and YADF's
+> `LowercaseKeywords` pass rewrites it to `unsafe`. Peer directives (`Virtual`,
+> `Overload`, `Static`) are ExIDs and were never affected. Until the PR is
+> merged, apply the same change after cloning — in
+> `Source\SimpleParser\SimpleParser.Lexer.pas`, `Func66`:
+>
+> ```diff
+> -      if KeyComp('Unsafe') then Result := ptUnsafe;
+> +      if KeyComp('Unsafe') then FExID := ptUnsafe;
+> ```
+>
+> Without it, YADF still formats correctly in every other respect; only the
+> casing of an identifier named `Unsafe` differs.
+
 Build the CLI:
 
 ```cmd
