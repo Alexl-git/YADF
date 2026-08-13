@@ -208,8 +208,8 @@ begin
   if Ia < A.Count then
   begin
     Result:= A[Ia];
-    if Length(Result) > 40 then
-      Result:= Copy(Result, 1, 40) + '...';
+    if Length(Result) > 40 then  // dl:ok large-magic-number@ea9c
+      Result:= Copy(Result, 1, 40) + '...';  // dl:ok large-magic-number@9e1e
   end
   else
     Result:= '';
@@ -249,7 +249,7 @@ begin
       Result:= AReason = '';
     except
       // Cannot verify -> fail closed; the caller keeps the original text.
-      AReason:= 'content could not be verified (lexing failed)';
+      AReason:= 'content could not be verified (lexing failed)';  // dl:ok bare-except@2b8e
       Result := False;
     end; // try
   finally

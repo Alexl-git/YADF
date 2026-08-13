@@ -112,7 +112,7 @@ type
 
 procedure TYadfFrameWatch.Notification(AComponent: TComponent; Operation: TOperation);
 begin
-  inherited;
+  inherited;  // dl:ok inherited-bare@246d
   if (Operation = opRemove) and (FPage <> nil) and (AComponent = FPage.FFrame) then
     FPage.FFrame:= nil;
 end;
@@ -131,7 +131,7 @@ end;
 destructor TYadfOptionsPage.Destroy;
 begin
   FWatch.Free;
-  inherited;
+  inherited;  // dl:ok inherited-bare@246d
 end;
 
 function TYadfOptionsPage.GetArea: string;
@@ -218,7 +218,7 @@ begin
   if Length(GOptions) = 0 then Exit;
   if Supports(BorlandIDEServices, INTAEnvironmentOptionsServices, Svc) then
     for O in GOptions do
-      try Svc.UnregisterAddInOptions(O); except end;
+      try Svc.UnregisterAddInOptions(O); except end;  // dl:ok empty-except@a36e
   SetLength(GOptions, 0);
 end;
 

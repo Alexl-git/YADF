@@ -70,7 +70,7 @@ type
     /// <summary>Clears all state; call once before scanning a document.</summary>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas) (+5 more)
+    /// Called from: YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas) (+10 more)
     /// Writes: InBrace, InParenStar, InString, Depth, ClampDepth
     /// <seealso cref="YADF.LineScan.TLineScanState.BeginLine"/>
     /// <seealso cref="YADF.LineScan.TLineScanState.InBlockComment"/>

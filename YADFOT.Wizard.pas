@@ -450,7 +450,7 @@ end;
 // escaping it (options I/O, OTA buffer write, module save/refresh -- not
 // just the formatter itself) would unwind through the IDE's own stack and
 // can destabilise it. Everything surfaces as a dialog instead.
-procedure DoFormatCurrentBuffer(AProfileR: Boolean = False);
+procedure DoFormatCurrentBuffer(AProfileR: Boolean = False);  // dl:ok too-many-exit-points@dade
 var
   Editor   : IOTASourceEditor;
   Buffer   : IOTAEditBuffer;
@@ -567,21 +567,21 @@ begin
   // dropped -- the primary hook that strips the options page so no IDE list
   // keeps a dangling interface into our vanishing vtable. Idempotent; safe
   // alongside the YADFOT.Options finalization (which runs later in shutdown).
-  try UnregisterYADFOptions;  except end;
+  try UnregisterYADFOptions;  except end;  // dl:ok empty-except@1500
   // Strip the About-box entry + free the retained icon here too (primary hook,
   // before the code segment is dropped); the finalization below is a backstop.
-  try UnregisterYadfotAbout;  except end;
+  try UnregisterYadfotAbout;  except end;  // dl:ok empty-except@0e7a
 end;
 
 // --- IOTAKeyboardBinding (Ctrl+Shift+Alt+F) ----------------------------
 
-procedure TYadfotKeyboardBinding.FormatBufferAction(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
+procedure TYadfotKeyboardBinding.FormatBufferAction(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);  // dl:ok unused-parameter@ff73
 begin
   DoFormatCurrentBuffer(False);
   BindingResult:= krHandled;
 end;
 
-procedure TYadfotKeyboardBinding.FormatBufferActionR(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
+procedure TYadfotKeyboardBinding.FormatBufferActionR(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);  // dl:ok unused-parameter@42f2
 begin
   DoFormatCurrentBuffer(True);
   BindingResult:= krHandled;
@@ -665,10 +665,10 @@ begin
     if Supports(BorlandIDEServices, IOTAAboutBoxServices, ABS) and Assigned(GIconBmp) then
       GAboutIndex:= ABS.AddPluginInfo(
         SplashCaption, AboutDescription, GIconBmp.Handle, False, AboutLicense, YADF_VERSION);
-  except
+  except  // dl:ok empty-except@b112
   end;
   // Eager-load so Register runs at startup (needed for the splash to paint).
-  try ForceDemandLoadState(dlDisable); except end;
+  try ForceDemandLoadState(dlDisable); except end;  // dl:ok empty-except@2c6e
 end;
 
 // Hand back the About-box entry and free the retained bitmap. Idempotent: the
@@ -679,7 +679,7 @@ var
   ABS: IOTAAboutBoxServices;
 begin
   if Supports(BorlandIDEServices, IOTAAboutBoxServices, ABS) and (GAboutIndex >= 0) then
-    try ABS.RemovePluginInfo(GAboutIndex); except end;
+    try ABS.RemovePluginInfo(GAboutIndex); except end;  // dl:ok empty-except@e006
   GAboutIndex:= -1;
   FreeAndNil(GIconBmp);
 end;
@@ -706,10 +706,10 @@ begin
     GKeyboardBindingIndex:= KS.AddKeyboardBinding(TYadfotKeyboardBinding.Create);
   // Add the Tools > Options > Third Party > YADF page. Tolerate failure so a
   // missing options service never aborts the whole registration.
-  try RegisterYADFOptions; except end;
+  try RegisterYADFOptions; except end;  // dl:ok empty-except@1c6a
   // Add the IDE splash bitmap + the static About-box entry. Guarded so a
   // missing splash/about service never aborts the whole registration.
-  try RegisterYadfotAbout; except end;
+  try RegisterYadfotAbout; except end;  // dl:ok empty-except@0bdf
 end;
 
 // Hand back the wizard slot and keyboard binding. Called from finalization;
@@ -738,9 +738,9 @@ initialization
 // is essential -- if the slot is left dangling, the next package load
 // can leave duplicate menu items behind.
 finalization
-  try UnregisterYadfotWizard; except end;
+  try UnregisterYadfotWizard; except end;  // dl:ok empty-except@87b7
   // Backstop for the About-box entry + retained icon (primary hook is the
   // wizard's Destroyed above). Idempotent via the GAboutIndex >= 0 guard.
-  try UnregisterYadfotAbout; except end;
+  try UnregisterYadfotAbout; except end;  // dl:ok empty-except@0e7a
 
 end.

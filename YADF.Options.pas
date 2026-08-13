@@ -34,8 +34,8 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)
-  /// Used in units: YADF.Layout, YADF.Options, YadfMain
+  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas) (+2 more)
+  /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfOptions = record
@@ -156,7 +156,7 @@ function OptionTable: TArray<TOptInfo>;
 /// <returns>Observed: encUTF8BOM; encUTF16BOM; encANSI; ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.OptionTable (YADF.Options.pas), YadfMain.ParseFlags (YadfMain.pas)
+/// Called from: YADF.Options.OptionTable (YADF.Options.pas)
 /// Calls: Trim, UpperCase
 /// Returns: encUTF8BOM; encUTF16BOM; encANSI; ADefault
 /// Complexity: 11 (cyclomatic, outer body), 13 lines (full implementation)
@@ -182,7 +182,6 @@ function EncodingToStr(const E: TYadfEncoding): string;
 /// <returns>Observed: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.LoadFile (YadfMain.pas)
 /// Returns: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI
 /// Pure
 /// <!-- drag-lint:auto END -->
@@ -206,7 +205,6 @@ function EncodingOf(const E: TYadfEncoding): TEncoding;
 /// <param name="APreambleLen"><!-- drag-lint:auto type -->out Integer</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.LoadFile (YadfMain.pas)
 /// Calls: YADF.Options.LooksLikeUtf8
 /// Complexity: 12 (cyclomatic, outer body), 25 lines (full implementation)
 /// Mutates: AEnc (out), APreambleLen (out)
@@ -270,7 +268,7 @@ function ReadIntIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: In
 /// <returns>Observed: AInfo.Hint + ' Default: ' + D.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.OptionsHelpText (YADF.Options.pas), YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)
+/// Called from: YADF.Options.OptionsHelpText (YADF.Options.pas), YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas), YADF.OptionsFrame.TYadfOptionsFrame.BuildControls (YADF.OptionsFrame.pas)
 /// Calls: YADF.Options.DefaultValueStr
 /// Returns: AInfo.Hint + ' Default: ' + D
 /// Pure
@@ -313,7 +311,7 @@ function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 /// <returns>Observed: DefaultOptions.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.LoadIniDefaults (YadfMain.pas)
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
 /// Calls: FileExists, VarToStr, YADF.Options.ReadBoolIni, YADF.Options.ReadIntIni
 /// Returns: DefaultOptions
 /// Pure
@@ -330,6 +328,7 @@ function LoadOptionsFromIni(const APath: string): TYadfOptions;
 /// <param name="APath"><!-- drag-lint:auto type -->const string</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
 /// Calls: IfThen, VarToStr, YADF.Options.EnsureIniExists
 /// Pure
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
@@ -391,7 +390,7 @@ procedure WriteDefaultIniTemplate(const APath: string);
 /// <returns>Observed: False; True.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.SaveOptionsToIni (YADF.Options.pas), YadfMain.DefaultIniPath (YadfMain.pas), YadfMain.RunYadf (YadfMain.pas)
+/// Called from: YADF.Options.SaveOptionsToIni (YADF.Options.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas)
 /// Calls: FileExists, YADF.Options.WriteDefaultIniTemplate
 /// Returns: False; True
 /// Pure
@@ -408,8 +407,8 @@ function EnsureIniExists(const APath: string): Boolean;
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Options.pas), YadfMain.DefaultIniPath (YadfMain.pas)
-  /// Used in units: YADF.Options, YadfMain
+  /// Used by: declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas)
+  /// Used in units: YADF.Options, YADF.OptionsFrame, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfProfiles = record
@@ -460,7 +459,7 @@ function LoadProfiles: TYadfProfiles;
 /// <param name="AProfiles"><!-- drag-lint:auto type -->const TYadfProfiles</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected (YADF.OptionsFrame.pas)
 /// Calls: DirectoryExists, ForceDirectories
 /// Pure
 /// <!-- drag-lint:auto END -->
@@ -476,7 +475,7 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 /// <returns>Observed: AFileName; TPath.Combine(ProfilesDir, AFileName).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas) (+1 more)
 /// Calls: Trim
 /// Returns: AFileName; TPath.Combine(ProfilesDir, AFileName)
 /// Touches: file system
@@ -514,7 +513,7 @@ begin
   Result.AlignConstEquals    := True;
   Result.AlignTypeColon      := True;
   Result.AlignSmartAssign    := True;
-  Result.AlignMaxColumn      := 140;
+  Result.AlignMaxColumn      := 140;  // dl:ok large-magic-number@ee61
   Result.AlignMatchingShapes := True;
   Result.AlignShapeMinAnchors:= 3;
   Result.AlignCommentMaxShift:= 7;
@@ -575,7 +574,7 @@ end;
 var
   GOptTable: TArray<TOptInfo>;
 
-function MakeOpt(
+function MakeOpt(  // dl:ok too-many-parameters@6318
   const AIdent, AGroup, ACaption, AHint: string; AKind: TOptKind; AAffects: Boolean; const AGet: TOptGetter; const ASet: TOptSetter; const AEnumValues: TArray<string> = nil
 ): TOptInfo;
 begin
@@ -641,7 +640,7 @@ begin
     Result:= ADefault;
 end;
 
-function LooksLikeUtf8(const ABytes: TBytes): Boolean;
+function LooksLikeUtf8(const ABytes: TBytes): Boolean;  // dl:ok too-many-exit-points@d4eb
 var
   i       : Integer ;
   n       : Integer ;
@@ -718,7 +717,7 @@ begin
       function(const O: TYadfOptions): Variant begin Result:= O.AssignNoSpaceBefore end, procedure(var O: TYadfOptions; const V: Variant) begin O.AssignNoSpaceBefore:= V end),
     MakeOpt('AssignSpaceAfter', 'Assignment & alignment', 'Space after :=', 'Single space AFTER := ("X:= 1" not "X:=1").', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.AssignSpaceAfter end, procedure(var O: TYadfOptions; const V: Variant) begin O.AssignSpaceAfter:= V end),
-    MakeOpt('AlignConstEquals', 'Assignment & alignment', 'Align const =', 'Vertical-align = in const blocks.', okBool, True,
+    MakeOpt('AlignConstEquals', 'Assignment & alignment', 'Align const =', 'Vertical-align = in const blocks.', okBool, True,  // dl:ok duplicate-code@6078
       function(const O: TYadfOptions): Variant begin Result:= O.AlignConstEquals end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignConstEquals:= V end),
     MakeOpt('AlignTypeColon', 'Assignment & alignment', 'Align type :', 'Vertical-align : in type / var / parameter blocks.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.AlignTypeColon end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignTypeColon:= V end),
@@ -729,19 +728,19 @@ begin
       function(const O: TYadfOptions): Variant begin Result:= O.AlignMaxColumn end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignMaxColumn:= V end),
     MakeOpt('AlignMatchingShapes', 'Assignment & alignment', 'Align matching shapes', 'Align matching "shapes" (record-init lines, repeated field declarations).', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.AlignMatchingShapes end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignMatchingShapes:= V end),
-    MakeOpt('AlignShapeMinAnchors', 'Assignment & alignment', 'Shape min anchors', 'Minimum anchors required before shape-alignment kicks in.', okInt, True,
+    MakeOpt('AlignShapeMinAnchors', 'Assignment & alignment', 'Shape min anchors', 'Minimum anchors required before shape-alignment kicks in.', okInt, True,  // dl:ok duplicate-code@e615
       function(const O: TYadfOptions): Variant begin Result:= O.AlignShapeMinAnchors end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignShapeMinAnchors:= V end),
     MakeOpt('AlignCommentMaxShift', 'Assignment & alignment', 'Comment max shift', 'Maximum columns a trailing comment may shift when aligning to a shape.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.AlignCommentMaxShift end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignCommentMaxShift:= V end),
     MakeOpt('SpaceAroundOperators', 'Spacing', 'Space around operators', 'Put one space around binary operators (A+B -> A + B): + - * / = <= >= <>. '
-      + 'Unary +/- and generic brackets (<, >) are left intact.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.SpaceAroundOperators end, procedure(var O: TYadfOptions; const V: Variant) begin O.SpaceAroundOperators:= V end),
+      + 'Unary +/- and generic brackets (<, >) are left intact.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.SpaceAroundOperators end, procedure(var O: TYadfOptions; const V: Variant) begin O.SpaceAroundOperators:= V end),  // dl:ok duplicate-code@b669
     MakeOpt('UsesAlwaysBreak', 'Uses clauses', 'Break uses one-per-line', 'Always break uses clauses one unit per line.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.UsesAlwaysBreak end, procedure(var O: TYadfOptions; const V: Variant) begin O.UsesAlwaysBreak:= V end),
     MakeOpt('UsesCommaLast', 'Uses clauses', 'Comma-last uses layout', 'Style of the broken (multi-line) uses clause. False (default) is comma-FIRST '
       + '(leading comma, semicolon on its own line) -- the diff-friendly layout. True is ' + 'comma-LAST (trailing comma per unit, semicolon on the last unit''s line: '
       + '"System.Classes;"). Only affects the multi-line form; the inline single-line '
       + 'form is unchanged.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.UsesCommaLast end, procedure(var O: TYadfOptions; const V: Variant) begin O.UsesCommaLast:= V end),
-    MakeOpt('SplitMultiVarDecls', 'Declarations', 'Split multi-var decls', 'Split "I, J: integer;" into one line per name so the type colons align.', okBool, True,
+    MakeOpt('SplitMultiVarDecls', 'Declarations', 'Split multi-var decls', 'Split "I, J: integer;" into one line per name so the type colons align.', okBool, True,  // dl:ok duplicate-code@5bae
       function(const O: TYadfOptions): Variant begin Result:= O.SplitMultiVarDecls end, procedure(var O: TYadfOptions; const V: Variant) begin O.SplitMultiVarDecls:= V end),
     MakeOpt('AlignDeclSemicolons', 'Declarations', 'Align decl semicolons', 'After AlignTypeColon, align the trailing ; on consecutive declaration lines.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.AlignDeclSemicolons end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignDeclSemicolons:= V end),
@@ -750,7 +749,7 @@ begin
       + 'SplitMultiVarDecls).', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakCaseLabels end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakCaseLabels:= V end),
     MakeOpt('IndentComments', 'Comments', 'Indent comments', 'Re-indent comment-only lines to the surrounding code depth. When off, every '
       + 'comment keeps the indentation the author gave it. A comment line that starts ' + 'with "//." always keeps its authored indentation even when this is on (an '
-      + 'explicit "pin this comment" marker).', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.IndentComments end, procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments:= V end),
+      + 'explicit "pin this comment" marker).', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.IndentComments end, procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments:= V end),  // dl:ok duplicate-code@f6a5
     MakeOpt('PackShortBodies', 'Reflow & whitespace', 'Pack short bodies & case arms', 'When reflowing, pull a SHORT body onto one line: a loop/if header keeps its '
       + 'simple statement ("for I := 0 to N do Inc(X);", "if X then DoIt;") and a case ' + 'arm collapses onto its label ("0: DoZero;"). Off by default -- every body/arm '
       + 'stays on its own line. A nested control header (if/case/begin...) is never '
@@ -758,10 +757,10 @@ begin
     MakeOpt('CollapseShortBlocks', 'Reflow & whitespace', 'Collapse short begin..end blocks', 'Fold a short control-statement begin..end body onto one line when it fits '
       + 'MaxLen: an if/for/while/with/else header whose block holds only simple ' + 'one-statement-per-line code becomes "if X then begin A := 1; B := 2; end;". '
       + 'Only pure simple-statement bodies fold -- a nested block, a multi-line ' + 'statement, or any comment leaves the block expanded; routine bodies are '
-      + 'never folded. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CollapseShortBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks:= V end),
+      + 'never folded. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CollapseShortBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks:= V end),  // dl:ok duplicate-code@884e
     MakeOpt('BreakLoopBody', 'Reflow & whitespace', 'Break loop body onto its own line', 'Force the body of a single-line for/while loop onto its own indented line '
       + '("while X do Dec(k);" -> "while X do" + newline + "  Dec(k);"). A begin block, '
-      + 'a nested control header, or a body with a trailing comment is left alone. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
+      + 'a nested control header, or a body with a trailing comment is left alone. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),  // dl:ok duplicate-code@ad20
     MakeOpt('BreakWithBody', 'Reflow & whitespace', 'Break with body onto its own line', 'Force the body of a single-line with..do statement onto its own indented line. '
       + 'Same guard rails as BreakLoopBody (begin/nested-header/comment bodies left alone). Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),
     MakeOpt('BreakIfBody', 'Reflow & whitespace', 'Break if/then/else body onto its own line', 'Force the then/else body of a single-line if statement onto its own indented line '
@@ -771,7 +770,7 @@ begin
       'Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest get a // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.Delphi10Compat end, procedure(var O: TYadfOptions; const V: Variant) begin O.Delphi10Compat:= V end),
     MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label long blocks', 'Insert "// end of <Name>" markers after long blocks.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.LabelLongBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelLongBlocks:= V end),
-    MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines', 'Minimum lines a block must span before LabelLongBlocks adds the marker.', okInt, True,
+    MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines', 'Minimum lines a block must span before LabelLongBlocks adds the marker.', okInt, True,  // dl:ok duplicate-code@2f84
       function(const O: TYadfOptions): Variant begin Result:= O.LabelMinLines end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelMinLines:= V end),
     MakeOpt('MarkUnclosed', 'Labels & markers', 'Mark unclosed blocks', 'Add a "// UNCLOSED" marker when an opening keyword has no matching close.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.MarkUnclosed end, procedure(var O: TYadfOptions; const V: Variant) begin O.MarkUnclosed:= V end),
@@ -863,7 +862,7 @@ var
   BVal: Boolean     ;
 begin
   D:= DefaultOptions;
-  case AInfo.Kind of
+  case AInfo.Kind of  // dl:ok case-with-too-few-branches@6f14
     okBool:
     begin
       BVal:= AInfo.GetVal(D);
@@ -961,7 +960,7 @@ begin
     // Best-effort: a read-only location is non-fatal -- the run still
     // proceeds with the compiled defaults. Callers can detect by checking
     // FileExists(APath) post-call.
-    Result:= False;
+    Result:= False;  // dl:ok bare-except@d0de
   end;
 end; // function
 

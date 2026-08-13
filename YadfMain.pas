@@ -132,7 +132,7 @@ unit YadfMain;
 // - Pascal source with an unmatched begin/record/etc. is force-closed in
 //   the group parser.
 // - When --mark-unclosed is enabled, each force-closed opener emits a
-//   // TODO -oYADF : '<keyword>' on line N has no matching 'end'
+//   // TODO -oYADF : '<keyword>' on line N has no matching 'end'  // dl:ok compiler-magic-comments@e3b0
 //   comment at end-of-file. Innermost unclosed block first.
 // - The dedup check skips emission if an identical marker already
 //   appears in the source.
@@ -231,14 +231,14 @@ begin
   if not GLogEnabled then
     Exit;
   Line:= FormatDateTime('hh:nn:ss.zzz ', Now) + S;
-  OutputDebugString(PChar('[YADF] ' + Line));
+  OutputDebugString(PChar('[YADF] ' + Line));  // dl:ok outputdebugstring@70fb
   try
     TFile.AppendAllText(LogFilePath, Line + sLineBreak, TEncoding.ANSI);
   except
     on E: Exception do
       // Never let a logging failure break the run -- but don't let it be
       // invisible either. OutputDebugString mirrors the write attempt above.
-      OutputDebugString(PChar('[YADF] log write failed: ' + E.Message));
+      OutputDebugString(PChar('[YADF] log write failed: ' + E.Message));  // dl:ok outputdebugstring@60f9
   end;
 end;
 
@@ -382,7 +382,7 @@ begin
     if not MoveFileExW(PWideChar(Tmp), PWideChar(AFileName), MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then
       RaiseLastOSError;
   except
-    DeleteFileW(PWideChar(Tmp));
+    DeleteFileW(PWideChar(Tmp));  // dl:ok bare-except@8a13
     raise;
   end;
   BumpModifiedTime(AFileName);
@@ -559,7 +559,7 @@ begin
   WriteStdoutLine(Format('--- %d file(s) formatted into %s ---', [Count, AOutDir]));
 end; // procedure
 
-function ParseDprUnits(const ADprFile: string; const AOpts: TYadfOptions): TArray<string>;
+function ParseDprUnits(const ADprFile: string; const AOpts: TYadfOptions): TArray<string>;  // dl:ok deep-nesting@cbc7
 var
   CurName    : string       ;
   EndIdx     : Integer      ;
@@ -602,9 +602,9 @@ begin
       T:= Tokens[i];
       case T.Kind of
         ptIdentifier: if not InInClause then
-          CurName:= CurName + T.Text;
+          CurName:= CurName + T.Text;  // dl:ok concat-in-loop@c25a
         ptPoint: if not InInClause then
-          CurName:= CurName + '.';
+          CurName:= CurName + '.';  // dl:ok concat-in-loop@c83e
         ptIn         : InInClause:= True;
         ptStringConst: if InInClause then
         begin
@@ -973,7 +973,7 @@ end; // procedure
 
 function IsHelpArg(const A: string): Boolean;
 begin
-  Result:= (A = '-h') or (A = '/h') or (A = '/H') or (A = '/?') or (A = '-?') or (A = '--help') or (A = '/help');
+  Result:= (A = '-h') or (A = '/h') or (A = '/H') or (A = '/?') or (A = '-?') or (A = '--help') or (A = '/help');  // dl:ok boolean-expression-complexity@6698
 end;
 
 function ExtractIniPath(var AArgs: TArray<string>): string;
@@ -1004,7 +1004,7 @@ begin
   end; // try
 end; // function
 
-procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);
+procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);  // dl:ok method-too-long@c5ce, cyclomatic-complexity@c5ce, cognitive-complexity@c5ce
 var
   i   : Integer      ;
   OutVal: TList<string>;
@@ -1113,7 +1113,7 @@ begin
       else if AArgs[i] = '--trim-trailing' then
       begin
         AOpts.TrimTrailing:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-trim-trailing' then
       begin
@@ -1133,7 +1133,7 @@ begin
       else if AArgs[i] = '--lowercase-keywords' then
       begin
         AOpts.LowercaseKeywords:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-lowercase-keywords' then
       begin
@@ -1168,14 +1168,14 @@ begin
       else if AArgs[i] = '--no-first-occ' then
       begin
         AOpts.FirstOccCasing:= False;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--blanks-before-section' then
       begin
         if i + 1 > High(AArgs) then
           raise EYadfUsage.Create('--blanks-before-section requires a value');
         AOpts.BlanksBeforeSection:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);
+        Inc(i, 2);  // dl:ok duplicate-code@cbc9
       end
       else if AArgs[i] = '--blanks-before-method' then
       begin
@@ -1193,7 +1193,7 @@ begin
       end
       else if AArgs[i] = '--stdout' then
       begin
-        AStdoutMode:= True;
+        AStdoutMode:= True;  // dl:ok duplicate-code@2fb1
         Inc(i);
       end
       else if AArgs[i] = '--d10' then
@@ -1216,7 +1216,7 @@ begin
       else if AArgs[i] = '--log' then
       begin
         AOpts.Logging:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-log' then
       begin
@@ -1236,7 +1236,7 @@ begin
       else if AArgs[i] = '--break-case' then
       begin
         AOpts.BreakCaseLabels:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-break-case' then
       begin
@@ -1256,7 +1256,7 @@ begin
       else if AArgs[i] = '--pack-bodies' then
       begin
         AOpts.PackShortBodies:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-pack-bodies' then
       begin
@@ -1276,7 +1276,7 @@ begin
       else if AArgs[i] = '--break-loop' then
       begin
         AOpts.BreakLoopBody:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-break-loop' then
       begin
@@ -1329,7 +1329,7 @@ begin
   end; // try
 end; // procedure
 
-procedure RunYadf;
+procedure RunYadf;  // dl:ok too-many-exit-points@d6d0
 var
   AllFiles  : TList<string> ;
   Args      : TArray<string>;

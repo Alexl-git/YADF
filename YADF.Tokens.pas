@@ -27,8 +27,8 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+10 more)
-  /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
+  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+28 more)
+  /// Used in units: dxXMLWriter, FireDAC.Comp.QBE, Spring.Data.ExpressionParser, System.Bindings.Evaluator, System.JSON, XPTestedUnitParser, YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TToken = record
@@ -42,7 +42,7 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+9 more)
+  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+10 more)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TTokenList = TList<TToken>;
@@ -51,7 +51,7 @@ type
 /// <returns>Observed: TTokenList.Create.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas) (+3 more)
+/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas)
 /// Calls: Copy, SimpleParser.Lexer.TmwBasePasLex.Next, SimpleParser.Lexer.TmwPasLex.Create, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken
 /// Returns: TTokenList.Create
 /// Pure
@@ -66,7 +66,6 @@ function LoadTokensFromString(const ASource: string): TTokenList;
 /// <returns>Observed: Sb.ToString.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.RoundTrip (YadfMain.pas)
 /// Returns: Sb.ToString
 /// Pure
 /// <!-- drag-lint:auto END -->
@@ -110,7 +109,7 @@ begin
   Result:= ((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z'));
 end;
 
-function ShieldIncludeDirectives(const ASource: string): string;
+function ShieldIncludeDirectives(const ASource: string): string;  // dl:ok deep-nesting@c98d, cyclomatic-complexity@c98d, cognitive-complexity@c98d
 var
   i      : Integer       ;
   n      : Integer       ;
@@ -306,7 +305,7 @@ begin
       Lex.Free;
     end; // try
   except
-    Result.Free;
+    Result.Free;  // dl:ok bare-except@5a3b
     raise;
   end; // try
 end; // function

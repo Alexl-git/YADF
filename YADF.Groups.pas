@@ -25,15 +25,15 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Groups.pas), YADF.Groups.TGroup.Create (YADF.Groups.pas)
+  /// Used by: declaration (YADF.Groups.pas), YADF.Groups.TGroup.Create (YADF.Groups.pas), declaration (dxRibbon.pas), dxRibbon.TdxRibbonMinimizeButtonPopupMenuController.AddGroup (dxRibbon.pas), dxRibbon.TdxRibbonMinimizeButtonPopupMenuController.GetGroupCaption (dxRibbon.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TGroupKind = ( gkRoot, gkParens, gkBrackets, gkBlock, gkUses );
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas) (+3 more)
-  /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
+  /// Used by: declaration (YADF.Debug.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas) (+47 more)
+  /// Used in units: dxApplicationTemplateRepository, dxRichEdit.Api.FindAndReplace, dxRichEdit.DocumentModel.UnitConverter, dxRichEdit.Export.Html.Classes, FMX.ListBox, REST.Backend.EMSApi, System.RegularExpressions, YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TGroup = class
@@ -50,7 +50,7 @@ type
     /// <param name="AParent"><!-- drag-lint:auto type -->TGroup</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Groups.ParseGroups (YADF.Groups.pas)
+    /// Called from: YADF.Groups.ParseGroups (YADF.Groups.pas), Test1_InsertsPreserved (TestCachedUpdates.dpr) ?, Test2_MixedOpsPreserved (TestCachedUpdates.dpr) ?, Test3_OldValueCurValuePreserved (TestCachedUpdates.dpr) ?, Test4_ApplyUpdatesFiresOnUpdateRecord (TestCachedUpdates.dpr) ? (+8 more)
     /// constructor
     /// Writes: Kind, OpenIdx, CloseIdx, OpenerKind, ForceClosed, Parent, Children
     /// <seealso cref="YADF.Groups.TGroup.Destroy"/>
@@ -71,7 +71,7 @@ type
 /// <returns>Observed: Root.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)
+/// Called from: YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas)
 /// Calls: YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx, YADF.Groups.TGroup.Create
 /// Returns: Root
 /// Complexity: 21 (cyclomatic, outer body), 57 lines (full implementation)
@@ -102,7 +102,7 @@ end; // constructor
 destructor TGroup.Destroy;
 begin
   Children.Free;
-  inherited;
+  inherited;  // dl:ok inherited-bare@246d
 end;
 
 // Index of the previous significant token (skipping whitespace/CRLF), or -1.

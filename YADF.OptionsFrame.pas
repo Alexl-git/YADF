@@ -101,11 +101,11 @@ type
   /// The preview is LIVE (debounced); reformat is skipped for options whose
   /// TOptInfo.AffectsPreview is False (their output would be identical).
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADFOT.Options.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), YADFOT.Options.RegisterYADFOptions (YADFOT.Options.pas), declaration (uYADFSetupMain.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
+  /// Used by: declaration (uYADFSetupMain.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas), declaration (YADFOT.Options.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), YADFOT.Options.RegisterYADFOptions (YADFOT.Options.pas)
   /// Used in units: uYADFSetupMain, YADFOT.Options
   /// <!-- drag-lint:auto END -->
   /// </remarks>
-  TYadfOptionsFrame = class(TFrame)
+  TYadfOptionsFrame = class(TFrame)  // dl:ok god-class@eeb0, high-response@eeb0
     private
       FOpts           : TYadfOptions             ;
       FPolicy         : TYadfOptionsPersistPolicy;
@@ -136,7 +136,6 @@ type
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Create (YADF.OptionsFrame.pas)
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel.AddBtn
       /// Reads: FEditingLbl, FProfileList   Writes: FEditingLbl, FProfileList
-      /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
       /// UI thread only -- touches AHost
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel.AddBtn"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
@@ -151,7 +150,6 @@ type
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Create (YADF.OptionsFrame.pas)
       /// Calls: YADF.Options.OptionHint
       /// Reads: FControls, FScroll
-      /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
       /// UI thread only -- touches Parent
       /// Pure
       /// <seealso cref="YADF.Options.OptionHint"/>
@@ -166,7 +164,6 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Create (YADF.OptionsFrame.pas)
       /// Reads: FSourceName, FSource, FResultStat, FResult, FOpenDlg   Writes: FSourceName, FSource, FResultStat, FResult, FOpenDlg
-      /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
@@ -487,11 +484,9 @@ type
       /// <param name="AOwner"><!-- drag-lint:auto type -->TComponent</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.BuildControls, YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview, YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel
       /// constructor
       /// Reads: FReformatTmr, FScroll   Writes: FReformatTmr, FScroll
-      /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
@@ -520,7 +515,7 @@ type
       /// preview. Call once, after assigning Policy.</summary>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
+      /// Called from: YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), declaration (Loader2019.dxSettings.pas) ?
       /// Calls: YADF.Options.EnsureIniExists, YADF.Options.LoadOptionsFromIni, YADF.Options.ResolveProfileIniPath, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.LoadSample, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList
       /// Reads: FProfiles, FCurrentIni   Writes: FProfiles, FCurrentIni, FOpts
       /// <seealso cref="YADF.Options.EnsureIniExists"/>
@@ -541,7 +536,7 @@ type
       /// file does not lose the values written to the profile itself).</summary>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: YADFOT.Options.TYadfOptionsPage.DialogClosed (YADFOT.Options.pas)
+      /// Called from: YADFOT.Options.TYadfOptionsPage.DialogClosed (YADFOT.Options.pas), uAREAOFINTEREST_SERVER.TDataService_AREAOFINTEREST_SERVER.Load (uAREAOFINTEREST_SERVER.PAS) ?, uAREAOFINTEREST_SERVER.TDataService_AREAOFINTEREST_SERVER.Save (uAREAOFINTEREST_SERVER.PAS) ?, uAREAOFINTEREST_SERVER.TDataService_AREAOFINTEREST_SERVER.NextID (uAREAOFINTEREST_SERVER.PAS) ?, uCAUSFAIL_SERVER.TDataService_CAUSFAIL_SERVER.Load (uCAUSFAIL_SERVER.PAS) ? (+519 more)
       /// Calls: YADF.Options.LoadOptionsFromIni, YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile
       /// Reads: FCurrentIni, FOpts   Writes: FOpts
       /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
@@ -558,7 +553,6 @@ type
       /// <param name="APath"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: uYADFSetupMain.TfrmMain.btnLoadSettingsClick (uYADFSetupMain.pas)
       /// Calls: YADF.Options.LoadOptionsFromIni, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile
       /// Reads: FPolicy   Writes: FOpts
       /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
@@ -574,7 +568,6 @@ type
       /// <param name="APath"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: uYADFSetupMain.TfrmMain.btnSaveSettingsClick (uYADFSetupMain.pas)
       /// Calls: YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions
       /// Reads: FOpts
       /// Pure
@@ -591,7 +584,6 @@ type
       /// defaults are immediately persisted to the profile being edited.</summary>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: uYADFSetupMain.TfrmMain.btnResetClick (uYADFSetupMain.pas)
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile
       /// Reads: FPolicy   Writes: FOpts
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls"/>
@@ -636,13 +628,13 @@ var
   LeftHost: TPanel   ;
 begin
   inherited Create(AOwner);
-  Width := 900;
-  Height:= 520;
+  Width := 900;  // dl:ok large-magic-number@7f52
+  Height:= 520;  // dl:ok large-magic-number@2a90
 
   // Debounce timer: coalesces a burst of control changes into one reformat.
   FReformatTmr:= TTimer.Create(Self);
   FReformatTmr.Enabled := False;
-  FReformatTmr.Interval:= 200;
+  FReformatTmr.Interval:= 200;  // dl:ok large-magic-number@c5ec
   FReformatTmr.OnTimer := ReformatTimer;
 
   // The LEFT region is a host panel holding the Profiles panel (docked top, so
@@ -683,7 +675,7 @@ begin
     FPendingSave:= False;
     SaveCurrentProfile;
   end;
-  inherited;
+  inherited;  // dl:ok inherited-bare@246d
 end; // destructor
 
 procedure TYadfOptionsFrame.BuildProfilePanel(AHost: TWinControl);
@@ -696,7 +688,7 @@ var
   begin
     Result:= TButton.Create(Self);
     Result.Parent:= Bar;
-    Result.Left:= ALeft; Result.Top:= 1; Result.Width:= 62; Result.Height:= 23;
+    Result.Left:= ALeft; Result.Top:= 1; Result.Width:= 62; Result.Height:= 23;  // dl:ok large-magic-number@caa7
     Result.Caption:= ACap;
     Result.Hint:= AHint; Result.ShowHint:= True;
     Result.OnClick:= AOnClick;
@@ -711,7 +703,7 @@ begin
   Panel:= TPanel.Create(Self);
   Panel.Parent    := AHost;
   Panel.Align     := alTop;
-  Panel.Height    := 168;
+  Panel.Height    := 168;  // dl:ok large-magic-number@7b14
   Panel.BevelOuter:= bvNone;
 
   Lbl:= TLabel.Create(Self);
@@ -723,16 +715,16 @@ begin
   Bar:= TPanel.Create(Self);
   Bar.Parent    := Panel;
   Bar.Align     := alBottom;
-  Bar.Height    := 44;
+  Bar.Height    := 44;  // dl:ok large-magic-number@5f66
   Bar.BevelOuter:= bvNone;
   AddBtn( 2 , 'Set F'   , SetFClick      , 'Assign the selected profile to Ctrl+Shift+Alt+F (and the CLI default). Keyboard: F'    );
-  AddBtn( 66, 'Set R'   , SetRClick      , 'Assign the selected profile to Ctrl+Shift+Alt+R. Keyboard: R'                          );
-  AddBtn(130, 'Unassign', UnassignClick  , 'Clear the F/R assignment of the selected profile (F resets to yadf.ini). Keyboard: Del');
-  AddBtn(194, 'New...'  , NewProfileClick, 'Create a new yadf-<name>.ini seeded with the current settings'                         );
+  AddBtn( 66, 'Set R'   , SetRClick      , 'Assign the selected profile to Ctrl+Shift+Alt+R. Keyboard: R'                          );  // dl:ok large-magic-number@4117
+  AddBtn(130, 'Unassign', UnassignClick  , 'Clear the F/R assignment of the selected profile (F resets to yadf.ini). Keyboard: Del');  // dl:ok large-magic-number@ca31
+  AddBtn(194, 'New...'  , NewProfileClick, 'Create a new yadf-<name>.ini seeded with the current settings'                         );  // dl:ok large-magic-number@66a8
 
   FEditingLbl:= TLabel.Create(Self);
   FEditingLbl.Parent:= Bar;
-  FEditingLbl.Left:= 4; FEditingLbl.Top:= 27;
+  FEditingLbl.Left:= 4; FEditingLbl.Top:= 27;  // dl:ok large-magic-number@b7e5
   FEditingLbl.Caption:= 'Editing:';
 
   // The list fills the space between the label and the bottom strip.
@@ -740,7 +732,7 @@ begin
   FProfileList.Parent          := Panel;
   FProfileList.Align           := alClient;
   FProfileList.AlignWithMargins:= True;
-  FProfileList.Margins.SetBounds(4, 18, 4, 2);
+  FProfileList.Margins.SetBounds(4, 18, 4, 2);  // dl:ok large-magic-number@d259
   FProfileList.OnClick  := ProfileListClick;
   FProfileList.OnKeyDown:= ProfileListKeyDown;
 end; // begin
@@ -778,11 +770,11 @@ begin
       gb.Parent:= FScroll;
       gb.Left  := 4;
       gb.Top   := y;
-      gb.Width:= FScroll.ClientWidth - 28;
+      gb.Width:= FScroll.ClientWidth - 28;  // dl:ok large-magic-number@ffcb
       gb.Anchors:= [akLeft, akTop, akRight];
       gb.Caption:= CurGrp;
       Parent:= gb;
-      yIn   := 18;
+      yIn   := 18;  // dl:ok large-magic-number@dce8
     end; // if
     case T[i].Kind of
       okBool:
@@ -803,13 +795,13 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= yIn + 3;
         Lbl.Caption:= T[i].Caption;
         se:= TSpinEdit.Create(Self);
-        se.Parent:= Parent; se.Left:= 240; se.Top:= yIn; se.Width:= 80;
-        se.MinValue:= 0; se.MaxValue:= 100000;
+        se.Parent:= Parent; se.Left:= 240; se.Top:= yIn; se.Width:= 80;  // dl:ok large-magic-number@f1d9
+        se.MinValue:= 0; se.MaxValue:= 100000;  // dl:ok large-magic-number@8d21
         se.Hint:= OptionHint(T[i]); se.ShowHint:= True;
         se.Tag     := i;
         se.OnChange:= OptionChanged;
         FControls[i]:= se;
-        Inc(yIn, 28);
+        Inc(yIn, 28);  // dl:ok large-magic-number@ce48
       end; // begin
       okString:
       begin
@@ -817,13 +809,13 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= yIn + 3;
         Lbl.Caption:= T[i].Caption;
         ed:= TEdit.Create(Self);
-        ed.Parent:= Parent; ed.Left:= 240; ed.Top:= yIn; ed.Width:= gb.Width - 250;
+        ed.Parent:= Parent; ed.Left:= 240; ed.Top:= yIn; ed.Width:= gb.Width - 250;  // dl:ok large-magic-number@2eb3
         ed.Anchors:= [akLeft, akTop, akRight];
         ed.Hint:= OptionHint(T[i]); ed.ShowHint:= True;
         ed.Tag     := i;
         ed.OnChange:= OptionChanged;
         FControls[i]:= ed;
-        Inc(yIn, 28);
+        Inc(yIn, 28);  // dl:ok large-magic-number@ce48
       end; // begin
       okEnum:
       begin
@@ -831,7 +823,7 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= yIn + 3;
         Lbl.Caption:= T[i].Caption;
         cmb:= TComboBox.Create(Self);
-        cmb.Parent:= Parent; cmb.Left:= 240; cmb.Top:= yIn; cmb.Width:= 110;
+        cmb.Parent:= Parent; cmb.Left:= 240; cmb.Top:= yIn; cmb.Width:= 110;  // dl:ok large-magic-number@292a
         cmb.Style:= csDropDownList;
         for var V in T[i].EnumValues do // value list lives in the descriptor
           cmb.Items.Add(V);
@@ -839,7 +831,7 @@ begin
         cmb.Tag     := i;
         cmb.OnChange:= OptionChanged;
         FControls[i]:= cmb;
-        Inc(yIn, 28);
+        Inc(yIn, 28);  // dl:ok large-magic-number@ce48
       end; // begin
     end; // case
     if gb <> nil then
@@ -870,25 +862,25 @@ begin
   SrcPane:= TPanel.Create(Self);
   SrcPane.Parent    := Host;
   SrcPane.Align     := alLeft;
-  SrcPane.Width     := 260;
+  SrcPane.Width     := 260;  // dl:ok large-magic-number@2371
   SrcPane.BevelOuter:= bvNone;
 
   SrcBar:= TPanel.Create(Self);
   SrcBar.Parent    := SrcPane;
   SrcBar.Align     := alTop;
-  SrcBar.Height    := 26;
+  SrcBar.Height    := 26;  // dl:ok large-magic-number@6dcb
   SrcBar.BevelOuter:= bvNone;
 
   Btn:= TButton.Create(Self);
   Btn.Parent:= SrcBar;
-  Btn.Left:= 2; Btn.Top:= 1; Btn.Width:= 90; Btn.Height:= 23;
+  Btn.Left:= 2; Btn.Top:= 1; Btn.Width:= 90; Btn.Height:= 23;  // dl:ok large-magic-number@0e62
   Btn.Caption:= 'Load .pas...';
   Btn.Hint:= 'Load your own Pascal file into the preview'; Btn.ShowHint:= True;
   Btn.OnClick:= OpenSourceClick;
 
   FSourceName:= TLabel.Create(Self);
   FSourceName.Parent:= SrcBar;
-  FSourceName.Left:= 98; FSourceName.Top:= 5;
+  FSourceName.Left:= 98; FSourceName.Top:= 5;  // dl:ok large-magic-number@cb79
   FSourceName.Caption:= 'source';
 
   FSource:= TMemo.Create(Self);
@@ -915,19 +907,19 @@ begin
   ResBar:= TPanel.Create(Self);
   ResBar.Parent    := ResPane;
   ResBar.Align     := alTop;
-  ResBar.Height    := 26;
+  ResBar.Height    := 26;  // dl:ok large-magic-number@96ca
   ResBar.BevelOuter:= bvNone;
 
   Btn:= TButton.Create(Self);
   Btn.Parent:= ResBar;
-  Btn.Left:= 2; Btn.Top:= 1; Btn.Width:= 60; Btn.Height:= 23;
+  Btn.Left:= 2; Btn.Top:= 1; Btn.Width:= 60; Btn.Height:= 23;  // dl:ok large-magic-number@16f4
   Btn.Caption:= 'Copy';
   Btn.Hint:= 'Copy the formatted result to the clipboard'; Btn.ShowHint:= True;
   Btn.OnClick:= CopyResultClick;
 
   FResultStat:= TLabel.Create(Self);
   FResultStat.Parent:= ResBar;
-  FResultStat.Left:= 70; FResultStat.Top:= 5;
+  FResultStat.Left:= 70; FResultStat.Top:= 5;  // dl:ok large-magic-number@9ebe
   FResultStat.Caption:= 'result';
 
   FResult:= TMemo.Create(Self);

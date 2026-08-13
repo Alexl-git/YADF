@@ -22,6 +22,12 @@ type
   /// options page. The shell contributes only the top bar -- Load Settings /
   /// Save As... / Reset buttons and the INI status label -- and runs the frame
   /// under SetupPersistPolicy (autosave on every change; no OK/Cancel).</summary>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: declaration (YADFSetup.dpr), declaration (uYADFSetupMain.pas), declaration (Micronite2027.dpr), declaration (uMain.pas), uMain.TfrmMAIN.FormCreate (uMain.pas) (+55 more)
+  /// Used in units: drag_lint_graph, MainForm, Micronite2027, uCompileToolFeatures, uCompileToolMain, uMain, Unit1, uYADFSetupMain, YADFSetup
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TfrmMain = class(TForm)
     pnlTopBar      : TPanel     ;
     btnLoadSettings: TButton    ;
@@ -30,17 +36,87 @@ type
     lblIniPath     : TLabel     ;
     dlgOpen        : TOpenDialog;
     dlgSaveIni     : TSaveDialog;
+    /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
+    /// <remarks>
+    /// <!-- drag-lint:auto BEGIN -->
+    /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.Create, YADF.OptionsFrame.TYadfOptionsFrame.Load
+    /// Reads: FFrame   Writes: FFrame
+    /// Handles: frmMain.OnCreate
+    /// UI thread only -- touches FFrame
+    /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Create"/>
+    /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Load"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.btnSaveSettingsClick"/>
+    /// <!-- drag-lint:auto END -->
+    /// </remarks>
     procedure FormCreate          (Sender: TObject);
+    /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
+    /// <remarks>
+    /// <!-- drag-lint:auto BEGIN -->
+    /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile
+    /// Reads: dlgOpen, FFrame
+    /// Handles: btnLoadSettings.OnClick
+    /// UI thread only -- touches FFrame
+    /// Pure
+    /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.btnSaveSettingsClick"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.FormCreate"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.HandleIniStatus"/>
+    /// <!-- drag-lint:auto END -->
+    /// </remarks>
     procedure btnLoadSettingsClick(Sender: TObject);
+    /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
+    /// <remarks>
+    /// <!-- drag-lint:auto BEGIN -->
+    /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile
+    /// Reads: dlgSaveIni, FFrame
+    /// Handles: btnSaveSettings.OnClick
+    /// UI thread only -- touches FFrame
+    /// Pure
+    /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.FormCreate"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.HandleIniStatus"/>
+    /// <!-- drag-lint:auto END -->
+    /// </remarks>
     procedure btnSaveSettingsClick(Sender: TObject);
+    /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
+    /// <remarks>
+    /// <!-- drag-lint:auto BEGIN -->
+    /// Calls: ExtractFileName, MessageDlg, YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults
+    /// Reads: FFrame
+    /// Handles: btnReset.OnClick
+    /// UI thread only -- touches FFrame
+    /// Pure
+    /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.btnSaveSettingsClick"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.FormCreate"/>
+    /// <seealso cref="uYADFSetupMain.TfrmMain.HandleIniStatus"/>
+    /// <!-- drag-lint:auto END -->
+    /// </remarks>
     procedure btnResetClick       (Sender: TObject);
     private
       FFrame: TYadfOptionsFrame; // owned by the form; fills the client area
+      /// <param name="AText"><!-- drag-lint:auto type -->const string</param>
+      /// <remarks>
+      /// <!-- drag-lint:auto BEGIN -->
+      /// Reads: lblIniPath
+      /// Pure
+      /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
+      /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>
+      /// <seealso cref="uYADFSetupMain.TfrmMain.btnSaveSettingsClick"/>
+      /// <seealso cref="uYADFSetupMain.TfrmMain.FormCreate"/>
+      /// <!-- drag-lint:auto END -->
+      /// </remarks>
       procedure HandleIniStatus(const AText: string);
   end;
 
 var
-  frmMain: TfrmMain;
+  frmMain: TfrmMain;  // dl:ok global-form-variable@0045
 
 implementation
 

@@ -26,7 +26,6 @@ uses
 /// <returns>Observed: Lines.Text.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.DebugTree (YadfMain.pas)
 /// Calls: YADF.Debug.WalkGroup
 /// Returns: Lines.Text
 /// Pure
