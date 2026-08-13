@@ -34,8 +34,8 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas) (+2 more)
-  /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
+  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)
+  /// Used in units: YADF.Layout, YADF.Options, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfOptions = record
@@ -156,7 +156,7 @@ function OptionTable: TArray<TOptInfo>;
 /// <returns>Observed: encUTF8BOM; encUTF16BOM; encANSI; ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.OptionTable (YADF.Options.pas)
+/// Called from: YADF.Options.OptionTable (YADF.Options.pas), YadfMain.ParseFlags (YadfMain.pas)
 /// Calls: Trim, UpperCase
 /// Returns: encUTF8BOM; encUTF16BOM; encANSI; ADefault
 /// Complexity: 11 (cyclomatic, outer body), 13 lines (full implementation)
@@ -182,6 +182,7 @@ function EncodingToStr(const E: TYadfEncoding): string;
 /// <returns>Observed: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
+/// Called from: YadfMain.LoadFile (YadfMain.pas)
 /// Returns: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI
 /// Pure
 /// <!-- drag-lint:auto END -->
@@ -205,6 +206,7 @@ function EncodingOf(const E: TYadfEncoding): TEncoding;
 /// <param name="APreambleLen"><!-- drag-lint:auto type -->out Integer</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
+/// Called from: YadfMain.LoadFile (YadfMain.pas)
 /// Calls: YADF.Options.LooksLikeUtf8
 /// Complexity: 12 (cyclomatic, outer body), 25 lines (full implementation)
 /// Mutates: AEnc (out), APreambleLen (out)
@@ -268,7 +270,7 @@ function ReadIntIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: In
 /// <returns>Observed: AInfo.Hint + ' Default: ' + D.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.OptionsHelpText (YADF.Options.pas), YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas), YADF.OptionsFrame.TYadfOptionsFrame.BuildControls (YADF.OptionsFrame.pas)
+/// Called from: YADF.Options.OptionsHelpText (YADF.Options.pas), YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)
 /// Calls: YADF.Options.DefaultValueStr
 /// Returns: AInfo.Hint + ' Default: ' + D
 /// Pure
@@ -311,7 +313,7 @@ function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 /// <returns>Observed: DefaultOptions.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
+/// Called from: YadfMain.LoadIniDefaults (YadfMain.pas)
 /// Calls: FileExists, VarToStr, YADF.Options.ReadBoolIni, YADF.Options.ReadIntIni
 /// Returns: DefaultOptions
 /// Pure
@@ -328,7 +330,6 @@ function LoadOptionsFromIni(const APath: string): TYadfOptions;
 /// <param name="APath"><!-- drag-lint:auto type -->const string</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
 /// Calls: IfThen, VarToStr, YADF.Options.EnsureIniExists
 /// Pure
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
@@ -390,7 +391,7 @@ procedure WriteDefaultIniTemplate(const APath: string);
 /// <returns>Observed: False; True.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.SaveOptionsToIni (YADF.Options.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas)
+/// Called from: YADF.Options.SaveOptionsToIni (YADF.Options.pas), YadfMain.DefaultIniPath (YadfMain.pas), YadfMain.RunYadf (YadfMain.pas)
 /// Calls: FileExists, YADF.Options.WriteDefaultIniTemplate
 /// Returns: False; True
 /// Pure
@@ -407,8 +408,8 @@ function EnsureIniExists(const APath: string): Boolean;
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas)
-  /// Used in units: YADF.Options, YADF.OptionsFrame, YadfMain
+  /// Used by: declaration (YADF.Options.pas), YadfMain.DefaultIniPath (YadfMain.pas)
+  /// Used in units: YADF.Options, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfProfiles = record
@@ -459,7 +460,7 @@ function LoadProfiles: TYadfProfiles;
 /// <param name="AProfiles"><!-- drag-lint:auto type -->const TYadfProfiles</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected (YADF.OptionsFrame.pas)
+/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
 /// Calls: DirectoryExists, ForceDirectories
 /// Pure
 /// <!-- drag-lint:auto END -->
@@ -475,7 +476,7 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 /// <returns>Observed: AFileName; TPath.Combine(ProfilesDir, AFileName).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas) (+1 more)
+/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
 /// Calls: Trim
 /// Returns: AFileName; TPath.Combine(ProfilesDir, AFileName)
 /// Touches: file system

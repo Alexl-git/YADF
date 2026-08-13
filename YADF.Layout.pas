@@ -89,7 +89,6 @@ uses
 /// <returns>Observed: FormatSource(ASource, AOpts, Reason).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Reformat (YADF.OptionsFrame.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)
 /// Calls: YADF.Layout.FormatSource/3
 /// Returns: FormatSource(ASource, AOpts, Reason)
 /// Overload 1 of 2
@@ -119,7 +118,7 @@ function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 /// moment we leave a child group, but must appear AFTER the `end` token text and BEFORE the next
 /// CRLF.
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas)
+/// Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)
 /// Calls: AddIfWord, BlockAlreadyLabeled, BreakLineByOperators, CharInSet, CollectParensItems, ComputeBlockCommentLock, Copy, EmitTokenRange, FindBlockLabel, FindChildGroupAt (+44 more)
 /// Overload 2 of 2
 /// Complexity: 24 (cyclomatic, outer body), 603 lines (full implementation)

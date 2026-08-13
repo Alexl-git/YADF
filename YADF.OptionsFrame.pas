@@ -101,7 +101,7 @@ type
   /// The preview is LIVE (debounced); reformat is skipped for options whose
   /// TOptInfo.AffectsPreview is False (their output would be identical).
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (uYADFSetupMain.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas), declaration (YADFOT.Options.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), YADFOT.Options.RegisterYADFOptions (YADFOT.Options.pas)
+  /// Used by: declaration (YADFOT.Options.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), YADFOT.Options.RegisterYADFOptions (YADFOT.Options.pas), declaration (uYADFSetupMain.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
   /// Used in units: uYADFSetupMain, YADFOT.Options
   /// <!-- drag-lint:auto END -->
   /// </remarks>
