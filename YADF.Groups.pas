@@ -23,18 +23,16 @@ uses
   ;
 
 type
-  /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TGroupKind caller (YADF.Groups.pas), YADF.Groups.TGroup.Create (YADF.Groups.pas)
+  /// Used by: declaration (YADF.Groups.pas), YADF.Groups.TGroup.Create (YADF.Groups.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TGroupKind = ( gkRoot, gkParens, gkBrackets, gkBlock, gkUses );
 
-  /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Layout.FormatSource (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas), TGroup caller (YADF.Debug.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), TGroup caller (YADF.Groups.pas) (+3 more)
+  /// Used by: declaration (YADF.Debug.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas) (+3 more)
   /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -46,17 +44,16 @@ type
     Children   : TObjectList<TGroup>;
     Parent     : TGroup             ;
     ForceClosed: Boolean            ;
-    /// <summary></summary>
-    /// <param name="AKind"></param>
-    /// <param name="AOpenIdx"></param>
-    /// <param name="AOpener"></param>
-    /// <param name="AParent"></param>
+    /// <param name="AKind"><!-- drag-lint:auto type -->TGroupKind</param>
+    /// <param name="AOpenIdx"><!-- drag-lint:auto type -->Integer</param>
+    /// <param name="AOpener"><!-- drag-lint:auto type -->TptTokenKind</param>
+    /// <param name="AParent"><!-- drag-lint:auto type -->TGroup</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Groups.TGroup.Create (YADF.Groups.pas), StringUsageLogging.LogStringUsageToFile (StringUsageLogging.pas) ?, uMainForm.TMainForm.Parse (uMainForm.pas) ?, DelphiAST.Classes.TExpressionTools.CreateNodeWithParentsPosition (DelphiAST.Classes.pas) ?, DelphiAST.Classes.TExpressionTools.RawNodeListToTree (DelphiAST.Classes.pas) ? (+53 more)
-    /// Calls: Add, Assigned, YADF.Groups.TGroup.Create
+    /// Called from: YADF.Groups.ParseGroups (YADF.Groups.pas)
+    /// constructor
     /// Writes: Kind, OpenIdx, CloseIdx, OpenerKind, ForceClosed, Parent, Children
-    /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
+    /// <seealso cref="YADF.Groups.TGroup.Destroy"/>
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     constructor Create(AKind: TGroupKind; AOpenIdx: Integer; AOpener: TptTokenKind; AParent: TGroup);
@@ -64,22 +61,24 @@ type
     /// <!-- drag-lint:auto BEGIN -->
     /// Reads: Children
     /// Pure
+    /// <seealso cref="YADF.Groups.TGroup.Create"/>
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     destructor Destroy; override;
   end;
 
-/// <summary></summary>
-/// <param name="ATokens"></param>
+/// <param name="ATokens"><!-- drag-lint:auto type -->const TTokenList</param>
 /// <returns>Observed: Root.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Layout.FormatSource (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas)
-/// Calls: Create, YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx
+/// Called from: YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)
+/// Calls: YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx, YADF.Groups.TGroup.Create
 /// Returns: Root
-/// Complexity: 21 (cyclomatic), 57 lines
-/// Covered by: TestFormatSourceStillFormats
+/// Complexity: 21 (cyclomatic, outer body), 57 lines (full implementation)
 /// Pure
+/// <seealso cref="YADF.Groups.IsVariantPartCase"/>
+/// <seealso cref="YADF.Groups.PrevSignificantIdx"/>
+/// <seealso cref="YADF.Groups.TGroup.Create"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function ParseGroups(const ATokens: TTokenList): TGroup;

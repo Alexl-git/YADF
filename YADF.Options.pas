@@ -25,19 +25,17 @@ uses
   ;
 
 type
-  /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TYadfEncoding caller (YADF.Options.pas)
+  /// Used by: declaration (YADF.Options.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfEncoding = (encANSI, encUTF8BOM, encUTF16BOM);
 
-  /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TYadfOptions caller (YADF.Layout.pas), YadfMain.RunYadf (YadfMain.pas), TestFormatSourceStillFormats (GuardTest.dpr), TestRoundTrip (OptionsTest.dpr), TestCommentPreservation (OptionsTest.dpr) (+5 more)
-  /// Used in units: GuardTest, OptionsTest, YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
+  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)
+  /// Used in units: YADF.Layout, YADF.Options, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfOptions = record
@@ -87,31 +85,35 @@ type
   end; // record
 
   // ---- Single descriptor table : the settings authority ----
-  /// <summary></summary>
+  /// <summary><!-- drag-lint:auto -->---- Single descriptor table : the settings
+  /// authority ----</summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TOptKind caller (YADF.Options.pas)
+  /// Used by: declaration (YADF.Options.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TOptKind = (okBool, okInt, okString, okEnum);
 
+  /// <param name="O"><!-- drag-lint:auto type -->const TYadfOptions</param>
+  /// <returns><!-- drag-lint:auto type -->Variant</returns>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TOptGetter caller (YADF.Options.pas)
+  /// Used by: declaration (YADF.Options.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TOptGetter = reference to function(const O: TYadfOptions): Variant;
+  /// <param name="O"><!-- drag-lint:auto type -->var TYadfOptions</param>
+  /// <param name="V"><!-- drag-lint:auto type -->const Variant</param>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TOptSetter caller (YADF.Options.pas)
+  /// Used by: declaration (YADF.Options.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TOptSetter = reference to procedure(var O: TYadfOptions; const V: Variant);
 
-  /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TOptInfo caller (YADF.Options.pas)
+  /// Used by: declaration (YADF.Options.pas)
   /// Used in units: YADF.Options
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -127,39 +129,42 @@ type
     SetVal        : TOptSetter    ;
   end; // record
 
-/// <summary></summary>
-/// <returns></returns>
+/// <returns><!-- drag-lint:auto type -->TYadfOptions</returns>
 function DefaultOptions: TYadfOptions;
 
 // The single authority for every TYadfOptions field. Built once on first call.
-/// <summary></summary>
+/// <summary><!-- drag-lint:auto -->The single authority for every TYadfOptions field.
+/// Built once on first call.</summary>
 /// <returns>Observed: O.MaxLen end,; O.Indent end,; O.TabWidth end,; O.ReflowLines end,; O.TrimTrailing end,; O.MaxBlankLines end,.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Calls: Exit, Length, VarToStr, YADF.Options.EncodingToStr, YADF.Options.MakeOpt, YADF.Options.ParseEncoding
+/// Calls: VarToStr, YADF.Options.EncodingToStr, YADF.Options.MakeOpt, YADF.Options.ParseEncoding
 /// Returns: GOptTable
 /// Pure
+/// <seealso cref="YADF.Options.EncodingToStr"/>
+/// <seealso cref="YADF.Options.MakeOpt"/>
+/// <seealso cref="YADF.Options.ParseEncoding"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function OptionTable: TArray<TOptInfo>;
 
 // Encoding name <-> enum, shared by CLI, wizard, GUI, and the INI layer.
-/// <summary></summary>
-/// <param name="S"></param>
-/// <param name="ADefault"></param>
+/// <summary><!-- drag-lint:auto -->Encoding name &lt;-&gt; enum, shared by CLI, wizard,
+/// GUI, and the INI layer.</summary>
+/// <param name="S"><!-- drag-lint:auto type -->const string</param>
+/// <param name="ADefault"><!-- drag-lint:auto type -->const TYadfEncoding</param>
 /// <returns>Observed: encUTF8BOM; encUTF16BOM; encANSI; ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.OptionTable (YADF.Options.pas), YadfMain.ParseFlags (YadfMain.pas) ?
+/// Called from: YADF.Options.OptionTable (YADF.Options.pas), YadfMain.ParseFlags (YadfMain.pas)
 /// Calls: Trim, UpperCase
 /// Returns: encUTF8BOM; encUTF16BOM; encANSI; ADefault
-/// Complexity: 11 (cyclomatic), 13 lines
+/// Complexity: 11 (cyclomatic, outer body), 13 lines (full implementation)
 /// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function ParseEncoding(const S: string; const ADefault: TYadfEncoding): TYadfEncoding;
-/// <summary></summary>
-/// <param name="E"></param>
+/// <param name="E"><!-- drag-lint:auto type -->const TYadfEncoding</param>
 /// <returns>Observed: 'UTF-8'; 'UTF-16'; 'ANSI'.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
@@ -171,12 +176,13 @@ function ParseEncoding(const S: string; const ADefault: TYadfEncoding): TYadfEnc
 function EncodingToStr(const E: TYadfEncoding): string;
 
 // TYadfEncoding -> the TEncoding used to WRITE it (ANSI / UTF-8 / UTF-16 LE).
-/// <summary></summary>
-/// <param name="E"></param>
+/// <summary><!-- drag-lint:auto -->TYadfEncoding -&gt; the TEncoding used to WRITE it
+/// (ANSI / UTF-8 / UTF-16 LE).</summary>
+/// <param name="E"><!-- drag-lint:auto type -->const TYadfEncoding</param>
 /// <returns>Observed: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas), YadfMain.LoadFile (YadfMain.pas)
+/// Called from: YadfMain.LoadFile (YadfMain.pas)
 /// Returns: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI
 /// Pure
 /// <!-- drag-lint:auto END -->
@@ -189,16 +195,22 @@ function EncodingOf(const E: TYadfEncoding): TEncoding;
 // UTF-8 (LooksLikeUtf8), else ANSI. APreambleLen is the BOM length to skip on
 // read AND re-emit on write -- 0 for BOM-less files, so a detected BOM-less
 // UTF-8 file stays BOM-less when preserved.
-/// <summary></summary>
-/// <param name="ABytes"></param>
-/// <param name="AEnc"></param>
-/// <param name="APreambleLen"></param>
+/// <summary><!-- drag-lint:auto -->THE source-encoding detector, shared by the CLI and
+/// the wizard so both hosts decode and re-encode the same file identically: BOM first
+/// (UTF-8, UTF-16 LE, UTF-16 BE), then BOM-less content that validates as multi-byte
+/// UTF-8 (LooksLikeUtf8), else ANSI. APreambleLen is the BOM length to skip on read AND
+/// re-emit on write -- 0 for BOM-less files, so a detected BOM-less UTF-8 file stays
+/// BOM-less when preserved.</summary>
+/// <param name="ABytes"><!-- drag-lint:auto type -->const TBytes</param>
+/// <param name="AEnc"><!-- drag-lint:auto type -->out TEncoding</param>
+/// <param name="APreambleLen"><!-- drag-lint:auto type -->out Integer</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas), YadfMain.LoadFile (YadfMain.pas)
-/// Calls: Length, YADF.Options.LooksLikeUtf8
-/// Complexity: 12 (cyclomatic), 25 lines
+/// Called from: YadfMain.LoadFile (YadfMain.pas)
+/// Calls: YADF.Options.LooksLikeUtf8
+/// Complexity: 12 (cyclomatic, outer body), 25 lines (full implementation)
 /// Mutates: AEnc (out), APreambleLen (out)
+/// <seealso cref="YADF.Options.LooksLikeUtf8"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure DetectSourceEncoding(const ABytes: TBytes; out AEnc: TEncoding; out APreambleLen: Integer);
@@ -206,18 +218,16 @@ procedure DetectSourceEncoding(const ABytes: TBytes; out AEnc: TEncoding; out AP
 // Reads a textual boolean (1/0, true/false, yes/no, on/off; case-insensitive);
 // unrecognised values return ADefault. Delphi's TIniFile.ReadBool only honours
 // numeric 0/1, but yadf.ini ships textual booleans.
-/// <summary></summary>
-/// <param name="AIni"></param>
-/// <param name="ASection"></param>
-/// <param name="AIdent"></param>
-/// <param name="ADefault"></param>
+/// <param name="AIni"><!-- drag-lint:auto type -->TIniFile</param>
+/// <param name="ASection"><!-- drag-lint:auto type -->const string</param>
+/// <param name="AIdent"><!-- drag-lint:auto type -->const string</param>
+/// <param name="ADefault"><!-- drag-lint:auto type -->Boolean</param>
 /// <returns>Observed: ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas)
-/// Calls: Exit, LowerCase, ReadString, Trim
+/// Calls: LowerCase, Trim
 /// Returns: ADefault
-/// Covered by: TestRoundTrip
 /// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -228,18 +238,21 @@ function ReadBoolIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: B
 // (same contract as ReadBoolIni). TIniFile.ReadInteger silently returns the
 // default for e.g. "MaxLen=120 ; note" -- the same silent-ignore class as the
 // old textual-boolean defect.
-/// <summary></summary>
-/// <param name="AIni"></param>
-/// <param name="ASection"></param>
-/// <param name="AIdent"></param>
-/// <param name="ADefault"></param>
+/// <summary><!-- drag-lint:auto -->Reads an integer leniently: trims, tolerates a
+/// trailing `;` / `//` comment after the value, accepts Delphi $-hex; anything unparsable
+/// returns ADefault (same contract as ReadBoolIni). TIniFile.ReadInteger silently returns
+/// the default for e.g. "MaxLen=120 ; note" -- the same silent-ignore class as the old
+/// textual-boolean defect.</summary>
+/// <param name="AIni"><!-- drag-lint:auto type -->TIniFile</param>
+/// <param name="ASection"><!-- drag-lint:auto type -->const string</param>
+/// <param name="AIdent"><!-- drag-lint:auto type -->const string</param>
+/// <param name="ADefault"><!-- drag-lint:auto type -->Integer</param>
 /// <returns>Observed: ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas), TestLenientIntRead (OptionsTest.dpr) ?
-/// Calls: Pos, ReadString, SetLength, Trim, TryStrToInt
+/// Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas)
+/// Calls: Pos, Trim, TryStrToInt
 /// Returns: ADefault
-/// Covered by: TestLenientIntRead, TestRoundTrip
 /// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -249,16 +262,19 @@ function ReadIntIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: In
 // place the "Default: X" suffix is produced (table hints carry none, so the
 // suffix can never drift from the real default). Used by the INI template,
 // --help, and the options UIs.
-/// <summary></summary>
-/// <param name="AInfo"></param>
+/// <summary><!-- drag-lint:auto -->Hint + the compiled-in default rendered live from
+/// DefaultOptions -- the ONE place the "Default: X" suffix is produced (table hints carry
+/// none, so the suffix can never drift from the real default). Used by the INI template,
+/// --help, and the options UIs.</summary>
+/// <param name="AInfo"><!-- drag-lint:auto type -->const TOptInfo</param>
 /// <returns>Observed: AInfo.Hint + ' Default: ' + D.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.OptionsHelpText (YADF.Options.pas), YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas), TestDescriptorCompleteness (OptionsTest.dpr) ?, YADF.OptionsFrame.TYadfOptionsFrame.BuildControls (YADF.OptionsFrame.pas) ?
+/// Called from: YADF.Options.OptionsHelpText (YADF.Options.pas), YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)
 /// Calls: YADF.Options.DefaultValueStr
 /// Returns: AInfo.Hint + ' Default: ' + D
-/// Covered by: TestDescriptorCompleteness, TestLenientIntRead, TestLooksLikeUtf8
 /// Pure
+/// <seealso cref="YADF.Options.DefaultValueStr"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function OptionHint(const AInfo: TOptInfo): string;
@@ -270,16 +286,19 @@ function OptionHint(const AInfo: TOptInfo): string;
 // rewrite). Pure ASCII returns False -- ANSI and UTF-8 agree there, so the
 // ANSI path stays. Strict: overlong forms, UTF-16 surrogates, >U+10FFFF and
 // truncated sequences all return False.
-/// <summary></summary>
-/// <param name="ABytes"></param>
+/// <summary><!-- drag-lint:auto -->True when ABytes are valid UTF-8 AND contain at least
+/// one multi-byte sequence. Used by the CLI and the wizard to promote BOM-less files from
+/// the blind ANSI fallback to UTF-8 on load (a file that validates as multi-byte UTF-8 is
+/// overwhelmingly likely UTF-8; reading it as ANSI mojibakes on rewrite). Pure ASCII
+/// returns False -- ANSI and UTF-8 agree there, so the ANSI path stays. Strict: overlong
+/// forms, UTF-16 surrogates, &gt;U+10FFFF and truncated sequences all return False.</summary>
+/// <param name="ABytes"><!-- drag-lint:auto type -->const TBytes</param>
 /// <returns>Observed: False; HasMulti.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.DetectSourceEncoding (YADF.Options.pas), TestLooksLikeUtf8 (OptionsTest.dpr) ?
-/// Calls: Exit, Inc, Length
+/// Called from: YADF.Options.DetectSourceEncoding (YADF.Options.pas)
 /// Returns: False; HasMulti
-/// Complexity: 22 (cyclomatic), 41 lines
-/// Covered by: TestLooksLikeUtf8
+/// Complexity: 22 (cyclomatic, outer body), 41 lines (full implementation)
 /// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -287,53 +306,59 @@ function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 
 // Load every [Format] key into a TYadfOptions, falling back to DefaultOptions
 // per field. Returns DefaultOptions unchanged if the file is missing.
-/// <summary></summary>
-/// <param name="APath"></param>
+/// <summary><!-- drag-lint:auto -->Load every [Format] key into a TYadfOptions, falling
+/// back to DefaultOptions per field. Returns DefaultOptions unchanged if the file is
+/// missing.</summary>
+/// <param name="APath"><!-- drag-lint:auto type -->const string</param>
 /// <returns>Observed: DefaultOptions.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: TestRoundTrip (OptionsTest.dpr), YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas) (+2 more)
-/// Calls: Create, FileExists, GetVal, High, ReadString, SetVal, VarToStr, YADF.Options.ReadBoolIni, YADF.Options.ReadIntIni
+/// Called from: YadfMain.LoadIniDefaults (YadfMain.pas)
+/// Calls: FileExists, VarToStr, YADF.Options.ReadBoolIni, YADF.Options.ReadIntIni
 /// Returns: DefaultOptions
-/// Covered by: TestRoundTrip
 /// Pure
+/// <seealso cref="YADF.Options.ReadBoolIni"/>
+/// <seealso cref="YADF.Options.ReadIntIni"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function LoadOptionsFromIni(const APath: string): TYadfOptions;
 
 // Persist current values over the commented template (so comments survive).
-/// <summary></summary>
-/// <param name="AOpts"></param>
-/// <param name="APath"></param>
+/// <summary><!-- drag-lint:auto -->Persist current values over the commented template (so
+/// comments survive).</summary>
+/// <param name="AOpts"><!-- drag-lint:auto type -->const TYadfOptions</param>
+/// <param name="APath"><!-- drag-lint:auto type -->const string</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: TestRoundTrip (OptionsTest.dpr), TestCommentPreservation (OptionsTest.dpr), YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile (YADF.OptionsFrame.pas) (+2 more)
-/// Calls: Create, GetVal, High, IfThen, VarToStr, WriteInteger, WriteString, YADF.Options.EnsureIniExists
-/// Covered by: TestCommentPreservation, TestRoundTrip
+/// Calls: IfThen, VarToStr, YADF.Options.EnsureIniExists
 /// Pure
+/// <seealso cref="YADF.Options.EnsureIniExists"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
 
 // One "Ident - Hint" line per option, grouped -- for CLI --help / about text.
-/// <summary></summary>
+/// <summary><!-- drag-lint:auto -->One "Ident - Hint" line per option, grouped -- for CLI
+/// --help / about text.</summary>
 /// <returns>Observed: SB.ToString.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Calls: AppendLine, Format, High, YADF.Options.OptionHint
+/// Calls: Format, YADF.Options.OptionHint
 /// Returns: SB.ToString
 /// Pure
+/// <seealso cref="YADF.Options.OptionHint"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function OptionsHelpText: string;
 
 // Shared per-user fallback path used by YADF.exe, YADFOT.bpl, and YADFSetup.exe
 // when no project-local yadf.ini is found. Returns %APPDATA%\YADF\yadf.ini.
-/// <summary></summary>
+/// <summary><!-- drag-lint:auto -->Shared per-user fallback path used by YADF.exe,
+/// YADFOT.bpl, and YADFSetup.exe when no project-local yadf.ini is found. Returns
+/// %APPDATA%\YADF\yadf.ini.</summary>
 /// <returns>Observed: TPath.Combine(.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Calls: Combine
 /// Returns: TPath.Combine( TPath.Combine(TPath.GetHomePath, 'YADF'), 'yadf.ini')
 /// Touches: file system
 /// <!-- drag-lint:auto END -->
@@ -343,30 +368,34 @@ function SharedAppDataIniPath: string;
 // Write a fully-commented yadf.ini at APath (every option, default, one-line
 // explanation), rendered from the descriptor table. Does NOT overwrite an
 // existing file's values destructively beyond (re)creating when absent.
-/// <summary></summary>
-/// <param name="APath"></param>
+/// <summary><!-- drag-lint:auto -->Write a fully-commented yadf.ini at APath (every
+/// option, default, one-line explanation), rendered from the descriptor table. Does NOT
+/// overwrite an existing file's values destructively beyond (re)creating when absent.</summary>
+/// <param name="APath"><!-- drag-lint:auto type -->const string</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// Called from: YADF.Options.EnsureIniExists (YADF.Options.pas)
-/// Calls: Add, DirectoryExists, ExtractFilePath, ForceDirectories, High, SaveToFile, YADF.Options.DefaultValueStr, YADF.Options.OptionHint
-/// Covered by: TestCommentPreservation, TestRoundTrip
+/// Calls: DirectoryExists, ExtractFilePath, ForceDirectories, YADF.Options.DefaultValueStr, YADF.Options.OptionHint
 /// Pure
+/// <seealso cref="YADF.Options.DefaultValueStr"/>
+/// <seealso cref="YADF.Options.OptionHint"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure WriteDefaultIniTemplate(const APath: string);
 
 // If APath does not exist, write the template; otherwise no-op. Returns True
 // when a new file was created.
-/// <summary></summary>
-/// <param name="APath"></param>
+/// <summary><!-- drag-lint:auto -->If APath does not exist, write the template; otherwise
+/// no-op. Returns True when a new file was created.</summary>
+/// <param name="APath"><!-- drag-lint:auto type -->const string</param>
 /// <returns>Observed: False; True.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.SaveOptionsToIni (YADF.Options.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas) ?, YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas) ?, YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas) ?, YadfMain.DefaultIniPath (YadfMain.pas) ? (+1 more)
+/// Called from: YADF.Options.SaveOptionsToIni (YADF.Options.pas), YadfMain.DefaultIniPath (YadfMain.pas), YadfMain.RunYadf (YadfMain.pas)
 /// Calls: FileExists, YADF.Options.WriteDefaultIniTemplate
 /// Returns: False; True
-/// Covered by: TestCommentPreservation, TestRoundTrip
 /// Pure
+/// <seealso cref="YADF.Options.WriteDefaultIniTemplate"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function EnsureIniExists(const APath: string): Boolean;
@@ -377,11 +406,10 @@ function EnsureIniExists(const APath: string): Boolean;
 // lives in profiles.ini next to the shared yadf.ini; each value is a *.ini file
 // name resolved in that same folder. R may be empty (no second profile set).
 type
-  /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TYadfProfiles caller (YADF.Options.pas), TYadfProfiles caller (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas)
-  /// Used in units: YADF.Options, YADF.OptionsFrame, YadfMain
+  /// Used by: declaration (YADF.Options.pas), YadfMain.DefaultIniPath (YadfMain.pas)
+  /// Used in units: YADF.Options, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfProfiles = record
@@ -390,7 +418,8 @@ type
   end;
 
   // Folder that holds the shared yadf.ini / profiles.ini (%APPDATA%\YADF).
-/// <summary></summary>
+/// <summary><!-- drag-lint:auto -->Folder that holds the shared yadf.ini / profiles.ini
+/// (%APPDATA%\YADF).</summary>
 /// <returns>Observed: ExtractFilePath(SharedAppDataIniPath).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
@@ -402,11 +431,10 @@ type
 function ProfilesDir: string;
 
 // %APPDATA%\YADF\profiles.ini -- the F/R mapping file.
-/// <summary></summary>
+/// <summary><!-- drag-lint:auto -->%APPDATA%\YADF\profiles.ini -- the F/R mapping file.</summary>
 /// <returns>Observed: TPath.Combine(ProfilesDir, 'profiles.ini').</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Calls: Combine
 /// Returns: TPath.Combine(ProfilesDir, 'profiles.ini')
 /// Touches: file system
 /// <!-- drag-lint:auto END -->
@@ -415,23 +443,25 @@ function ProfilesIniPath: string;
 
 // Read the F/R mapping. Missing file or missing key falls back to F='yadf.ini',
 // R='' so existing installs behave exactly as before.
-/// <summary></summary>
-/// <returns></returns>
+/// <summary><!-- drag-lint:auto -->Read the F/R mapping. Missing file or missing key
+/// falls back to F='yadf.ini', R='' so existing installs behave exactly as before.</summary>
+/// <returns><!-- drag-lint:auto type -->TYadfProfiles</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Calls: Create, FileExists, ReadString, Trim
+/// Calls: FileExists, Trim
 /// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function LoadProfiles: TYadfProfiles;
 
 // Persist the F/R mapping (creates the folder/file as needed). Best-effort.
-/// <summary></summary>
-/// <param name="AProfiles"></param>
+/// <summary><!-- drag-lint:auto -->Persist the F/R mapping (creates the folder/file as
+/// needed). Best-effort.</summary>
+/// <param name="AProfiles"><!-- drag-lint:auto type -->const TYadfProfiles</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas)
-/// Calls: Create, DirectoryExists, ForceDirectories, WriteString
+/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
+/// Calls: DirectoryExists, ForceDirectories
 /// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -439,13 +469,15 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 
 // Resolve a profile's INI file name to a full path in ProfilesDir. Returns ''
 // for an empty name; passes an already-rooted path through unchanged.
-/// <summary></summary>
-/// <param name="AFileName"></param>
+/// <summary><!-- drag-lint:auto -->Resolve a profile's INI file name to a full path in
+/// ProfilesDir. Returns '' for an empty name; passes an already-rooted path through
+/// unchanged.</summary>
+/// <param name="AFileName"><!-- drag-lint:auto type -->const string</param>
 /// <returns>Observed: AFileName; TPath.Combine(ProfilesDir, AFileName).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas) (+2 more)
-/// Calls: Combine, Exit, IsPathRooted, Trim
+/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
+/// Calls: Trim
 /// Returns: AFileName; TPath.Combine(ProfilesDir, AFileName)
 /// Touches: file system
 /// <!-- drag-lint:auto END -->
@@ -787,8 +819,8 @@ var
   Ini : TIniFile        ;
   T   : TArray<TOptInfo>;
   i   : Integer         ;
-  iVal: Integer         ;
-  bVal: Boolean         ;
+  IVal: Integer         ;
+  BVal: Boolean         ;
 begin
   // Ensure the commented template exists first so WinAPI INI writes update
   // values in place and leave the ';' comment lines intact.
@@ -800,13 +832,13 @@ begin
     case T[i].Kind of
       okInt :
       begin
-        iVal:= T[i].GetVal(AOpts);
-        Ini.WriteInteger('Format', T[i].Ident, iVal);
+        IVal:= T[i].GetVal(AOpts);
+        Ini.WriteInteger('Format', T[i].Ident, IVal);
       end;
       okBool:
       begin
-        bVal:= T[i].GetVal(AOpts);
-        Ini.WriteString('Format', T[i].Ident, IfThen(bVal, 'true', 'false'));
+        BVal:= T[i].GetVal(AOpts);
+        Ini.WriteString('Format', T[i].Ident, IfThen(BVal, 'true', 'false'));
       end;
       okString, okEnum:
         Ini.WriteString('Format', T[i].Ident, VarToStr(T[i].GetVal(AOpts)));
@@ -828,14 +860,14 @@ end;
 function DefaultValueStr(const AInfo: TOptInfo): string;
 var
   D   : TYadfOptions;
-  bVal: Boolean     ;
+  BVal: Boolean     ;
 begin
   D:= DefaultOptions;
   case AInfo.Kind of
     okBool:
     begin
-      bVal:= AInfo.GetVal(D);
-      Result:= IfThen(bVal, 'true', 'false');
+      BVal:= AInfo.GetVal(D);
+      Result:= IfThen(BVal, 'true', 'false');
     end;
     else
       Result:= VarToStr(AInfo.GetVal(D));

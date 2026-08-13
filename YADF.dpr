@@ -33,6 +33,12 @@ begin
   try
     RunYadf;
   except
+    on E: EYadfUsage do
+    begin
+      Writeln(ErrOutput, E.Message);
+      Writeln(ErrOutput, 'Run yadf --help for usage.');
+      ExitCode := 2;
+    end;
     on E: Exception do
     begin
       Writeln(ErrOutput, E.ClassName, ': ', E.Message);

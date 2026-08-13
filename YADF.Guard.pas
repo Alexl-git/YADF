@@ -46,12 +46,11 @@ interface
 /// Pure and thread-safe; lexes both inputs once. If lexing the inputs
 /// raises, the guard fails CLOSED (returns False).
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Guard.FormatPreservesContent (YADF.Guard.pas), TestAcceptsLegitimateFormatting (GuardTest.dpr), TestRejectsDroppedInclude (GuardTest.dpr), TestRejectsCommentDamage (GuardTest.dpr), TestRejectsStringDamage (GuardTest.dpr) (+3 more)
-/// Calls: YADF.Guard.FormatPreservesContent
+/// Calls: YADF.Guard.FormatPreservesContent/4
 /// Returns: FormatPreservesContent(AOriginal, AFormatted, False, Reason)
 /// Overload 1 of 2
-/// Covered by: TestAcceptsLegitimateFormatting, TestDuplicationToleranceAndReason, TestFormatSourceStillFormats, TestRejectsCommentDamage, TestRejectsDroppedInclude (+1 more)
 /// Pure
+/// <seealso cref="YADF.Guard.FormatPreservesContent"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; overload;
@@ -74,12 +73,15 @@ function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; o
 /// <remarks>
 /// Same purity/fail-closed contract as the two-argument overload.
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: TestAcceptsLegitimateFormatting (GuardTest.dpr), TestRejectsDroppedInclude (GuardTest.dpr), TestRejectsCommentDamage (GuardTest.dpr), TestRejectsStringDamage (GuardTest.dpr), TestDuplicationToleranceAndReason (GuardTest.dpr) (+2 more)
+/// Called from: YADF.Guard.FormatPreservesContent/2 (YADF.Guard.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas)
 /// Calls: YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence
 /// Returns: AReason = ''; False
 /// Overload 2 of 2
-/// Covered by: TestAcceptsLegitimateFormatting, TestDuplicationToleranceAndReason, TestFormatSourceStillFormats, TestRejectsCommentDamage, TestRejectsDroppedInclude (+1 more)
 /// Mutates: AReason (out)
+/// <seealso cref="YADF.Guard.ExtractContent"/>
+/// <seealso cref="YADF.Guard.FirstUnmatched"/>
+/// <seealso cref="YADF.Guard.IsSubsequence"/>
+/// <seealso cref="YADF.Guard.SameSequence"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication: Boolean; out AReason: string): Boolean; overload;
@@ -174,38 +176,38 @@ end;
 // able to drop or alter one.
 function IsSubsequence(const A, B: TList<string>): Boolean;
 var
-  ia: Integer;
-  ib: Integer;
+  Ia: Integer;
+  Ib: Integer;
 begin
-  ia:= 0;
-  ib:= 0;
-  while (ia < A.Count) and (ib < B.Count) do
+  Ia:= 0;
+  Ib:= 0;
+  while (Ia < A.Count) and (Ib < B.Count) do
   begin
-    if A[ia] = B[ib] then
-      Inc(ia);
-    Inc  (ib);
+    if A[Ia] = B[Ib] then
+      Inc(Ia);
+    Inc  (Ib);
   end;
-  Result:= ia = A.Count;
+  Result:= Ia = A.Count;
 end; // function
 
 // First element of A not matched in B by the ordered-subsequence walk
 // ('' when every element matched) -- the preview for the decline reason.
 function FirstUnmatched(const A, B: TList<string>): string;
 var
-  ia: Integer;
-  ib: Integer;
+  Ia: Integer;
+  Ib: Integer;
 begin
-  ia:= 0;
-  ib:= 0;
-  while (ia < A.Count) and (ib < B.Count) do
+  Ia:= 0;
+  Ib:= 0;
+  while (Ia < A.Count) and (Ib < B.Count) do
   begin
-    if A[ia] = B[ib] then
-      Inc(ia);
-    Inc  (ib);
+    if A[Ia] = B[Ib] then
+      Inc(Ia);
+    Inc  (Ib);
   end;
-  if ia < A.Count then
+  if Ia < A.Count then
   begin
-    Result:= A[ia];
+    Result:= A[Ia];
     if Length(Result) > 40 then
       Result:= Copy(Result, 1, 40) + '...';
   end

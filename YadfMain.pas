@@ -147,13 +147,35 @@ unit YadfMain;
 
 interface
 
-/// <summary></summary>
+uses
+  System.SysUtils
+  ;
+
+type
+  /// <summary>Raised for a malformed command line -- an unknown flag, a
+  /// missing required value, or an unresolvable path/spec. Signals user
+  /// error rather than an internal fault, so the top-level handler in
+  /// YADF.dpr can print the message and a usage hint instead of an
+  /// "internal error" style report.</summary>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: declaration (YADF.dpr), YadfMain.ExpandFileSpec (YadfMain.pas), YadfMain.ParseFlags (YadfMain.pas)
+  /// Used in units: YADF, YadfMain
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
+  EYadfUsage = class(Exception);
+
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: RunYadf caller (YADF.dpr)
-/// Calls: Add, EnsureIniExists, Format, High, Length, ParamStr, SetLength, YadfMain.BatchFormat, YadfMain.CheckDir, YadfMain.CheckFile (+12 more)
-/// Complexity: 22 (cyclomatic), 142 lines
+/// Called from: declaration (YADF.dpr)
+/// Calls: Format, ParamStr, YADF.Options.EnsureIniExists, YadfMain.BatchFormat, YadfMain.CheckDir, YadfMain.CheckFile, YadfMain.DebugTree, YadfMain.ExpandFileSpec, YadfMain.ExtractIniPath, YadfMain.FormatToFile (+8 more)
+/// Complexity: 22 (cyclomatic, outer body), 142 lines (full implementation)
 /// Pure
+/// <seealso cref="YADF.Options.EnsureIniExists"/>
+/// <seealso cref="YadfMain.BatchFormat"/>
+/// <seealso cref="YadfMain.CheckDir"/>
+/// <seealso cref="YadfMain.CheckFile"/>
+/// <seealso cref="YadfMain.DebugTree"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure RunYadf;
@@ -163,7 +185,6 @@ implementation
 uses
   Winapi.Windows
   , Winapi.ShlObj
-  , System.SysUtils
   , System.Classes
   , System.IOUtils
   , System.IniFiles
@@ -214,7 +235,10 @@ begin
   try
     TFile.AppendAllText(LogFilePath, Line + sLineBreak, TEncoding.ANSI);
   except
-    // never let logging break the run
+    on E: Exception do
+      // Never let a logging failure break the run -- but don't let it be
+      // invisible either. OutputDebugString mirrors the write attempt above.
+      OutputDebugString(PChar('[YADF] log write failed: ' + E.Message));
   end;
 end;
 
@@ -504,7 +528,7 @@ var
   Count   : Integer       ;
   F       : string        ;
   Files   : TArray<string>;
-  Out_    : string        ;
+  OutVal    : string        ;
   RelName : string        ;
   Source  : string        ;
   Declined: string        ;
@@ -524,12 +548,12 @@ begin
   begin
     Source:= LoadFile(F, AOpts, WEnc, WBom);
     RelName:= ExtractFileName(F);
-    Out_:= TPath.Combine(AOutDir, RelName);
-    SaveFile(Out_, FormatSource(Source, AOpts, Declined), WEnc, WBom);
+    OutVal:= TPath.Combine(AOutDir, RelName);
+    SaveFile(OutVal, FormatSource(Source, AOpts, Declined), WEnc, WBom);
     if Declined <> '' then
       WriteStdoutLine(Format('declined %s (content guard: %s) -- wrote the unchanged input', [F, Declined]))
     else
-      WriteStdoutLine(Format('wrote %s', [Out_]));
+      WriteStdoutLine(Format('wrote %s', [OutVal]));
     Inc(Count);
   end; // for
   WriteStdoutLine(Format('--- %d file(s) formatted into %s ---', [Count, AOutDir]));
@@ -673,7 +697,7 @@ begin
       Dir:= GetCurrentDir;
     Pat:= ExtractFileName(ASpec);
     if not TDirectory.Exists(Dir) then
-      raise Exception.Create('Directory not found: ' + Dir);
+      raise EYadfUsage.Create('Directory not found: ' + Dir);
     Result:= TDirectory.GetFiles(Dir, Pat, TSearchOption.soTopDirectoryOnly);
     Exit;
   end;
@@ -983,11 +1007,11 @@ end; // function
 procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);
 var
   i   : Integer      ;
-  Out_: TList<string>;
+  OutVal: TList<string>;
 begin
   AOutFile   := '';
   AStdoutMode:= False;
-  Out_:= TList<string>.Create;
+  OutVal:= TList<string>.Create;
   try
     i:= 0;
     while i <= High(AArgs) do
@@ -995,35 +1019,35 @@ begin
       if AArgs[i] = '--max-len' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--max-len requires a value');
+          raise EYadfUsage.Create('--max-len requires a value');
         AOpts.MaxLen:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--indent' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--indent requires a value');
+          raise EYadfUsage.Create('--indent requires a value');
         AOpts.Indent:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--tab-width' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--tab-width requires a value');
+          raise EYadfUsage.Create('--tab-width requires a value');
         AOpts.TabWidth:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--o' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--o requires a file path');
+          raise EYadfUsage.Create('--o requires a file path');
         AOutFile:= AArgs[i + 1];
         Inc(i, 2);
       end
       else if AArgs[i] = '--of' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--of requires a folder path');
+          raise EYadfUsage.Create('--of requires a folder path');
         AOpts.ResultDir:= AArgs[i + 1];
         Inc(i, 2);
       end
@@ -1075,14 +1099,14 @@ begin
       else if AArgs[i] = '--label-min-lines' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--label-min-lines requires a value');
+          raise EYadfUsage.Create('--label-min-lines requires a value');
         AOpts.LabelMinLines:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--max-blank-lines' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--max-blank-lines requires a value');
+          raise EYadfUsage.Create('--max-blank-lines requires a value');
         AOpts.MaxBlankLines:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
@@ -1149,21 +1173,21 @@ begin
       else if AArgs[i] = '--blanks-before-section' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--blanks-before-section requires a value');
+          raise EYadfUsage.Create('--blanks-before-section requires a value');
         AOpts.BlanksBeforeSection:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--blanks-before-method' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--blanks-before-method requires a value');
+          raise EYadfUsage.Create('--blanks-before-method requires a value');
         AOpts.BlanksBeforeMethod:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
       else if AArgs[i] = '--blanks-before-type' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--blanks-before-type requires a value');
+          raise EYadfUsage.Create('--blanks-before-type requires a value');
         AOpts.BlanksBeforeType:= StrToInt(AArgs[i + 1]);
         Inc(i, 2);
       end
@@ -1185,7 +1209,7 @@ begin
       else if AArgs[i] = '--encoding' then
       begin
         if i + 1 > High(AArgs) then
-          raise Exception.Create('--encoding requires ansi|utf8|utf16');
+          raise EYadfUsage.Create('--encoding requires ansi|utf8|utf16');
         AOpts.Encoding:= ParseEncoding(AArgs[i + 1], AOpts.Encoding);
         Inc(i, 2);
       end
@@ -1283,7 +1307,7 @@ begin
         // ExtractIniPath already consumed every valid `--ini <path>` pair; a
         // bare `--ini` reaching this parser means the value was forgotten --
         // say that, instead of the misleading "unknown option --ini".
-        raise Exception.Create('--ini requires a path value')
+        raise EYadfUsage.Create('--ini requires a path value')
       else if AArgs[i].StartsWith('--') and (AArgs[i] <> '--check') and (AArgs[i] <> '--check-dir') and (AArgs[i] <> '--batch') and (AArgs[i] <> '--debug-tree') then
       begin
         // Anything else that looks like a flag is a typo or an unsupported
@@ -1291,17 +1315,17 @@ begin
         // (which used to produce a confusing "file not found" run). The four
         // positional mode flags above are parsed later by RunYadf and must
         // pass through untouched.
-        raise Exception.Create('unknown option ' + AArgs[i] + ' (run yadf --help for the flag list)');
+        raise EYadfUsage.Create('unknown option ' + AArgs[i] + ' (run yadf --help for the flag list)');
       end
       else
       begin
-        Out_.Add(AArgs[i]);
+        OutVal.Add(AArgs[i]);
         Inc(i);
       end;
     end; // while
-    AArgs:= Out_.ToArray;
+    AArgs:= OutVal.ToArray;
   finally
-    Out_.Free;
+    OutVal.Free;
   end; // try
 end; // procedure
 

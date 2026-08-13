@@ -67,7 +67,7 @@ type
   /// is itself assigned as the R profile. Both shipping hosts set
   /// MirrorF=True -- the two UIs must never disagree about yadf.ini.
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TYadfOptionsPersistPolicy caller (YADF.OptionsFrame.pas)
+  /// Used by: declaration (YADF.OptionsFrame.pas)
   /// Used in units: YADF.OptionsFrame
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -79,9 +79,10 @@ type
   /// <summary>Fired whenever the frame loads, saves, or switches the edited
   /// INI, with a ready-to-display line such as 'INI: C:\...\yadf.ini (saved)'.
   /// Hosts with a status label (YADFSetup) subscribe; others ignore it.</summary>
+  /// <param name="AText"><!-- drag-lint:auto type -->const string</param>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TYadfIniStatusEvent caller (YADF.OptionsFrame.pas)
+  /// Used by: declaration (YADF.OptionsFrame.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfIniStatusEvent = procedure(const AText: string) of object;
@@ -100,7 +101,7 @@ type
   /// The preview is LIVE (debounced); reformat is skipped for options whose
   /// TOptInfo.AffectsPreview is False (their output would be identical).
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: TYadfOptionsFrame caller (YADFOT.Options.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), YADFOT.Options.RegisterYADFOptions (YADFOT.Options.pas), TYadfOptionsFrame caller (uYADFSetupMain.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
+  /// Used by: declaration (YADFOT.Options.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), YADFOT.Options.RegisterYADFOptions (YADFOT.Options.pas), declaration (uYADFSetupMain.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
   /// Used in units: uYADFSetupMain, YADFOT.Options
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -129,211 +130,352 @@ type
       FResultStat : TLabel     ; // 'OK' / 'error'
       FOpenDlg    : TOpenDialog; // load-your-own-.pas dialog
       FReformatTmr: TTimer     ; // debounce reformat on rapid changes
+      /// <param name="AHost"><!-- drag-lint:auto type -->TWinControl</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Create (YADF.OptionsFrame.pas)
-      /// Calls: AddBtn, Create, SetBounds
+      /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel.AddBtn
       /// Reads: FEditingLbl, FProfileList   Writes: FEditingLbl, FProfileList
       /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
       /// UI thread only -- touches AHost
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel.AddBtn"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure BuildProfilePanel(AHost: TWinControl);
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Create (YADF.OptionsFrame.pas)
-      /// Calls: Add, Create, High, Inc, Length, OptionHint, SetLength
+      /// Calls: YADF.Options.OptionHint
       /// Reads: FControls, FScroll
       /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
       /// UI thread only -- touches Parent
       /// Pure
+      /// <seealso cref="YADF.Options.OptionHint"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure BuildControls;
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Create (YADF.OptionsFrame.pas)
-      /// Calls: Create
       /// Reads: FSourceName, FSource, FResultStat, FResult, FOpenDlg   Writes: FSourceName, FSource, FResultStat, FResult, FOpenDlg
       /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure BuildPreview;
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
-      /// Calls: GetVal, High, IndexOf, TCheckBox, TComboBox, TEdit, TSpinEdit, VarToStr
+      /// Calls: TCheckBox, TComboBox, TEdit, TSpinEdit, VarToStr
       /// Reads: FOpts, FControls   Writes: FUpdating
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure OptionsToControls;
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.OptionChanged (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
-      /// Calls: High, SetVal, TCheckBox, TComboBox, TEdit, TSpinEdit
+      /// Calls: TCheckBox, TComboBox, TEdit, TSpinEdit
       /// Reads: FOpts, FControls
       /// Pure
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ControlsToOptions;
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected (YADF.OptionsFrame.pas)
-      /// Calls: Add, DirectoryExists, ExtractFileName, ForceDirectories, GetFiles, High, Length, SameText, SetLength
+      /// Calls: DirectoryExists, ExtractFileName, ForceDirectories, SameText
       /// Reads: FProfileFiles, FCurrentIni, FProfileList, FProfiles, FEditingLbl
       /// Touches: file system
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure RefreshProfileList;
+      /// <param name="AIniFile"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ProfileListClick (YADF.OptionsFrame.pas)
-      /// Calls: EnsureIniExists, ExtractFileName, LoadOptionsFromIni, ResolveProfileIniPath, SameFileName, SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat
+      /// Calls: ExtractFileName, SameFileName, YADF.Options.EnsureIniExists, YADF.Options.LoadOptionsFromIni, YADF.Options.ResolveProfileIniPath, YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat
       /// Reads: FCurrentIni, FOpts, FPolicy, FEditingLbl   Writes: FPendingSave, FCurrentIni, FOpts
+      /// <seealso cref="YADF.Options.EnsureIniExists"/>
+      /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
+      /// <seealso cref="YADF.Options.ResolveProfileIniPath"/>
+      /// <seealso cref="YADF.Options.SaveOptionsToIni"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SwitchEditTo(const AIniFile: string);
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.OpenSourceClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ReformatTimer (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults (YADF.OptionsFrame.pas) (+1 more)
-      /// Calls: FormatSource
+      /// Calls: YADF.Layout.FormatSource/2
       /// Reads: FResult, FSource, FOpts, FResultStat
       /// Pure
+      /// <seealso cref="YADF.Layout.FormatSource"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure Reformat;
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas)
-      /// Calls: Exists, ExtractFileName, ExtractFilePath, GetModuleName, High, LoadFromFile
+      /// Calls: ExtractFileName, ExtractFilePath, GetModuleName
       /// Reads: FSource, FSourceName
       /// Touches: file system
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure LoadSample;
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Destroy (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ReformatTimer (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults (YADF.OptionsFrame.pas)
-      /// Calls: SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile
+      /// Calls: YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile
       /// Reads: FOpts, FCurrentIni
       /// Pure
+      /// <seealso cref="YADF.Options.SaveOptionsToIni"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SaveCurrentProfile;
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
-      /// Calls: Copy, GetFullPath, ResolveProfileIniPath, SameFileName
+      /// Calls: SameFileName, YADF.Options.ResolveProfileIniPath
       /// Reads: FPolicy, FCurrentIni, FProfiles
       /// Touches: file system
+      /// <seealso cref="YADF.Options.ResolveProfileIniPath"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure MirrorFProfile;
+      /// <param name="ASuffix"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
-      /// Calls: Assigned, FOnIniStatus
+      /// Calls: FOnIniStatus
       /// Reads: FOnIniStatus, FCurrentIni
       /// Pure
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure DoIniStatus(const ASuffix: string);
+      /// <param name="AWhich"><!-- drag-lint:auto type -->Char</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.ProfileListKeyDown (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SetFClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SetRClick (YADF.OptionsFrame.pas)
-      /// Calls: SaveProfiles, SelectedProfile, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList
+      /// Calls: YADF.Options.SaveProfiles, YADF.OptionsFrame.SelectedProfile, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList
       /// Reads: FProfileList, FProfileFiles, FProfiles
       /// Pure
+      /// <seealso cref="YADF.Options.SaveProfiles"/>
+      /// <seealso cref="YADF.OptionsFrame.SelectedProfile"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure AssignShortcut(AWhich: Char);
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.ProfileListKeyDown (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.UnassignClick (YADF.OptionsFrame.pas)
-      /// Calls: SameText, SaveProfiles, SelectedProfile, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList
+      /// Calls: SameText, YADF.Options.SaveProfiles, YADF.OptionsFrame.SelectedProfile, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList
       /// Reads: FProfileList, FProfileFiles, FProfiles
       /// Pure
+      /// <seealso cref="YADF.Options.SaveProfiles"/>
+      /// <seealso cref="YADF.OptionsFrame.SelectedProfile"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure UnassignSelected;
       // event handlers
       /// <summary><!-- drag-lint:auto -->event handlers</summary>
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Calls: High, TControl, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions
+      /// Calls: TControl, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions
       /// Reads: FUpdating, FPolicy, FPendingSave, FPendingReformat, FReformatTmr   Writes: FPendingSave, FPendingReformat
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure OptionChanged   (Sender: TObject);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Reads: FReformatTmr   Writes: FPendingReformat
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SourceChanged   (Sender: TObject);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile
       /// Reads: FReformatTmr, FPendingSave, FPendingReformat   Writes: FPendingSave, FPendingReformat
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Reformat"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ReformatTimer   (Sender: TObject);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Calls: ExtractFileName, LoadFromFile, YADF.OptionsFrame.TYadfOptionsFrame.Reformat
+      /// Calls: ExtractFileName, YADF.OptionsFrame.TYadfOptionsFrame.Reformat
       /// Reads: FOpenDlg, FSource, FSourceName
       /// Pure
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Reformat"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure OpenSourceClick (Sender: TObject);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Reads: FResult
       /// Pure
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure CopyResultClick (Sender: TObject);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Calls: SelectedProfile, YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo
+      /// Calls: YADF.OptionsFrame.SelectedProfile, YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo
       /// Reads: FProfileList, FProfileFiles
       /// Pure
+      /// <seealso cref="YADF.OptionsFrame.SelectedProfile"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ProfileListClick(Sender: TObject);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
+      /// <param name="Key"><!-- drag-lint:auto type -->var Word</param>
+      /// <param name="Shift"><!-- drag-lint:auto type -->TShiftState</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Calls: Ord, YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut, YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected
+      /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut, YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected
       /// Mutates: Key (var)
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ProfileListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut
       /// Pure
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SetFClick      (Sender: TObject);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut
       /// Pure
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SetRClick      (Sender: TObject);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected
       /// Pure
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure UnassignClick  (Sender: TObject);
+      /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Calls: CharInSet, FileExists, InputQuery, Length, MessageDlg, ResolveProfileIniPath, SaveOptionsToIni, Trim, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList, YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo
+      /// Calls: CharInSet, FileExists, InputQuery, MessageDlg, Trim, YADF.Options.ResolveProfileIniPath, YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList, YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo
       /// Reads: FOpts
       /// Pure
+      /// <seealso cref="YADF.Options.ResolveProfileIniPath"/>
+      /// <seealso cref="YADF.Options.SaveOptionsToIni"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure NewProfileClick(Sender: TObject);
@@ -342,12 +484,19 @@ type
       /// option grid host, splitter, preview panes, debounce timer; the .dfm
       /// resource supplies only the bare streamable root. Host call sequence:
       /// Create -> Policy := ... -> [OnIniStatus := ...] -> Load.</summary>
+      /// <param name="AOwner"><!-- drag-lint:auto type -->TComponent</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: StringUsageLogging.LogStringUsageToFile (StringUsageLogging.pas), uMainForm.TMainForm.Parse (uMainForm.pas), DelphiAST.Classes.TExpressionTools.CreateNodeWithParentsPosition (DelphiAST.Classes.pas), DelphiAST.Classes.TExpressionTools.RawNodeListToTree (DelphiAST.Classes.pas), DelphiAST.Classes.TSyntaxNode.AddChild (DelphiAST.Classes.pas) (+52 more)
+      /// Called from: uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.BuildControls, YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview, YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel
+      /// constructor
       /// Reads: FReformatTmr, FScroll   Writes: FReformatTmr, FScroll
       /// Covered by: TestLenientIntRead, TestLooksLikeUtf8
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       constructor Create(AOwner: TComponent); override;
@@ -357,6 +506,11 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile
       /// Reads: FPendingSave   Writes: FOnIniStatus, FPendingSave
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       destructor Destroy; override;
@@ -367,8 +521,13 @@ type
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
-      /// Calls: EnsureIniExists, LoadOptionsFromIni, ResolveProfileIniPath, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.LoadSample, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList
+      /// Calls: YADF.Options.EnsureIniExists, YADF.Options.LoadOptionsFromIni, YADF.Options.ResolveProfileIniPath, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.LoadSample, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList
       /// Reads: FProfiles, FCurrentIni   Writes: FProfiles, FCurrentIni, FOpts
+      /// <seealso cref="YADF.Options.EnsureIniExists"/>
+      /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
+      /// <seealso cref="YADF.Options.ResolveProfileIniPath"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.LoadSample"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure Load;
@@ -383,30 +542,47 @@ type
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADFOT.Options.TYadfOptionsPage.DialogClosed (YADFOT.Options.pas)
-      /// Calls: LoadOptionsFromIni, SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile
+      /// Calls: YADF.Options.LoadOptionsFromIni, YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile
       /// Reads: FCurrentIni, FOpts   Writes: FOpts
+      /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
+      /// <seealso cref="YADF.Options.SaveOptionsToIni"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure Commit;
       /// <summary>Read options from an arbitrary INI into the grid (YADFSetup's
       /// "Load Settings"). Under Policy.AutoSave the values are immediately
       /// persisted to the profile being edited.</summary>
+      /// <param name="APath"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: uYADFSetupMain.TfrmMain.btnLoadSettingsClick (uYADFSetupMain.pas)
-      /// Calls: LoadOptionsFromIni, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile
+      /// Calls: YADF.Options.LoadOptionsFromIni, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile
       /// Reads: FPolicy   Writes: FOpts
+      /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Reformat"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure LoadOptionsFromFile(const APath: string);
       /// <summary>Write the grid's current values to an arbitrary INI
       /// (YADFSetup's "Save As..."). Does not change which profile is edited.</summary>
+      /// <param name="APath"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: uYADFSetupMain.TfrmMain.btnSaveSettingsClick (uYADFSetupMain.pas)
-      /// Calls: SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions
+      /// Calls: YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions
       /// Reads: FOpts
       /// Pure
+      /// <seealso cref="YADF.Options.SaveOptionsToIni"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SaveOptionsToFile(const APath: string);
@@ -418,6 +594,11 @@ type
       /// Called from: uYADFSetupMain.TfrmMain.btnResetClick (uYADFSetupMain.pas)
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile
       /// Reads: FPolicy   Writes: FOpts
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Reformat"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ResetToDefaults;

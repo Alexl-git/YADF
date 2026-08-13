@@ -25,10 +25,9 @@ uses
   ;
 
 type
-  /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas) (+10 more)
+  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+10 more)
   /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -41,34 +40,33 @@ type
     Col : Integer     ;
   end;
 
-  /// <summary></summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.FormatSource (YADF.Layout.pas), YadfMain.RoundTrip (YadfMain.pas) (+9 more)
+  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+9 more)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TTokenList = TList<TToken>;
 
-/// <summary></summary>
-/// <param name="ASource"></param>
+/// <param name="ASource"><!-- drag-lint:auto type -->const string</param>
 /// <returns>Observed: TTokenList.Create.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.FormatSource (YADF.Layout.pas), YadfMain.RoundTrip (YadfMain.pas) (+3 more)
-/// Calls: Add, Copy, Length, SimpleParser.Lexer.TmwBasePasLex.Next, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken
+/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas) (+3 more)
+/// Calls: Copy, SimpleParser.Lexer.TmwBasePasLex.Next, SimpleParser.Lexer.TmwPasLex.Create, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken
 /// Returns: TTokenList.Create
-/// Covered by: TestAcceptsLegitimateFormatting, TestDuplicationToleranceAndReason, TestFormatSourceStillFormats, TestRejectsCommentDamage, TestRejectsDroppedInclude (+1 more)
 /// Pure
+/// <seealso cref="SimpleParser.Lexer.TmwBasePasLex.Next"/>
+/// <seealso cref="SimpleParser.Lexer.TmwPasLex.Create"/>
+/// <seealso cref="YADF.Tokens.ShieldIncludeDirectives"/>
+/// <seealso cref="YADF.Tokens.UnshieldIncludeToken"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function LoadTokensFromString(const ASource: string): TTokenList;
-/// <summary></summary>
-/// <param name="ATokens"></param>
+/// <param name="ATokens"><!-- drag-lint:auto type -->const TTokenList</param>
 /// <returns>Observed: Sb.ToString.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// Called from: YadfMain.RoundTrip (YadfMain.pas)
-/// Calls: Append
 /// Returns: Sb.ToString
 /// Pure
 /// <!-- drag-lint:auto END -->

@@ -21,9 +21,8 @@ uses
   , YADF.Groups
   ;
 
-/// <summary></summary>
-/// <param name="ATokens"></param>
-/// <param name="ARoot"></param>
+/// <param name="ATokens"><!-- drag-lint:auto type -->const TTokenList</param>
+/// <param name="ARoot"><!-- drag-lint:auto type -->TGroup</param>
 /// <returns>Observed: Lines.Text.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
@@ -31,6 +30,7 @@ uses
 /// Calls: YADF.Debug.WalkGroup
 /// Returns: Lines.Text
 /// Pure
+/// <seealso cref="YADF.Debug.WalkGroup"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function RenderGroupTree(const ATokens: TTokenList; ARoot: TGroup): string;
