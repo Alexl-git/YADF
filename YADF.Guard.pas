@@ -29,7 +29,7 @@
   shipped.
 }
 
-unit YADF.Guard;
+unit YADF.Guard;   // dl:shared YADF, YADFOT, YADFSetup
 
 interface
 

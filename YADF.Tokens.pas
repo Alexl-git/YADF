@@ -12,7 +12,7 @@
   https://github.com/RomanYankovsky/DelphiAST
 }
 
-unit YADF.Tokens;
+unit YADF.Tokens;   // dl:shared YADF, YADFOT, YADFSetup
 
 interface
 

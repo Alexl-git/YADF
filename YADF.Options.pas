@@ -12,7 +12,7 @@
   https://github.com/RomanYankovsky/DelphiAST
 }
 
-unit YADF.Options;
+unit YADF.Options;   // dl:shared YADF, YADFOT, YADFSetup
 
 interface
 

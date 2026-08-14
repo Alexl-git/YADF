@@ -65,7 +65,7 @@
     while their leading whitespace is still re-indented.
 }
 
-unit YADF.Layout;
+unit YADF.Layout;   // dl:shared YADF, YADFOT, YADFSetup
 
 interface
 

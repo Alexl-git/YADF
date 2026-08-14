@@ -25,7 +25,7 @@
   (Pascal string literals do not span lines) -- BeginLine clears it.
 }
 
-unit YADF.LineScan;
+unit YADF.LineScan;   // dl:shared YADF, YADFOT, YADFSetup
 
 interface
 

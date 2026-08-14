@@ -12,7 +12,7 @@
   https://github.com/RomanYankovsky/DelphiAST
 }
 
-unit YADF.Groups;
+unit YADF.Groups;   // dl:shared YADF, YADFOT, YADFSetup
 
 interface
 

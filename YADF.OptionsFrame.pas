@@ -29,7 +29,7 @@
   edits are silently discarded.
 }
 
-unit YADF.OptionsFrame;
+unit YADF.OptionsFrame;   // dl:shared YADFOT, YADFSetup
 
 interface
 
