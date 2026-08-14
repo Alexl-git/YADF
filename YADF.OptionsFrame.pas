@@ -749,13 +749,13 @@ var
   i     : Integer         ;
   y     : Integer         ;
   CurGrp: string          ;
-  gb    : TGroupBox       ;
+  Gb    : TGroupBox       ;
   Parent: TWinControl     ;
-  yIn   : Integer         ;
-  cb    : TCheckBox       ;
-  se    : TSpinEdit       ;
-  ed    : TEdit           ;
-  cmb   : TComboBox       ;
+  YIn   : Integer         ;
+  Cb    : TCheckBox       ;
+  Se    : TSpinEdit       ;
+  Ed    : TEdit           ;
+  Cmb   : TComboBox       ;
   Lbl   : TLabel          ;
 begin
   // One TGroupBox per TOptInfo.Group, one control per row keyed by Kind,
@@ -763,87 +763,87 @@ begin
   T:= OptionTable;
   SetLength(FControls, Length(T));
   CurGrp:= '';
-  gb:= nil;
+  Gb:= nil;
   Parent:= FScroll;
   y     := 4;
-  yIn   := 0;
+  YIn   := 0;
   for i:= 0 to High(T) do
   begin
     if T[i].Group <> CurGrp then
     begin
       CurGrp:= T[i].Group;
-      gb:= TGroupBox.Create(Self);
-      gb.Parent:= FScroll;
-      gb.Left  := 4;
-      gb.Top   := y;
-      gb.Width:= FScroll.ClientWidth - 28;  // dl:ok large-magic-number@ffcb
-      gb.Anchors:= [akLeft, akTop, akRight];
-      gb.Caption:= CurGrp;
-      Parent:= gb;
-      yIn   := 18;  // dl:ok large-magic-number@dce8
+      Gb:= TGroupBox.Create(Self);
+      Gb.Parent:= FScroll;
+      Gb.Left  := 4;
+      Gb.Top   := y;
+      Gb.Width:= FScroll.ClientWidth - 28;  // dl:ok large-magic-number@ffcb
+      Gb.Anchors:= [akLeft, akTop, akRight];
+      Gb.Caption:= CurGrp;
+      Parent:= Gb;
+      YIn   := 18;  // dl:ok large-magic-number@dce8
     end; // if
     case T[i].Kind of
       okBool:
       begin
-        cb:= TCheckBox.Create(Self);
-        cb.Parent:= Parent;
-        cb.Left:= 10; cb.Top:= yIn; cb.Width:= gb.Width - 20;
-        cb.Caption:= T[i].Caption;
-        cb.Hint:= OptionHint(T[i]); cb.ShowHint:= True;
-        cb.Tag    := i;
-        cb.OnClick:= OptionChanged;
-        FControls[i]:= cb;
-        Inc(yIn, 24);
+        Cb:= TCheckBox.Create(Self);
+        Cb.Parent:= Parent;
+        Cb.Left:= 10; Cb.Top:= YIn; Cb.Width:= Gb.Width - 20;
+        Cb.Caption:= T[i].Caption;
+        Cb.Hint:= OptionHint(T[i]); Cb.ShowHint:= True;
+        Cb.Tag    := i;
+        Cb.OnClick:= OptionChanged;
+        FControls[i]:= Cb;
+        Inc(YIn, 24);
       end; // case
       okInt:
       begin
         Lbl:= TLabel.Create(Self);
-        Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= yIn + 3;
+        Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
-        se:= TSpinEdit.Create(Self);
-        se.Parent:= Parent; se.Left:= 240; se.Top:= yIn; se.Width:= 80;  // dl:ok large-magic-number@f1d9
-        se.MinValue:= 0; se.MaxValue:= 100000;  // dl:ok large-magic-number@8d21
-        se.Hint:= OptionHint(T[i]); se.ShowHint:= True;
-        se.Tag     := i;
-        se.OnChange:= OptionChanged;
-        FControls[i]:= se;
-        Inc(yIn, 28);  // dl:ok large-magic-number@ce48
+        Se:= TSpinEdit.Create(Self);
+        Se.Parent:= Parent; Se.Left:= 240; Se.Top:= YIn; Se.Width:= 80;  // dl:ok large-magic-number@f1d9
+        Se.MinValue:= 0; Se.MaxValue:= 100000;  // dl:ok large-magic-number@8d21
+        Se.Hint:= OptionHint(T[i]); Se.ShowHint:= True;
+        Se.Tag     := i;
+        Se.OnChange:= OptionChanged;
+        FControls[i]:= Se;
+        Inc(YIn, 28);  // dl:ok large-magic-number@ce48
       end; // begin
       okString:
       begin
         Lbl:= TLabel.Create(Self);
-        Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= yIn + 3;
+        Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
-        ed:= TEdit.Create(Self);
-        ed.Parent:= Parent; ed.Left:= 240; ed.Top:= yIn; ed.Width:= gb.Width - 250;  // dl:ok large-magic-number@2eb3
-        ed.Anchors:= [akLeft, akTop, akRight];
-        ed.Hint:= OptionHint(T[i]); ed.ShowHint:= True;
-        ed.Tag     := i;
-        ed.OnChange:= OptionChanged;
-        FControls[i]:= ed;
-        Inc(yIn, 28);  // dl:ok large-magic-number@ce48
+        Ed:= TEdit.Create(Self);
+        Ed.Parent:= Parent; Ed.Left:= 240; Ed.Top:= YIn; Ed.Width:= Gb.Width - 250;  // dl:ok large-magic-number@2eb3
+        Ed.Anchors:= [akLeft, akTop, akRight];
+        Ed.Hint:= OptionHint(T[i]); Ed.ShowHint:= True;
+        Ed.Tag     := i;
+        Ed.OnChange:= OptionChanged;
+        FControls[i]:= Ed;
+        Inc(YIn, 28);  // dl:ok large-magic-number@ce48
       end; // begin
       okEnum:
       begin
         Lbl:= TLabel.Create(Self);
-        Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= yIn + 3;
+        Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
-        cmb:= TComboBox.Create(Self);
-        cmb.Parent:= Parent; cmb.Left:= 240; cmb.Top:= yIn; cmb.Width:= 110;  // dl:ok large-magic-number@292a
-        cmb.Style:= csDropDownList;
+        Cmb:= TComboBox.Create(Self);
+        Cmb.Parent:= Parent; Cmb.Left:= 240; Cmb.Top:= YIn; Cmb.Width:= 110;  // dl:ok large-magic-number@292a
+        Cmb.Style:= csDropDownList;
         for var V in T[i].EnumValues do // value list lives in the descriptor
-          cmb.Items.Add(V);
-        cmb.Hint:= OptionHint(T[i]); cmb.ShowHint:= True;
-        cmb.Tag     := i;
-        cmb.OnChange:= OptionChanged;
-        FControls[i]:= cmb;
-        Inc(yIn, 28);  // dl:ok large-magic-number@ce48
+          Cmb.Items.Add(V);
+        Cmb.Hint:= OptionHint(T[i]); Cmb.ShowHint:= True;
+        Cmb.Tag     := i;
+        Cmb.OnChange:= OptionChanged;
+        FControls[i]:= Cmb;
+        Inc(YIn, 28);  // dl:ok large-magic-number@ce48
       end; // begin
     end; // case
-    if gb <> nil then
+    if Gb <> nil then
     begin
-      gb.Height:= yIn + 6;
-      y:= gb.Top + gb.Height + 6;
+      Gb.Height:= YIn + 6;
+      y:= Gb.Top + Gb.Height + 6;
     end;
   end; // for
 end; // procedure
@@ -1046,7 +1046,7 @@ end; // procedure
 procedure TYadfOptionsFrame.OptionChanged(Sender: TObject);
 var
   T  : TArray<TOptInfo>;
-  idx: Integer         ;
+  Idx: Integer         ;
 begin
   // A control changed. Ignore programmatic population (OptionsToControls sets
   // FUpdating), otherwise each of ~40 writes would pull+reformat. Pull the
@@ -1063,8 +1063,8 @@ begin
   if FPolicy.AutoSave then
     FPendingSave:= True;
   T             := OptionTable;
-  idx:= TControl(Sender).Tag;
-  if not ((idx >= 0) and (idx <= High(T)) and not T[idx].AffectsPreview) then
+  Idx:= TControl(Sender).Tag;
+  if not ((Idx >= 0) and (Idx <= High(T)) and not T[Idx].AffectsPreview) then
     FPendingReformat:= True;
   if FPendingSave or FPendingReformat then
   begin
