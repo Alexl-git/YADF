@@ -34,7 +34,7 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)
+  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)
   /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -484,21 +484,9 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 /// <returns>Observed: AFileName; TPath.Combine(ProfilesDir, AFileName).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas)
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas)
 /// Calls: Trim
 /// Returns: AFileName; TPath.Combine(ProfilesDir, AFileName)
-/// Touches: file system
-/// <!-- drag-lint:auto END -->
-/// </remarks>
-
-
-/// <param name="AFileName"><!-- drag-lint:auto type -->const string</param>
-/// <returns><!-- drag-lint:auto -->Observed: AFileName; TPath.Combine(ProfilesDir,
-/// AFileName).</returns>
-/// <remarks>
-/// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
-/// Calls: Trim
 /// Touches: file system
 /// <!-- drag-lint:auto END -->
 /// </remarks>

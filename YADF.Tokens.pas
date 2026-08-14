@@ -27,7 +27,7 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+10 more)
+  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.CollectParensItems (YADF.Layout.pas), YADF.Layout.CollectUsesItems (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.RenderUsesGroup (YADF.Layout.pas), YADF.Layout.ShieldMultilineTokens (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YADF.Tokens.EmitTokens (YADF.Tokens.pas), YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), YadfMain.ParseDprUnits (YadfMain.pas)
   /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -42,7 +42,7 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+9 more)
+  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), declaration (YADF.Tokens.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), YadfMain.DebugTree (YadfMain.pas), YadfMain.ParseDprUnits (YadfMain.pas), YadfMain.RoundTrip (YadfMain.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TTokenList = TList<TToken>;
@@ -51,12 +51,10 @@ type
 /// <returns>Observed: TTokenList.Create.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas) (+3 more)
-/// Calls: Copy, SimpleParser.Lexer.TmwBasePasLex.Next, SimpleParser.Lexer.TmwPasLex.Create, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken
+/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas), YadfMain.ParseDprUnits (YadfMain.pas), YadfMain.RoundTrip (YadfMain.pas)
+/// Calls: Copy, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken
 /// Returns: TTokenList.Create
 /// Pure
-/// <seealso cref="SimpleParser.Lexer.TmwBasePasLex.Next"/>
-/// <seealso cref="SimpleParser.Lexer.TmwPasLex.Create"/>
 /// <seealso cref="YADF.Tokens.ShieldIncludeDirectives"/>
 /// <seealso cref="YADF.Tokens.UnshieldIncludeToken"/>
 /// <!-- drag-lint:auto END -->

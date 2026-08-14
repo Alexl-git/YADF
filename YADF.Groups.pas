@@ -32,7 +32,7 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas) (+3 more)
+  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)
   /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>

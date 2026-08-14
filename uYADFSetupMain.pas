@@ -42,7 +42,6 @@ type
     /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.Create, YADF.OptionsFrame.TYadfOptionsFrame.Load
     /// Reads: FFrame   Writes: FFrame
     /// Handles: frmMain.OnCreate
-    /// UI thread only -- touches FFrame
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Create"/>
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Load"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
@@ -57,7 +56,6 @@ type
     /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile
     /// Reads: dlgOpen, FFrame
     /// Handles: btnLoadSettings.OnClick
-    /// UI thread only -- touches FFrame
     /// Pure
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>
@@ -73,7 +71,6 @@ type
     /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile
     /// Reads: dlgSaveIni, FFrame
     /// Handles: btnSaveSettings.OnClick
-    /// UI thread only -- touches FFrame
     /// Pure
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
@@ -89,7 +86,6 @@ type
     /// Calls: ExtractFileName, MessageDlg, YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults
     /// Reads: FFrame
     /// Handles: btnReset.OnClick
-    /// UI thread only -- touches FFrame
     /// Pure
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>

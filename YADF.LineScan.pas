@@ -55,7 +55,7 @@ type
   /// Pure value record, no heap state -- copy/discard freely.
   /// Not thread-shared; give each scan its own record.
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas) (+1 more)
+  /// Used by: YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)
   /// Used in units: YADF.Layout, YADF.LineScan
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -70,7 +70,7 @@ type
     /// <summary>Clears all state; call once before scanning a document.</summary>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas) (+5 more)
+    /// Called from: YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas) ?, YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.FormatSource.FindOperatorPositionsAtTopLevel (YADF.Layout.pas) ?, YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas) ?, YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas) ?, YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)
     /// Writes: InBrace, InParenStar, InString, Depth, ClampDepth
     /// <seealso cref="YADF.LineScan.TLineScanState.BeginLine"/>
     /// <seealso cref="YADF.LineScan.TLineScanState.InBlockComment"/>
@@ -123,7 +123,7 @@ type
     /// <returns>What the position landed on.</returns>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas) (+5 more)
+    /// Called from: YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas) ?, YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.FormatSource.FindOperatorPositionsAtTopLevel (YADF.Layout.pas) ?, YADF.Layout.JoinRoutineHeaders.ScanLine (YADF.Layout.pas) ?, YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas) ?, YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas) ?, YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)
     /// Returns: seLineComment; seCode; seEndOfLine
     /// Complexity: 20 (cyclomatic, outer body), 54 lines (full implementation)
     /// Reads: InBrace, InParenStar, InString   Writes: InBrace, InParenStar, InString
@@ -142,7 +142,7 @@ type
     /// <param name="i"><!-- drag-lint:auto type -->var Integer</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas) (+5 more)
+    /// Called from: YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas) ?, YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), YADF.Layout.FormatSource.FindOperatorPositionsAtTopLevel (YADF.Layout.pas) ?, YADF.Layout.JoinRoutineHeaders.ScanLine (YADF.Layout.pas) ?, YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas) ?, YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas) ?, YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)
     /// Reads: Depth, ClampDepth   Writes: Depth
     /// Mutates: i (var)
     /// <seealso cref="YADF.LineScan.TLineScanState.BeginLine"/>

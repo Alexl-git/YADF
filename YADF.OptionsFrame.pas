@@ -230,7 +230,7 @@ type
       procedure SwitchEditTo(const AIniFile: string);
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.OpenSourceClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ReformatTimer (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults (YADF.OptionsFrame.pas) (+1 more)
+      /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.OpenSourceClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ReformatTimer (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
       /// Calls: YADF.Layout.FormatSource/2
       /// Reads: FResult, FSource, FOpts, FResultStat
       /// Pure
