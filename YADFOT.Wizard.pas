@@ -375,16 +375,16 @@ end;
 // which tab is focused, so this is the precise dangerous condition.
 function ModuleHasFormDesigner(const AEditor: IOTASourceEditor): Boolean;
 var
-  FE: IOTAFormEditor;
-  i : Integer;
-  M : IOTAModule;
+  FormEd: IOTAFormEditor;
+  i     : Integer;
+  M     : IOTAModule;
 begin
   Result:= False;
   if AEditor = nil then Exit;
   M:= AEditor.Module;
   if M = nil then Exit;
   for i:= 0 to M.GetModuleFileCount - 1 do
-    if Supports(M.GetModuleFileEditor(i), IOTAFormEditor, FE) then Exit(True);
+    if Supports(M.GetModuleFileEditor(i), IOTAFormEditor, FormEd) then Exit(True);
 end;
 
 // Form / data-module path. Replacing the live editor buffer would desync the
@@ -567,10 +567,10 @@ begin
   // dropped -- the primary hook that strips the options page so no IDE list
   // keeps a dangling interface into our vanishing vtable. Idempotent; safe
   // alongside the YADFOT.Options finalization (which runs later in shutdown).
-  try UnregisterYADFOptions;  except end;  // dl:ok empty-except@1500
+  try UnregisterYADFOptions;  except end;  // dl:ok empty-except@1500, try-except-swallowed@1500
   // Strip the About-box entry + free the retained icon here too (primary hook,
   // before the code segment is dropped); the finalization below is a backstop.
-  try UnregisterYadfotAbout;  except end;  // dl:ok empty-except@0e7a
+  try UnregisterYadfotAbout;  except end;  // dl:ok empty-except@0e7a, try-except-swallowed@0e7a
 end;
 
 // --- IOTAKeyboardBinding (Ctrl+Shift+Alt+F) ----------------------------
@@ -665,10 +665,10 @@ begin
     if Supports(BorlandIDEServices, IOTAAboutBoxServices, ABS) and Assigned(GIconBmp) then
       GAboutIndex:= ABS.AddPluginInfo(
         SplashCaption, AboutDescription, GIconBmp.Handle, False, AboutLicense, YADF_VERSION);
-  except  // dl:ok empty-except@b112
+  except  // dl:ok empty-except@b112, try-except-swallowed@b112
   end;
   // Eager-load so Register runs at startup (needed for the splash to paint).
-  try ForceDemandLoadState(dlDisable); except end;  // dl:ok empty-except@2c6e
+  try ForceDemandLoadState(dlDisable); except end;  // dl:ok empty-except@2c6e, try-except-swallowed@2c6e
 end;
 
 // Hand back the About-box entry and free the retained bitmap. Idempotent: the
@@ -679,7 +679,7 @@ var
   ABS: IOTAAboutBoxServices;
 begin
   if Supports(BorlandIDEServices, IOTAAboutBoxServices, ABS) and (GAboutIndex >= 0) then
-    try ABS.RemovePluginInfo(GAboutIndex); except end;  // dl:ok empty-except@e006
+    try ABS.RemovePluginInfo(GAboutIndex); except end;  // dl:ok empty-except@e006, try-except-swallowed@e006
   GAboutIndex:= -1;
   FreeAndNil(GIconBmp);
 end;
@@ -706,10 +706,10 @@ begin
     GKeyboardBindingIndex:= KS.AddKeyboardBinding(TYadfotKeyboardBinding.Create);
   // Add the Tools > Options > Third Party > YADF page. Tolerate failure so a
   // missing options service never aborts the whole registration.
-  try RegisterYADFOptions; except end;  // dl:ok empty-except@1c6a
+  try RegisterYADFOptions; except end;  // dl:ok empty-except@1c6a, try-except-swallowed@1c6a
   // Add the IDE splash bitmap + the static About-box entry. Guarded so a
   // missing splash/about service never aborts the whole registration.
-  try RegisterYadfotAbout; except end;  // dl:ok empty-except@0bdf
+  try RegisterYadfotAbout; except end;  // dl:ok empty-except@0bdf, try-except-swallowed@0bdf
 end;
 
 // Hand back the wizard slot and keyboard binding. Called from finalization;
@@ -738,9 +738,9 @@ initialization
 // is essential -- if the slot is left dangling, the next package load
 // can leave duplicate menu items behind.
 finalization
-  try UnregisterYadfotWizard; except end;  // dl:ok empty-except@87b7
+  try UnregisterYadfotWizard; except end;  // dl:ok empty-except@87b7, try-except-swallowed@87b7
   // Backstop for the About-box entry + retained icon (primary hook is the
   // wizard's Destroyed above). Idempotent via the GAboutIndex >= 0 guard.
-  try UnregisterYadfotAbout; except end;  // dl:ok empty-except@0e7a
+  try UnregisterYadfotAbout; except end;  // dl:ok empty-except@0e7a, try-except-swallowed@0e7a
 
 end.

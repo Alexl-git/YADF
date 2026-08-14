@@ -218,7 +218,7 @@ begin
   if Length(GOptions) = 0 then Exit;
   if Supports(BorlandIDEServices, INTAEnvironmentOptionsServices, Svc) then
     for O in GOptions do
-      try Svc.UnregisterAddInOptions(O); except end;  // dl:ok empty-except@a36e
+      try Svc.UnregisterAddInOptions(O); except end;  // dl:ok empty-except@a36e, try-except-swallowed@a36e
   SetLength(GOptions, 0);
 end;
 
