@@ -38,32 +38,6 @@ type
   /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
   /// <!-- drag-lint:auto END -->
   /// </remarks>
-
-
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas)
-  /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
-
-
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas)
-  /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
-
-
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas)
-  /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
-
-
   TYadfOptions = record
     MaxLen              : Integer      ;
     Indent              : Integer      ;

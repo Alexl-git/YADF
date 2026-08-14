@@ -36,32 +36,6 @@ type
   /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
-
-
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas) (+2 more)
-  /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
-
-
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas) (+2 more)
-  /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
-
-
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas) (+2 more)
-  /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
-
-
   TGroup = class
     Kind       : TGroupKind         ;
     OpenIdx    : Integer            ;

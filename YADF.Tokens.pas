@@ -31,22 +31,6 @@ type
   /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
-
-
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+9 more)
-  /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
-
-
-  /// <remarks>
-  /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+9 more)
-  /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens
-  /// <!-- drag-lint:auto END -->
-  /// </remarks>
   TToken = record
     Kind: TptTokenKind;
     ExID: TptTokenKind;
