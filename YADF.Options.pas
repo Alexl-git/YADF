@@ -34,10 +34,36 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)
-  /// Used in units: YADF.Layout, YADF.Options, YadfMain
+  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas)
+  /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
   /// <!-- drag-lint:auto END -->
   /// </remarks>
+
+
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas)
+  /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
+
+
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas)
+  /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
+
+
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas)
+  /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
+
+
   TYadfOptions = record
     MaxLen              : Integer      ;
     Indent              : Integer      ;
@@ -182,11 +208,12 @@ function EncodingToStr(const E: TYadfEncoding): string;
 /// <returns>Observed: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.LoadFile (YadfMain.pas)
+/// Called from: YadfMain.LoadFile (YadfMain.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)
 /// Returns: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI
 /// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
+
 function EncodingOf(const E: TYadfEncoding): TEncoding;
 
 // THE source-encoding detector, shared by the CLI and the wizard so both
@@ -206,13 +233,14 @@ function EncodingOf(const E: TYadfEncoding): TEncoding;
 /// <param name="APreambleLen"><!-- drag-lint:auto type -->out Integer</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.LoadFile (YadfMain.pas)
+/// Called from: YadfMain.LoadFile (YadfMain.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)
 /// Calls: YADF.Options.LooksLikeUtf8
 /// Complexity: 12 (cyclomatic, outer body), 25 lines (full implementation)
 /// Mutates: AEnc (out), APreambleLen (out)
 /// <seealso cref="YADF.Options.LooksLikeUtf8"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
+
 procedure DetectSourceEncoding(const ABytes: TBytes; out AEnc: TEncoding; out APreambleLen: Integer);
 
 // Reads a textual boolean (1/0, true/false, yes/no, on/off; case-insensitive);
@@ -270,7 +298,7 @@ function ReadIntIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: In
 /// <returns>Observed: AInfo.Hint + ' Default: ' + D.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.OptionsHelpText (YADF.Options.pas), YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)
+/// Called from: YADF.Options.OptionsHelpText (YADF.Options.pas), YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas), YADF.OptionsFrame.TYadfOptionsFrame.BuildControls (YADF.OptionsFrame.pas)
 /// Calls: YADF.Options.DefaultValueStr
 /// Returns: AInfo.Hint + ' Default: ' + D
 /// Pure
@@ -313,7 +341,7 @@ function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 /// <returns>Observed: DefaultOptions.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.LoadIniDefaults (YadfMain.pas)
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.LoadIniDefaults (YadfMain.pas), YADFOT.Wizard.LoadIniDefaults (YADFOT.Wizard.pas)
 /// Calls: FileExists, VarToStr, YADF.Options.ReadBoolIni, YADF.Options.ReadIntIni
 /// Returns: DefaultOptions
 /// Pure
@@ -321,6 +349,7 @@ function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 /// <seealso cref="YADF.Options.ReadIntIni"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
+
 function LoadOptionsFromIni(const APath: string): TYadfOptions;
 
 // Persist current values over the commented template (so comments survive).
@@ -330,6 +359,7 @@ function LoadOptionsFromIni(const APath: string): TYadfOptions;
 /// <param name="APath"><!-- drag-lint:auto type -->const string</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
 /// Calls: IfThen, VarToStr, YADF.Options.EnsureIniExists
 /// Pure
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
@@ -391,13 +421,14 @@ procedure WriteDefaultIniTemplate(const APath: string);
 /// <returns>Observed: False; True.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Options.SaveOptionsToIni (YADF.Options.pas), YadfMain.DefaultIniPath (YadfMain.pas), YadfMain.RunYadf (YadfMain.pas)
+/// Called from: YADF.Options.SaveOptionsToIni (YADF.Options.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas), YadfMain.RunYadf (YadfMain.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas)
 /// Calls: FileExists, YADF.Options.WriteDefaultIniTemplate
 /// Returns: False; True
 /// Pure
 /// <seealso cref="YADF.Options.WriteDefaultIniTemplate"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
+
 function EnsureIniExists(const APath: string): Boolean;
 
 // ---- IDE formatting profiles ------------------------------------------------
@@ -408,10 +439,11 @@ function EnsureIniExists(const APath: string): Boolean;
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Options.pas), YadfMain.DefaultIniPath (YadfMain.pas)
-  /// Used in units: YADF.Options, YadfMain
+  /// Used by: declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas)
+  /// Used in units: YADF.Options, YADF.OptionsFrame, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
+
   TYadfProfiles = record
     F: string; // INI file name for Ctrl+Shift+Alt+F (defaults to 'yadf.ini')
     R: string; // INI file name for Ctrl+Shift+Alt+R ('' = unassigned)
@@ -460,11 +492,12 @@ function LoadProfiles: TYadfProfiles;
 /// <param name="AProfiles"><!-- drag-lint:auto type -->const TYadfProfiles</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas)
 /// Calls: DirectoryExists, ForceDirectories
 /// Pure
 /// <!-- drag-lint:auto END -->
 /// </remarks>
+
 procedure SaveProfiles(const AProfiles: TYadfProfiles);
 
 // Resolve a profile's INI file name to a full path in ProfilesDir. Returns ''
@@ -476,12 +509,25 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 /// <returns>Observed: AFileName; TPath.Combine(ProfilesDir, AFileName).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas)
 /// Calls: Trim
 /// Returns: AFileName; TPath.Combine(ProfilesDir, AFileName)
 /// Touches: file system
 /// <!-- drag-lint:auto END -->
 /// </remarks>
+
+
+/// <param name="AFileName"><!-- drag-lint:auto type -->const string</param>
+/// <returns><!-- drag-lint:auto -->Observed: AFileName; TPath.Combine(ProfilesDir,
+/// AFileName).</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
+/// Calls: Trim
+/// Touches: file system
+/// <!-- drag-lint:auto END -->
+/// </remarks>
+
 function ResolveProfileIniPath(const AFileName: string): string;
 
 implementation

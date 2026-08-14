@@ -101,10 +101,11 @@ type
   /// The preview is LIVE (debounced); reformat is skipped for options whose
   /// TOptInfo.AffectsPreview is False (their output would be identical).
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADFOT.Options.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), YADFOT.Options.RegisterYADFOptions (YADFOT.Options.pas), declaration (uYADFSetupMain.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
+  /// Used by: declaration (uYADFSetupMain.pas), declaration (YADFOT.Options.pas), uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas), YADFOT.Options.RegisterYADFOptions (YADFOT.Options.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas)
   /// Used in units: uYADFSetupMain, YADFOT.Options
   /// <!-- drag-lint:auto END -->
   /// </remarks>
+
   TYadfOptionsFrame = class(TFrame)  // dl:ok god-class@eeb0, high-response@eeb0
     private
       FOpts           : TYadfOptions             ;
@@ -484,6 +485,7 @@ type
       /// <param name="AOwner"><!-- drag-lint:auto type -->TComponent</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
+      /// Called from: uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.BuildControls, YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview, YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel
       /// constructor
       /// Reads: FReformatTmr, FScroll   Writes: FReformatTmr, FScroll
@@ -515,7 +517,7 @@ type
       /// preview. Call once, after assigning Policy.</summary>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas), declaration (Loader2019.dxSettings.pas) ?
+      /// Called from: uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas)
       /// Calls: YADF.Options.EnsureIniExists, YADF.Options.LoadOptionsFromIni, YADF.Options.ResolveProfileIniPath, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.LoadSample, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList
       /// Reads: FProfiles, FCurrentIni   Writes: FProfiles, FCurrentIni, FOpts
       /// <seealso cref="YADF.Options.EnsureIniExists"/>
@@ -525,6 +527,7 @@ type
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.LoadSample"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
+
       procedure Load;
       /// <summary>Persist the edited values on the host's explicit save point
       /// (the IDE dialog's OK). Read-modify-write of the profile CURRENTLY being
@@ -536,7 +539,7 @@ type
       /// file does not lose the values written to the profile itself).</summary>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: YADFOT.Options.TYadfOptionsPage.DialogClosed (YADFOT.Options.pas), uAREAOFINTEREST_SERVER.TDataService_AREAOFINTEREST_SERVER.Load (uAREAOFINTEREST_SERVER.PAS) ?, uAREAOFINTEREST_SERVER.TDataService_AREAOFINTEREST_SERVER.Save (uAREAOFINTEREST_SERVER.PAS) ?, uAREAOFINTEREST_SERVER.TDataService_AREAOFINTEREST_SERVER.NextID (uAREAOFINTEREST_SERVER.PAS) ?, uCAUSFAIL_SERVER.TDataService_CAUSFAIL_SERVER.Load (uCAUSFAIL_SERVER.PAS) ? (+519 more)
+      /// Called from: YADFOT.Options.TYadfOptionsPage.DialogClosed (YADFOT.Options.pas)
       /// Calls: YADF.Options.LoadOptionsFromIni, YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile
       /// Reads: FCurrentIni, FOpts   Writes: FOpts
       /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
@@ -553,6 +556,7 @@ type
       /// <param name="APath"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
+      /// Called from: uYADFSetupMain.TfrmMain.btnLoadSettingsClick (uYADFSetupMain.pas)
       /// Calls: YADF.Options.LoadOptionsFromIni, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile
       /// Reads: FPolicy   Writes: FOpts
       /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
@@ -568,6 +572,7 @@ type
       /// <param name="APath"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
+      /// Called from: uYADFSetupMain.TfrmMain.btnSaveSettingsClick (uYADFSetupMain.pas)
       /// Calls: YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions
       /// Reads: FOpts
       /// Pure
@@ -584,6 +589,7 @@ type
       /// defaults are immediately persisted to the profile being edited.</summary>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
+      /// Called from: uYADFSetupMain.TfrmMain.btnResetClick (uYADFSetupMain.pas)
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile
       /// Reads: FPolicy   Writes: FOpts
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls"/>

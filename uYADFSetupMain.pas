@@ -24,8 +24,8 @@ type
   /// under SetupPersistPolicy (autosave on every change; no OK/Cancel).</summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADFSetup.dpr), declaration (uYADFSetupMain.pas), declaration (Micronite2027.dpr), declaration (uMain.pas), uMain.TfrmMAIN.FormCreate (uMain.pas) (+55 more)
-  /// Used in units: drag_lint_graph, MainForm, Micronite2027, uCompileToolFeatures, uCompileToolMain, uMain, Unit1, uYADFSetupMain, YADFSetup
+  /// Used by: declaration (YADFSetup.dpr), declaration (uYADFSetupMain.pas)
+  /// Used in units: uYADFSetupMain, YADFSetup
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TfrmMain = class(TForm)

@@ -84,7 +84,7 @@ type
     /// never span lines); comment state and depth carry over.</summary>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas), YADF.Layout.JoinRoutineHeaders.ScanLine (YADF.Layout.pas) ?, YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas) ?
+    /// Called from: YADF.Layout.JoinRoutineHeaders.ScanLine (YADF.Layout.pas) ?, YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas) ?, YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)
     /// Writes: InString
     /// <seealso cref="YADF.LineScan.TLineScanState.InBlockComment"/>
     /// <seealso cref="YADF.LineScan.TLineScanState.Reset"/>
@@ -92,6 +92,7 @@ type
     /// <seealso cref="YADF.LineScan.TLineScanState.StepCode"/>
     /// <!-- drag-lint:auto END -->
     /// </remarks>
+
     procedure BeginLine;
 
     /// <summary>True while inside a multi-line capable comment

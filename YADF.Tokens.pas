@@ -27,8 +27,24 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+10 more)
+  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+9 more)
   /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
+
+
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+9 more)
+  /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
+
+
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+9 more)
+  /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TToken = record
@@ -42,7 +58,7 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+9 more)
+  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas) (+6 more)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TTokenList = TList<TToken>;
@@ -51,7 +67,7 @@ type
 /// <returns>Observed: TTokenList.Create.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas) (+3 more)
+/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas)
 /// Calls: Copy, SimpleParser.Lexer.TmwBasePasLex.Next, SimpleParser.Lexer.TmwPasLex.Create, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken
 /// Returns: TTokenList.Create
 /// Pure

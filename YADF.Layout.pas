@@ -89,6 +89,7 @@ uses
 /// <returns>Observed: FormatSource(ASource, AOpts, Reason).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Reformat (YADF.OptionsFrame.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)
 /// Calls: YADF.Layout.FormatSource/3
 /// Returns: FormatSource(ASource, AOpts, Reason)
 /// Overload 1 of 2
