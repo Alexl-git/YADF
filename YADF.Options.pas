@@ -34,10 +34,11 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), declaration (YADF.OptionsFrame.pas)
+  /// Used by: declaration (YADF.Layout.pas), declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), YADF.Options.DefaultValueStr (YADF.Options.pas), YADF.Options.OptionTable (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)
   /// Used in units: YADF.Layout, YADF.Options, YADF.OptionsFrame, YadfMain, YADFOT.Wizard
   /// <!-- drag-lint:auto END -->
   /// </remarks>
+
   TYadfOptions = record
     MaxLen              : Integer      ;
     Indent              : Integer      ;
@@ -496,7 +497,7 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 /// AFileName).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas) (+1 more)
+/// Called from: YadfMain.DefaultIniPath (YadfMain.pas)
 /// Calls: Trim
 /// Touches: file system
 /// <!-- drag-lint:auto END -->
