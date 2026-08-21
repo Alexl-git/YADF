@@ -5972,11 +5972,16 @@ var
 // Whole-output pass for overflow handling. Splits the rendered text
 // into lines, computes a Locked[] mask using the same block-comment
 // tracker as ReflowLineBreaks (lines inside a `{...}` or `(*...*)`
-// are never broken), then runs BreakLineByOperators on every
-// remaining line whose length exceeds MaxLen. Returns the modified
-// text. This is the LAST defence against overflow before optional
-// reflow; without it, long lines from heavily-nested expressions
-// would survive the pipeline unchanged.
+// are never broken), then breaks every remaining line whose length
+// exceeds MaxLen. WHICH breaker runs is the BreakLongExpressions
+// option: on (the default) each over-long line first surrenders any
+// trailing `then`/`do` to its own line at the header's column, then
+// goes to BreakComponents for one component per line, operator
+// leading; off, it goes to the greedy BreakLineByOperators, which
+// packs as much as fits per line and ignores bracket depth. Returns
+// the modified text. This is the LAST defence against overflow
+// before optional reflow; without it, long lines from heavily-nested
+// expressions would survive the pipeline unchanged.
   function BreakLongLines(const ASrc: string): string;
   var
     Body  : string         ;

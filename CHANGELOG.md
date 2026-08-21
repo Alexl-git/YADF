@@ -12,6 +12,22 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **`BreakLongExpressions` — "Smart expression breakup" (default **true**;
+  `--break-expr` / `--no-break-expr`).** When a line exceeds `MaxLen`, breaks it
+  at every top-level operator — one component per line, with the connecting
+  operator LEADING each line, matching the comma-first `uses` style. A
+  parenthesised group is one component and stays whole; a component that still
+  does not fit is broken the same way one bracket level in and one indent step
+  deeper, so nesting is visible as indent depth. A trailing `then` / `do` moves
+  to its own line at the column of the `if` / `while` / `for` / `with` that
+  introduced it; `until` already leads its condition and keeps its position.
+  Lines that already fit are untouched, and a construct with no top-level
+  operator — a `with` record list, for instance — is left whole rather than cut
+  at an arbitrary column. Applies to arithmetic as well as boolean expressions.
+  **This is now the default breaker**; `--no-break-expr` restores the previous
+  greedy behaviour, which packs as much as fits onto each line and will split a
+  parenthesised group apart.
+
 - **`BreakParamsOnePerLine` (default false; `--break-params`).** Lays out a
   named routine declaration with one parameter per line. Fires on declarations
   with 2 or more parameters; a grouped declaration (`const A, B: string`) is

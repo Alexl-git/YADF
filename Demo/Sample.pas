@@ -151,6 +151,26 @@ begin
 Result := False;
 end;
 
+// --- BreakLongExpressions ('Smart expression breakup') ----------------------
+// ON by default: a line OVER MaxLen is broken at every top-level operator --
+// one component per line, with the operator LEADING each line, the same
+// doctrine as the comma-first uses clause above. A parenthesised group is ONE
+// component and stays whole; a component that still overflows is broken the
+// same way one bracket level in and one indent step deeper, so nesting reads
+// as indent depth. A trailing 'then' / 'do' moves to its own line at the
+// column of the 'if' / 'while' that opened it; 'until' already leads its
+// condition and never moves. The point is editability: one component per line
+// means disabling one is a single-line comment-out.
+// Both statements below are deliberately over 180 columns, so they break at
+// the stock Max line length -- lower that setting to watch the recursion go
+// deeper still. Turn the option OFF to get the old greedy breaker, which packs
+// as much as fits onto each line and will split a parenthesised group apart.
+procedure ShowcaseLongExpressions(var ATotalWeighting: Integer);
+begin
+if (CustomerRecordIsActive and CustomerRecordHasCredit) or (SupplierRecordIsActive and SupplierRecordHasCredit) or (WarehouseRecordIsActive and WarehouseRecordHasStock) or (ShipmentRecordIsActive and ShipmentRecordHasRoute) then
+ATotalWeighting := CustomerCreditWeightingValue + SupplierCreditWeightingValue + WarehouseStockWeightingValue + SeasonalAdjustmentWeightingValue + PriorityHandlingWeightingValue + BaselineWeightingValue;
+end;
+
 // --- BreakLoopBody / BreakWithBody / BreakIfBody ----------------------------
 // Three independent options, all OFF by default -- so with stock settings the
 // one-line control statements below stay exactly as they are. Turn one on and
