@@ -83,7 +83,40 @@ type
 /// </remarks>
 function ParseGroups(const ATokens: TTokenList): TGroup;
 
+/// <summary>Returns the keyword for the trailing <c>// keyword</c> marker on the
+/// closing <c>end</c> of the block opened at AOpenIdx -- one of record, case, try,
+/// asm, object, else, procedure, function, constructor, destructor, while, for, if,
+/// initialization, finalization, begin.</summary>
+/// <param name="ATokens">The lexed token stream the block belongs to.</param>
+/// <param name="AOpenIdx">Index of the block's OPENING token (begin/record/case/...).</param>
+/// <returns>The keyword, never ''; 'begin' when no introducer is found.</returns>
+/// <remarks>
+/// Pure. Single source of truth for BOTH adding and removing block-end markers:
+/// the formatter may only delete a marker it would itself have written for that
+/// exact block, so add and remove must ask the same function.
+/// </remarks>
+function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;
+
+/// <summary>Flags every comment token that is EXACTLY the block-end marker this
+/// formatter would write for the block whose closing <c>end</c> it trails --
+/// <c>'// ' + FindBlockLabel(&lt;that block&gt;)</c>, on the <c>end</c>'s own physical
+/// line, with nothing after it.</summary>
+/// <param name="ATokens">The lexed token stream to scan; parsed into groups internally.</param>
+/// <returns>An array parallel to ATokens: True at each removable marker's index.</returns>
+/// <remarks>
+/// Pure. Membership in the keyword set is necessary but NOT sufficient:
+/// <c>// procedure</c> trailing an <c>end</c> that closes a <c>while</c> is somebody's
+/// note, not our marker, and is NOT flagged. Neither are <c>//procedure</c> (no space),
+/// <c>// procedure -- see ticket 42</c> (trailing prose), or <c>{ procedure }</c>
+/// (not a <c>//</c> comment).
+/// </remarks>
+function CollectBlockLabelComments(const ATokens: TTokenList): TArray<Boolean>;
+
 implementation
+
+uses
+  System.SysUtils
+  ;
 
 constructor TGroup.Create(AKind: TGroupKind; AOpenIdx: Integer; AOpener: TptTokenKind; AParent: TGroup);
 begin
@@ -104,6 +137,102 @@ begin
   Children.Free;
   inherited;  // dl:ok inherited-bare@246d
 end;
+
+// Returns the keyword to use in the trailing `// keyword` comment
+// appended to a long block's closing `end`. Cheap path: if the
+// opener is itself record/case/try/asm/object, use that keyword
+// literally. For a plain `begin`, walk backwards through whitespace,
+// comments, and conditional directives looking for the introducing
+// keyword (while / for / if / else / procedure / function / try /
+// initialization / finalization / a prior `end` which we treat as
+// "anonymous begin"). The Limit guard caps the backwards scan at 300
+// non-trivial tokens so pathological input can't pin the formatter.
+function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;  // dl:ok too-many-exit-points@a182
+var
+  i    : Integer     ;
+  k    : TptTokenKind;
+  Limit: Integer     ;
+begin
+  case ATokens[AOpenIdx].Kind of
+    ptRecord: Exit('record');
+    ptCase  : Exit('case')  ;
+    ptTry   : Exit('try')   ;
+    ptAsm   : Exit('asm')   ;
+    ptObject: Exit('object');
+  end;
+  i:= AOpenIdx - 1;
+  Limit:= 300;  // dl:ok large-magic-number@86da
+  while (i >= 0) and (Limit > 0) do
+  begin
+    Dec(Limit);
+    k:= ATokens[i].Kind;
+    if k in [
+      ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment, ptIfDirect, ptIfDefDirect, ptIfNDefDirect, ptElseDirect, ptElseIfDirect, ptEndIfDirect,
+      ptIfEndDirect] then
+    begin
+      Dec(i);
+      Continue;
+    end;
+    case k of
+      ptDo, ptThen    :                       ;  // dl:ok empty-case-branch@a369
+      ptElse          : Exit('else')          ;
+      ptProcedure     : Exit('procedure')     ;
+      ptFunction      : Exit('function')      ;
+      ptConstructor   : Exit('constructor')   ;
+      ptDestructor    : Exit('destructor')    ;
+      ptWhile         : Exit('while')         ;
+      ptFor           : Exit('for')           ;
+      ptIf            : Exit('if')            ;
+      ptCase          : Exit('case')          ;
+      ptTry           : Exit('try')           ;
+      ptInitialization: Exit('initialization');
+      ptFinalization  : Exit('finalization')  ;
+      ptEnd           : Exit('begin')         ;
+    end; // case
+    Dec(i);
+  end; // while
+  Result:= 'begin';
+end; // function
+
+function CollectBlockLabelComments(const ATokens: TTokenList): TArray<Boolean>;
+var
+  Root : TGroup            ;
+  Flags: TArray<Boolean>   ;
+
+  procedure Visit(G: TGroup);
+  var
+    Child  : TGroup ;
+    k      : Integer;
+    EndLine: Integer;
+    Want   : string ;
+  begin
+    for Child in G.Children do
+    begin
+      Visit(Child);
+      if (Child.Kind <> gkBlock) or Child.ForceClosed or (Child.CloseIdx <= Child.OpenIdx) then
+        Continue;
+      Want:= '// ' + FindBlockLabel(ATokens, Child.OpenIdx);
+      EndLine:= ATokens[Child.CloseIdx].Line;
+      k:= Child.CloseIdx + 1;
+      while (k < ATokens.Count) and (ATokens[k].Line = EndLine) do
+      begin
+        if (ATokens[k].Kind = ptSlashesComment) and (TrimRight(ATokens[k].Text) = Want) then
+          Flags[k]:= True;
+        Inc(k);
+      end;
+    end; // for
+  end; // procedure
+
+begin
+  SetLength(Flags, ATokens.Count);
+  Root:= ParseGroups(ATokens);
+  try
+    Visit(Root);
+  finally
+    Root.Free;
+  end;
+  Result:= Flags;
+end; // function
 
 // Index of the previous significant token (skipping whitespace/CRLF), or -1.
 function PrevSignificantIdx(const ATokens: TTokenList; AFrom: Integer): Integer;

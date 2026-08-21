@@ -72,4 +72,90 @@ MustMatch    $kept.Pass1 '(?m)^end; // keep this note\s*$' 'author comment on th
 MustNotMatch $kept.Pass1 'keep this note // procedure'     'author comment is not doubled with a label'
 if ($kept.Pass1 -ne $kept.Pass2) { Fail 'idempotent: pre-commented end line' }
 
+# ----- Rules 2 and 3: remove ONLY what this pass would itself have written ----
+# A short block carrying a marker. $tail is whatever trails its closing `end`.
+function ShortProc([string]$tail) {
+  @(
+    'unit lbl;'
+    'interface'
+    'implementation'
+    'procedure P;'
+    'begin'
+    '  A;'
+    "end;$tail"
+    'end.'
+  ) -join "`r`n"
+}
+
+# Same, but the marked `end` closes a `while` body -- FindBlockLabel says
+# `while` for it, so `// procedure` there is somebody's note, not our marker.
+function ShortLoop([string]$tail) {
+  @(
+    'unit lbl;'
+    'interface'
+    'implementation'
+    'procedure P;'
+    'begin'
+    '  while A do'
+    '  begin'
+    '    B;'
+    "  end;$tail"
+    'end;'
+    'end.'
+  ) -join "`r`n"
+}
+
+# REMOVE: below LabelMinLines and an exact match for THIS block.
+$gone = Fmt (ShortProc ' // procedure') @()
+MustMatch    $gone.Pass1 '(?m)^end;\s*$'          'stale exact-match marker is removed'
+MustNotMatch $gone.Pass1 '// procedure'           'removed marker leaves no trace'
+if ($gone.Pass1 -ne $gone.Pass2) { Fail 'idempotent: removal' }
+
+$loopGone = Fmt (ShortLoop ' // while') @()
+MustNotMatch $loopGone.Pass1 '// while'           'stale while marker is removed'
+if ($loopGone.Pass1 -ne $loopGone.Pass2) { Fail 'idempotent: removal on a while block' }
+
+# LEAVE ALONE -- one case each, exactly as the design table lists them.
+$keep = @(
+  @{ Src = (ShortProc ' // procedure -- see ticket 42'); Rx = '// procedure -- see ticket 42'; Why = 'trailing prose after the keyword' },
+  @{ Src = (ShortProc ' //procedure')                  ; Rx = '//procedure'                  ; Why = 'no space after //'              },
+  @{ Src = (ShortProc ' { procedure }')                ; Rx = '\{ procedure \}'               ; Why = 'brace comment, not //'          },
+  @{ Src = (ShortProc ' // TODO -oYADF : look here')   ; Rx = '// TODO -oYADF : look here'   ; Why = 'not a label at all'             },
+  @{ Src = (ShortLoop ' // procedure')                 ; Rx = '// procedure'                 ; Why = 'keyword names another construct' }
+)
+foreach ($k in $keep) {
+  $r = Fmt $k.Src @()
+  MustMatch $r.Pass1 $k.Rx ("kept: " + $k.Why)
+  if ($r.Pass1 -ne $r.Pass2) { Fail ("idempotent: kept -- " + $k.Why) }
+}
+
+# A marker is never REWRITTEN either: `// if` on a long `while` block stays
+# `// if`, it does not become `// while`.
+$longLoop = @(
+  'unit lbl;'
+  'interface'
+  'implementation'
+  'procedure P;'
+  'begin'
+  '  while A do'
+  '  begin'
+) + (1..12 | ForEach-Object { "    B($_);" }) + @(
+  '  end; // if'
+  'end;'
+  'end.'
+) -join "`r`n"
+$noRewrite = Fmt $longLoop @('--label-min-lines', '10')
+MustMatch    $noRewrite.Pass1 '(?m)^  end; // if\s*$' 'a long block keeps its hand-written marker verbatim'
+MustNotMatch $noRewrite.Pass1 '// while'              'a mismatched marker is never re-derived'
+if ($noRewrite.Pass1 -ne $noRewrite.Pass2) { Fail 'idempotent: marker never rewritten' }
+
+# ----- Round-trip: --check still passes on output that lost a label -----
+$rt  = Join-Path $env:TEMP 'lbl_rt.pas'
+$rto = Join-Path $env:TEMP 'lbl_rt_out.pas'
+Set-Content -Path $rt -Value (ShortProc ' // procedure') -Encoding ascii
+& $exe --ini $ini $rt --o $rto | Out-Null
+$chk = & $exe --ini $ini --check $rto 2>&1
+if ("$chk" -notmatch 'PASS') { Fail 'roundtrip: output that removed a label' }
+Remove-Item $rt, $rto -Force -ErrorAction SilentlyContinue
+
 Finish 'block_labels'

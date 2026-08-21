@@ -4450,62 +4450,9 @@ begin
 end; // function
 
 // ===== Block-end label discovery =====
-
-// Returns the keyword to use in the trailing `// keyword` comment
-// appended to a long block's closing `end`. Cheap path: if the
-// opener is itself record/case/try/asm/object, use that keyword
-// literally. For a plain `begin`, walk backwards through whitespace,
-// comments, and conditional directives looking for the introducing
-// keyword (while / for / if / else / procedure / function / try /
-// initialization / finalization / a prior `end` which we treat as
-// "anonymous begin"). The Limit guard caps the backwards scan at 300
-// non-trivial tokens so pathological input can't pin the formatter.
-function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;  // dl:ok too-many-exit-points@a182
-var
-  i    : Integer     ;
-  k    : TptTokenKind;
-  Limit: Integer     ;
-begin
-  case ATokens[AOpenIdx].Kind of
-    ptRecord: Exit('record');
-    ptCase  : Exit('case')  ;
-    ptTry   : Exit('try')   ;
-    ptAsm   : Exit('asm')   ;
-    ptObject: Exit('object');
-  end;
-  i:= AOpenIdx - 1;
-  Limit:= 300;  // dl:ok large-magic-number@86da
-  while (i >= 0) and (Limit > 0) do
-  begin
-    Dec(Limit);
-    k:= ATokens[i].Kind;
-    if k in [
-      ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment, ptIfDirect, ptIfDefDirect, ptIfNDefDirect, ptElseDirect, ptElseIfDirect, ptEndIfDirect,
-      ptIfEndDirect] then
-    begin
-      Dec(i);
-      Continue;
-    end;
-    case k of
-      ptDo, ptThen    :                       ;  // dl:ok empty-case-branch@a369
-      ptElse          : Exit('else')          ;
-      ptProcedure     : Exit('procedure')     ;
-      ptFunction      : Exit('function')      ;
-      ptConstructor   : Exit('constructor')   ;
-      ptDestructor    : Exit('destructor')    ;
-      ptWhile         : Exit('while')         ;
-      ptFor           : Exit('for')           ;
-      ptIf            : Exit('if')            ;
-      ptCase          : Exit('case')          ;
-      ptTry           : Exit('try')           ;
-      ptInitialization: Exit('initialization');
-      ptFinalization  : Exit('finalization')  ;
-      ptEnd           : Exit('begin')         ;
-    end; // case
-    Dec(i);
-  end; // while
-  Result:= 'begin';
-end; // function
+// FindBlockLabel now lives in YADF.Groups: the content guard has to evaluate
+// the same rule (a marker may only be removed if it is the one we would have
+// written for that exact block) and cannot use this unit.
 
 // Block-end labelling (`end; // while`) as a POST-PASS over the FINAL,
 // line-broken text.
@@ -4524,24 +4471,30 @@ end; // function
 // and multi-line atoms are still shielded to one line, so both runs measure
 // the same thing.
 //
-// ADD only: a block whose closing `end` line already carries a `//` comment is
-// left untouched (that is either an author's note or our own marker from a
-// previous run).
+// ADD and REMOVE, never rewrite:
+//   >= LabelMinLines and no trailing `//` comment  -> add ` // <keyword>`
+//   <  LabelMinLines and the trailing comment is EXACTLY `// <keyword>` for
+//                                                   THIS block -> remove it
+//   anything else                                  -> leave it alone
+// The keyword on both sides comes from the same FindBlockLabel call, so the
+// pass can never delete a comment it would not itself have written: an author's
+// `// procedure -- see ticket 42`, a `//procedure`, a `{ procedure }`, and a
+// `// procedure` sitting on an `end` that closes a `while` all survive.
 function ApplyBlockEndLabels(const S: string; const AOpts: TYadfOptions): string;
 var
   Tokens: TTokenList                  ;
   Root  : TGroup                      ;
-  Labels: TDictionary<Integer, string>;
+  Adds  : TDictionary<Integer, string>;
+  Drops : TDictionary<Integer, string>;
   Sb    : TStringBuilder              ;
-  Lbl   : string                      ;
   i     : Integer                     ;
   Eol   : Integer                     ;
   Start : Integer                     ;
   LineNo: Integer                     ;
 
-  // True when the physical line holding G's closing `end` already carries a
-  // `//` comment after it.
-  function EndLineHasSlashesComment(G: TGroup): Boolean;
+  // Index of the trailing `//` comment on the physical line holding G's closing
+  // `end`, or -1 when that line carries none.
+  function TrailingCommentIdx(G: TGroup): Integer;
   var
     EndLine: Integer;
     k      : Integer;
@@ -4551,34 +4504,68 @@ var
     while (k < Tokens.Count) and (Tokens[k].Line = EndLine) do
     begin
       if Tokens[k].Kind = ptSlashesComment then
-        Exit(True);
+        Exit(k);
       Inc   (k   );
     end;
-    Result:= False;
+    Result:= -1;
   end; // function
 
   // Post-order: an inner block is recorded BEFORE its enclosing one, so when
-  // two `end`s land on the same output line the OUTER block's keyword wins --
+  // two `end`s land on the same output line the OUTER block's verdict wins --
   // the same precedence the old in-walker PendingLabel had (it was overwritten
-  // as the walk unwound).
+  // as the walk unwound). A verdict of "leave alone" must therefore also CLEAR
+  // an inner block's pending edit on that line.
   procedure Visit(G: TGroup);
   var
-    Child: TGroup;
+    Child  : TGroup ;
+    CmtIdx : Integer;
+    EndLine: Integer;
+    Kw     : string ;
   begin
     for Child in G.Children do
     begin
       Visit(Child);
-      if (Child.Kind = gkBlock) and not Child.ForceClosed and (Child.CloseIdx > Child.OpenIdx) and
-        (Tokens[Child.CloseIdx].Line - Tokens[Child.OpenIdx].Line >= AOpts.LabelMinLines) and not EndLineHasSlashesComment(Child) then
-        Labels.AddOrSetValue(Tokens[Child.CloseIdx].Line, ' // ' + FindBlockLabel(Tokens, Child.OpenIdx));
-    end;
+      if (Child.Kind <> gkBlock) or Child.ForceClosed or (Child.CloseIdx <= Child.OpenIdx) then
+        Continue;
+      EndLine:= Tokens[Child.CloseIdx].Line;
+      Kw     := '// ' + FindBlockLabel(Tokens, Child.OpenIdx);
+      CmtIdx := TrailingCommentIdx(Child);
+      Adds .Remove(EndLine);
+      Drops.Remove(EndLine);
+      if EndLine - Tokens[Child.OpenIdx].Line >= AOpts.LabelMinLines then
+      begin
+        if CmtIdx < 0 then
+          Adds.Add(EndLine, ' ' + Kw);
+      end
+      else if (CmtIdx >= 0) and (TrimRight(Tokens[CmtIdx].Text) = Kw) then
+        Drops.Add(EndLine, Kw);
+    end; // for
   end; // procedure
+
+  // Applies this line's pending edit, if any: append the marker, or strip an
+  // exact-match marker (with the whitespace that preceded it) off the tail.
+  function EditLine(const ALine: string; ALineNo: Integer): string;
+  var
+    Lbl : string;
+    Bare: string;
+  begin
+    Result:= ALine;
+    if Adds.TryGetValue(ALineNo, Lbl) then
+      Result:= Result + Lbl
+    else if Drops.TryGetValue(ALineNo, Lbl) then
+    begin
+      Bare:= TrimRight(Result);
+      if (Length(Bare) > Length(Lbl)) and (Copy(Bare, Length(Bare) - Length(Lbl) + 1, Length(Lbl)) = Lbl) then
+        Result:= TrimRight(Copy(Bare, 1, Length(Bare) - Length(Lbl)));
+    end;
+  end; // function
 
 begin
   Result:= S;
   if not AOpts.LabelLongBlocks then
     Exit;
-  Labels:= TDictionary<Integer, string>.Create;
+  Adds := TDictionary<Integer, string>.Create;
+  Drops:= TDictionary<Integer, string>.Create;
   try
     Tokens:= LoadTokensFromString(S);
     try
@@ -4591,11 +4578,10 @@ begin
     finally
       Tokens.Free;
     end;
-    if Labels.Count = 0 then
+    if Adds.Count + Drops.Count = 0 then
       Exit;
-    // Splice each label in just before its line's terminator, leaving the
-    // terminator bytes (and the absence of one on a final unterminated line)
-    // exactly as they were.
+    // Rewrite line by line, leaving the terminator bytes (and the absence of
+    // one on a final unterminated line) exactly as they were.
     Sb:= TStringBuilder.Create;
     try
       Start := 1;
@@ -4605,25 +4591,20 @@ begin
         Eol:= i - 1;
         if (Eol >= Start) and (S[Eol] = CR) then
           Dec(Eol);
-        Sb.Append(Copy(S, Start, Eol - Start + 1));
-        if Labels.TryGetValue(LineNo, Lbl) then
-          Sb.Append(Lbl);
+        Sb.Append(EditLine(Copy(S, Start, Eol - Start + 1), LineNo));
         Sb.Append(Copy(S, Eol + 1, i - Eol));
         Start := i + 1;
         Inc(LineNo);
       end;
       if Start <= Length(S) then
-      begin
-        Sb.Append(Copy(S, Start, MaxInt));
-        if Labels.TryGetValue(LineNo, Lbl) then
-          Sb.Append(Lbl);
-      end;
+        Sb.Append(EditLine(Copy(S, Start, MaxInt), LineNo));
       Result:= Sb.ToString;
     finally
       Sb.Free;
     end; // try
   finally
-    Labels.Free;
+    Adds .Free;
+    Drops.Free;
   end; // try
 end; // function
 
@@ -6180,7 +6161,10 @@ begin
         // harmless (and now visible) "file left as-is" instead of a shipped
         // source-mangling edit. BreakCaseLabels legitimately duplicates arm
         // bodies, so string duplication is tolerated exactly when it is on.
-        if not FormatPreservesContent(ASource, Result, AOpts.BreakCaseLabels, ADeclineReason) then
+        // LabelLongBlocks legitimately DELETES a stale block-end marker, so the
+        // comment stream relaxes to "this exact marker may be missing" -- and
+        // only that (see AAllowLabelRemoval).
+        if not FormatPreservesContent(ASource, Result, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, ADeclineReason) then
           Result:= ASource;
       finally
         Sb.Free;

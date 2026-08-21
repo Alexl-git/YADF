@@ -119,20 +119,88 @@ var
   Reason: string;
 begin
   Check('strict mode rejects duplicated string',
-    not FormatPreservesContent('1, 2: Log(''x'');', '1: Log(''x''); 2: Log(''x'');', False, Reason));
+    not FormatPreservesContent('1, 2: Log(''x'');', '1: Log(''x''); 2: Log(''x'');', False, False, Reason));
   Check('strict rejection carries a reason', Reason <> '');
   Check('duplication-tolerant mode accepts duplicated string',
-    FormatPreservesContent('1, 2: Log(''x'');', '1: Log(''x''); 2: Log(''x'');', True, Reason));
+    FormatPreservesContent('1, 2: Log(''x'');', '1: Log(''x''); 2: Log(''x'');', True, False, Reason));
   Check('acceptance carries empty reason', Reason = '');
   Check('duplication-tolerant mode still rejects a LOST string',
-    not FormatPreservesContent('S := ''a'' + ''b'';', 'S := ''a'';', True, Reason));
+    not FormatPreservesContent('S := ''a'' + ''b'';', 'S := ''a'';', True, False, Reason));
   Check('lost-string reason names the stream', Pos('string', Reason) > 0);
   Check('duplication-tolerant mode still rejects an ALTERED string',
-    not FormatPreservesContent('S := ''a  b'';', 'S := ''a b'';', True, Reason));
+    not FormatPreservesContent('S := ''a  b'';', 'S := ''a b'';', True, False, Reason));
   Check('directives stay strict under duplication tolerance',
-    not FormatPreservesContent('{$IFDEF X} A; {$ENDIF}', '{$IFDEF X} A; {$ENDIF} {$IFDEF X} B; {$ENDIF}', True, Reason));
+    not FormatPreservesContent('{$IFDEF X} A; {$ENDIF}', '{$IFDEF X} A; {$ENDIF} {$IFDEF X} B; {$ENDIF}', True, False, Reason));
   Check('dropped-comment reason names the stream',
-    (not FormatPreservesContent('X; { note }', 'X;', False, Reason)) and (Pos('comment', Reason) > 0));
+    (not FormatPreservesContent('X; { note }', 'X;', False, False, Reason)) and (Pos('comment', Reason) > 0));
+end;
+
+// AAllowLabelRemoval: LabelLongBlocks may DELETE a stale block-end marker, so
+// one exact-match marker is allowed to go missing. The point of these cases is
+// that the hole is exactly that size and no bigger -- if any of them starts
+// passing, the relaxation has widened into "the formatter may drop comments".
+procedure TestLabelRemovalTolerance;
+const
+  // A `while` block. The marker this formatter would write for that `end` is
+  // `// while` -- and only `// while`.
+  Loop =
+    'begin'          + CRLF +
+    '  while A do'   + CRLF +
+    '  begin'        + CRLF +
+    '    B;'         + CRLF +
+    '  end; %s'      + CRLF +
+    'end;'           + CRLF;
+  Bare =
+    'begin'          + CRLF +
+    '  while A do'   + CRLF +
+    '  begin'        + CRLF +
+    '    B;'         + CRLF +
+    '  end;'         + CRLF +
+    'end;'           + CRLF;
+var
+  Reason: string;
+begin
+  Check('strict mode rejects a dropped block-end marker',
+    not FormatPreservesContent(Format(Loop, ['// while']), Bare, False, False, Reason));
+  Check('label-removal mode accepts the marker it would itself have written',
+    FormatPreservesContent(Format(Loop, ['// while']), Bare, False, True, Reason));
+  Check('label-removal acceptance carries empty reason', Reason = '');
+
+  // THE NARROWNESS PROOF: an ordinary comment is still rejected, with reason.
+  Check('label-removal mode still rejects a dropped ORDINARY comment',
+    not FormatPreservesContent(
+      'X := 1; // keep me' + CRLF + 'Y := 2;',
+      'X := 1;' + CRLF + 'Y := 2;', False, True, Reason));
+  Check('ordinary dropped comment still names the comment stream', Pos('comment', Reason) > 0);
+  Check('ordinary dropped comment reason previews the comment', Pos('keep me', Reason) > 0);
+
+  // Rule 3: the keyword must be the one computed for THIS block. `procedure`
+  // is in the sixteen-keyword set, but this `end` closes a `while`.
+  Check('a keyword-set marker naming a DIFFERENT construct is still protected',
+    not FormatPreservesContent(Format(Loop, ['// procedure']), Bare, False, True, Reason));
+  Check('trailing prose after the keyword is still protected',
+    not FormatPreservesContent(Format(Loop, ['// while -- see ticket 42']), Bare, False, True, Reason));
+  Check('a marker without the space after // is still protected',
+    not FormatPreservesContent(Format(Loop, ['//while']), Bare, False, True, Reason));
+  Check('a brace comment naming the keyword is still protected',
+    not FormatPreservesContent(Format(Loop, ['{ while }']), Bare, False, True, Reason));
+
+  // The exception is POSITIONAL, not textual: `// while` standing on its own
+  // line trails no `end`, so it is an ordinary comment and stays protected even
+  // though a marker elsewhere in the same file may say exactly that.
+  Check('a lone // while comment that trails no end is still protected',
+    not FormatPreservesContent(
+      '// while' + CRLF + Format(Loop, ['// while']),
+      Bare, False, True, Reason));
+  // Ordinary comments still may not be reordered under the relaxation.
+  Check('label-removal mode still rejects REORDERED ordinary comments',
+    not FormatPreservesContent(
+      'A; // one' + CRLF + 'B; // two' + CRLF,
+      'A; // two' + CRLF + 'B; // one' + CRLF, False, True, Reason));
+  Check('strings stay strict under label-removal tolerance',
+    not FormatPreservesContent('S := ''a'' + ''b'';', 'S := ''a'';', False, True, Reason));
+  Check('directives stay strict under label-removal tolerance',
+    not FormatPreservesContent('{$I opts.inc}' + CRLF + 'end.', 'end.', False, True, Reason));
 end;
 
 // --- YADF.LineScan: the shared line scanner --------------------------------
@@ -283,6 +351,7 @@ begin
     TestRejectsCommentDamage;
     TestRejectsStringDamage;
     TestDuplicationToleranceAndReason;
+    TestLabelRemovalTolerance;
     TestLineScanCore;
     TestLineScanDepth;
     TestBlockCommentLock;

@@ -68,6 +68,15 @@ function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; o
 /// <param name="AFormatted">Candidate formatter output to validate.</param>
 /// <param name="AAllowStringDuplication">True when the active options may
 /// legitimately duplicate statements (BreakCaseLabels).</param>
+/// <param name="AAllowLabelRemoval">True when the active options may legitimately
+/// DELETE a block-end marker (LabelLongBlocks). Deliberately minimal: comments that
+/// are EXACTLY the marker this formatter would itself have written for the block
+/// whose <c>end</c> they trail (YADF.Groups.CollectBlockLabelComments) are dropped
+/// from BOTH streams before comparing, because that text is formatter-owned, not the
+/// user's. Everything left over -- every other comment, plus all strings and
+/// directives -- is checked exactly as strictly as with the flag off. A marker
+/// naming a different construct, one without the space after <c>//</c>, one with
+/// trailing prose, and a brace comment are all NOT markers and stay protected.</param>
 /// <param name="AReason">'' when preserved; otherwise the decline cause.</param>
 /// <returns>True when the content is fully preserved.</returns>
 /// <remarks>
@@ -84,7 +93,7 @@ function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; o
 /// <seealso cref="YADF.Guard.SameSequence"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
-function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication: Boolean; out AReason: string): Boolean; overload;
+function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication, AAllowLabelRemoval: Boolean; out AReason: string): Boolean; overload;
 
 implementation
 
@@ -92,6 +101,7 @@ uses
   System.SysUtils
   , System.Generics.Collections
   , SimpleParser.Lexer.Types
+  , YADF.Groups
   , YADF.Tokens
   ;
 
@@ -131,25 +141,38 @@ const
   CommentKinds = [ptAnsiComment, ptBorComment, ptSlashesComment];
   StringKinds  = [ptStringConst, ptStringDQConst];
 
-  // Extracts the three ordered content streams from ASource in one lex.
-procedure ExtractContent(const ASource: string; const AStrings, AComments, ADirectives: TList<string>);
+  // Extracts the three ordered content streams from ASource in one lex. When
+  // ACommentIsLabel is supplied it receives one flag per COMMENT, marking the
+  // ones the formatter is licensed to delete (Rule 3: exactly the marker it
+  // would itself have written for that block); that costs an extra group parse,
+  // so callers that do not need it pass nil.
+procedure ExtractContent(const ASource: string; const AStrings, AComments, ADirectives: TList<string>; const ACommentIsLabel: TList<Boolean> = nil);
 var
-  Tokens: TTokenList;
-  T     : TToken    ;
+  Tokens: TTokenList    ;
+  T     : TToken        ;
+  IsLbl : TArray<Boolean>;
+  i     : Integer       ;
 begin
   Tokens:= LoadTokensFromString(ASource);
   try
-    for T in Tokens do
+    if ACommentIsLabel <> nil then
+      IsLbl:= CollectBlockLabelComments(Tokens);
+    for i:= 0 to Tokens.Count - 1 do
     begin
+      T:= Tokens[i];
       if T.Kind in StringKinds then
         AStrings.Add(NormalizeNewlines(T.Text))
       else if T.Kind = ptAsciiChar then
         // `#$AB` vs `#$ab` is a legitimate hex-case normalization.
         AStrings.Add(LowerCase(T.Text))
       else if T.Kind in CommentKinds then
+      begin
         // TrimRight: the trailing-whitespace pass may trim spaces at the end
         // of a `// comment` line; that is not content damage.
-        AComments.Add(TrimRight(NormalizeNewlines(T.Text)))
+        AComments.Add(TrimRight(NormalizeNewlines(T.Text)));
+        if ACommentIsLabel <> nil then
+          ACommentIsLabel.Add(IsLbl[i]);
+      end
       else if T.Kind in DirectiveKinds then
         ADirectives.Add(DirectiveKey(T.Text));
     end; // for
@@ -215,7 +238,29 @@ begin
     Result:= '';
 end; // function
 
-function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication: Boolean; out AReason: string): Boolean;
+// Deletes every flagged entry from AList in place.
+//
+// A block-end marker that is EXACTLY `// ` + the keyword for its own block is
+// FORMATTER-owned text, not the user's: this formatter writes it and (Rule 2 of
+// the block-label lifecycle) deletes it again when the block shrinks. So the
+// marker positions are stripped from BOTH streams and the user-content check
+// runs, unchanged and unrelaxed, on everything that is left.
+//
+// Doing it positionally -- rather than excusing a missing marker by text -- is
+// load-bearing: markers repeat (one file holds dozens of `// function`), and a
+// by-text excuse cannot tell WHICH copy went missing. Every attempt to guess
+// mis-aligned the ordered walk and declined a perfectly good format, blaming an
+// innocent comment further down the file.
+procedure DropFlagged(const AList: TList<string>; const AFlags: TList<Boolean>);
+var
+  i: Integer;
+begin
+  for i:= AList.Count - 1 downto 0 do
+    if AFlags[i] then
+      AList.Delete(i);
+end;
+
+function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication, AAllowLabelRemoval: Boolean; out AReason: string): Boolean;
 var
   OrigStr: TList<string>;
   FmtStr : TList<string>;
@@ -223,16 +268,31 @@ var
   FmtCom : TList<string>;
   OrigDir: TList<string>;
   FmtDir : TList<string>;
+  OrigLbl: TList<Boolean>;
+  FmtLbl : TList<Boolean>;
   StrOk  : Boolean      ;
 begin
   AReason:= '';
   OrigStr:= TList<string>.Create; FmtStr:= TList<string>.Create;
   OrigCom:= TList<string>.Create; FmtCom:= TList<string>.Create;
   OrigDir:= TList<string>.Create; FmtDir:= TList<string>.Create;
+  OrigLbl:= TList<Boolean>.Create; FmtLbl:= TList<Boolean>.Create;
   try
     try
-      ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir);
-      ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir );
+      if AAllowLabelRemoval then
+      begin
+        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir, OrigLbl);
+        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir , FmtLbl );
+        // Formatter-owned block-end markers take no part in the user-content
+        // check -- on EITHER side. Everything else stays exactly as strict.
+        DropFlagged(OrigCom, OrigLbl);
+        DropFlagged(FmtCom , FmtLbl );
+      end
+      else
+      begin
+        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir);
+        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir );
+      end;
       // Directives stay STRICT even under duplication-tolerant mode: a
       // duplicated {$IFDEF}/{$ENDIF} inside a duplicated case arm would
       // unbalance conditional compilation -- that must decline.
@@ -247,15 +307,16 @@ begin
       else if not IsSubsequence(OrigCom, FmtCom) then
         AReason:= 'comment lost or altered: ' + FirstUnmatched(OrigCom, FmtCom);
       Result:= AReason = '';
-    except
+    except  // dl:ok bare-except@1e8f
       // Cannot verify -> fail closed; the caller keeps the original text.
-      AReason:= 'content could not be verified (lexing failed)';  // dl:ok bare-except@2b8e
+      AReason:= 'content could not be verified (lexing failed)';
       Result := False;
     end; // try
   finally
     OrigStr.Free; FmtStr.Free;
     OrigCom.Free; FmtCom.Free;
     OrigDir.Free; FmtDir.Free;
+    OrigLbl.Free; FmtLbl.Free;
   end; // try
 end; // function
 
@@ -263,7 +324,7 @@ function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean;
 var
   Reason: string;
 begin
-  Result:= FormatPreservesContent(AOriginal, AFormatted, False, Reason);
+  Result:= FormatPreservesContent(AOriginal, AFormatted, False, False, Reason);
 end;
 
 end.
