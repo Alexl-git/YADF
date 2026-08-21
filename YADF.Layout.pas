@@ -2204,6 +2204,15 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
       'procedure', 'function', 'constructor', 'destructor',
       'private', 'public', 'protected', 'published',
       'uses');
+    // Words BreakLongExpressions can put at the START of a line it produced:
+    // a connecting operator leading a continuation, or a lone control keyword
+    // it moved off a header. Same lookup-table shape as BlockingWords above.
+    // `to` / `downto` lead a `for` bound continuation exactly as `and` leads a
+    // boolean one; omitting them let reflow re-join `for I:= A` + `to B` into a
+    // line that then fitted MaxLen, so the deferred breaker found nothing to do
+    // and pass 2 differed from pass 1.
+    ComponentLeaders: array[0..6] of string = (
+      'and', 'or', 'xor', 'then', 'do', 'to', 'downto');
   var
     T: string;
     W: string;
@@ -2223,9 +2232,9 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     // exactly the idempotency break the option's own gate caught.
     if AKeepComponentBreaks then
     begin
-      if StartsWordCI(T, 'and') or StartsWordCI(T, 'or') or StartsWordCI(T, 'xor')
-         or StartsWordCI(T, 'then') or StartsWordCI(T, 'do') then
-        Exit(True);
+      for W in ComponentLeaders do
+        if StartsWordCI(T, W) then
+          Exit(True);
       if (Length(T) > 1) and CharInSet(T[1], ['+', '-']) and (T[2] = ' ') then
         Exit(True);
     end;
@@ -3880,7 +3889,10 @@ begin
 
         if AfterCRLF and (InUsesClause or (T.Kind in [
               ptPlus, ptMinus, ptStar, ptSlash, ptComma, ptOr, ptAnd, ptXor, ptDiv, ptMod, ptShl, ptShr, ptEqual, ptLower, ptGreater, ptLowerEqual, ptGreaterEqual, ptNotEqual,
-              ptDotDot, ptPoint, ptThen, ptDo, ptOf])) then
+              // ptTo/ptDownto join ptThen/ptDo here: BreakLongExpressions can
+              // start a `for` bound continuation with them, and that line's
+              // indent is the breaker's, not this pass's to re-derive.
+              ptDotDot, ptPoint, ptThen, ptDo, ptOf, ptTo, ptDownto])) then
         begin
           OutVal.Append(PendingWS);
           PendingWS:= '';
@@ -5737,7 +5749,8 @@ var
 
 // Depth-aware sibling of FindOperatorPositionsAtTopLevel, for the
 // one-component-per-line breaker. Returns only the connecting
-// operators (` and ` ` or ` ` xor ` ` + ` ` - `) that sit at bracket
+// operators (` and ` ` or ` ` xor ` ` + ` ` - ` ` to ` ` downto `)
+// that sit at bracket
 // depth EXACTLY ADepth -- at ADepth=0 a parenthesised group is one
 // component and is never split. ADepth is what makes the recursion
 // work: a component's own sub-components live one bracket level in
@@ -5794,6 +5807,17 @@ var
             AddIfWordAtDepth(i, 2, 'or' );
             AddIfWordAtDepth(i, 3, 'and');
             AddIfWordAtDepth(i, 3, 'xor');
+            // `to` / `downto` join the two halves of a `for` bound exactly as
+            // ` and ` joins two operands, so they are boundaries too. Without
+            // them an over-long `for I:= A to B + C do` breaks at the `+` --
+            // the TIGHTER binder -- and strands `to` mid-line, which inverts
+            // the reading. Both words are reserved and can only occur in a
+            // `for` header, so no other construct is affected. `downto` is
+            // tested before `to`; the two cannot both match at one position
+            // (the scanner only probes word starts, so the `to` inside
+            // `downto` is never reached).
+            AddIfWordAtDepth(i, 6, 'downto');
+            AddIfWordAtDepth(i, 2, 'to'    );
           end; // if
           Inc(i);
         end; // case

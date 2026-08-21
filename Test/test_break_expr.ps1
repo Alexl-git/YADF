@@ -258,6 +258,8 @@ $wideSrc = @(
   '    Writeln(AlphaField);'
   '  for IndexOne := IndexTwo to LimitTop + IndexTre do'
   '    Writeln(5);'
+  '  for IndexTwo := TotalSum + IndexOne downto LimitTop + IndexTre do'
+  '    Writeln(8);'
   '  TotalSum := IndexOne + IndexTwo + IndexTre + LimitTop;'
   '  if (IndexOne + IndexTwo) > (IndexTre + LimitTop) and AlphaFlag then'
   '    Writeln(6);'
@@ -309,9 +311,19 @@ MustNotMatch $w '(?m)^\s*until\s*$'                             'wide/until: nev
 MustMatch    $w '(?m)^  with RecordAlphaValue, RecordBetaValue\s*$' 'wide/with: record list stays whole on one line'
 MustNotMatch $w '(?m)^\s*, RecordBetaValue'                         'wide/with: the comma list is never split'
 
-# --- for: the `do` is trailing like while; `+` in the bound IS a boundary ---
-MustMatch $w '(?m)^  for IndexOne:= IndexTwo to LimitTop\s*$' 'wide/for: head is the text before the first boundary'
-MustMatch $w '(?m)^    \+ IndexTre\s*$'                       'wide/for: + leads the bound continuation'
+# --- for: the `do` is trailing like while. `to` / `downto` are depth-0
+# boundaries in their own right, like ` and ` / ` or ` / ` + `: a `for` header
+# that overflows must NOT leave the loop keyword stranded mid-line while a
+# tighter-binding `+` inside the bound leads its own continuation. Every
+# connector leads its line, or none does.
+MustMatch $w '(?m)^  for IndexOne:= IndexTwo\s*$' 'wide/for: head stops at the `to` boundary'
+MustMatch $w '(?m)^    to LimitTop\s*$'           'wide/for: to leads the bound, like any other connector'
+MustMatch $w '(?m)^    \+ IndexTre\s*$'           'wide/for: + leads the bound continuation'
+# `downto` is the same boundary, and it must not shadow or be shadowed by the
+# arithmetic operators surrounding it.
+MustMatch $w '(?m)^  for IndexTwo:= TotalSum\s*$' 'wide/downto: head stops at the first boundary'
+MustMatch $w '(?m)^    \+ IndexOne\s*$'           'wide/downto: + leads component 2'
+MustMatch $w '(?m)^    downto LimitTop\s*$'       'wide/downto: downto leads its own line'
 
 # --- plain arithmetic assignment: one operand per line, + leading ---
 MustMatch $w '(?m)^  TotalSum:= IndexOne\s*$' 'wide/arith: head is the first operand alone'
@@ -343,13 +355,14 @@ $hdrCols = @(
   (IndentOf $w '^\s*while \(')
   (IndentOf $w '^\s*with Record')
   (IndentOf $w '^\s*for IndexOne')
+  (IndentOf $w '^\s*for IndexTwo')
   (IndentOf $w '^\s*if \(IndexOne \+ IndexTwo\)')
   (IndentOf $w '^\s*if \(IndexOne > 0\)')
 )
 foreach ($c in $hdrCols) { if ($c -ne 2) { Fail "wide/columns: a header landed at column $c, expected 2" } }
 $kwLines = @($w -split "`r?`n" | Where-Object { $_ -match '^\s*(then|do)\s*$' })
-# 3 lone `then` (if #1, mixed, deep) + 3 lone `do` (while, with, for).
-if ($kwLines.Count -ne 6) { Fail "wide/columns: expected 6 lone then/do lines, got $($kwLines.Count)" }
+# 3 lone `then` (if #1, mixed, deep) + 4 lone `do` (while, with, for, downto).
+if ($kwLines.Count -ne 7) { Fail "wide/columns: expected 7 lone then/do lines, got $($kwLines.Count)" }
 foreach ($k in $kwLines) {
   $ind = ($k -replace '\S.*$', '').Length
   if ($ind -ne 2) { Fail "wide/columns: lone keyword '$($k.Trim())' at column $ind, expected 2 (its header's column)" }
