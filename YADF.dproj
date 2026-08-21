@@ -52,7 +52,7 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
-        <DCC_UnitSearchPath>..\DelphiAST\Source;..\DelphiAST\Source\SimpleParser;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\DelphiAST\Source;$(MSBuildProjectDirectory)\..\DelphiAST\Source\SimpleParser;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_DcuOutput>.\$(Platform)\$(Config)\DCU</DCC_DcuOutput>
         <DCC_ExeOutput>.\$(Platform)\$(Config)\EXE</DCC_ExeOutput>
         <DCC_E>false</DCC_E>
@@ -93,6 +93,7 @@
         <DCC_ConsoleTarget>true</DCC_ConsoleTarget>
         <UWP_DelphiLogo44>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_44.png</UWP_DelphiLogo44>
         <UWP_DelphiLogo150>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_150.png</UWP_DelphiLogo150>
+        <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
@@ -137,6 +138,8 @@
         <DCCReference Include="YADF.Layout.pas"/>
         <DCCReference Include="YADF.Debug.pas"/>
         <DCCReference Include="YadfMain.pas"/>
+        <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas"/>
+        <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

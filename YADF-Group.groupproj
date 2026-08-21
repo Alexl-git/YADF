@@ -1,0 +1,60 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{9D84627B-4762-4AE2-8C7D-A1A06FCB85B4}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="YADF.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="YADFOT.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="YADFSetup.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="YADF">
+        <MSBuild Projects="YADF.dproj"/>
+    </Target>
+    <Target Name="YADF:Clean">
+        <MSBuild Projects="YADF.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="YADF:Make">
+        <MSBuild Projects="YADF.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="YADFOT">
+        <MSBuild Projects="YADFOT.dproj"/>
+    </Target>
+    <Target Name="YADFOT:Clean">
+        <MSBuild Projects="YADFOT.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="YADFOT:Make">
+        <MSBuild Projects="YADFOT.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="YADFSetup">
+        <MSBuild Projects="YADFSetup.dproj"/>
+    </Target>
+    <Target Name="YADFSetup:Clean">
+        <MSBuild Projects="YADFSetup.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="YADFSetup:Make">
+        <MSBuild Projects="YADFSetup.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="YADF;YADFOT;YADFSetup"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="YADF:Clean;YADFOT:Clean;YADFSetup:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="YADF:Make;YADFOT:Make;YADFSetup:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

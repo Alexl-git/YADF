@@ -20,14 +20,16 @@ program YADF;
 
 uses
   System.SysUtils,
-  YADF.Tokens in 'YADF.Tokens.pas',
-  YADF.Options in 'YADF.Options.pas',
-  YADF.Groups in 'YADF.Groups.pas',
-  YADF.Guard in 'YADF.Guard.pas',
-  YADF.LineScan in 'YADF.LineScan.pas',
-  YADF.Layout in 'YADF.Layout.pas',
-  YADF.Debug in 'YADF.Debug.pas',
-  YadfMain in 'YadfMain.pas';
+  SimpleParser.Lexer in '..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas',
+  SimpleParser.Lexer.Types in '..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas',
+  YADF.Tokens,
+  YADF.Options,
+  YADF.Groups,
+  YADF.Guard,
+  YADF.LineScan,
+  YADF.Layout,
+  YADF.Debug,
+  YadfMain;
 
 begin
   try
