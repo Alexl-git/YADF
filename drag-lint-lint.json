@@ -1,0 +1,4 @@
+{
+  "_comment": "Owner ruling 2026-08-12: commented-out-code is advisory-only and disabled for this project. 2026-08-18: compiler-magic-comments and unit-too-large disabled (both on unit header, unreviewable with dl:ok markers).",
+  "disabled": ["commented-out-code", "compiler-magic-comments", "unit-too-large"]
+}

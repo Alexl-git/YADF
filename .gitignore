@@ -18,6 +18,7 @@ __recovery/
 *.identcache
 *.local
 *.dsv
+*.dsk
 *.~*
 *.delphilsp.json
 *.stat
@@ -74,3 +75,15 @@ BUG_DROPPED_INCLUDE_DIRECTIVE.md
 *.sqlite-shm
 *.sqlite-wal
 .drag-lint.json
+
+# Generated documentation (1360 files / 15 MB). Regenerate from the source
+# doc-comments; the DocInsight comments in the .pas files are the real artifact.
+docs/chm/
+docs/html/
+
+# drag-lint lint-run output (transient snapshots; matches at any depth).
+# The config that DRIVES these runs -- drag-lint-lint.json -- is tracked on purpose.
+lint-report-*.txt
+
+# Cross-project INBOX notes and replies (kept local, like .private/)
+INBOX-*.md
