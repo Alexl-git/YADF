@@ -39,6 +39,8 @@ uses
   , System.Classes
   , System.Variants
   , System.IOUtils
+  , System.DateUtils
+  , Vcl.Graphics
   , Vcl.Controls
   , Vcl.Forms
   , Vcl.StdCtrls
@@ -114,6 +116,7 @@ type
       FPendingSave    : Boolean                  ; // a debounced autosave is queued on the timer
       FPendingReformat: Boolean                  ; // a debounced preview refresh is queued
       FScroll         : TScrollBox               ;
+      FBanner         : TLabel                   ; // build identity of THIS binary
       FControls       : array of TControl        ; // index-aligned to OptionTable
       FUpdating       : Boolean                  ; // True while pushing FOpts -> controls;
       // suppresses OptionChanged so programmatic
@@ -146,6 +149,15 @@ type
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure BuildProfilePanel(AHost: TWinControl);
+      /// <summary>Builds the read-only header strip identifying the binary this
+      /// frame is running inside: module file name, FileVersion, and the PE link
+      /// timestamp. Docked alTop above the Profiles panel.</summary>
+      /// <param name="AHost">Container to dock into (the left host panel).</param>
+      /// <remarks>Purely diagnostic: it answers "am I looking at the build I just
+      /// made?" without leaving the dialog. Every value is read from the LOADED
+      /// MODULE at run time, never from a source constant, so a stale package
+      /// cannot misreport itself as current.</remarks>
+      procedure BuildBanner(AHost: TWinControl);
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Create (YADF.OptionsFrame.pas)
@@ -626,6 +638,116 @@ implementation
   (Left/Top/Width/Height only); the real controls are code-built below. }
 {$R *.dfm}
 
+{ ============ build identity of the owning module ============ }
+// These three read the RUNNING binary, never a source constant. The frame is
+// linked into more than one host (YADFOT.bpl inside the IDE, YADFSetup.exe on
+// the desktop), and HInstance resolves to whichever module this code was
+// compiled into -- so each host reports its own build, which is the only thing
+// that answers "is the thing I am looking at the thing I just built?".
+
+/// <summary>Absolute path of the module this code is linked into.</summary>
+/// <returns>Full path, or '' when the query fails.</returns>
+function OwningModulePath: string;
+var
+  Buf: array[0..MAX_PATH] of Char;
+  n  : DWORD                     ;
+begin
+  n:= GetModuleFileName(HInstance, Buf, Length(Buf));
+  if n = 0 then
+    Result:= ''
+  else
+    Result:= Copy(string(Buf), 1, n);
+end; // function
+
+/// <summary>FileVersion of the owning module, from its VERSIONINFO resource.</summary>
+/// <returns>'major.minor.release.build', or '' when the module has no version resource.</returns>
+function OwningModuleVersion: string;
+var
+  Buf  : TBytes          ;
+  Dummy: DWORD           ;
+  Fixed: PVSFixedFileInfo;
+  Len  : UINT            ;
+  Path : string          ;
+  Size : DWORD           ;
+begin
+  Result:= '';
+  Path  := OwningModulePath;
+  if Path = '' then
+    Exit;
+  Size:= GetFileVersionInfoSize(PChar(Path), Dummy);
+  if Size = 0 then
+    Exit;
+  SetLength(Buf, Size);
+  if not GetFileVersionInfo(PChar(Path), 0, Size, Pointer(Buf)) then
+    Exit;
+  if not VerQueryValue(Pointer(Buf), '\', Pointer(Fixed), Len) then
+    Exit;
+  Result:= Format('%d.%d.%d.%d', [HiWord(Fixed^.dwFileVersionMS), LoWord(Fixed^.dwFileVersionMS),
+    HiWord(Fixed^.dwFileVersionLS), LoWord(Fixed^.dwFileVersionLS)]);
+end; // function
+
+/// <summary>Link timestamp of the owning module, read from its PE header.</summary>
+/// <returns>Local-time compile stamp, or 0 when the header cannot be read.</returns>
+/// <remarks>Reads IMAGE_FILE_HEADER.TimeDateStamp (seconds since the Unix epoch,
+/// UTC) straight out of the mapped image. Deliberately NOT the file's last-write
+/// time, which changes on a copy, and NOT a compile-time constant, which a
+/// partial build can leave stale -- this is the binary's own identity.</remarks>
+function OwningModuleCompiledAt: TDateTime;
+var
+  Base  : PByte          ;
+  DosHdr: PImageDosHeader;
+  NtHdr : PImageNtHeaders;
+begin
+  Result:= 0;
+  Base  := PByte(HInstance);
+  if Base = nil then
+    Exit;
+  DosHdr:= PImageDosHeader(Base);
+  if DosHdr^.e_magic <> IMAGE_DOS_SIGNATURE then
+    Exit;
+  NtHdr:= PImageNtHeaders(Base + DosHdr^._lfanew);
+  if NtHdr^.Signature <> IMAGE_NT_SIGNATURE then
+    Exit;
+  if NtHdr^.FileHeader.TimeDateStamp = 0 then
+    Exit;
+  Result:= TTimeZone.Local.ToLocalTime(UnixToDateTime(NtHdr^.FileHeader.TimeDateStamp, True));
+end; // function
+
+procedure TYadfOptionsFrame.BuildBanner(AHost: TWinControl);
+var
+  Bar    : TPanel   ;
+  Stamp  : TDateTime;
+  Text   : string   ;
+  Version: string   ;
+begin
+  Bar:= TPanel.Create(Self);
+  Bar.Parent    := AHost;
+  Bar.Align     := alTop;
+  Bar.Height    := 21;
+  Bar.BevelOuter:= bvNone;
+  Bar.Top       := 0;
+
+  FBanner:= TLabel.Create(Self);
+  FBanner.Parent     := Bar;
+  FBanner.Align      := alClient;
+  FBanner.Layout     := tlCenter;
+  FBanner.Transparent:= True;
+  FBanner.Font.Color := clGrayText;
+
+  Text   := ExtractFileName(OwningModulePath);
+  Version:= OwningModuleVersion;
+  Stamp  := OwningModuleCompiledAt;
+  if Version <> '' then
+    Text:= Text + '  ' + Version;
+  if Stamp > 0 then
+    Text:= Text + '  -  built ' + FormatDateTime('yyyy-mm-dd hh:nn', Stamp)
+  else
+    Text:= Text + '  -  build date unavailable';
+  FBanner.Caption := '  ' + Text;
+  FBanner.Hint    := OwningModulePath; // which COPY, when several exist
+  FBanner.ShowHint:= True;
+end; // procedure
+
 { ==================== construction ==================== }
 
 constructor TYadfOptionsFrame.Create(AOwner: TComponent);
@@ -652,6 +774,9 @@ begin
   LeftHost.Width     := 360;
   LeftHost.BevelOuter:= bvNone;
 
+  // Build identity first so it docks ABOVE the profiles panel: with equal Top,
+  // alTop children stack in creation order.
+  BuildBanner(LeftHost);
   BuildProfilePanel(LeftHost); // docks itself alTop within LeftHost
 
   FScroll:= TScrollBox.Create(Self);
