@@ -226,4 +226,146 @@ if (Test-Path $dcc) {
 }
 Remove-Item $idemSrc -Force -ErrorAction SilentlyContinue
 
+# ===== WIDE FIXTURE: MaxLen 40 across many constructs, formatted ONCE =====
+# One unit, many genuinely over-40-column expressions, formatted in a single
+# run and asserted against the WHOLE output. Cheaper than a run per construct,
+# and it is the only shape that can catch cross-construct interference (one
+# construct's continuation lines re-indenting a neighbour's lone keyword).
+$wideSrc = @(
+  'unit probe;'
+  'interface'
+  'implementation'
+  'type'
+  '  TRecOne = record'
+  '    AlphaField: Integer;'
+  '    BetaField: Integer;'
+  '  end;'
+  ''
+  'procedure Wide;'
+  'var'
+  '  AlphaFlag, BetaFlag, GammaFlag, DeltaFlag: Boolean;'
+  '  IndexOne, IndexTwo, IndexTre, LimitTop, TotalSum: Integer;'
+  '  RecordAlphaValue, RecordBetaValue: TRecOne;'
+  'begin'
+  '  if (AlphaFlag and BetaFlag) or (GammaFlag and DeltaFlag) or AlphaFlag then'
+  '    Writeln(1);'
+  '  while (AlphaFlag and BetaFlag) or (GammaFlag and DeltaFlag) do'
+  '    Writeln(2);'
+  '  repeat'
+  '    Writeln(3);'
+  '  until (AlphaFlag and BetaFlag) or (GammaFlag and DeltaFlag);'
+  '  with RecordAlphaValue, RecordBetaValue do'
+  '    Writeln(AlphaField);'
+  '  for IndexOne := IndexTwo to LimitTop + IndexTre do'
+  '    Writeln(5);'
+  '  TotalSum := IndexOne + IndexTwo + IndexTre + LimitTop;'
+  '  if (IndexOne + IndexTwo) > (IndexTre + LimitTop) and AlphaFlag then'
+  '    Writeln(6);'
+  '  if (IndexOne > 0) or (AlphaFlag and BetaFlag and GammaFlag and DeltaFlag) then'
+  '    Writeln(7);'
+  'end;'
+  'end.'
+) -join "`r`n"
+# NOTE the mixed condition `(A + B) > (C + D) and AlphaFlag` is a Delphi
+# PRECEDENCE type error (`and` binds tighter than `>`), so this fixture is
+# deliberately shape-only and is NOT compile-gated. The compiling fixture is
+# the Task 4 block above; this one exists to pin LAYOUT across constructs.
+
+$wideIn  = Join-Path $env:TEMP 'bexpr_wide_in.pas'
+$wideOut = Join-Path $env:TEMP 'bexpr_wide_out.pas'
+$wideO2  = Join-Path $env:TEMP 'bexpr_wide_o2.pas'
+$wideGrd = Join-Path $env:TEMP 'bexpr_wide_greedy.pas'
+Set-Content -Path $wideIn -Value $wideSrc -Encoding ascii
+& $exe --ini $ini $wideIn --break-expr    --max-len 40 --o $wideOut | Out-Null
+& $exe --ini $ini $wideOut --break-expr   --max-len 40 --o $wideO2  | Out-Null
+& $exe --ini $ini $wideIn --no-break-expr --max-len 40 --o $wideGrd | Out-Null
+$w = Get-Content $wideOut -Raw
+
+# Indent width of the first line matching $rx, or -1 when there is no such line.
+function IndentOf([string]$text, [string]$rx) {
+  $l = ($text -split "`r?`n" | Where-Object { $_ -match $rx } | Select-Object -First 1)
+  if ($null -eq $l) { return -1 }
+  return ($l -replace '\S.*$', '').Length
+}
+
+# --- if/then: mixed and/or, parenthesised groups stay WHOLE ---
+MustMatch $w '(?m)^  if \(AlphaFlag and BetaFlag\)\s*$'     'wide/if: group 1 whole on the head line'
+MustMatch $w '(?m)^    or \(GammaFlag and DeltaFlag\)\s*$'  'wide/if: or leads group 2, group whole'
+MustMatch $w '(?m)^    or AlphaFlag\s*$'                    'wide/if: or leads the bare third operand'
+MustMatch $w '(?m)^  then\s*$'                              'wide/if: then alone on its line'
+
+# --- while/do ---
+MustMatch $w '(?m)^  while \(AlphaFlag and BetaFlag\)\s*$'  'wide/while: group 1 whole on the head line'
+MustMatch $w '(?m)^  do\s*$'                                'wide/while: do alone on its line'
+
+# --- repeat/until: until LEADS, and the terminating ; rides the last component ---
+MustMatch    $w '(?m)^  until \(AlphaFlag and BetaFlag\)\s*$'   'wide/until: until keeps its leading position'
+MustMatch    $w '(?m)^    or \(GammaFlag and DeltaFlag\);\s*$'  'wide/until: ; stays on the last component'
+MustNotMatch $w '(?m)^\s*until\s*$'                             'wide/until: never gets a lone keyword line'
+
+# --- with: a COMMA-separated record list, not an expression. Comma is NOT a
+# depth-0 boundary, so the list is ATOMIC and stays on one line; only the
+# trailing `do` moves. Asserting the actual behaviour, not an assumed break.
+MustMatch    $w '(?m)^  with RecordAlphaValue, RecordBetaValue\s*$' 'wide/with: record list stays whole on one line'
+MustNotMatch $w '(?m)^\s*, RecordBetaValue'                         'wide/with: the comma list is never split'
+
+# --- for: the `do` is trailing like while; `+` in the bound IS a boundary ---
+MustMatch $w '(?m)^  for IndexOne:= IndexTwo to LimitTop\s*$' 'wide/for: head is the text before the first boundary'
+MustMatch $w '(?m)^    \+ IndexTre\s*$'                       'wide/for: + leads the bound continuation'
+
+# --- plain arithmetic assignment: one operand per line, + leading ---
+MustMatch $w '(?m)^  TotalSum:= IndexOne\s*$' 'wide/arith: head is the first operand alone'
+MustMatch $w '(?m)^    \+ IndexTwo\s*$'       'wide/arith: + leads component 2'
+MustMatch $w '(?m)^    \+ IndexTre\s*$'       'wide/arith: + leads component 3'
+MustMatch $w '(?m)^    \+ LimitTop;\s*$'      'wide/arith: + leads component 4, ; rides it'
+
+# --- mixed arithmetic/boolean: `>` is not a boundary, both () groups stay whole ---
+MustMatch $w '(?m)^  if \(IndexOne \+ IndexTwo\) > \(IndexTre \+ LimitTop\)\s*$' 'wide/mixed: comparison of two whole groups is one component'
+MustMatch $w '(?m)^    and AlphaFlag\s*$'                                        'wide/mixed: and leads the boolean tail'
+
+# --- DEPTH-DESCENDING recursion: the `or (...)` component still overflows, so
+# it is rescanned ONE BRACKET LEVEL IN and rendered one INDENT level in. ---
+MustMatch $w '(?m)^  if \(IndexOne > 0\)\s*$' 'wide/deep: cheap first component alone (not greedily packed)'
+MustMatch $w '(?m)^    or \(AlphaFlag\s*$'    'wide/deep: overflowing component broken at its own depth'
+MustMatch $w '(?m)^      and BetaFlag\s*$'    'wide/deep: sub-component 2 one level deeper'
+MustMatch $w '(?m)^      and GammaFlag\s*$'   'wide/deep: sub-component 3 one level deeper'
+MustMatch $w '(?m)^      and DeltaFlag\)\s*$' 'wide/deep: closing paren rides the last sub-component'
+$deepParent = IndentOf $w '^\s+or \(AlphaFlag\s*$'
+$deepChild  = IndentOf $w '^\s+and BetaFlag\s*$'
+if ($deepParent -lt 0) { Fail 'wide/deep: no parent component line' }
+if ($deepChild  -lt 0) { Fail 'wide/deep: no sub-component line' }
+if ($deepChild -le $deepParent) { Fail "wide/deep: sub-component indent $deepChild must be strictly deeper than parent $deepParent" }
+
+# --- then/do land in EXACTLY the column of the header keyword that opened them.
+# Every header here sits at column 2, so every lone keyword line must too.
+$hdrCols = @(
+  (IndentOf $w '^\s*if \(AlphaFlag and BetaFlag\)')
+  (IndentOf $w '^\s*while \(')
+  (IndentOf $w '^\s*with Record')
+  (IndentOf $w '^\s*for IndexOne')
+  (IndentOf $w '^\s*if \(IndexOne \+ IndexTwo\)')
+  (IndentOf $w '^\s*if \(IndexOne > 0\)')
+)
+foreach ($c in $hdrCols) { if ($c -ne 2) { Fail "wide/columns: a header landed at column $c, expected 2" } }
+$kwLines = @($w -split "`r?`n" | Where-Object { $_ -match '^\s*(then|do)\s*$' })
+# 3 lone `then` (if #1, mixed, deep) + 3 lone `do` (while, with, for).
+if ($kwLines.Count -ne 6) { Fail "wide/columns: expected 6 lone then/do lines, got $($kwLines.Count)" }
+foreach ($k in $kwLines) {
+  $ind = ($k -replace '\S.*$', '').Length
+  if ($ind -ne 2) { Fail "wide/columns: lone keyword '$($k.Trim())' at column $ind, expected 2 (its header's column)" }
+}
+
+# --- the OPTION is what causes all of the above ---
+$wg = Get-Content $wideGrd -Raw
+if ($w -eq $wg) { Fail 'wide/control: --no-break-expr must produce DIFFERENT output' }
+MustMatch    $wg '(?m)^    \+ IndexTre \+ LimitTop;\s*$'         'wide/control: greedy packs two operands onto one line'
+MustNotMatch $wg '(?m)^  then\s*$'                               'wide/control: greedy leaves then on the header line'
+MustMatch    $wg '(?m)^  if \(IndexOne \+ IndexTwo\) > \(IndexTre\s*$' 'wide/control: greedy SHATTERS a parenthesised group'
+
+# --- idempotent at MaxLen 40, and content-preserving ---
+if (-not (SameBytes $wideOut $wideO2)) { Fail 'wide: not idempotent at MaxLen 40' }
+$wchk = & $exe --ini $ini --check $wideOut 2>&1
+if ("$wchk" -notmatch 'PASS') { Fail 'wide: --check round-trip failed' }
+Remove-Item $wideIn, $wideOut, $wideO2, $wideGrd -Force -ErrorAction SilentlyContinue
+
 Finish 'break_expr'
