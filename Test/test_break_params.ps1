@@ -237,4 +237,34 @@ end.
   Write-Output 'break_params: (dcc64 not found -- skipping compile check)'
 }
 
+# ----- REGRESSION: a GROUPED name list that only overflows once it is expanded
+# SplitParamGroup repeats the modifier per name, so `const A, B, C: T` becomes
+# three items and the header GROWS. A header that fitted MaxLen on pass 1 can
+# therefore cross it on pass 2, once JoinRoutineHeaders has re-joined the split
+# lines: the joined line is then greedy-wrapped, and BreakRoutineParams -- which
+# needs ONE balanced header line -- can no longer match it. Pass 1 breaks one
+# per line, pass 2 emits a greedy two-line wrap: format(format(x)) <> format(x).
+# Found on YADF's own YADF.Guard.pas (`ExtractContent`) at the repo MaxLen.
+$grpIn = Join-Path $env:TEMP 'bparam_group.pas'
+$g1    = Join-Path $env:TEMP 'bparam_g1.pas'
+$g2    = Join-Path $env:TEMP 'bparam_g2.pas'
+@'
+unit probe;
+interface
+implementation
+procedure ExtractContent(const ASource: string; const AStrings, AComments, ADirectives: TList<string>; const AIsLabel: TList<Boolean> = nil);
+begin
+end;
+end.
+'@ | Set-Content $grpIn -Encoding ascii
+& $exe --ini $ini $grpIn --break-params --max-len 180 --o $g1 | Out-Null
+& $exe --ini $ini $g1    --break-params --max-len 180 --o $g2 | Out-Null
+$g = Get-Content $g1 -Raw
+MustMatch $g '(?m)^procedure ExtractContent\(\s*$'       'group-expand: header opens with a lone ('
+MustMatch $g '(?m)^\s+; const AComments\s*: TList<string>\s*$' 'group-expand: expanded group member on its own line'
+if (-not (SameBytes $g1 $g2)) { Fail 'idempotent: expanded group pushes the re-joined header past MaxLen' }
+$gchk = & $exe --ini $ini --check $g1 2>&1
+if ("$gchk" -notmatch 'PASS') { Fail 'roundtrip/guard: expanded group header' }
+Remove-Item $grpIn, $g1, $g2 -Force -ErrorAction SilentlyContinue
+
 Finish 'break_params'

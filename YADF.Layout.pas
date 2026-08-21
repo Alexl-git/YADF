@@ -3048,6 +3048,26 @@ var
     Result:= False;
   end; // function
 
+// True when BreakRoutineParams -- which runs right after this pass -- will lay
+// ALine out one parameter per line. Such a header must NOT be greedy-wrapped
+// first. SplitParamGroup EXPANDS a grouped name list (`const A, B, C: T` ->
+// three items, each repeating the modifier), so the header re-joined on the
+// NEXT run is longer than the one that was originally split, and can cross
+// MaxLen even though the original fitted. The wrap then fires, and
+// BreakRoutineParams -- which needs one balanced header line -- can no longer
+// match the wrapped pair, so pass 2 emits a greedy wrap where pass 1 emitted
+// one parameter per line. The predicate is SplitHeaderParams itself, the same
+// gate BreakRoutineParams uses, so a header skipped here is always picked up
+// there and can never be left long by accident.
+  function ParamsWillBeBroken(const ALine: string): Boolean;
+  var
+    Items: TArray<string>;
+    H    : string        ;
+    T    : string        ;
+  begin
+    Result:= AOpts.BreakParamsOnePerLine and SplitHeaderParams(ALine, Items, H, T);
+  end;
+
 // Advance the shared cross-line scanner St across one physical line L.
 // ACmtWhileOpen reports whether L's `//` comment (if any) was reached while
 // a paren was still open (St.Depth > 0) -- the tell-tale that joining would
@@ -3229,7 +3249,11 @@ begin
             for var k:= i to j - 1 do begin OutVal.Append(Lines[k]); OutVal.Append(CRLF); end;
             i:= j; Continue;
           end;
-          OutVal.Append(WrapHeaderLine(Joined)); OutVal.Append(CRLF);
+          if ParamsWillBeBroken(Joined) then
+            OutVal.Append(Joined)
+          else
+            OutVal.Append(WrapHeaderLine(Joined));
+          OutVal.Append(CRLF);
           i:= j + 1; Continue;
         end // if
         else
