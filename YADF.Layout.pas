@@ -5743,7 +5743,7 @@ var
   var
     Done     : Boolean       ;
     i        : Integer       ;
-    Positions: TList<Integer>;
+    Positions: TList<Integer>;  // dl:ok duplicate-code@e75d
     St       : TLineScanState;
     procedure AddIfWordAtDepth(Idx, Wlen: Integer; const W: string);
     begin

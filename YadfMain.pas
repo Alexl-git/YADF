@@ -1219,12 +1219,12 @@ begin
         if i + 1 > High(AArgs) then
           raise EYadfUsage.Create('--encoding requires ansi|utf8|utf16');
         AOpts.Encoding:= ParseEncoding(AArgs[i + 1], AOpts.Encoding);
-        Inc(i, 2);
+        Inc(i, 2);  // dl:ok duplicate-code@cbc9
       end
       else if AArgs[i] = '--log' then
       begin
         AOpts.Logging:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);
       end
       else if AArgs[i] = '--no-log' then
       begin
@@ -1234,7 +1234,7 @@ begin
       else if AArgs[i] = '--uses-break' then
       begin
         AOpts.UsesAlwaysBreak:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-uses-break' then
       begin
@@ -1244,7 +1244,7 @@ begin
       else if AArgs[i] = '--break-case' then
       begin
         AOpts.BreakCaseLabels:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);
       end
       else if AArgs[i] = '--no-break-case' then
       begin
@@ -1304,7 +1304,7 @@ begin
       else if AArgs[i] = '--break-if' then
       begin
         AOpts.BreakIfBody:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-break-if' then
       begin
