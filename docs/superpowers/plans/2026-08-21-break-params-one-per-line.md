@@ -15,7 +15,7 @@
 - **Encoding:** all `.pas` files are strict 7-bit ASCII, no BOM, CRLF line endings. Never introduce Unicode or LF.
 - **Naming:** `TMyClass`, `FMyField`, `pMyParam` / `AMyParam` for parameters, matching surrounding code.
 - **DocInsight required** on every public declaration: `///` triple-slash XML (`<summary>`, `<param>`, `<returns>`, `<remarks>`). Private helpers only when an invariant is non-obvious.
-- **Default is `False`.** The option must not alter output unless explicitly enabled. All 84 existing golden baselines stay byte-identical.
+- **Default is `False`.** The option must not alter output unless explicitly enabled. All 83 existing golden baselines stay byte-identical.
 - **Build with the IDE closed** if YADFOT is rebuilt (design-time BPL). Use the `delphi-build` skill recipe: a 3-line wrapper `.bat` (`rsvars` → `cd` → `msbuild`) launched via PowerShell `Start-Process -Wait`, then read the log for `BUILD_EXITCODE=0` and no `[dcc] Error`.
 - **Build command:** `msbuild /t:Build /p:Config=Debug /p:Platform=Win64 YADF.dproj`. The test suite requires the exe at `Win64\Debug\EXE\YADF.exe`.
 - **Reindex after symbol-changing builds:** `drag-lint index --all --only YADF` (DB: `C:\Projects\YADF\_D-RAG\YADF.sqlite`).
@@ -168,7 +168,7 @@ Expected: PASS, prints `break_params: ...`
 - [ ] **Step 10: Verify no regression**
 
 Run: `pwsh -NoProfile -File Test\run_tests.ps1`
-Expected: `23 passed, 0 failed` (the new script self-registers via the `test_*.ps1` glob). The 84 goldens must be untouched because the default is `False`.
+Expected: `23 passed, 0 failed` (the new script self-registers via the `test_*.ps1` glob). The 83 goldens must be untouched because the default is `False`.
 
 - [ ] **Step 11: Commit**
 
@@ -254,7 +254,7 @@ Run: `pwsh -NoProfile -File Test\test_join_headers.ps1`
 Expected: PASS.
 
 Run: `pwsh -NoProfile -File Test\test_golden_format.ps1`
-Expected: PASS, all 84 goldens byte-identical. This is the real proof the extraction was behaviour-neutral.
+Expected: PASS, all 83 goldens byte-identical. This is the real proof the extraction was behaviour-neutral.
 
 - [ ] **Step 6: Commit**
 
@@ -404,16 +404,16 @@ function FmtDecl([string]$decl, [string]$flags) {
 $on  = FmtDecl 'procedure Go(const A: string; B: Integer; out C: Boolean);' '--break-params'
 $off = FmtDecl 'procedure Go(const A: string; B: Integer; out C: Boolean);' '--no-break-params'
 
-MustMatch $on '(?m)procedure Go\($'      'on: open paren ends the header line'
-MustMatch $on '(?m)^\s+const A: string$' 'on: first param bare, no leading separator'
-MustMatch $on '(?m)^\s+; B: Integer$'    'on: second param separator-first'
-MustMatch $on '(?m)^\s+; out C: Boolean$' 'on: third param separator-first'
-MustMatch $on '(?m)^\s+\);$'             'on: close paren on its own line'
+MustMatch $on '(?m)procedure Go\(\s*$'      'on: open paren ends the header line'
+MustMatch $on '(?m)^\s+const A: string\s*$' 'on: first param bare, no leading separator'
+MustMatch $on '(?m)^\s+; B: Integer\s*$'    'on: second param separator-first'
+MustMatch $on '(?m)^\s+; out C: Boolean\s*$' 'on: third param separator-first'
+MustMatch $on '(?m)^\s+\);\s*$'             'on: close paren on its own line'
 MustMatch $off '(?m)procedure Go\(const A: string; B: Integer; out C: Boolean\);' 'off: stays inline (default)'
 
 # A function's return type rides the closing line.
 $fn = FmtDecl 'function Calc(A: Integer; B: Integer): Boolean;' '--break-params'
-MustMatch $fn '(?m)^\s+\): Boolean;$' 'on: return type rides the close-paren line'
+MustMatch $fn '(?m)^\s+\): Boolean;\s*$' 'on: return type rides the close-paren line'
 
 # NON-GOAL: a single-parameter header stays inline (2+ threshold).
 $one = FmtDecl 'procedure Log(const AMsg: string);' '--break-params'
@@ -648,39 +648,39 @@ Append to `Test\test_break_params.ps1`, before `Finish`:
 ```powershell
 # ----- Task 5: separator-last mirrors UsesCommaLast -----
 $last = FmtDecl 'procedure Go(const A: string; B: Integer);' '--break-params --uses-comma-last'
-MustMatch $last '(?m)^\s+const A: string;$' 'comma-last: separator trails the first param'
-MustMatch $last '(?m)^\s+B: Integer\);$'    'comma-last: close paren rides the last param'
+MustMatch $last '(?m)^\s+const A: string;\s*$' 'comma-last: separator trails the first param'
+MustMatch $last '(?m)^\s+B: Integer\);\s*$'    'comma-last: close paren rides the last param'
 
 # ----- Task 5: grouped names split, modifier repeated -----
 $grp = FmtDecl 'procedure Copy2(const ASrc, ADest: string; AFlags: Integer);' '--break-params'
-MustMatch $grp '(?m)^\s+const ASrc: string$'   'group: first name keeps const'
-MustMatch $grp '(?m)^\s+; const ADest: string$' 'group: second name repeats const'
-MustMatch $grp '(?m)^\s+; AFlags: Integer$'     'group: ungrouped param unaffected'
+MustMatch $grp '(?m)^\s+const ASrc: string\s*$'   'group: first name keeps const'
+MustMatch $grp '(?m)^\s+; const ADest: string\s*$' 'group: second name repeats const'
+MustMatch $grp '(?m)^\s+; AFlags: Integer\s*$'     'group: ungrouped param unaffected'
 
 # var/out modifiers repeat too, and 2-name groups now cross the 2+ threshold.
 $sw = FmtDecl 'procedure Swap(var A, B: Integer);' '--break-params'
-MustMatch $sw '(?m)^\s+var A: Integer$'   'group: var repeated (first)'
-MustMatch $sw '(?m)^\s+; var B: Integer$' 'group: var repeated (second)'
+MustMatch $sw '(?m)^\s+var A: Integer\s*$'   'group: var repeated (first)'
+MustMatch $sw '(?m)^\s+; var B: Integer\s*$' 'group: var repeated (second)'
 
 # Untyped group: no colon, splits on names alone.
 $untyped = FmtDecl 'procedure Raw(var A, B);' '--break-params'
-MustMatch $untyped '(?m)^\s+var A$'   'untyped: first name'
-MustMatch $untyped '(?m)^\s+; var B$' 'untyped: second name'
+MustMatch $untyped '(?m)^\s+var A\s*$'   'untyped: first name'
+MustMatch $untyped '(?m)^\s+; var B\s*$' 'untyped: second name'
 
 # Generic type containing a comma must NOT be split on that comma.
 $gen = FmtDecl 'procedure Feed(const AMap: TDictionary<string, Integer>; ACount: Integer);' '--break-params'
-MustMatch    $gen '(?m)^\s+const AMap: TDictionary<string, Integer>$' 'generic: type comma untouched'
+MustMatch    $gen '(?m)^\s+const AMap: TDictionary<string, Integer>\s*$' 'generic: type comma untouched'
 MustNotMatch $gen '(?m)^\s+; Integer>'  'generic: no split inside the type argument list'
 
 # ----- Task 5: the no-split fallbacks -----
 # Fallback: '=' default value. Splitting would duplicate the default and, if it
 # held a string literal, trip YADF.Guard's exact-sequence check on the whole file.
 $def = FmtDecl 'procedure Def(A, B: string = ''x''; C: Integer);' '--break-params'
-MustMatch $def '(?m)^\s+A, B: string = ''x''$' 'fallback: defaulted group kept whole'
+MustMatch $def '(?m)^\s+A, B: string = ''x''\s*$' 'fallback: defaulted group kept whole'
 
 # Fallback: attribute in the name region.
 $attr = FmtDecl 'procedure Att([Ref] const A, B: TRec; C: Integer);' '--break-params'
-MustMatch $attr '(?m)^\s+\[Ref\] const A, B: TRec$' 'fallback: attributed group kept whole'
+MustMatch $attr '(?m)^\s+\[Ref\] const A, B: TRec\s*$' 'fallback: attributed group kept whole'
 
 # Fallback: interior comment between names.
 $cmt = FmtDecl 'procedure Cmt(const A, {why} B: string; C: Integer);' '--break-params'
@@ -1022,7 +1022,7 @@ git commit -m "docs: document BreakParamsOnePerLine and add the demo showcase"
 Before declaring the feature done:
 
 - [ ] `pwsh Test\run_tests.ps1` → `23 passed, 0 failed`
-- [ ] `Test\test_golden_format.ps1` → all 84 goldens byte-identical (proves default-off)
+- [ ] `Test\test_golden_format.ps1` → all 83 goldens byte-identical (proves default-off)
 - [ ] `Test\test_options.ps1` → passes (proves the descriptor table is coherent)
 - [ ] YADFSetup shows the checkbox under **Declarations**, and toggling it changes the live preview
 - [ ] YADFOT shows the same checkbox in `Tools > Options` (rebuild the BPL **with the IDE closed**)

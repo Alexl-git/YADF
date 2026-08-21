@@ -38,7 +38,7 @@ One new `Boolean` field on `TYadfOptions`, one `MakeOpt` entry in
 | Default | `False` |
 | CLI | `--break-params` / `--no-break-params` |
 
-Default-off is load-bearing. It keeps all 84 existing golden baselines green
+Default-off is load-bearing. It keeps all 83 existing golden baselines green
 without rebaselining, so the new fixtures are the only thing exercising the
 pass.
 
@@ -208,7 +208,7 @@ Assertions beyond golden comparison:
 
 - **Idempotency** -- formatting the output again is a fixed point.
 - **Compile gate** -- output compiles, via the existing TestLib harness.
-- **Regression** -- `Test\run_tests.ps1` stays 22/22 with the 84 existing
+- **Regression** -- `Test\run_tests.ps1` stays 22/22 with the 83 existing
   goldens byte-identical, since the option defaults off.
 
 ## Open questions
