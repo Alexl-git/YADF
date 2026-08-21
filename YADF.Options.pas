@@ -541,7 +541,7 @@ begin
   Result.BreakWithBody        := False;
   Result.BreakIfBody          := False;
   Result.BreakParamsOnePerLine:= False;
-  Result.BreakLongExpressions := False;
+  Result.BreakLongExpressions := False;  // flips to True once LabelLongBlocks measures post-break
   Result.Delphi10Compat       := False;
   Result.Backup               := False;
   Result.BackupDir            := '';
@@ -784,10 +784,10 @@ begin
     MakeOpt('BreakIfBody', 'Reflow & whitespace', 'Break if/then/else body onto its own line', 'Force the then/else body of a single-line if statement onto its own indented line '
       + '("if X then A else B;" -> "if X then" / "  A" / "else" / "  B;"). "else if" chains stay '
       + 'glued; a begin/nested-header/comment body is left alone. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakIfBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakIfBody:= V end),
-    MakeOpt('BreakLongExpressions', 'Reflow & whitespace', 'Break long expressions one component per line', 'When a line exceeds MaxLen, break it at every top-level operator -- one component per line, with the connecting operator LEADING each line ("and X" / "or Y"). '
+    MakeOpt('BreakLongExpressions', 'Reflow & whitespace', 'Smart expression breakup', 'ON (default): when a line exceeds MaxLen, break it at every top-level operator -- one component per line, with the connecting operator LEADING each line ("and X" / "or Y"). '
       + 'A parenthesised group is one component and stays whole; a component that still does not fit is broken the same way, one indent step deeper. '
       + 'A trailing "then" or "do" moves to its own line at the column of the "if" / "while" that introduced it. '
-      + 'Lines that already fit are never touched. Off by default -- long lines use the greedy breaker instead.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLongExpressions end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLongExpressions:= V end),
+      + 'Lines that already fit are never touched. OFF reverts to the greedy breaker, which packs as many components per line as fit.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLongExpressions end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLongExpressions:= V end),
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Downgrade inline vars',
       'Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest get a // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.Delphi10Compat end, procedure(var O: TYadfOptions; const V: Variant) begin O.Delphi10Compat:= V end),
     MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label long blocks', 'Insert "// end of <Name>" markers after long blocks.', okBool, True,
