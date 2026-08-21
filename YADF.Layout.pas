@@ -2698,6 +2698,152 @@ begin
   Result[High(Result)]:= Trim(Copy(AText, Start, MaxInt));
 end; // function
 
+/// <summary>Returns the 1-based position of the ')' matching the '(' at
+/// AOpenAt, or 0 when unbalanced.</summary>
+/// <param name="AText">Text to scan.</param>
+/// <param name="AOpenAt">1-based position of the opening '('.</param>
+/// <returns>Position of the matching ')', or 0.</returns>
+function MatchingCloseParen(const AText: string; AOpenAt: Integer): Integer;
+var
+  Depth: Integer;
+  i    : Integer;
+  InStr: Boolean;
+begin
+  Result:= 0;
+  Depth := 0;
+  InStr := False;
+  for i:= AOpenAt to Length(AText) do
+  begin
+    if InStr then
+    begin
+      if AText[i] = '''' then
+        InStr:= False;
+      Continue;
+    end;
+    if AText[i] = '''' then
+      InStr:= True
+    else if AText[i] = '(' then
+      Inc(Depth)
+    else if AText[i] = ')' then
+    begin
+      Dec(Depth);
+      if Depth = 0 then
+        Exit(i);
+    end;
+  end; // for
+end; // function
+
+/// <summary>Decomposes a routine header line into its parameter items plus the
+/// text before '(' and from ')' onward. Returns False when the line is not a
+/// breakable header.</summary>
+/// <param name="ALine">One physical source line.</param>
+/// <param name="AOpts">Active options.</param>
+/// <param name="AItems">Out: the parameter items, one per output line.</param>
+/// <param name="AHead">Out: text up to and including the opening '('.</param>
+/// <param name="ATail">Out: text from the closing ')' to end of line.</param>
+/// <returns>True when ALine should be broken.</returns>
+/// <remarks>Refuses: non-headers, headers with no parameter list, unbalanced
+/// parens, any header carrying a top-level '//' comment, and lists that yield
+/// fewer than 2 items.</remarks>
+function SplitHeaderParams(const ALine: string; const AOpts: TYadfOptions;
+  out AItems: TArray<string>; out AHead, ATail: string): Boolean;
+var
+  CloseAt: Integer;
+  Inner  : string ;
+  OpenAt : Integer;
+begin
+  Result:= False;
+  AItems:= nil;
+  AHead := '';
+  ATail := '';
+  if not IsRoutineHeaderLine(ALine) then
+    Exit;
+  // A '//' anywhere on the header would swallow every parameter that follows
+  // it once the line is broken. Same doctrine as JoinRoutineHeaders' CmtBail.
+  if Pos('//', ALine) > 0 then
+    Exit;
+  OpenAt:= Pos('(', ALine);
+  if OpenAt = 0 then
+    Exit;
+  CloseAt:= MatchingCloseParen(ALine, OpenAt);
+  if CloseAt <= OpenAt + 1 then
+    Exit;
+  AHead := Copy(ALine, 1, OpenAt);
+  ATail := Copy(ALine, CloseAt, MaxInt);
+  Inner := Copy(ALine, OpenAt + 1, CloseAt - OpenAt - 1);
+  AItems:= SplitAtPositions(Inner, TopLevelSepPositions(Inner, ';'));
+  Result:= Length(AItems) >= 2;
+end; // function
+
+/// <summary>Lays out named routine declarations with one parameter per line
+/// when AOpts.BreakParamsOnePerLine is on and the list has 2+ parameters.
+/// Separator placement follows AOpts.UsesCommaLast.</summary>
+/// <param name="S">Source text; every routine header already on ONE line.</param>
+/// <param name="AOpts">Active options.</param>
+/// <returns>S with qualifying parameter lists broken one per line.</returns>
+/// <remarks>MUST run after JoinRoutineHeaders, which is unconditional and would
+/// otherwise rejoin the split. Because that pass normalises every header onto a
+/// single physical line, this one is a pure function of that line and is
+/// idempotent. Emits its own final indentation; no ReindentByDepth needed.
+/// Content-neutral: inserts only CRLF and spaces.</remarks>
+function BreakRoutineParams(const S: string; const AOpts: TYadfOptions): string;
+var
+  Head  : string        ;
+  i     : Integer       ;
+  Indent: string        ;
+  Items : TArray<string>;
+  j     : Integer       ;
+  L     : string        ;
+  LineWS: string        ;
+  Lines : TStringList   ;
+  OutVal: TStringBuilder;
+  Tail  : string        ;
+begin
+  if not AOpts.BreakParamsOnePerLine then
+    Exit(S);
+  Lines := TStringList.Create;
+  OutVal:= TStringBuilder.Create;
+  try
+    Lines.Text:= S;
+    for i:= 0 to Lines.Count - 1 do
+    begin
+      L:= Lines[i];
+      if not SplitHeaderParams(L, AOpts, Items, Head, Tail) then
+      begin
+        OutVal.Append(L).Append(CRLF);
+        Continue;
+      end;
+      LineWS:= Copy(L, 1, Length(L) - Length(TrimLeft(L)));
+      Indent:= LineWS + StringOfChar(' ', AOpts.Indent * 2);
+      OutVal.Append(Head);
+      for j:= 0 to High(Items) do
+      begin
+        OutVal.Append(CRLF).Append(Indent);
+        if AOpts.UsesCommaLast then
+        begin
+          OutVal.Append(Items[j]);
+          if j < High(Items) then
+            OutVal.Append(';');
+        end // if
+        else
+        begin
+          if j > 0 then
+            OutVal.Append('; ');
+          OutVal.Append(Items[j]);
+        end;
+      end; // for
+      if AOpts.UsesCommaLast then
+        OutVal.Append(Tail).Append(CRLF)
+      else
+        OutVal.Append(CRLF).Append(Indent).Append(Tail).Append(CRLF);
+    end; // for
+    Result:= OutVal.ToString;
+  finally
+    OutVal.Free;
+    Lines.Free;
+  end; // try
+end; // function
+
 /// <summary>Collapses a routine header the source split across lines back onto
 /// one physical line: function/procedure/constructor/destructor/operator
 /// declarations (interface forward decls AND implementation headers, nested
@@ -5635,6 +5781,12 @@ begin
         // no re-indent is needed: the header keeps the start line's (already-correct)
         // indent and its own continuation indent.
         Result:= JoinRoutineHeaders(Result, AOpts);
+        // One parameter per line on named routine declarations. MUST follow
+        // JoinRoutineHeaders (which is unconditional and would rejoin the
+        // split) and precede Stage-4 alignment, so the split lines take part
+        // in AlignTypeColon. Emits its own indentation; no re-indent needed.
+        if AOpts.BreakParamsOnePerLine then
+          Result:= BreakRoutineParams(Result, AOpts);
         EffMaxBlanks:= AOpts.MaxBlankLines;
         if AOpts.BlanksBeforeSection > EffMaxBlanks then
           EffMaxBlanks:= AOpts.BlanksBeforeSection;
