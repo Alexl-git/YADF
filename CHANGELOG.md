@@ -8,9 +8,38 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.0.15.0] - 2026-08-21
 
 ### Fixed
+
+- **A long `for` header no longer strands its `to` / `downto` mid-line.** When
+  an over-`MaxLen` `for I := A to B + C do` was broken, `to` was treated as
+  ordinary text, so the line split at the `+` — the tighter-binding operator —
+  and left the loop keyword buried in the middle of the head line. `to` and
+  `downto` join the two halves of a loop bound exactly as `and` joins two
+  operands, so they are now break boundaries in their own right: every
+  connector leads its own line, or none does.
+
+  ```pascal
+  // before                        // after
+  for I:= AlphaValue to BetaValue  for I:= AlphaValue
+    + GammaValue                     to BetaValue
+  do                                 + GammaValue
+                                   do
+  ```
+
+  Both words are reserved and can occur only in a `for` header, so no other
+  construct is affected. Applies when `BreakLongExpressions` is on (the
+  default); `--no-break-expr` is unchanged.
+
+- **`--break-params` is idempotent on grouped parameter lists.** Splitting a
+  group repeats the modifier (`const A, B, C: T` becomes three items), so the
+  header is *longer* after the split than before it. On a second format the
+  header was re-joined, now crossed `MaxLen` where the original had fitted, and
+  was greedy-wrapped into two lines — which the one-per-line pass can no longer
+  recognise. The result was one parameter per line on the first pass and a
+  two-line greedy wrap on the second. A header that is about to be laid out one
+  parameter per line is no longer wrapped first.
 
 - **Formatting is idempotent again on lines carrying a trailing `//` comment.**
   The overflow breakers measured the whole physical line, so a line whose CODE
