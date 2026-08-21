@@ -2733,24 +2733,97 @@ begin
   end; // for
 end; // function
 
+const
+  ParamModifiers: array[0..2] of string = ('const', 'var', 'out');
+
+/// <summary>Splits one parameter item into one-name-per-line forms, repeating
+/// the const/var/out modifier: 'const A, B: string' becomes
+/// ['const A: string', 'const B: string'].</summary>
+/// <param name="AItem">A single parameter item, already trimmed.</param>
+/// <returns>One entry per name, or a single-entry array holding AItem
+/// unchanged when the group must not be split.</returns>
+/// <remarks>Refuses to split three shapes. (1) A top-level '=' default: the
+/// default expression would be duplicated, and a string literal inside it would
+/// fail YADF.Guard's exact-sequence check and decline the WHOLE file. (2) An
+/// attribute in the name region: duplicating it is not content-neutral. (3) An
+/// interior comment: there is no correct line to put it on.
+/// Only commas BEFORE the first top-level ':' are considered, so a comma inside
+/// the TYPE (TDictionary&lt;string, Integer&gt;) is never a split point -- which is
+/// also why no generics-vs-less-than disambiguation is needed here.</remarks>
+function SplitParamGroup(const AItem: string): TArray<string>;
+var
+  Colons: TArray<Integer>;
+  Cuts  : TArray<Integer>;
+  First : string         ;
+  Head  : string         ;
+  i     : Integer        ;
+  Modif : string         ;
+  Names : TArray<string> ;
+  Tail  : string         ;
+begin
+  Result:= [Trim(AItem)];
+  if Trim(AItem) = '' then
+    Exit;
+  // Fallback 3: '=' default value.
+  if Length(TopLevelSepPositions(AItem, '=')) > 0 then
+    Exit;
+  Colons:= TopLevelSepPositions(AItem, ':');
+  if Length(Colons) > 0 then
+  begin
+    Head:= Copy(AItem, 1, Colons[0] - 1);
+    Tail:= Copy(AItem, Colons[0], MaxInt);
+  end // if
+  else
+  begin
+    Head:= AItem;   // untyped group: `var A, B`
+    Tail:= '';
+  end;
+  // Fallbacks 1 and 2: attribute or comment in the NAME region only.
+  if (Pos('[', Head) > 0) or (Pos('{', Head) > 0) or (Pos('(*', Head) > 0) then
+    Exit;
+  Cuts:= TopLevelSepPositions(Head, ',');
+  if Length(Cuts) = 0 then
+    Exit;   // single name -- nothing to split
+  Names:= SplitAtPositions(Head, Cuts);
+  // The modifier rides the FIRST name only; strip it there and repeat it.
+  First:= Trim(Names[0]);
+  Modif:= '';
+  for i:= 0 to High(ParamModifiers) do
+    if LeadWord(First, ParamModifiers[i]) then
+    begin
+      Modif   := ParamModifiers[i] + ' ';
+      Names[0]:= Trim(Copy(First, Length(ParamModifiers[i]) + 1, MaxInt));
+      Break;
+    end;
+  SetLength(Result, Length(Names));
+  for i:= 0 to High(Names) do
+    Result[i]:= Trim(Modif + Trim(Names[i]) + Tail);
+end; // function
+
 /// <summary>Decomposes a routine header line into its parameter items plus the
 /// text before '(' and from ')' onward. Returns False when the line is not a
 /// breakable header.</summary>
 /// <param name="ALine">One physical source line.</param>
 /// <param name="AOpts">Active options.</param>
-/// <param name="AItems">Out: the parameter items, one per output line.</param>
+/// <param name="AItems">Out: the parameter items AFTER group splitting, one per
+/// output line.</param>
 /// <param name="AHead">Out: text up to and including the opening '('.</param>
 /// <param name="ATail">Out: text from the closing ')' to end of line.</param>
 /// <returns>True when ALine should be broken.</returns>
 /// <remarks>Refuses: non-headers, headers with no parameter list, unbalanced
 /// parens, any header carrying a top-level '//' comment, and lists that yield
-/// fewer than 2 items.</remarks>
+/// fewer than 2 items. The 2+ threshold counts parameters AFTER SplitParamGroup
+/// has expanded grouped names, so `procedure Swap(var A, B: Integer)` DOES
+/// break -- a recorded design decision.</remarks>
 function SplitHeaderParams(const ALine: string; const AOpts: TYadfOptions;
   out AItems: TArray<string>; out AHead, ATail: string): Boolean;
 var
-  CloseAt: Integer;
-  Inner  : string ;
-  OpenAt : Integer;
+  CloseAt : Integer       ;
+  Expanded: TList<string> ;
+  i       : Integer       ;
+  Inner   : string        ;
+  OpenAt  : Integer       ;
+  Raw     : TArray<string>;
 begin
   Result:= False;
   AItems:= nil;
@@ -2771,7 +2844,15 @@ begin
   AHead := Copy(ALine, 1, OpenAt);
   ATail := Copy(ALine, CloseAt, MaxInt);
   Inner := Copy(ALine, OpenAt + 1, CloseAt - OpenAt - 1);
-  AItems:= SplitAtPositions(Inner, TopLevelSepPositions(Inner, ';'));
+  Raw     := SplitAtPositions(Inner, TopLevelSepPositions(Inner, ';'));
+  Expanded:= TList<string>.Create;
+  try
+    for i:= 0 to High(Raw) do
+      Expanded.AddRange(SplitParamGroup(Raw[i]));
+    AItems:= Expanded.ToArray;
+  finally
+    Expanded.Free;
+  end; // try
   Result:= Length(AItems) >= 2;
 end; // function
 
