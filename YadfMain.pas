@@ -169,7 +169,7 @@ type
 /// <!-- drag-lint:auto BEGIN -->
 /// Called from: declaration (YADF.dpr)
 /// Calls: Format, ParamStr, YADF.Options.EnsureIniExists, YadfMain.BatchFormat, YadfMain.CheckDir, YadfMain.CheckFile, YadfMain.DebugTree, YadfMain.ExpandFileSpec, YadfMain.ExtractIniPath, YadfMain.FormatToFile (+8 more)
-/// Complexity: 22 (cyclomatic, outer body), 142 lines (full implementation)
+/// Complexity: 23 (cyclomatic, outer body), 154 lines (full implementation)
 /// Pure
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
 /// <seealso cref="YadfMain.BatchFormat"/>

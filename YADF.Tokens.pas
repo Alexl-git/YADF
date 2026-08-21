@@ -42,7 +42,7 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), declaration (YADF.Tokens.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), YadfMain.DebugTree (YadfMain.pas), YadfMain.ParseDprUnits (YadfMain.pas), YadfMain.RoundTrip (YadfMain.pas)
+  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), declaration (YADF.Tokens.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), YadfMain.DebugTree (YadfMain.pas), YadfMain.ParseDprUnits (YadfMain.pas), YadfMain.RoundTrip (YadfMain.pas)
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TTokenList = TList<TToken>;
@@ -51,7 +51,7 @@ type
 /// <returns>Observed: TTokenList.Create.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas), YadfMain.ParseDprUnits (YadfMain.pas), YadfMain.RoundTrip (YadfMain.pas)
+/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas), YadfMain.ParseDprUnits (YadfMain.pas), YadfMain.RoundTrip (YadfMain.pas)
 /// Calls: Copy, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken
 /// Returns: TTokenList.Create
 /// Pure

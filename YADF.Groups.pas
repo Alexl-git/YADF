@@ -32,7 +32,7 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)
+  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)
   /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -71,7 +71,7 @@ type
 /// <returns>Observed: Root.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)
+/// Called from: YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)
 /// Calls: YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx, YADF.Groups.TGroup.Create
 /// Returns: Root
 /// Complexity: 21 (cyclomatic, outer body), 57 lines (full implementation)
@@ -94,6 +94,12 @@ function ParseGroups(const ATokens: TTokenList): TGroup;
 /// Pure. Single source of truth for BOTH adding and removing block-end markers:
 /// the formatter may only delete a marker it would itself have written for that
 /// exact block, so add and remove must ask the same function.
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas)
+/// Returns: 'begin'
+/// Complexity: 23 (cyclomatic, outer body), 45 lines (full implementation)
+/// Pure
+/// <!-- drag-lint:auto END -->
 /// </remarks>
 function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;
 
@@ -109,6 +115,14 @@ function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;
 /// note, not our marker, and is NOT flagged. Neither are <c>//procedure</c> (no space),
 /// <c>// procedure -- see ticket 42</c> (trailing prose), or <c>{ procedure }</c>
 /// (not a <c>//</c> comment).
+/// <!-- drag-lint:auto BEGIN -->
+/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas)
+/// Calls: FindBlockLabel, TrimRight, YADF.Groups.CollectBlockLabelComments.Visit, YADF.Groups.ParseGroups
+/// Returns: Flags
+/// Pure
+/// <seealso cref="YADF.Groups.CollectBlockLabelComments.Visit"/>
+/// <seealso cref="YADF.Groups.ParseGroups"/>
+/// <!-- drag-lint:auto END -->
 /// </remarks>
 function CollectBlockLabelComments(const ATokens: TTokenList): TArray<Boolean>;
 

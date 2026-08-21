@@ -46,8 +46,8 @@ interface
 /// Pure and thread-safe; lexes both inputs once. If lexing the inputs
 /// raises, the guard fails CLOSED (returns False).
 /// <!-- drag-lint:auto BEGIN -->
-/// Calls: YADF.Guard.FormatPreservesContent/4
-/// Returns: FormatPreservesContent(AOriginal, AFormatted, False, Reason)
+/// Calls: YADF.Guard.FormatPreservesContent/5
+/// Returns: FormatPreservesContent(AOriginal, AFormatted, False, False, Reason)
 /// Overload 1 of 2
 /// Pure
 /// <seealso cref="YADF.Guard.FormatPreservesContent"/>
@@ -83,10 +83,11 @@ function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; o
 /// Same purity/fail-closed contract as the two-argument overload.
 /// <!-- drag-lint:auto BEGIN -->
 /// Called from: YADF.Guard.FormatPreservesContent/2 (YADF.Guard.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas)
-/// Calls: YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence
+/// Calls: YADF.Guard.DropFlagged, YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence
 /// Returns: AReason = ''; False
 /// Overload 2 of 2
 /// Mutates: AReason (out)
+/// <seealso cref="YADF.Guard.DropFlagged"/>
 /// <seealso cref="YADF.Guard.ExtractContent"/>
 /// <seealso cref="YADF.Guard.FirstUnmatched"/>
 /// <seealso cref="YADF.Guard.IsSubsequence"/>

@@ -116,21 +116,20 @@ function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 /// Root - the parsed TGroup tree. Sb - StringBuilder for the rendered output. Cursor - next
 /// un-emitted token index. Incremented as WalkGroup descends into / past child groups. CurCol,
 /// CurLine - track the current output position so the walker can decide whether a parens group fits
-/// inline at the current column or must be broken. PendingLabel - block-end label that needs to be
-/// appended to the next-emitted closing `end`. Buffered here because the label is computed at the
-/// moment we leave a child group, but must appear AFTER the `end` token text and BEFORE the next
-/// CRLF.
+/// inline at the current column or must be broken. Block-end labels are NOT decided here: they are
+/// a post-pass over the final line-broken text (ApplyBlockEndLabels), because the line count the
+/// walker sees is not the one the reader gets.
 /// <!-- drag-lint:auto BEGIN -->
 /// Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)
-/// Calls: AddIfWord, BlockAlreadyLabeled, BreakLineByOperators, CharInSet, CollectParensItems, ComputeBlockCommentLock, Copy, EmitTokenRange, FindBlockLabel, FindChildGroupAt (+44 more)
+/// Calls: AddIfWord, AddIfWordAtDepth, BreakComponents, BreakLineByOperators, CharInSet, CollectParensItems, ComputeBlockCommentLock, Copy, EmitText, EmitTokenRange (+48 more)
 /// Overload 2 of 2
-/// Complexity: 24 (cyclomatic, outer body), 603 lines (full implementation)
+/// Complexity: 26 (cyclomatic, outer body), 752 lines (full implementation)
 /// Mutates: ADeclineReason (out)
 /// <seealso cref="YADF.Groups.ParseGroups"/>
 /// <seealso cref="YADF.Guard.FormatPreservesContent"/>
 /// <seealso cref="YADF.Layout.AlignByAnchor"/>
 /// <seealso cref="YADF.Layout.AlignDeclarationSemicolons"/>
-/// <seealso cref="YADF.Layout.ApplyCapitalization"/>
+/// <seealso cref="YADF.Layout.ApplyBlockEndLabels"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string; overload;
