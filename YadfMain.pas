@@ -1254,7 +1254,7 @@ begin
       else if AArgs[i] = '--indent-comments' then
       begin
         AOpts.IndentComments:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-indent-comments' then
       begin
@@ -1264,7 +1264,7 @@ begin
       else if AArgs[i] = '--pack-bodies' then
       begin
         AOpts.PackShortBodies:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);
       end
       else if AArgs[i] = '--no-pack-bodies' then
       begin
@@ -1284,7 +1284,7 @@ begin
       else if AArgs[i] = '--break-loop' then
       begin
         AOpts.BreakLoopBody:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);
       end
       else if AArgs[i] = '--no-break-loop' then
       begin
@@ -1294,7 +1294,7 @@ begin
       else if AArgs[i] = '--break-with' then
       begin
         AOpts.BreakWithBody:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-break-with' then
       begin
@@ -1304,7 +1304,7 @@ begin
       else if AArgs[i] = '--break-if' then
       begin
         AOpts.BreakIfBody:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);
       end
       else if AArgs[i] = '--no-break-if' then
       begin
