@@ -872,14 +872,20 @@ end;
 end.
 '@ | Set-Content $idemSrc -Encoding ascii
 
-foreach ($f in @('--break-params', '--break-params --uses-comma-last')) {
+# NOTE: UsesCommaLast has NO CLI flag -- it is INI-only (YadfMain.pas exposes
+# --uses-break for UsesAlwaysBreak, but nothing for UsesCommaLast, and the exe
+# rejects an unknown --flag outright). Separator-last must therefore be pinned
+# through a derived INI. $iniLast is created in the Task 5 section above: a copy
+# of yadf.ini with UsesCommaLast=true.
+foreach ($cfg in @(
+    @{ Ini = $ini;     Label = 'separator-first' },
+    @{ Ini = $iniLast; Label = 'separator-last'  })) {
   $o1 = Join-Path $env:TEMP 'bparm_i1.pas'; $o2 = Join-Path $env:TEMP 'bparm_i2.pas'
-  $argv = @($f -split ' ' | Where-Object { $_ -ne '' })
-  & $exe --ini $ini $idemSrc @argv --o $o1 | Out-Null
-  & $exe --ini $ini $o1      @argv --o $o2 | Out-Null
-  if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail "idempotent: $f" }
-  $chk = & $exe --ini $ini --check $o1 2>&1
-  if ("$chk" -notmatch 'PASS') { Fail "roundtrip: $f" }
+  & $exe --ini $cfg.Ini $idemSrc --break-params --o $o1 | Out-Null
+  & $exe --ini $cfg.Ini $o1      --break-params --o $o2 | Out-Null
+  if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail ("idempotent: " + $cfg.Label) }
+  $chk = & $exe --ini $cfg.Ini --check $o1 2>&1
+  if ("$chk" -notmatch 'PASS') { Fail ("roundtrip: " + $cfg.Label) }
   Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
 }
 Remove-Item $idemSrc -Force -ErrorAction SilentlyContinue
