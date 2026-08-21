@@ -42,6 +42,24 @@ try {
   & $exe --ini $ini2 $pas --upper-hex --o $ho | Out-Null
   MustMatch (Get-Content $ho -Raw) '\$00AB' '--upper-hex overrides INI false'
 
+  # ----- --help must describe the INI it was actually handed -----
+  # It used to resolve DefaultIniPath unconditionally (the help branch ran
+  # BEFORE ExtractIniPath), so `--ini X --help` printed the %APPDATA% profile
+  # values -- i.e. it could describe a completely different configuration than
+  # `--ini X <file>` would actually use. That misled a reader into filing a
+  # false bug report.
+  $iniHelp = Join-Path $tmpDir 'help.ini'
+  [IO.File]::WriteAllText($iniHelp, "[Format]`r`nMaxLen=77`r`n", (New-Object Text.ASCIIEncoding))
+  $help = & $exe --ini $iniHelp --help 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0) { Fail "--ini <file> --help exit: expected 0, got $LASTEXITCODE" }
+  MustMatch $help '(?m)^\s+--max-len N.*\[77\]\s*$' '--help reports MaxLen from the explicit --ini'
+
+  # ...and a NEW --ini path is materialised by --help too (same first-run
+  # template contract as a normal run; the help text itself promises it).
+  $iniNew = Join-Path $tmpDir 'made_by_help.ini'
+  & $exe --ini $iniNew --help | Out-Null
+  if (-not (Test-Path $iniNew)) { Fail '--ini <new path> --help did not create the INI template' }
+
   # ----- mode flags still pass through ParseFlags -----
   $fmt = Join-Path $tmpDir 'formatted.pas'
   & $exe --ini $ini $src --o $fmt | Out-Null

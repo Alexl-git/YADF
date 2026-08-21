@@ -15,8 +15,11 @@ MustMatch $help '--no-break-params'  'help lists --no-break-params'
 # Generated default INI carries the key (table-driven template).
 $tmpIni = Join-Path $env:TEMP 'bparm.ini'
 Remove-Item $tmpIni -Force -ErrorAction SilentlyContinue
-& $exe --ini $tmpIni --help | Out-Null   # --ini creates the template if absent
-if (-not (Test-Path $tmpIni)) { & $exe --ini $tmpIni --stdout 2>&1 | Out-Null }
+& $exe --ini $tmpIni --help | Out-Null   # --ini <new path> materialises the template
+# This used to fall back to a --stdout run: the help branch ran before
+# ExtractIniPath, so --help never saw --ini and never created the file. Fixed
+# in YadfMain.RunYadf -- assert it directly instead of papering over it.
+if (-not (Test-Path $tmpIni)) { Fail '--ini <new path> --help did not create the template' }
 $iniTxt = if (Test-Path $tmpIni) { Get-Content $tmpIni -Raw } else { '' }
 MustMatch $iniTxt 'BreakParamsOnePerLine' 'ini template has BreakParamsOnePerLine'
 Remove-Item $tmpIni -Force -ErrorAction SilentlyContinue

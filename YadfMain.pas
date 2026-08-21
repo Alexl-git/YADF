@@ -991,7 +991,11 @@ begin
     i:= 0;
     while i <= High(AArgs) do
     begin
-      if (AArgs[i] = '--ini') and (i + 1 <= High(AArgs)) then
+      // A help arg is never an INI path. Without this guard `yadf --ini --help`
+      // would consume '--help' as the path -- suppressing the help it asked for
+      // and creating a file literally named '--help'. Leaving '--ini' unconsumed
+      // lets ParseFlags raise the proper "--ini requires a path value".
+      if (AArgs[i] = '--ini') and (i + 1 <= High(AArgs)) and not IsHelpArg(AArgs[i + 1]) then
       begin
         Result:= AArgs[i + 1];
         Inc(i, 2);
@@ -1371,15 +1375,27 @@ begin
   for i:= 1 to ParamCount do
     Args[i - 1]:= ParamStr(i);
 
+  // Resolve the config BEFORE the help branch: --help prints every option's
+  // current value, so it must read the SAME INI a real run would use. While
+  // this ran after the help branch, `yadf --ini X --help` described the
+  // %APPDATA% profile instead of X -- help that contradicts the run it is
+  // documenting (it has already produced one false bug report).
+  IniPath:= ExtractIniPath(Args);
+
   for i:= 0 to High(Args) do if IsHelpArg(Args[i]) then
   begin
     Opts:= DefaultOptions;
-    LoadIniDefaults(Opts, DefaultIniPath);
+    // Same first-run contract as a normal run: materialise the template at
+    // the resolved path when it is absent. The help text itself promises
+    // this ("created on first run if absent"), and it is what makes
+    // `yadf --ini <new> --help` a usable way to get a commented config.
+    if EnsureIniExists(IniPath) then
+      WriteStdoutLine('Created default config: ' + IniPath);
+    LoadIniDefaults(Opts, IniPath);
     ShowUsage(Opts);
     Exit;
   end;
 
-  IniPath:= ExtractIniPath(Args);
   Opts:= DefaultOptions;
   // First-run: if no INI exists at the resolved path, materialise a
   // fully-commented template with all defaults. Subsequent runs see
