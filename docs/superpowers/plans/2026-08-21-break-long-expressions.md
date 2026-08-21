@@ -363,8 +363,9 @@ Expected: FAIL on `nogreedy: component 2 alone on its line` -- the greedy breake
 //      indent; every component goes to BaseIndent + Indent*(Level+1),
 //      so nesting depth is visible as indent depth.
 //   4. A component that still exceeds MaxLen recurses one level deeper.
-//   5. No depth-0 boundary at all -> defer to the greedy breaker, which
-//      can still split on an in-paren comma.
+//   5. No boundary at ADepth at all -> ATOMIC: emit unchanged. Must
+//      NOT fall through to BreakLineByOperators, which ignores depth
+//      and would split inside a parenthesised group.
 // A continuation line already begins with its operator; that leading
 // operator is NOT a boundary, hence the MinAt guard.
   function BreakComponents(const ALine, ABaseIndent: string; ALevel: Integer): string;

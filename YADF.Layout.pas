@@ -5672,24 +5672,27 @@ var
     end; // try
   end; // begin
 
-// Depth-0 sibling of FindOperatorPositionsAtTopLevel, for the
+// Depth-aware sibling of FindOperatorPositionsAtTopLevel, for the
 // one-component-per-line breaker. Returns only the connecting
 // operators (` and ` ` or ` ` xor ` ` + ` ` - `) that sit at bracket
-// depth ZERO -- these are the expression's component boundaries, so a
-// parenthesised group is one component and is never split here.
+// depth EXACTLY ADepth -- at ADepth=0 a parenthesised group is one
+// component and is never split. ADepth is what makes the recursion
+// work: a component's own sub-components live one bracket level in
+// (the parts of `or (A and B)` are A and B), so breaking a component
+// that still overflows means rescanning it at ADepth+1.
 // The existing scanner deliberately does NOT filter by depth (its
 // AddIfWord calls never consult St.Depth); that is harmless for the
 // greedy breaker, which picks one position, but would shatter groups
 // under the break-at-every-boundary rule.
-  function FindComponentBoundaries(const Line: string): TArray<Integer>;
+  function FindComponentBoundaries(const Line: string; ADepth: Integer): TArray<Integer>;
   var
     Done     : Boolean       ;
     i        : Integer       ;
     Positions: TList<Integer>;
     St       : TLineScanState;
-    procedure AddIfWordAtDepth0(Idx, Wlen: Integer; const W: string);
+    procedure AddIfWordAtDepth(Idx, Wlen: Integer; const W: string);
     begin
-      if St.Depth <> 0 then
+      if St.Depth <> ADepth then
         Exit;
       if (Idx + Wlen - 1 > Length(Line)) then
         Exit;
@@ -5717,7 +5720,7 @@ var
             St.StepCode(Line, i);
             Continue;
           end;
-          if (i > 1) and (Line[i - 1] = ' ') and (St.Depth = 0) then
+          if (i > 1) and (Line[i - 1] = ' ') and (St.Depth = ADepth) then
           begin
             if CharInSet(Line[i], ['+', '-']) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
             begin
@@ -5725,9 +5728,9 @@ var
               Inc(i);
               Continue;
             end;
-            AddIfWordAtDepth0(i, 2, 'or' );
-            AddIfWordAtDepth0(i, 3, 'and');
-            AddIfWordAtDepth0(i, 3, 'xor');
+            AddIfWordAtDepth(i, 2, 'or' );
+            AddIfWordAtDepth(i, 3, 'and');
+            AddIfWordAtDepth(i, 3, 'xor');
           end; // if
           Inc(i);
         end; // case
@@ -5817,12 +5820,20 @@ var
 //   3. The head (text before the first boundary) keeps the line's own
 //      indent; every component goes to BaseIndent + Indent*(Level+1),
 //      so nesting depth is visible as indent depth.
-//   4. A component that still exceeds MaxLen recurses one level deeper.
-//   5. No depth-0 boundary at all -> defer to the greedy breaker, which
-//      can still split on an in-paren comma.
+//   4. A component that still exceeds MaxLen recurses at ADepth+1 and
+//      ALevel+1: its own sub-components live one BRACKET level in (the
+//      parts of `or (A and B)` are A and B), and they render one INDENT
+//      level in. Rescanning at the same depth would find nothing --
+//      components are delimited by every boundary at their own depth,
+//      so none remains inside one.
+//   5. No boundary at ADepth at all -> the piece is ATOMIC: emit it
+//      unchanged and accept the overflow. It must NOT fall through to
+//      BreakLineByOperators, which does not filter depth and would split
+//      inside a parenthesised group -- destroying exactly the grouping
+//      this option exists to preserve.
 // A continuation line already begins with its operator; that leading
 // operator is NOT a boundary, hence the MinAt guard.
-  function BreakComponents(const ALine, ABaseIndent: string; ALevel: Integer): string;
+  function BreakComponents(const ALine, ABaseIndent: string; ALevel, ADepth: Integer): string;
   var
     Bounds: TArray<Integer>;
     i     : Integer        ;
@@ -5834,7 +5845,7 @@ var
   begin
     if Length(ALine) <= AOpts.MaxLen then
       Exit(ALine);
-    Bounds:= FindComponentBoundaries(ALine);
+    Bounds:= FindComponentBoundaries(ALine, ADepth);
     MinAt := Length(LeadingIndent(ALine)) + 2;
     k     := 0;
     for i:= 0 to High(Bounds) do if Bounds[i] >= MinAt then
@@ -5844,7 +5855,7 @@ var
     end;
     SetLength(Bounds, k);
     if k = 0 then
-      Exit(BreakLineByOperators(ALine));
+      Exit(ALine);
     Ind   := ABaseIndent + StringOfChar(' ', AOpts.Indent * (ALevel + 1));
     OutVal:= TStringBuilder.Create;
     try
@@ -5858,7 +5869,7 @@ var
         Piece:= Ind + Trim(Piece);
         OutVal.Append(CRLF);
         if Length(Piece) > AOpts.MaxLen then
-          OutVal.Append(BreakComponents(Piece, ABaseIndent, ALevel + 1))
+          OutVal.Append(BreakComponents(Piece, ABaseIndent, ALevel + 1, ADepth + 1))
         else
           OutVal.Append(Piece);
       end; // for
@@ -5889,7 +5900,7 @@ var
       Locked:= ComputeBlockCommentLock(Lines);
       for i:= 0 to Lines.Count - 1 do if (Length(Lines[i]) > AOpts.MaxLen) and not Locked[i] then
         if AOpts.BreakLongExpressions then
-          Lines[i]:= BreakComponents(Lines[i], LeadingIndent(Lines[i]), 0)
+          Lines[i]:= BreakComponents(Lines[i], LeadingIndent(Lines[i]), 0, 0)
         else
           Lines[i]:= BreakLineByOperators(Lines[i]);
       Result:= Lines.Text;

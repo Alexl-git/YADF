@@ -120,17 +120,34 @@ worth having.
 Recursive, replacing the greedy loop when the option is on:
 
 ```
-BreakComponents(Line, BaseIndent, Level):
+BreakComponents(Line, BaseIndent, Level, Depth):
   if Length(Line) <= MaxLen: emit Line; return
-  Positions := top-level operator positions in Line   (existing scanner)
-  if Positions is empty: emit Line unchanged; return  (nothing to break on)
+  Positions := operator positions in Line at bracket depth EXACTLY Depth
+  drop any position at or before the line's first token
+      (a continuation already begins with its own operator; that
+       leading operator is not a boundary)
+  if Positions is empty: emit Line unchanged; return   (atomic)
   Split Line at EVERY position -> Head, C1 .. Cn
   emit Head at its current indent
   for each Ci:
     Ind := BaseIndent + (Level + 1) * AOpts.Indent
     if Length(Ind + Ci) <= MaxLen: emit Ind + Ci
-    else BreakComponents(Ind + Ci, BaseIndent, Level + 1)
+    else BreakComponents(Ind + Ci, BaseIndent, Level + 1, Depth + 1)
 ```
+
+**`Depth` is what makes the recursion work, and it is not optional.**
+Components are delimited by *every* boundary at their own depth, so by
+construction no further boundary remains **inside** one -- rescanning a
+component at the same depth finds nothing and the recursive branch would be
+unreachable dead code. A component's own sub-components live one bracket level
+in: the parts of `or (A and B)` are `A` and `B`. So breaking a component that
+still overflows means rescanning it at `Depth + 1`, while rendering one indent
+level further in at `Level + 1`. Bracket depth and indent depth advance
+together but measure different things.
+
+This was found by running the built code: with a fixed depth of 0 the recursion
+never fired, and an over-long component fell through to the greedy fallback,
+which does not filter depth and split **inside** a parenthesised group.
 
 ### Which positions count as component boundaries
 
@@ -146,10 +163,18 @@ The two candidate kinds must NOT be treated alike under the non-greedy rule:
   one of them.
 - **Commas at depth > 0** -- the existing scanner adds these
   (`YADF.Layout.pas:5660` requires `St.Depth > 0`) so an argument list can be
-  broken when nothing else is available. These are **fallback** break points
-  only, reached via the existing greedy breaker when a component has no depth-0
-  operator and still overflows. They never participate in one-component-per-line
-  splitting.
+  broken when nothing else is available. `FindComponentBoundaries` does **not**
+  return them at all, and the new breaker never consults them.
+
+**A piece with no boundary at its current depth is ATOMIC: emit it unchanged and
+accept the overflow.** It must NOT fall through to `BreakLineByOperators`. That
+function does not filter by depth, so it would split inside a parenthesised
+group -- destroying exactly the grouping this option exists to preserve. An
+over-long line is a cosmetic problem; a shattered group is a correctness one.
+
+An earlier draft of this spec said the opposite in this section while the
+algorithm above said "emit unchanged". The contradiction reached the
+implementation and produced a shattered group on the first run.
 
 Without this distinction, "break at every position" would explode `Foo(A, B, C)`
 into one argument per line, duplicating what `RenderParensBroken` already does
