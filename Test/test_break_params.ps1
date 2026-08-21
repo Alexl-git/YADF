@@ -131,4 +131,107 @@ MustMatch $cmt '(?m)const A, \{why\} B: string' 'fallback: commented group kept 
 $call = FmtDecl 'procedure Uses1(A: Integer; B: Integer);' '--break-params'
 MustNotMatch $call '(?m)^\s+; Writeln' 'non-goal: call sites untouched'
 
+# ----- Task 6: idempotency + content-preserving round-trip -----
+$idemSrc = Join-Path $env:TEMP 'bparm_idem.pas'
+@'
+unit probe;
+interface
+type
+  TDemo = class
+    procedure Go(const A: string; B: Integer; out C: Boolean);
+    function Calc(const ASrc, ADest: string; AFlags: Integer): Boolean;
+    procedure Swap(var A, B: Integer);
+    procedure Def(A, B: string = 'x'; C: Integer);
+    procedure Log(const AMsg: string);
+  end;
+implementation
+procedure TDemo.Go(const A: string; B: Integer; out C: Boolean);
+begin
+end;
+function TDemo.Calc(const ASrc, ADest: string; AFlags: Integer): Boolean;
+begin
+  Result := True;
+end;
+procedure TDemo.Swap(var A, B: Integer);
+begin
+end;
+procedure TDemo.Def(A, B: string = 'x'; C: Integer);
+begin
+end;
+procedure TDemo.Log(const AMsg: string);
+begin
+end;
+end.
+'@ | Set-Content $idemSrc -Encoding ascii
+
+# NOTE: UsesCommaLast has NO CLI flag -- it is INI-only (YadfMain.pas exposes
+# --uses-break for UsesAlwaysBreak, but nothing for UsesCommaLast, and the exe
+# rejects an unknown --flag outright). Separator-last is therefore pinned
+# through the derived INI $iniLast created in the Task 5 section above.
+foreach ($cfg in @(
+    @{ Ini = $ini;     Label = 'separator-first' },
+    @{ Ini = $iniLast; Label = 'separator-last'  })) {
+  $o1 = Join-Path $env:TEMP 'bparm_i1.pas'; $o2 = Join-Path $env:TEMP 'bparm_i2.pas'
+  & $exe --ini $cfg.Ini $idemSrc --break-params --o $o1 | Out-Null
+  & $exe --ini $cfg.Ini $o1      --break-params --o $o2 | Out-Null
+  if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail ("idempotent: " + $cfg.Label) }
+  $chk = & $exe --ini $cfg.Ini --check $o1 2>&1
+  if ("$chk" -notmatch 'PASS') { Fail ("roundtrip: " + $cfg.Label) }
+  Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
+}
+Remove-Item $idemSrc -Force -ErrorAction SilentlyContinue
+
+# ----- Task 6: the broken output COMPILES (dcc64) -----
+$dcc = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc64.exe'
+if (Test-Path $dcc) {
+  $ns   = 'System;System.Win;Winapi;Vcl;Data;Soap;Xml'
+  $cdir = Join-Path $env:TEMP ('bparm_c_' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $cdir | Out-Null
+  $csrc = Join-Path $cdir 'bparm_compile.pas'   # file name must equal unit name
+  @'
+unit bparm_compile;
+interface
+uses
+  System.Generics.Collections;
+type
+  TRec = record a: Integer; end;
+  TDemo = class
+    procedure Go(const A: string; B: Integer; out C: Boolean);
+    function Calc(const ASrc, ADest: string; AFlags: Integer): Boolean;
+    procedure Swap(var A, B: Integer);
+    procedure Feed(const AMap: TDictionary<string, Integer>; ACount: Integer);
+    procedure Att([Ref] const A, B: TRec; C: Integer);
+  end;
+implementation
+procedure TDemo.Go(const A: string; B: Integer; out C: Boolean);
+begin
+  C := B > 0;
+end;
+function TDemo.Calc(const ASrc, ADest: string; AFlags: Integer): Boolean;
+begin
+  Result := (ASrc <> ADest) and (AFlags > 0);
+end;
+procedure TDemo.Swap(var A, B: Integer);
+var
+  t: Integer;
+begin
+  t := A; A := B; B := t;
+end;
+procedure TDemo.Feed(const AMap: TDictionary<string, Integer>; ACount: Integer);
+begin
+end;
+procedure TDemo.Att([Ref] const A, B: TRec; C: Integer);
+begin
+end;
+end.
+'@ | Set-Content $csrc -Encoding ascii
+  # format IN PLACE with the break flag, then compile the result.
+  & $exe $csrc --ini $ini --break-params --o $csrc | Out-Null
+  & $dcc -Q "-NS$ns" "-N0$cdir" "-E$cdir" $csrc *> $null
+  if ($LASTEXITCODE -ne 0) { Fail 'compile: broken param output must compile with dcc64' }
+  Remove-Item $cdir -Recurse -Force -ErrorAction SilentlyContinue
+} else {
+  Write-Output 'break_params: (dcc64 not found -- skipping compile check)'
+}
+
 Finish 'break_params'
