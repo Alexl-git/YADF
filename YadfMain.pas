@@ -381,8 +381,8 @@ begin
     WriteAllBytesFlushed(Tmp, All);
     if not MoveFileExW(PWideChar(Tmp), PWideChar(AFileName), MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then
       RaiseLastOSError;
-  except
-    DeleteFileW(PWideChar(Tmp));  // dl:ok bare-except@8a13
+  except  // dl:ok bare-except@98bb
+    DeleteFileW(PWideChar(Tmp));
     raise;
   end;
   BumpModifiedTime(AFileName);
@@ -559,7 +559,7 @@ begin
   WriteStdoutLine(Format('--- %d file(s) formatted into %s ---', [Count, AOutDir]));
 end; // procedure
 
-function ParseDprUnits(const ADprFile: string; const AOpts: TYadfOptions): TArray<string>;  // dl:ok deep-nesting@cbc7
+function ParseDprUnits(const ADprFile: string; const AOpts: TYadfOptions): TArray<string>;
 var
   CurName    : string       ;
   EndIdx     : Integer      ;
@@ -886,6 +886,8 @@ begin
   WriteStdoutLine('  --no-break-with       keep the with body inline (default)');
   WriteStdoutLine(Format('  --break-if            break if then/else body onto its own line          [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine('  --no-break-if         keep the if/then/else body inline (default)');
+  WriteStdoutLine(Format('  --break-params        break routine parameters one per line              [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
+  WriteStdoutLine('  --no-break-params     keep the parameter list inline (default)');
   WriteStdoutLine(Format('  --[no-]trim-trailing  trim / keep trailing whitespace                  [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
   WriteStdoutLine(''            );
   WriteStdoutLine('Uses clause:');
@@ -1301,6 +1303,16 @@ begin
       else if AArgs[i] = '--no-break-if' then
       begin
         AOpts.BreakIfBody:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--break-params' then
+      begin
+        AOpts.BreakParamsOnePerLine:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-break-params' then
+      begin
+        AOpts.BreakParamsOnePerLine:= False;
         Inc(i);
       end
       else if AArgs[i] = '--ini' then

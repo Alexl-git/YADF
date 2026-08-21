@@ -40,49 +40,50 @@ type
   /// </remarks>
 
   TYadfOptions = record
-    MaxLen              : Integer      ;
-    Indent              : Integer      ;
-    TabWidth            : Integer      ;
-    MarkUnclosed        : Boolean      ;
-    LabelLongBlocks     : Boolean      ;
-    LabelMinLines       : Integer      ;
-    MaxBlankLines       : Integer      ;
-    TrimTrailing        : Boolean      ;
-    ReflowLines         : Boolean      ;
-    LowercaseKeywords   : Boolean      ;
-    UpperHexNumbers     : Boolean      ;
-    UpperDirectives     : Boolean      ;
-    FirstOccCasing      : Boolean      ;
-    BlanksBeforeSection : Integer      ;
-    BlanksBeforeMethod  : Integer      ;
-    BlanksBeforeType    : Integer      ;
-    AssignNoSpaceBefore : Boolean      ;
-    AssignSpaceAfter    : Boolean      ;
-    SpaceAroundOperators: Boolean      ;
-    AlignConstEquals    : Boolean      ;
-    AlignTypeColon      : Boolean      ;
-    AlignSmartAssign    : Boolean      ;
-    AlignMaxColumn      : Integer      ;
-    AlignMatchingShapes : Boolean      ;
-    AlignShapeMinAnchors: Integer      ;
-    AlignCommentMaxShift: Integer      ;
-    UsesAlwaysBreak     : Boolean      ;
-    UsesCommaLast       : Boolean      ;
-    SplitMultiVarDecls  : Boolean      ;
-    AlignDeclSemicolons : Boolean      ;
-    BreakCaseLabels     : Boolean      ;
-    IndentComments      : Boolean      ;
-    PackShortBodies     : Boolean      ;
-    CollapseShortBlocks : Boolean      ;
-    BreakLoopBody       : Boolean      ;
-    BreakWithBody       : Boolean      ;
-    BreakIfBody         : Boolean      ;
-    Delphi10Compat      : Boolean      ;
-    Backup              : Boolean      ;
-    BackupDir           : string       ;
-    ResultDir           : string       ;
-    Encoding            : TYadfEncoding;
-    Logging             : Boolean      ;
+    MaxLen               : Integer      ;
+    Indent               : Integer      ;
+    TabWidth             : Integer      ;
+    MarkUnclosed         : Boolean      ;
+    LabelLongBlocks      : Boolean      ;
+    LabelMinLines        : Integer      ;
+    MaxBlankLines        : Integer      ;
+    TrimTrailing         : Boolean      ;
+    ReflowLines          : Boolean      ;
+    LowercaseKeywords    : Boolean      ;
+    UpperHexNumbers      : Boolean      ;
+    UpperDirectives      : Boolean      ;
+    FirstOccCasing       : Boolean      ;
+    BlanksBeforeSection  : Integer      ;
+    BlanksBeforeMethod   : Integer      ;
+    BlanksBeforeType     : Integer      ;
+    AssignNoSpaceBefore  : Boolean      ;
+    AssignSpaceAfter     : Boolean      ;
+    SpaceAroundOperators : Boolean      ;
+    AlignConstEquals     : Boolean      ;
+    AlignTypeColon       : Boolean      ;
+    AlignSmartAssign     : Boolean      ;
+    AlignMaxColumn       : Integer      ;
+    AlignMatchingShapes  : Boolean      ;
+    AlignShapeMinAnchors : Integer      ;
+    AlignCommentMaxShift : Integer      ;
+    UsesAlwaysBreak      : Boolean      ;
+    UsesCommaLast        : Boolean      ;
+    SplitMultiVarDecls   : Boolean      ;
+    AlignDeclSemicolons  : Boolean      ;
+    BreakCaseLabels      : Boolean      ;
+    IndentComments       : Boolean      ;
+    PackShortBodies      : Boolean      ;
+    CollapseShortBlocks  : Boolean      ;
+    BreakLoopBody        : Boolean      ;
+    BreakWithBody        : Boolean      ;
+    BreakIfBody          : Boolean      ;
+    BreakParamsOnePerLine: Boolean      ;
+    Delphi10Compat       : Boolean      ;
+    Backup               : Boolean      ;
+    BackupDir            : string       ;
+    ResultDir            : string       ;
+    Encoding             : TYadfEncoding;
+    Logging              : Boolean      ;
   end; // record
 
   // ---- Single descriptor table : the settings authority ----
@@ -340,7 +341,7 @@ function LoadOptionsFromIni(const APath: string): TYadfOptions;
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
-procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
+procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);  // dl:ok unused-public-symbol@3944
 
 // One "Ident - Hint" line per option, grouped -- for CLI --help / about text.
 /// <summary><!-- drag-lint:auto -->One "Ident - Hint" line per option, grouped -- for CLI
@@ -354,7 +355,7 @@ procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
 /// <seealso cref="YADF.Options.OptionHint"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
-function OptionsHelpText: string;
+function OptionsHelpText: string;  // dl:ok unused-public-symbol@fb3f
 
 // Shared per-user fallback path used by YADF.exe, YADFOT.bpl, and YADFSetup.exe
 // when no project-local yadf.ini is found. Returns %APPDATA%\YADF\yadf.ini.
@@ -501,49 +502,50 @@ uses
 
 function DefaultOptions: TYadfOptions;
 begin
-  Result.MaxLen              := 180;
-  Result.Indent              := 2;
-  Result.TabWidth            := 4;
-  Result.MarkUnclosed        := False;
-  Result.LabelLongBlocks     := True;
-  Result.LabelMinLines       := 15;
-  Result.MaxBlankLines       := 1;
-  Result.TrimTrailing        := True;
-  Result.ReflowLines         := True;
-  Result.LowercaseKeywords   := True;
-  Result.UpperHexNumbers     := True;
-  Result.UpperDirectives     := True;
-  Result.FirstOccCasing      := True;
-  Result.BlanksBeforeSection := 0;
-  Result.BlanksBeforeMethod  := 0;
-  Result.BlanksBeforeType    := 0;
-  Result.AssignNoSpaceBefore := True;
-  Result.AssignSpaceAfter    := True;
-  Result.SpaceAroundOperators:= True;
-  Result.AlignConstEquals    := True;
-  Result.AlignTypeColon      := True;
-  Result.AlignSmartAssign    := True;
-  Result.AlignMaxColumn      := 140;  // dl:ok large-magic-number@ee61
-  Result.AlignMatchingShapes := True;
-  Result.AlignShapeMinAnchors:= 3;
-  Result.AlignCommentMaxShift:= 7;
-  Result.UsesAlwaysBreak     := True;
-  Result.UsesCommaLast       := False;
-  Result.SplitMultiVarDecls  := True;
-  Result.AlignDeclSemicolons := True;
-  Result.BreakCaseLabels     := False;
-  Result.IndentComments      := True;
-  Result.PackShortBodies     := False;
-  Result.CollapseShortBlocks := False;
-  Result.BreakLoopBody       := False;
-  Result.BreakWithBody       := False;
-  Result.BreakIfBody         := False;
-  Result.Delphi10Compat      := False;
-  Result.Backup              := False;
-  Result.BackupDir           := '';
-  Result.ResultDir           := '';
-  Result.Encoding            := encANSI;
-  Result.Logging             := False;
+  Result.MaxLen               := 180;
+  Result.Indent               := 2;
+  Result.TabWidth             := 4;
+  Result.MarkUnclosed         := False;
+  Result.LabelLongBlocks      := True;
+  Result.LabelMinLines        := 15;
+  Result.MaxBlankLines        := 1;
+  Result.TrimTrailing         := True;
+  Result.ReflowLines          := True;
+  Result.LowercaseKeywords    := True;
+  Result.UpperHexNumbers      := True;
+  Result.UpperDirectives      := True;
+  Result.FirstOccCasing       := True;
+  Result.BlanksBeforeSection  := 0;
+  Result.BlanksBeforeMethod   := 0;
+  Result.BlanksBeforeType     := 0;
+  Result.AssignNoSpaceBefore  := True;
+  Result.AssignSpaceAfter     := True;
+  Result.SpaceAroundOperators := True;
+  Result.AlignConstEquals     := True;
+  Result.AlignTypeColon       := True;
+  Result.AlignSmartAssign     := True;
+  Result.AlignMaxColumn       := 140;  // dl:ok large-magic-number@ee61
+  Result.AlignMatchingShapes  := True;
+  Result.AlignShapeMinAnchors := 3;
+  Result.AlignCommentMaxShift := 7;
+  Result.UsesAlwaysBreak      := True;
+  Result.UsesCommaLast        := False;
+  Result.SplitMultiVarDecls   := True;
+  Result.AlignDeclSemicolons  := True;
+  Result.BreakCaseLabels      := False;
+  Result.IndentComments       := True;
+  Result.PackShortBodies      := False;
+  Result.CollapseShortBlocks  := False;
+  Result.BreakLoopBody        := False;
+  Result.BreakWithBody        := False;
+  Result.BreakIfBody          := False;
+  Result.BreakParamsOnePerLine:= False;
+  Result.Delphi10Compat       := False;
+  Result.Backup               := False;
+  Result.BackupDir            := '';
+  Result.ResultDir            := '';
+  Result.Encoding             := encANSI;
+  Result.Logging              := False;
 end; // function
 
 function ParseEncoding(const S: string; const ADefault: TYadfEncoding): TYadfEncoding;
@@ -757,6 +759,10 @@ begin
     MakeOpt('BreakCaseLabels', 'Declarations', 'Break case labels', 'Break a multi-label case arm ("a, b, c: Stmt;") into one label per line, '
       + 'duplicating the statement. Off by default -- multi-label case arms are kept ' + 'on one line (only genuine variable/field declarations are split, per '
       + 'SplitMultiVarDecls).', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakCaseLabels end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakCaseLabels:= V end),
+    MakeOpt('BreakParamsOnePerLine', 'Declarations', 'Break parameters one per line', 'Lay out a routine declaration with one parameter per line ("procedure Go(const A: string; B: Integer);" -> one parameter per line). '
+      + 'Fires on named routine declarations with 2 or more parameters; a grouped declaration ("const A, B: string") is split into one name per line, repeating the modifier. '
+      + 'Separator placement follows UsesCommaLast. A group carrying an attribute, an interior comment, or an "=" default value is kept whole. '
+      + 'Call-site argument lists are never touched. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakParamsOnePerLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakParamsOnePerLine:= V end),
     MakeOpt('IndentComments', 'Comments', 'Indent comments', 'Re-indent comment-only lines to the surrounding code depth. When off, every '
       + 'comment keeps the indentation the author gave it. A comment line that starts ' + 'with "//." always keeps its authored indentation even when this is on (an '
       + 'explicit "pin this comment" marker).', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.IndentComments end, procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments:= V end),  // dl:ok duplicate-code@f6a5
@@ -966,11 +972,11 @@ begin
   try
     WriteDefaultIniTemplate(APath);
     Result:= True;
-  except
+  except  // dl:ok bare-except@79dc
     // Best-effort: a read-only location is non-fatal -- the run still
     // proceeds with the compiled defaults. Callers can detect by checking
     // FileExists(APath) post-call.
-    Result:= False;  // dl:ok bare-except@d0de
+    Result:= False;
   end;
 end; // function
 
