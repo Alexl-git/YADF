@@ -1648,6 +1648,34 @@ begin
   end;
 end; // function
 
+// Width of ALine for the MaxLen budget: its CODE only, EXCLUDING a trailing
+// top-level `//` comment and the spaces that separate it. This is the policy
+// yadf.ini's own MaxLen text states -- "Lines containing string literals or
+// // line-comments may extend past this without being broken (those
+// exceptions are by design)" -- so every OVERFLOW BREAKER measures with this
+// instead of Length().
+// It is also what makes those breakers IDEMPOTENT. A break driven by the
+// note's width is not reproducible on a second pass, because the width that
+// triggered it is gone from the re-formatted text: WrapHeaderLine's only
+// "fitting" separator is then the header's own terminating ';', so the note
+// lands on a continuation line -- and on pass 2 the header alone fits, no
+// wrap runs, and the note is re-indented as an ordinary comment line to a
+// DIFFERENT column. Likewise BreakComponents shatters code that already fits
+// and pass 2, seeing the pieces re-joined by ReflowLineBreaks, finds no
+// depth-0 boundary left to break at and emits the line whole.
+// JOINERS deliberately keep using Length(): a pass that MERGES lines has to
+// budget for the note it is about to drag onto the merged line.
+function CodeLen(const ALine: string): Integer;
+var
+  c: Integer;
+begin
+  c:= TopLevelLineCommentCol(ALine);
+  if c > 0 then
+    Result:= Length(TrimRight(Copy(ALine, 1, c - 1)))
+  else
+    Result:= Length(ALine);
+end; // function
+
 function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@7384, cyclomatic-complexity@7384, cognitive-complexity@7384
 var
   AnyOver  : Boolean                ;
@@ -2937,6 +2965,8 @@ end; // function
 /// it AFTER the rightmost top-level ';'/',' that still fits the budget,
 /// continuing at (leading indent + AOpts.Indent); its scan also stops at a
 /// `//` comment, so a trailing note on the header's last line is never split.
+/// The overflow test itself is CodeLen, not Length: a header whose CODE fits
+/// and overflows only because of that trailing note is not wrapped at all.
 /// Idempotent (including the wrap: a re-joined, re-scanned wrapped header
 /// re-wraps to the same shape). Always-on standard behavior; runs regardless
 /// of ReflowLines.</summary>
@@ -3033,6 +3063,12 @@ var
 // pick the rightmost separator whose position <= MaxLen, emit head incl. the
 // separator, continue the tail at (leading indent + AOpts.Indent). If no
 // separator fits, leave the line long (better than an invalid mid-token break).
+// "Over-long" is measured with CodeLen, so a header whose CODE fits and is
+// pushed past the budget only by a trailing `// note` is left ALONE: the
+// rightmost separator that "fits" would otherwise be the header's own
+// terminating ';', whose break does nothing but push the note down a line --
+// and pass 2, where the header alone fits and no wrap runs, puts that note
+// back at the routine's structural column instead (a non-idempotency).
   function WrapHeaderLine(const ALine: string): string;
   var
     Indent   : string        ;
@@ -3044,7 +3080,7 @@ var
     Done     : Boolean       ;
     OutB     : TStringBuilder;
   begin
-    if Length(ALine) <= AOpts.MaxLen then
+    if CodeLen(ALine) <= AOpts.MaxLen then
       Exit(ALine);
     Col:= 1;
     while (Col <= Length(ALine)) and CharInSet(ALine[Col], [' ', #9]) do
@@ -3054,7 +3090,7 @@ var
     OutB:= TStringBuilder.Create;
     try
       Cur:= ALine;
-      while Length(Cur) > AOpts.MaxLen do
+      while CodeLen(Cur) > AOpts.MaxLen do
       begin
         // Find the rightmost top-level ';' or ',' at position <= MaxLen.
         // "Top-level" here means Depth <= 1, NOT Depth = 0: a routine header
@@ -5805,7 +5841,7 @@ var
     OutVal:= TStringBuilder.Create;
     try
       CurLine:= ALine;
-      while Length(CurLine) > AOpts.MaxLen do
+      while CodeLen(CurLine) > AOpts.MaxLen do
       begin
         MinBreakAt:= Length(LeadingIndent(CurLine)) + 2;
         Positions:= FindOperatorPositionsAtTopLevel(CurLine);
@@ -5904,7 +5940,7 @@ var
     OutVal: TStringBuilder ;
     Piece : string         ;
   begin
-    if Length(ALine) <= AOpts.MaxLen then
+    if CodeLen(ALine) <= AOpts.MaxLen then
       Exit(ALine);
     Bounds:= FindComponentBoundaries(ALine, ADepth);
     MinAt := Length(LeadingIndent(ALine)) + 2;
@@ -5929,7 +5965,7 @@ var
           Piece:= Copy(ALine, Bounds[i], MaxInt);
         Piece:= Ind + Trim(Piece);
         OutVal.Append(CRLF);
-        if Length(Piece) > AOpts.MaxLen then
+        if CodeLen(Piece) > AOpts.MaxLen then
           OutVal.Append(BreakComponents(Piece, ABaseIndent, ALevel + 1, ADepth + 1))
         else
           OutVal.Append(Piece);
@@ -5943,8 +5979,10 @@ var
 // Whole-output pass for overflow handling. Splits the rendered text
 // into lines, computes a Locked[] mask using the same block-comment
 // tracker as ReflowLineBreaks (lines inside a `{...}` or `(*...*)`
-// are never broken), then breaks every remaining line whose length
-// exceeds MaxLen. WHICH breaker runs is the BreakLongExpressions
+// are never broken), then breaks every remaining line whose CODE WIDTH
+// (CodeLen -- a trailing `//` note may run past the budget by design,
+// and breaking on its width is not idempotent) exceeds MaxLen. WHICH
+// breaker runs is the BreakLongExpressions
 // option: on (the default) each over-long line first surrenders any
 // trailing `then`/`do` to its own line at the header's column, then
 // goes to BreakComponents for one component per line, operator
@@ -5967,7 +6005,7 @@ var
       Lines.LineBreak:= CRLF;
       Lines.Text     := ASrc;
       Locked:= ComputeBlockCommentLock(Lines);
-      for i:= 0 to Lines.Count - 1 do if (Length(Lines[i]) > AOpts.MaxLen) and not Locked[i] then
+      for i:= 0 to Lines.Count - 1 do if (CodeLen(Lines[i]) > AOpts.MaxLen) and not Locked[i] then
         if AOpts.BreakLongExpressions then
         begin
           // The keyword moves whenever the FULL line overflows, even if the

@@ -368,4 +368,45 @@ $wchk = & $exe --ini $ini --check $wideOut 2>&1
 if ("$wchk" -notmatch 'PASS') { Fail 'wide: --check round-trip failed' }
 Remove-Item $wideIn, $wideOut, $wideO2, $wideGrd -Force -ErrorAction SilentlyContinue
 
+# ----- REGRESSION (idempotency): overflow is measured on the CODE, not on a
+# trailing `//` note. yadf.ini's MaxLen documents the policy: "Lines
+# containing string literals or // line-comments may extend past this without
+# being broken (those exceptions are by design)". BreakLongLines measured the
+# full physical line, so a line whose CODE fits was still handed to
+# BreakComponents and shattered because of its note.
+#
+# That break does not survive a second pass. On the re-format, ReflowLineBreaks
+# (which runs BEFORE the breaker when this option is on) re-packs the pieces
+# back into one line; the re-joined line then presents no usable depth-0
+# boundary of its own (a leading operator followed by a single parenthesised
+# group -- and BreakComponents only recurses INTO a bracket for a piece it
+# just produced), so it is emitted unchanged and stays long. Pass 1 broke it,
+# pass 2 left it whole: format(format(x)) <> format(x) under the DEFAULT
+# option set, on YADF's own YADF.Layout.pas.
+# RED (pre-fix): the two hashes differ; the code is split at ' + '.
+$tnIn  = Join-Path $env:TEMP 'be_trailnote.pas'
+$tnO1  = Join-Path $env:TEMP 'be_tn1.pas'
+$tnO2  = Join-Path $env:TEMP 'be_tn2.pas'
+@'
+unit probe;
+interface
+implementation
+procedure Probe;
+begin
+  Total := AlphaValue + BetaValue;  // a trailing note long enough to push this line past the budget
+end;
+end.
+'@ | Set-Content $tnIn -Encoding ascii
+# MaxLen 40: the code (`  Total:= AlphaValue + BetaValue;`) fits in 40; only
+# the note takes the physical line past it.
+& $exe --ini $ini $tnIn --max-len 40 --o $tnO1 | Out-Null
+& $exe --ini $ini $tnO1 --max-len 40 --o $tnO2 | Out-Null
+$tn = Get-Content $tnO1 -Raw
+MustMatch    $tn '(?m)^  Total:= AlphaValue \+ BetaValue; // a trailing note.*$' 'trailing-note overflow: code + note stay on ONE line (note may exceed MaxLen by design)'
+MustNotMatch $tn '(?m)^\s*\+ BetaValue'                                          'trailing-note overflow: code is not broken at the depth-0 operator'
+if (-not (SameBytes $tnO1 $tnO2)) { Fail 'idempotent: trailing-note overflow (pass 1 breaks the code, pass 2 re-joins it)' }
+$tnchk = & $exe --ini $ini --check $tnO1 2>&1
+if ("$tnchk" -notmatch 'PASS') { Fail 'roundtrip/guard: trailing-note overflow' }
+Remove-Item $tnIn, $tnO1, $tnO2 -Force -ErrorAction SilentlyContinue
+
 Finish 'break_expr'

@@ -648,4 +648,51 @@ $mlschk = & $exe --ini $ini --check $mlsO1 2>&1
 if ("$mlschk" -notmatch 'PASS') { Fail 'roundtrip/guard: multi-line-string-default header' }
 Remove-Item $mlsSrc,$mlsO1,$mlsO2 -Force -ErrorAction SilentlyContinue
 
+# ----- REGRESSION (idempotency): a header whose CODE fits MaxLen but whose
+# TRAILING `//` note pushes the PHYSICAL line past it must be left alone.
+# yadf.ini documents the policy this locks in: "Lines containing string
+# literals or // line-comments may extend past this without being broken
+# (those exceptions are by design)". WrapHeaderLine measured the full
+# physical line instead, so the rightmost separator that still "fitted" was
+# the header's OWN terminating ';' -- and breaking after it pushed the note
+# onto a continuation line at (indent + AOpts.Indent), i.e. column 2.
+#
+# That break is NOT reproducible on a second pass: the header alone now fits,
+# so JoinRoutineHeaders emits it as-is (single-physical-line branch) and never
+# calls WrapHeaderLine at all, leaving the note as an ordinary comment-only
+# line -- which ReindentByDepth then re-indents to the routine's structural
+# depth, column 0. So pass 1 wrote column 2 and pass 2 wrote column 0:
+# format(format(x)) <> format(x) on YADF's OWN YADF.Layout.pas, the tool
+# violating its core guarantee on the file it is written in.
+#
+# Requires a `, ` at paren depth 1 (two grouped parameters): that comma is the
+# greedy breaker's only candidate on a header line, so it splits the parameter
+# list first, which is what makes JoinRoutineHeaders re-join the header and
+# reach WrapHeaderLine at all. --no-break-expr selects that greedy breaker.
+# RED (pre-fix): note moves to its own line at column 2, then to column 0.
+$tnSrc = Join-Path $env:TEMP 'jh_trailnote.pas'
+@'
+unit probe;
+interface
+implementation
+function ProbeTrailingNote(const S: string; AlphaFlagName, BetaFlagName: Boolean): string;  // dl:ok note aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+var
+  L: Integer;
+begin
+  Result := '';
+end;
+end.
+'@ | Set-Content $tnSrc -Encoding ascii
+$tno1 = Join-Path $env:TEMP 'jh_tn1.pas'; $tno2 = Join-Path $env:TEMP 'jh_tn2.pas'
+& $exe --ini $ini $tnSrc --no-break-expr --o $tno1 | Out-Null
+& $exe --ini $ini $tno1  --no-break-expr --o $tno2 | Out-Null
+$tn = Get-Content $tno1 -Raw
+# The header's code fits (90 chars); only the note takes it past 180.
+MustMatch    $tn '(?m)^function ProbeTrailingNote\(const S: string; AlphaFlagName, BetaFlagName: Boolean\): string; // dl:ok note a+\s*$' 'trailing-note header: code + note stay together on ONE line (note may exceed MaxLen by design)'
+MustNotMatch $tn '(?m)^\s*// dl:ok note'                                                                                                'trailing-note header: note is never pushed onto a continuation line of its own'
+if ((Get-FileHash $tno1).Hash -ne (Get-FileHash $tno2).Hash) { Fail 'idempotent: trailing-note header (note drifts column 2 -> column 0 on pass 2)' }
+$tnchk = & $exe --ini $ini --check $tno1 2>&1
+if ("$tnchk" -notmatch 'PASS') { Fail 'roundtrip/guard: trailing-note header' }
+Remove-Item $tnSrc,$tno1,$tno2 -Force -ErrorAction SilentlyContinue
+
 Finish 'join_headers'

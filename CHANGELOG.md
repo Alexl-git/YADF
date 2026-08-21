@@ -10,6 +10,28 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Formatting is idempotent again on lines carrying a trailing `//` comment.**
+  The overflow breakers measured the whole physical line, so a line whose CODE
+  fitted `MaxLen` was still broken when its trailing note pushed it past the
+  budget — contradicting the documented `MaxLen` policy ("lines containing
+  string literals or `//` line-comments may extend past this without being
+  broken"). Worse, the break was not reproducible: formatting the result a
+  second time moved the note somewhere else, so `format(format(x))` differed
+  from `format(x)`. Both shapes are fixed by measuring the code width only:
+  - a routine header whose note pushed it over was wrapped after its own
+    terminating `;`, which pushed the note onto a continuation line at
+    column 2; on the next pass the header alone fitted, no wrap ran, and the
+    note was re-indented to the routine's column 0;
+  - an expression whose note pushed it over was split at a top-level operator;
+    on the next pass the reflow re-joined the pieces and the breaker, finding
+    no boundary left in the re-joined line, emitted it whole.
+
+  Both reproduced on YADF's own `YADF.Layout.pas`, the second one under the
+  default option set. Joining passes are unchanged — a pass that merges lines
+  still budgets for the note it drags along.
+
 ### Added
 
 - **`BreakLongExpressions` — "Smart expression breakup" (default **true**;
