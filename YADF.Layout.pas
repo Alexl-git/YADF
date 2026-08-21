@@ -5811,6 +5811,40 @@ var
     end; // try
   end; // function
 
+// True when ALine is a control header whose LAST token is a trailing
+// `then` or `do`, returning the line without it plus the keyword as
+// written (source casing preserved -- LowercaseKeywords may be off).
+// `until` is absent by design: it LEADS its condition, so there is
+// nothing to move. A trailing `//` comment makes the keyword non-final
+// and the line simply does not match, which is the safe outcome; so
+// does a body riding the same line (`then Foo;`) -- moving the BODY is
+// BreakIfBody's job, not this pass's.
+  function SplitTrailingHeaderKeyword(const ALine: string; out ABody, AKeyword: string): Boolean;
+  const
+    Trailing: array[0..1] of string = ('then', 'do');
+  var
+    i: Integer;
+    T: string ;
+    W: string ;
+  begin
+    Result  := False;
+    ABody   := ALine;
+    AKeyword:= '';
+    T:= TrimRight(ALine);
+    for i:= 0 to High(Trailing) do
+    begin
+      W:= Trailing[i];
+      if (Length(T) > Length(W) + 1)
+         and SameText(Copy(T, Length(T) - Length(W) + 1, Length(W)), W)
+         and (T[Length(T) - Length(W)] = ' ') then
+      begin
+        AKeyword:= Copy(T, Length(T) - Length(W) + 1, Length(W));
+        ABody   := TrimRight(Copy(T, 1, Length(T) - Length(W) - 1));
+        Exit(True);
+      end;
+    end; // for
+  end; // function
+
 // One component per line, operator leading, recursing into any
 // component that still overflows.
 //   1. A line that already fits is returned unchanged.
@@ -5889,6 +5923,9 @@ var
 // would survive the pipeline unchanged.
   function BreakLongLines(const ASrc: string): string;
   var
+    Body  : string         ;
+    HeadWS: string         ;
+    Kw    : string         ;
     Lines : TStringList    ;
     i     : Integer        ;
     Locked: TArray<Boolean>;
@@ -5900,7 +5937,16 @@ var
       Locked:= ComputeBlockCommentLock(Lines);
       for i:= 0 to Lines.Count - 1 do if (Length(Lines[i]) > AOpts.MaxLen) and not Locked[i] then
         if AOpts.BreakLongExpressions then
-          Lines[i]:= BreakComponents(Lines[i], LeadingIndent(Lines[i]), 0, 0)
+        begin
+          // The keyword moves whenever the FULL line overflows, even if the
+          // body alone would fit: moving it is what brings the line under
+          // MaxLen, and BreakComponents no-ops on a body that already fits.
+          HeadWS:= LeadingIndent(Lines[i]);
+          if SplitTrailingHeaderKeyword(Lines[i], Body, Kw) then
+            Lines[i]:= BreakComponents(Body, HeadWS, 0, 0) + CRLF + HeadWS + Kw
+          else
+            Lines[i]:= BreakComponents(Lines[i], HeadWS, 0, 0);
+        end // if
         else
           Lines[i]:= BreakLineByOperators(Lines[i]);
       Result:= Lines.Text;

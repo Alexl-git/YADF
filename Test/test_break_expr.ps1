@@ -105,4 +105,60 @@ if ($greedy -eq $three) { Fail 'control: --break-expr output must differ from th
 $short = FmtBody '  if Aa > 0 then Writeln(1);' '--break-expr'
 MustMatch $short '(?m)^\s+if Aa > 0 then Writeln\(1\);\s*$' 'short: fitting line untouched'
 
+# ----- Task 3: trailing then / do on their own line, at the header column -----
+# NOTE on the fixture shape: the body sits on its own line already. The keyword
+# split fires only when `then`/`do` is the header line's LAST token -- moving
+# the *body* off the header line is BreakIfBody's job, not this option's (spec
+# "Interactions": the two compose, neither reads the other's output).
+
+# 'then' must land in EXACTLY the same column as its 'if'.
+$thenBody = @(
+  '  if (AlphaFlagIsLong and BetaFlagIsLong) or (GammaFlagIsLong and DeltaFlagIsLong) then'
+  '    Writeln(1);'
+) -join "`r`n"
+$thenOut = FmtBody $thenBody '--break-expr'
+$ifCol   = ($thenOut -split "`r?`n" | Where-Object { $_ -match '^\s*if \(' }     | Select-Object -First 1) -replace '\S.*$',''
+$thenCol = ($thenOut -split "`r?`n" | Where-Object { $_ -match '^\s*then\s*$' } | Select-Object -First 1) -replace '\S.*$',''
+if (-not $thenCol) { Fail 'then: no standalone then line' }
+if ($ifCol.Length -ne $thenCol.Length) { Fail "then: column $($thenCol.Length) must equal if column $($ifCol.Length)" }
+MustMatch $thenOut '(?m)^\s+or \(GammaFlagIsLong and DeltaFlagIsLong\)\s*$' 'then: last component keeps no trailing keyword'
+
+# 'do' must land in EXACTLY the same column as its 'while'.
+$doBody = @(
+  '  while (AlphaFlagIsLong and BetaFlagIsLong) or (GammaFlagIsLong and DeltaFlagIsLong) do'
+  '    Writeln(1);'
+) -join "`r`n"
+$doOut  = FmtBody $doBody '--break-expr'
+$whCol  = ($doOut -split "`r?`n" | Where-Object { $_ -match '^\s*while \(' } | Select-Object -First 1) -replace '\S.*$',''
+$doCol  = ($doOut -split "`r?`n" | Where-Object { $_ -match '^\s*do\s*$' }   | Select-Object -First 1) -replace '\S.*$',''
+if (-not $doCol) { Fail 'do: no standalone do line' }
+if ($whCol.Length -ne $doCol.Length) { Fail "do: column $($doCol.Length) must equal while column $($whCol.Length)" }
+
+# 'until' LEADS its condition -- nothing moves, and the ';' stays on the last line.
+$untilBody = @(
+  '  repeat'
+  '    Writeln(1);'
+  '  until (AlphaFlagIsLong and BetaFlagIsLong) or (GammaFlagIsLong and DeltaFlagIsLong);'
+) -join "`r`n"
+$untilOut = FmtBody $untilBody '--break-expr'
+MustMatch    $untilOut '(?m)^\s+until \(AlphaFlagIsLong and BetaFlagIsLong\)\s*$' 'until: keeps its leading position'
+MustMatch    $untilOut '(?m)^\s+or \(GammaFlagIsLong and DeltaFlagIsLong\);\s*$'  'until: ; stays on the last component'
+MustNotMatch $untilOut '(?m)^\s*until\s*$'                                        'until: never gets a lone keyword line'
+
+# Case fidelity: an uppercase THEN survives when LowercaseKeywords is off.
+$caseBody = @(
+  '  if (AlphaFlagIsLong and BetaFlagIsLong) or (GammaFlagIsLong and DeltaFlagIsLong) THEN'
+  '    Writeln(1);'
+) -join "`r`n"
+$caseOut = FmtBody $caseBody '--break-expr --no-lowercase-keywords'
+MustMatch $caseOut '(?m)^\s*THEN\s*$' 'case: uppercase THEN preserved'
+
+# A header line that already fits is untouched -- the keyword does NOT move.
+$fitHdr = @(
+  '  if Aa > 0 then'
+  '    Writeln(1);'
+) -join "`r`n"
+$fitOut = FmtBody $fitHdr '--break-expr'
+MustMatch $fitOut '(?m)^\s+if Aa > 0 then\s*$' 'then: fitting header keeps its keyword'
+
 Finish 'break_expr'
