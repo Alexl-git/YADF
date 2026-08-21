@@ -143,9 +143,9 @@ type
       /// UI thread only -- touches AHost
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel.AddBtn"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure BuildProfilePanel(AHost: TWinControl);
@@ -153,10 +153,23 @@ type
       /// frame is running inside: module file name, FileVersion, and the PE link
       /// timestamp. Docked alTop above the Profiles panel.</summary>
       /// <param name="AHost">Container to dock into (the left host panel).</param>
-      /// <remarks>Purely diagnostic: it answers "am I looking at the build I just
+      /// <remarks>
+      /// Purely diagnostic: it answers "am I looking at the build I just
       /// made?" without leaving the dialog. Every value is read from the LOADED
       /// MODULE at run time, never from a source constant, so a stale package
-      /// cannot misreport itself as current.</remarks>
+      /// cannot misreport itself as current.
+      /// <!-- drag-lint:auto BEGIN -->
+      /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Create (YADF.OptionsFrame.pas)
+      /// Calls: ExtractFileName, FormatDateTime
+      /// Reads: FBanner   Writes: FBanner
+      /// UI thread only -- touches AHost
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
+      /// <!-- drag-lint:auto END -->
+      /// </remarks>
       procedure BuildBanner(AHost: TWinControl);
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
@@ -167,9 +180,9 @@ type
       /// Pure
       /// <seealso cref="YADF.Options.OptionHint"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure BuildControls;
@@ -178,10 +191,10 @@ type
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Create (YADF.OptionsFrame.pas)
       /// Reads: FSourceName, FSource, FResultStat, FResult, FOpenDlg   Writes: FSourceName, FSource, FResultStat, FResult, FOpenDlg
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure BuildPreview;
@@ -191,10 +204,10 @@ type
       /// Calls: TCheckBox, TComboBox, TEdit, TSpinEdit, VarToStr
       /// Reads: FOpts, FControls   Writes: FUpdating
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure OptionsToControls;
@@ -205,10 +218,10 @@ type
       /// Reads: FOpts, FControls
       /// Pure
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ControlsToOptions;
@@ -219,10 +232,10 @@ type
       /// Reads: FProfileFiles, FCurrentIni, FProfileList, FProfiles, FEditingLbl
       /// Touches: file system
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure RefreshProfileList;
@@ -248,9 +261,9 @@ type
       /// Pure
       /// <seealso cref="YADF.Layout.FormatSource"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure Reformat;
@@ -261,10 +274,10 @@ type
       /// Reads: FSource, FSourceName
       /// Touches: file system
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure LoadSample;
@@ -278,7 +291,7 @@ type
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SaveCurrentProfile;
@@ -290,9 +303,9 @@ type
       /// Touches: file system
       /// <seealso cref="YADF.Options.ResolveProfileIniPath"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure MirrorFProfile;
@@ -304,10 +317,10 @@ type
       /// Reads: FOnIniStatus, FCurrentIni
       /// Pure
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure DoIniStatus(const ASuffix: string);
@@ -321,8 +334,8 @@ type
       /// <seealso cref="YADF.Options.SaveProfiles"/>
       /// <seealso cref="YADF.OptionsFrame.SelectedProfile"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure AssignShortcut(AWhich: Char);
@@ -336,7 +349,7 @@ type
       /// <seealso cref="YADF.OptionsFrame.SelectedProfile"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure UnassignSelected;
@@ -349,9 +362,9 @@ type
       /// Reads: FUpdating, FPolicy, FPendingSave, FPendingReformat, FReformatTmr   Writes: FPendingSave, FPendingReformat
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure OptionChanged   (Sender: TObject);
@@ -360,10 +373,10 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Reads: FReformatTmr   Writes: FPendingReformat
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SourceChanged   (Sender: TObject);
@@ -375,8 +388,8 @@ type
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Reformat"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ReformatTimer   (Sender: TObject);
@@ -388,9 +401,9 @@ type
       /// Pure
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Reformat"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure OpenSourceClick (Sender: TObject);
@@ -400,10 +413,10 @@ type
       /// Reads: FResult
       /// Pure
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure CopyResultClick (Sender: TObject);
@@ -416,8 +429,8 @@ type
       /// <seealso cref="YADF.OptionsFrame.SelectedProfile"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ProfileListClick(Sender: TObject);
@@ -430,9 +443,9 @@ type
       /// Mutates: Key (var)
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ProfileListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -442,10 +455,10 @@ type
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut
       /// Pure
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SetFClick      (Sender: TObject);
@@ -455,10 +468,10 @@ type
       /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut
       /// Pure
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SetRClick      (Sender: TObject);
@@ -469,9 +482,9 @@ type
       /// Pure
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure UnassignClick  (Sender: TObject);
@@ -498,14 +511,14 @@ type
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)
-      /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.BuildControls, YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview, YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel
+      /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner, YADF.OptionsFrame.TYadfOptionsFrame.BuildControls, YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview, YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel
       /// constructor
       /// Reads: FReformatTmr, FScroll   Writes: FReformatTmr, FScroll
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Commit"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       constructor Create(AOwner: TComponent); override;
@@ -517,9 +530,9 @@ type
       /// Reads: FPendingSave   Writes: FOnIniStatus, FPendingSave
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       destructor Destroy; override;
@@ -591,8 +604,8 @@ type
       /// <seealso cref="YADF.Options.SaveOptionsToIni"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure SaveOptionsToFile(const APath: string);
@@ -608,7 +621,7 @@ type
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Reformat"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ResetToDefaults;
@@ -723,7 +736,7 @@ begin
   Bar:= TPanel.Create(Self);
   Bar.Parent    := AHost;
   Bar.Align     := alTop;
-  Bar.Height    := 21;
+  Bar.Height    := 21;  // dl:ok large-magic-number@a75f
   Bar.BevelOuter:= bvNone;
   Bar.Top       := 0;
 
