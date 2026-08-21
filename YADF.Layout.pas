@@ -5672,6 +5672,72 @@ var
     end; // try
   end; // begin
 
+// Depth-0 sibling of FindOperatorPositionsAtTopLevel, for the
+// one-component-per-line breaker. Returns only the connecting
+// operators (` and ` ` or ` ` xor ` ` + ` ` - `) that sit at bracket
+// depth ZERO -- these are the expression's component boundaries, so a
+// parenthesised group is one component and is never split here.
+// The existing scanner deliberately does NOT filter by depth (its
+// AddIfWord calls never consult St.Depth); that is harmless for the
+// greedy breaker, which picks one position, but would shatter groups
+// under the break-at-every-boundary rule.
+  function FindComponentBoundaries(const Line: string): TArray<Integer>;
+  var
+    Done     : Boolean       ;
+    i        : Integer       ;
+    Positions: TList<Integer>;
+    St       : TLineScanState;
+    procedure AddIfWordAtDepth0(Idx, Wlen: Integer; const W: string);
+    begin
+      if St.Depth <> 0 then
+        Exit;
+      if (Idx + Wlen - 1 > Length(Line)) then
+        Exit;
+      if not SameText(Copy(Line, Idx, Wlen), W) then
+        Exit;
+      if (Idx > 1) and IsAlphaNum(Line[Idx - 1]) then
+        Exit;
+      if (Idx + Wlen <= Length(Line)) and IsAlphaNum(Line[Idx + Wlen]) then
+        Exit;
+      Positions.Add(Idx);
+    end;
+  begin
+    Positions:= TList<Integer>.Create;
+    try
+      St.Reset;
+      Done:= False;
+      i   := 1;
+      while not Done do
+      case St.SkipNonCode(Line, i) of
+        seEndOfLine, seLineComment: Done:= True;
+        seCode                    :
+        begin
+          if CharInSet(Line[i], ['(', '[', ')', ']']) then
+          begin
+            St.StepCode(Line, i);
+            Continue;
+          end;
+          if (i > 1) and (Line[i - 1] = ' ') and (St.Depth = 0) then
+          begin
+            if CharInSet(Line[i], ['+', '-']) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
+            begin
+              Positions.Add(i);
+              Inc(i);
+              Continue;
+            end;
+            AddIfWordAtDepth0(i, 2, 'or' );
+            AddIfWordAtDepth0(i, 3, 'and');
+            AddIfWordAtDepth0(i, 3, 'xor');
+          end; // if
+          Inc(i);
+        end; // case
+      end; // case
+      Result:= Positions.ToArray;
+    finally
+      Positions.Free;
+    end; // try
+  end; // function
+
   function LeadingIndent(const Line: string): string;
   var
     i: Integer;
@@ -5742,6 +5808,66 @@ var
     end; // try
   end; // function
 
+// One component per line, operator leading, recursing into any
+// component that still overflows.
+//   1. A line that already fits is returned unchanged.
+//   2. Split at EVERY depth-0 boundary -- deliberately NOT greedy. A
+//      component sharing a line with another cannot be commented out
+//      on its own, which is the whole point of the option.
+//   3. The head (text before the first boundary) keeps the line's own
+//      indent; every component goes to BaseIndent + Indent*(Level+1),
+//      so nesting depth is visible as indent depth.
+//   4. A component that still exceeds MaxLen recurses one level deeper.
+//   5. No depth-0 boundary at all -> defer to the greedy breaker, which
+//      can still split on an in-paren comma.
+// A continuation line already begins with its operator; that leading
+// operator is NOT a boundary, hence the MinAt guard.
+  function BreakComponents(const ALine, ABaseIndent: string; ALevel: Integer): string;
+  var
+    Bounds: TArray<Integer>;
+    i     : Integer        ;
+    Ind   : string         ;
+    k     : Integer        ;
+    MinAt : Integer        ;
+    OutVal: TStringBuilder ;
+    Piece : string         ;
+  begin
+    if Length(ALine) <= AOpts.MaxLen then
+      Exit(ALine);
+    Bounds:= FindComponentBoundaries(ALine);
+    MinAt := Length(LeadingIndent(ALine)) + 2;
+    k     := 0;
+    for i:= 0 to High(Bounds) do if Bounds[i] >= MinAt then
+    begin
+      Bounds[k]:= Bounds[i];
+      Inc(k);
+    end;
+    SetLength(Bounds, k);
+    if k = 0 then
+      Exit(BreakLineByOperators(ALine));
+    Ind   := ABaseIndent + StringOfChar(' ', AOpts.Indent * (ALevel + 1));
+    OutVal:= TStringBuilder.Create;
+    try
+      OutVal.Append(TrimRight(Copy(ALine, 1, Bounds[0] - 1)));
+      for i:= 0 to High(Bounds) do
+      begin
+        if i < High(Bounds) then
+          Piece:= Copy(ALine, Bounds[i], Bounds[i + 1] - Bounds[i])
+        else
+          Piece:= Copy(ALine, Bounds[i], MaxInt);
+        Piece:= Ind + Trim(Piece);
+        OutVal.Append(CRLF);
+        if Length(Piece) > AOpts.MaxLen then
+          OutVal.Append(BreakComponents(Piece, ABaseIndent, ALevel + 1))
+        else
+          OutVal.Append(Piece);
+      end; // for
+      Result:= OutVal.ToString;
+    finally
+      OutVal.Free;
+    end; // try
+  end; // function
+
 // Whole-output pass for overflow handling. Splits the rendered text
 // into lines, computes a Locked[] mask using the same block-comment
 // tracker as ReflowLineBreaks (lines inside a `{...}` or `(*...*)`
@@ -5762,7 +5888,10 @@ var
       Lines.Text     := ASrc;
       Locked:= ComputeBlockCommentLock(Lines);
       for i:= 0 to Lines.Count - 1 do if (Length(Lines[i]) > AOpts.MaxLen) and not Locked[i] then
-        Lines[i]:= BreakLineByOperators(Lines[i]);
+        if AOpts.BreakLongExpressions then
+          Lines[i]:= BreakComponents(Lines[i], LeadingIndent(Lines[i]), 0)
+        else
+          Lines[i]:= BreakLineByOperators(Lines[i]);
       Result:= Lines.Text;
     finally
       Lines.Free;
@@ -5825,7 +5954,12 @@ begin
         Result:= DetabLeadingWhitespace(Result, AOpts.TabWidth);
         Result:= ReindentByDepth (Result, AOpts.Indent, AOpts.IndentComments);
         Result:= EnforceBlankLines(Result, AOpts);
-        Result:= BreakLongLines(Result);
+        // BreakLongExpressions defers overflow handling until AFTER the reflow
+        // block: ReflowLineBreaks re-packs lines to fill MaxLen and would undo
+        // one-component-per-line. The greedy breaker keeps its historic slot so
+        // the option-off path is byte-identical.
+        if not AOpts.BreakLongExpressions then
+          Result:= BreakLongLines(Result);
         if AOpts.ReflowLines then
         begin
           Result:= ReflowLineBreaks(Result, AOpts.MaxLen, AOpts.PackShortBodies);
@@ -5845,6 +5979,8 @@ begin
           // reflow path, which already re-indents after ReflowLineBreaks.
           Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
         end; // else
+        if AOpts.BreakLongExpressions then
+          Result:= BreakLongLines(Result);
         // Break single-line control-statement bodies onto their own line when
         // any Break* flag is on. Runs after the reflow/pack block (so it acts on
         // the settled line shape and wins over PackShortBodies) and before the
