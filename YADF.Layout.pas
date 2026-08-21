@@ -2637,6 +2637,67 @@ begin
         or LeadWord(Tr, 'destructor') or LeadWord(Tr, 'operator');
 end;
 
+/// <summary>Returns the 1-based positions of every ASep in AText that sits at
+/// bracket depth 0 and outside a quoted string.</summary>
+/// <param name="AText">Text to scan.</param>
+/// <param name="ASep">Separator character; only ';' ',' ':' and '=' are used.</param>
+/// <returns>Ascending positions; empty when none found.</returns>
+/// <remarks>Tracks () and [] depth and '' string literals. Deliberately does
+/// NOT track &lt;&gt; -- see BreakRoutineParams for why that is safe.</remarks>
+function TopLevelSepPositions(const AText: string; ASep: Char): TArray<Integer>;
+var
+  Depth: Integer       ;
+  i    : Integer       ;
+  InStr: Boolean       ;
+  Res  : TList<Integer>;
+begin
+  Res:= TList<Integer>.Create;
+  try
+    Depth:= 0;
+    InStr:= False;
+    for i:= 1 to Length(AText) do
+    begin
+      if InStr then
+      begin
+        if AText[i] = '''' then
+          InStr:= False;
+        Continue;
+      end;
+      if AText[i] = '''' then
+        InStr:= True
+      else if CharInSet(AText[i], ['(', '[']) then
+        Inc(Depth)
+      else if CharInSet(AText[i], [')', ']']) then
+        Dec(Depth)
+      else if (AText[i] = ASep) and (Depth = 0) then
+        Res.Add(i);
+    end;
+    Result:= Res.ToArray;
+  finally
+    Res.Free;
+  end; // try
+end; // function
+
+/// <summary>Cuts AText at the given 1-based positions, dropping the separator
+/// character at each position and trimming every piece.</summary>
+/// <param name="AText">Text to cut.</param>
+/// <param name="APositions">Ascending cut positions, as returned by TopLevelSepPositions.</param>
+/// <returns>Length(APositions) + 1 trimmed pieces.</returns>
+function SplitAtPositions(const AText: string; const APositions: TArray<Integer>): TArray<string>;
+var
+  i    : Integer;
+  Start: Integer;
+begin
+  SetLength(Result, Length(APositions) + 1);
+  Start:= 1;
+  for i:= 0 to High(APositions) do
+  begin
+    Result[i]:= Trim(Copy(AText, Start, APositions[i] - Start));
+    Start    := APositions[i] + 1;
+  end;
+  Result[High(Result)]:= Trim(Copy(AText, Start, MaxInt));
+end; // function
+
 /// <summary>Collapses a routine header the source split across lines back onto
 /// one physical line: function/procedure/constructor/destructor/operator
 /// declarations (interface forward decls AND implementation headers, nested
