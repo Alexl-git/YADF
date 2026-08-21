@@ -25,9 +25,34 @@ already does three of the necessary things, and this design keeps all three:
 - The continuation line **starts with the operator** -- its own comment says
   "The continuation starts WITH the operator so the structure reads `op operand`
   at the new column."
-- `FindOperatorPositionsAtTopLevel` tracks parenthesis depth, so
-  `(A and B) or (C and D)` yields only the top-level `or` as a candidate. The
-  parenthesised groups are already treated as indivisible components.
+- It skips string literals and comment interiors, so a break never lands inside
+  one.
+
+### Correction: the scanner does NOT filter operators by depth
+
+Despite its name, `FindOperatorPositionsAtTopLevel` returns operator positions at
+**every** nesting depth. At `YADF.Layout.pas:5643-5659` the `(`/`)` branch calls
+`St.StepCode` to maintain the depth counter, but the `AddIfWord` calls for
+`or` / `and` / `xor` -- and the `+` / `-` branch -- never consult `St.Depth`.
+Only the comma branch checks depth, and it requires `Depth > 0`.
+
+Confirmed by running the current build at `--max-len 60`: a long first component
+was broken at an `and` **inside** its parentheses --
+
+```pascal
+  if (AlphaFlagIsLong and BetaFlagIsLong
+    and GammaFlagIsLong and DeltaFlagIsLong)
+    or (GammaFlagIsLong and DeltaFlagIsLong) then
+```
+
+This works today only because the greedy rule happens to prefer the rightmost
+fitting position, which is usually the outermost operator. The non-greedy rule
+has no such luck: breaking at *every* returned position would shatter
+parenthesised groups that should stay whole.
+
+**Therefore depth filtering is new work, not existing behaviour.** A companion
+scanner that returns only depth-0 operator positions is required, and it is the
+first thing the implementation must build.
 
 Measured today at `--max-len 60`, `if (A and B) or (C and D) then` produces:
 
@@ -109,16 +134,22 @@ BreakComponents(Line, BaseIndent, Level):
 
 ### Which positions count as component boundaries
 
-`FindOperatorPositionsAtTopLevel` returns two different kinds of candidate, and
-they must NOT be treated alike under the non-greedy rule:
+A new scanner, `FindComponentBoundaries`, returns **only depth-0 operator
+positions** -- `and`, `or`, `xor`, `+`, `-` at bracket depth 0. It is a
+depth-filtered sibling of the existing scanner, not a replacement: the existing
+one stays exactly as it is and continues to serve the greedy path when the option
+is off.
 
-- **Depth-0 operators** (`and`, `or`, `xor`, `+`, `-`). These delimit components.
-  The non-greedy rule breaks at every one of them.
-- **Commas at depth > 0** -- the scanner deliberately adds these
-  (`YADF.Layout.pas:5660` requires `St.Depth > 0`), so an argument list can be
+The two candidate kinds must NOT be treated alike under the non-greedy rule:
+
+- **Depth-0 operators** delimit components. The non-greedy rule breaks at every
+  one of them.
+- **Commas at depth > 0** -- the existing scanner adds these
+  (`YADF.Layout.pas:5660` requires `St.Depth > 0`) so an argument list can be
   broken when nothing else is available. These are **fallback** break points
-  only. They are used when a component has no depth-0 operator and still
-  overflows; they never participate in one-component-per-line splitting.
+  only, reached via the existing greedy breaker when a component has no depth-0
+  operator and still overflows. They never participate in one-component-per-line
+  splitting.
 
 Without this distinction, "break at every position" would explode `Foo(A, B, C)`
 into one argument per line, duplicating what `RenderParensBroken` already does
@@ -227,8 +258,10 @@ The checkbox reaches YADFSetup and YADFOT automatically via `OptionTable`
 ## Files touched
 
 - `YADF.Options.pas` -- record field, `DefaultOptions` line, `OptionTable` entry.
-- `YADF.Layout.pas` -- recursive component breaker beside `BreakLineByOperators`;
-  trailing-keyword split; branch in `BreakLongLines`.
+- `YADF.Layout.pas` -- depth-filtered `FindComponentBoundaries` scanner;
+  recursive component breaker beside `BreakLineByOperators`; trailing-keyword
+  split; branch in `BreakLongLines`. The existing scanner and greedy breaker are
+  left untouched and still serve the option-off path.
 - `YadfMain.pas` -- CLI flag parsing and two `--help` lines.
 - `Test\test_break_expr.ps1` -- new.
 - `CHANGELOG.md`, `Demo\Sample.pas` -- entry and showcase.
