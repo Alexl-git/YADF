@@ -2164,8 +2164,21 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
 // structural keywords, line comments, directives, and section
 // openers all force a line break to be preserved.
   function NextBlocksMerge(const ALine: string): Boolean;  // dl:ok too-many-exit-points@4680
+  const
+    // Section openers, block closers and routine headers: a line STARTING
+    // with any of these can never be merged onto its predecessor. Order is
+    // irrelevant -- every hit yields the same answer -- so this is a lookup
+    // table, not a decision tree, and is scanned as one.
+    BlockingWords: array[0..21] of string = (
+      'begin', 'end', 'else', 'until', 'finally', 'except',
+      'interface', 'implementation', 'initialization', 'finalization',
+      'type', 'var', 'const',
+      'procedure', 'function', 'constructor', 'destructor',
+      'private', 'public', 'protected', 'published',
+      'uses');
   var
     T: string;
+    W: string;
   begin
     T:= TrimLeft(ALine);
     if T = '' then
@@ -2188,50 +2201,9 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
       if (Length(T) > 1) and CharInSet(T[1], ['+', '-']) and (T[2] = ' ') then
         Exit(True);
     end;
-    if StartsWordCI(T, 'begin' ) then
-      Exit(True);
-    if StartsWordCI(T, 'end' ) then
-      Exit(True);
-    if StartsWordCI(T, 'else' ) then
-      Exit(True);
-    if StartsWordCI(T, 'until' ) then
-      Exit(True);
-    if StartsWordCI(T, 'finally' ) then
-      Exit(True);
-    if StartsWordCI(T, 'except' ) then
-      Exit(True);
-    if StartsWordCI(T, 'interface' ) then
-      Exit(True);
-    if StartsWordCI(T, 'implementation') then
-      Exit(True);
-    if StartsWordCI(T, 'initialization') then
-      Exit(True);
-    if StartsWordCI(T, 'finalization' ) then
-      Exit(True);
-    if StartsWordCI(T, 'type' ) then
-      Exit(True);
-    if StartsWordCI(T, 'var' ) then
-      Exit(True);
-    if StartsWordCI(T, 'const' ) then
-      Exit(True);
-    if StartsWordCI(T, 'procedure' ) then
-      Exit(True);
-    if StartsWordCI(T, 'function' ) then
-      Exit(True);
-    if StartsWordCI(T, 'constructor' ) then
-      Exit(True);
-    if StartsWordCI(T, 'destructor' ) then
-      Exit(True);
-    if StartsWordCI(T, 'private' ) then
-      Exit(True);
-    if StartsWordCI(T, 'public' ) then
-      Exit(True);
-    if StartsWordCI(T, 'protected' ) then
-      Exit(True);
-    if StartsWordCI(T, 'published' ) then
-      Exit(True);
-    if StartsWordCI(T, 'uses' ) then
-      Exit(True);
+    for W in BlockingWords do
+      if StartsWordCI(T, W) then
+        Exit(True);
     if T.StartsWith(',') then
       Exit(True);
     if T.StartsWith(';') then
