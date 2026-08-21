@@ -58,22 +58,36 @@ Deliberately NOT re-derived: a marker that says `// while` on a block that is no
 a `for` is left as-is. Rewriting churns files where the wording may have been
 adjusted by hand, and the maintainer ruled against it.
 
-### Rule 3: EXACT match, nothing else
+### Rule 3: remove only what this pass would itself have written
 
 A trailing comment is eligible for removal only when its text is **exactly**
-`// ` followed by one of the sixteen keywords `FindBlockLabel` can return, and
-nothing more:
+`// ` + `FindBlockLabel(<this block>)` -- the keyword the pass would generate for
+**this specific `end`** -- and nothing more.
 
-```
-record  case  try  asm  object  else  procedure  function  constructor
-destructor  while  for  if  initialization  finalization  begin
-```
+It is NOT enough for the text to be `// ` plus *some* keyword from the set. If
+the `end` closes a `while`, only `// while` is removable; `// procedure` and
+`// if` on that same `end` are left alone. A marker naming a different construct
+is either an author's note or a stale artefact of an edit we did not make, and
+in both cases it is not ours to delete.
 
-Anything else is a user comment and is untouchable. `end; // procedure -- see
-ticket 42`, `end; //procedure` (no space), `end; { procedure }`, and
-`end; // TODO -oYADF ...` all fail the match and are left alone.
+Stated as one invariant: **the pass never removes a comment it would not itself
+have written for that exact block.** Add and remove become symmetric --
+`FindBlockLabel` is the single source of truth for both.
 
-This is the maintainer's rule verbatim: exact match or leave it alone.
+Everything else is untouchable. All of these are left alone:
+
+| Comment | Why it is kept |
+|---|---|
+| `end; // procedure -- see ticket 42` | trailing prose after the keyword |
+| `end; //procedure` | no space after `//` |
+| `end; { procedure }` | brace comment, not `//` |
+| `end; // TODO -oYADF ...` | not a label at all |
+| `end; // procedure` on a `while` block | keyword does not match this block |
+
+The sixteen keywords `FindBlockLabel` can return are `record case try asm object
+else procedure function constructor destructor while for if initialization
+finalization begin` -- but membership in that set is necessary, not sufficient.
+The match is against the value computed for the block in hand.
 
 ## The content-guard exception
 
@@ -122,8 +136,9 @@ If the implementation has to be split, **Rule 1 ships first** and
 - **Remove:** a block with an exact-match label, shrunk below the threshold,
   loses it.
 - **Leave alone (each its own case):** `// procedure -- see ticket 42`,
-  `//procedure`, `{ procedure }`, `// TODO -oYADF ...`, and a block whose label
-  keyword no longer matches its opener.
+  `//procedure`, `{ procedure }`, `// TODO -oYADF ...`, and -- the case that
+  matters most -- `// procedure` sitting on an `end` that closes a `while`,
+  which must survive untouched even though `procedure` is in the keyword set.
 - **Guard:** with `AAllowLabelRemoval` on, a dropped exact-match label passes and
   a dropped ordinary comment still fails with its reason.
 - **Round-trip:** `--check` passes on output that removed a label.
