@@ -1938,7 +1938,7 @@ end; // function
 //     `var`, `procedure`, line comment, directive, ...)
 // Block-comment / string-literal interiors are tracked so we never
 // merge across an open `{...}` or `(*...*)` boundary.
-function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: Boolean = False): string;
+function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: Boolean = False; AKeepComponentBreaks: Boolean = False): string;
 
 // True iff ALine starts with AWord, case-insensitively, with a
 // non-identifier boundary after the word (so `class` matches but
@@ -2173,6 +2173,20 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
       Exit(True);
     if T.StartsWith('{$') then
       Exit(True);
+    // BreakLongExpressions OWNS these line breaks: a continuation that leads
+    // with its connecting operator, and a lone `then` / `do`, are that
+    // option's output. Re-packing them here would undo one-component-per-line
+    // on the NEXT format -- BreakLongLines is deferred past this pass, so on a
+    // second run it sees nothing over MaxLen and never re-breaks. That is
+    // exactly the idempotency break the option's own gate caught.
+    if AKeepComponentBreaks then
+    begin
+      if StartsWordCI(T, 'and') or StartsWordCI(T, 'or') or StartsWordCI(T, 'xor')
+         or StartsWordCI(T, 'then') or StartsWordCI(T, 'do') then
+        Exit(True);
+      if (Length(T) > 1) and CharInSet(T[1], ['+', '-']) and (T[2] = ' ') then
+        Exit(True);
+    end;
     if StartsWordCI(T, 'begin' ) then
       Exit(True);
     if StartsWordCI(T, 'end' ) then
@@ -6019,7 +6033,7 @@ begin
           Result:= BreakLongLines(Result);
         if AOpts.ReflowLines then
         begin
-          Result:= ReflowLineBreaks(Result, AOpts.MaxLen, AOpts.PackShortBodies);
+          Result:= ReflowLineBreaks(Result, AOpts.MaxLen, AOpts.PackShortBodies, AOpts.BreakLongExpressions);
           Result:= ReindentByDepth (Result, AOpts.Indent, AOpts.IndentComments );
         end
         else

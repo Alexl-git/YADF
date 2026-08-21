@@ -161,4 +161,69 @@ $fitHdr = @(
 $fitOut = FmtBody $fitHdr '--break-expr'
 MustMatch $fitOut '(?m)^\s+if Aa > 0 then\s*$' 'then: fitting header keeps its keyword'
 
+# ----- Task 4: idempotency + content-preserving round-trip -----
+$idemSrc = Join-Path $env:TEMP 'bexpr_idem.pas'
+@'
+unit probe;
+interface
+implementation
+procedure Demo;
+var
+  AlphaFlagIsLong, BetaFlagIsLong, GammaFlagIsLong, DeltaFlagIsLong: Boolean;
+  Aa, Bb, Total: Integer;
+begin
+  if (AlphaFlagIsLong and BetaFlagIsLong) or (GammaFlagIsLong and DeltaFlagIsLong) then
+    Writeln(1);
+  while (AlphaFlagIsLong and BetaFlagIsLong) or (GammaFlagIsLong and DeltaFlagIsLong) do
+    Writeln(2);
+  Total := 1 + 2 + 3;
+  repeat
+    Writeln(3);
+  until (AlphaFlagIsLong and BetaFlagIsLong) or (GammaFlagIsLong and DeltaFlagIsLong);
+end;
+end.
+'@ | Set-Content $idemSrc -Encoding ascii
+
+$o1 = Join-Path $env:TEMP 'bexpr_i1.pas'; $o2 = Join-Path $env:TEMP 'bexpr_i2.pas'
+& $exe --ini $ini $idemSrc --break-expr --max-len 60 --o $o1 | Out-Null
+& $exe --ini $ini $o1      --break-expr --max-len 60 --o $o2 | Out-Null
+if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail 'idempotent: --break-expr' }
+$chk = & $exe --ini $ini --check $o1 2>&1
+if ("$chk" -notmatch 'PASS') { Fail 'roundtrip: --break-expr' }
+
+# ----- Task 4: the body-break flags must not disturb the component layout -----
+# BreakControlBodies runs another ReindentByDepth AFTER the deferred
+# BreakLongLines, but only when one of --break-if / --break-loop / --break-with
+# is on. Nothing else in the suite locks that down, so a change there could
+# silently re-indent the lone `then` line. Byte-compare all three flag sets --
+# the repo ini leaves those three ON, so the explicit --no- run is what actually
+# exercises the branch where that second ReindentByDepth does NOT fire.
+$o3 = Join-Path $env:TEMP 'bexpr_i3.pas'; $o4 = Join-Path $env:TEMP 'bexpr_i4.pas'
+& $exe --ini $ini $idemSrc --break-expr --break-if --break-loop --break-with --max-len 60 --o $o3 | Out-Null
+& $exe --ini $ini $idemSrc --break-expr --no-break-if --no-break-loop --no-break-with --max-len 60 --o $o4 | Out-Null
+$a = Get-Content $o1 -Raw
+$b = Get-Content $o3 -Raw
+$c = Get-Content $o4 -Raw
+if ($a -ne $b) { Fail 'cross: body-break flags must not disturb the component layout' }
+if ($a -ne $c) { Fail 'cross: disabling the body-break flags must not disturb the component layout' }
+Remove-Item $o1,$o2,$o3,$o4 -Force -ErrorAction SilentlyContinue
+
+# ----- Task 4: the broken output COMPILES (dcc64) -----
+$dcc = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc64.exe'
+if (Test-Path $dcc) {
+  $ns   = 'System;System.Win;Winapi;Vcl;Data;Soap;Xml'
+  $cdir = Join-Path $env:TEMP ('bexpr_c_' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $cdir | Out-Null
+  $csrc = Join-Path $cdir 'bexpr_compile.pas'   # file name must equal unit name
+  Copy-Item $idemSrc $csrc -Force
+  (Get-Content $csrc -Raw).Replace('unit probe;', 'unit bexpr_compile;') | Set-Content $csrc -Encoding ascii
+  & $exe $csrc --ini $ini --break-expr --max-len 60 --o $csrc | Out-Null
+  & $dcc -Q "-NS$ns" "-N0$cdir" "-E$cdir" $csrc *> $null
+  if ($LASTEXITCODE -ne 0) { Fail 'compile: broken expression output must compile with dcc64' }
+  Remove-Item $cdir -Recurse -Force -ErrorAction SilentlyContinue
+} else {
+  Write-Output 'break_expr: (dcc64 not found -- skipping compile check)'
+}
+Remove-Item $idemSrc -Force -ErrorAction SilentlyContinue
+
 Finish 'break_expr'
