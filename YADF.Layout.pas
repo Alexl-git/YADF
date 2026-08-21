@@ -2804,7 +2804,6 @@ end; // function
 /// text before '(' and from ')' onward. Returns False when the line is not a
 /// breakable header.</summary>
 /// <param name="ALine">One physical source line.</param>
-/// <param name="AOpts">Active options.</param>
 /// <param name="AItems">Out: the parameter items AFTER group splitting, one per
 /// output line.</param>
 /// <param name="AHead">Out: text up to and including the opening '('.</param>
@@ -2815,7 +2814,7 @@ end; // function
 /// fewer than 2 items. The 2+ threshold counts parameters AFTER SplitParamGroup
 /// has expanded grouped names, so `procedure Swap(var A, B: Integer)` DOES
 /// break -- a recorded design decision.</remarks>
-function SplitHeaderParams(const ALine: string; const AOpts: TYadfOptions;
+function SplitHeaderParams(const ALine: string;
   out AItems: TArray<string>; out AHead, ATail: string): Boolean;
 var
   CloseAt : Integer       ;
@@ -2889,7 +2888,7 @@ begin
     for i:= 0 to Lines.Count - 1 do
     begin
       L:= Lines[i];
-      if not SplitHeaderParams(L, AOpts, Items, Head, Tail) then
+      if not SplitHeaderParams(L, Items, Head, Tail) then
       begin
         OutVal.Append(L).Append(CRLF);
         Continue;

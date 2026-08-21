@@ -112,10 +112,43 @@ end;
 
 // --- BreakParamsOnePerLine ('Break parameters one per line') ---------------
 // ON: a named routine declaration with 2+ parameters gets one parameter per
-// line, and a grouped 'const ASrc, ADest: string' splits into one name per
-// line with the modifier repeated. Separator placement follows UsesCommaLast.
+// line. Separator placement follows UsesCommaLast above -- comma-FIRST by
+// default, so the ';' leads each line and the ')' sits on its own. The six
+// declarations below cover every rule the option applies:
+//   ShowcaseParams  -- grouped 'const ASrc, ADest' splits into one name per
+//                      line, with 'const' repeated on each
+//   ShowcaseSwap    -- 'var Left, Right' splits too, so even a two-name group
+//                      crosses the 2+ threshold and breaks
+//   ShowcaseLog     -- a single parameter stays INLINE (under the threshold)
+//   ShowcaseDefault -- a group carrying an '=' default is kept WHOLE: splitting
+//                      it would duplicate the literal and trip the content guard
+//   ShowcaseGeneric -- the comma inside TDictionary<string, Integer> belongs to
+//                      the TYPE and is never mistaken for a parameter separator
+//   ShowcaseFunc    -- a function's return type rides the closing ')' line
+// Call sites are never touched, only declarations.
 procedure ShowcaseParams(const ASrc, ADest: string; AFlags: Integer; out AErr: string);
 begin
+end;
+
+procedure ShowcaseSwap(var Left, Right: Integer);
+begin
+end;
+
+procedure ShowcaseLog(const AMsg: string);
+begin
+end;
+
+procedure ShowcaseDefault(M, N: string = 'x'; K: Integer = 0);
+begin
+end;
+
+procedure ShowcaseGeneric(const AMap: TDictionary<string, Integer>; ACount: Integer);
+begin
+end;
+
+function ShowcaseFunc(const ASrc: string; AFlags: Integer; out AErr: string): Boolean;
+begin
+Result := False;
 end;
 
 // --- BreakLoopBody / BreakWithBody / BreakIfBody ----------------------------

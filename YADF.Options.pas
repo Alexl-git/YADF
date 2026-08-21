@@ -341,7 +341,7 @@ function LoadOptionsFromIni(const APath: string): TYadfOptions;
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
-procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);  // dl:ok unused-public-symbol@3944
+procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
 
 // One "Ident - Hint" line per option, grouped -- for CLI --help / about text.
 /// <summary><!-- drag-lint:auto -->One "Ident - Hint" line per option, grouped -- for CLI
