@@ -1295,7 +1295,7 @@ end; // function
 // AlignByAnchor(':') so the colons are already in their final column;
 // this pass just adds spaces before the `;` so the right edge lines up.
 // Runs of fewer than 2 declaration lines are left untouched.
-function AlignDeclarationSemicolons(const S: string; AMaxColumn: Integer): string;  // dl:ok deep-nesting@2737
+function AlignDeclarationSemicolons(const S: string; AMaxColumn: Integer): string;
 var
   Lines   : TStringList    ;
   OutVal    : TStringBuilder ;
@@ -1442,7 +1442,7 @@ begin
   end; // try
 end; // begin
 
-function AlignByAnchor(const S, AAnchor: string; AMaxColumn: Integer): string;  // dl:ok deep-nesting@ccf5
+function AlignByAnchor(const S, AAnchor: string; AMaxColumn: Integer): string;
 var
   Anchors : TArray<Integer>;
   Depths  : TArray<Integer>;
@@ -2605,6 +2605,38 @@ begin
   end; // try
 end; // function
 
+/// <summary>True iff AText begins with the whole word AWord (case-insensitive,
+/// identifier boundary after).</summary>
+/// <param name="AText">Text to test; typically an already-left-trimmed line.</param>
+/// <param name="AWord">Keyword to look for at the start of AText.</param>
+/// <returns>True on a whole-word prefix match.</returns>
+function LeadWord(const AText, AWord: string): Boolean;
+begin
+  Result:= (Length(AText) >= Length(AWord)) and SameText(Copy(AText, 1, Length(AWord)), AWord) and
+  ((Length(AText) = Length(AWord)) or not CharInSet(AText[Length(AWord) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']));
+end;
+
+/// <summary>True iff ALine begins a NAMED routine declaration -- procedure,
+/// function, constructor, destructor or operator, with optional class /
+/// generic prefixes.</summary>
+/// <param name="ALine">A single physical source line.</param>
+/// <returns>True for a named routine header start.</returns>
+/// <remarks>Deliberately excludes inline anonymous `procedure(` / `function(`
+/// headers: those are expressions, not declarations, and BreakRoutineParams
+/// must not touch them.</remarks>
+function IsRoutineHeaderLine(const ALine: string): Boolean;
+var
+  Tr: string;
+begin
+  Tr:= TrimLeft(ALine);
+  if LeadWord(Tr, 'class') then
+    Tr:= TrimLeft(Copy(Tr, 6, MaxInt));
+  if LeadWord(Tr, 'generic') then
+    Tr:= TrimLeft(Copy(Tr, 8, MaxInt));
+  Result:= LeadWord(Tr, 'function') or LeadWord(Tr, 'procedure') or LeadWord(Tr, 'constructor')
+        or LeadWord(Tr, 'destructor') or LeadWord(Tr, 'operator');
+end;
+
 /// <summary>Collapses a routine header the source split across lines back onto
 /// one physical line: function/procedure/constructor/destructor/operator
 /// declarations (interface forward decls AND implementation headers, nested
@@ -2634,7 +2666,7 @@ end; // function
 /// Idempotent (including the wrap: a re-joined, re-scanned wrapped header
 /// re-wraps to the same shape). Always-on standard behavior; runs regardless
 /// of ReflowLines.</summary>
-function JoinRoutineHeaders(const S: string; const AOpts: TYadfOptions): string;  // dl:ok deep-nesting@e1c0
+function JoinRoutineHeaders(const S: string; const AOpts: TYadfOptions): string;
 var
   Lines  : TStringList   ;
   OutVal   : TStringBuilder;
@@ -2645,13 +2677,6 @@ var
   Aborted: Boolean       ;
   CmtOpen: Boolean       ;
   CmtBail: Boolean       ;
-
-  // True iff X begins with the whole word Wd (case-insensitive, ident boundary after).
-  function LeadWord(const X, Wd: string): Boolean;
-  begin
-    Result:= (Length(X) >= Length(Wd)) and SameText(Copy(X, 1, Length(Wd)), Wd) and
-    ((Length(X) = Length(Wd)) or not CharInSet(X[Length(Wd) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']));
-  end;
 
 // True iff position p in L starts the whole word Kw (ident boundary before AND
 // after) and the next non-space char after the word is '(' -- an inline routine
@@ -2734,7 +2759,7 @@ var
 // pick the rightmost separator whose position <= MaxLen, emit head incl. the
 // separator, continue the tail at (leading indent + AOpts.Indent). If no
 // separator fits, leave the line long (better than an invalid mid-token break).
-  function WrapHeaderLine(const ALine: string): string;  // dl:ok deep-nesting@50b8
+  function WrapHeaderLine(const ALine: string): string;
   var
     Indent   : string        ;
     NewIndent: string        ;
@@ -4036,7 +4061,7 @@ type
   // re-render are clean. After a top-level comma, the walker looks
   // ahead for an inline comment whose `Line` equals the comma's line --
   // that comment is captured as the item's CmtFirst/CmtLast.
-function CollectParensItems(const ATokens: TTokenList; AOpenIdx, ACloseIdx: Integer): TArray<TItemRange>;  // dl:ok deep-nesting@6fb1
+function CollectParensItems(const ATokens: TTokenList; AOpenIdx, ACloseIdx: Integer): TArray<TItemRange>;
 var
   CmtF     : Integer          ;
   CmtL     : Integer          ;
