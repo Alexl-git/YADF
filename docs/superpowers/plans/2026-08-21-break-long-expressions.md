@@ -195,8 +195,8 @@ The scanner has no independently testable deliverable -- it is unreferenced unti
 **Interfaces:**
 - Consumes: `IsAlphaNum`, `LeadingIndent`, `BreakLineByOperators`, `TLineScanState` (all existing, all nested in `FormatSource`).
 - Produces:
-  - `function FindComponentBoundaries(const Line: string): TArray<Integer>;` -- 1-based positions of `and`/`or`/`xor`/`+`/`-` at bracket depth 0.
-  - `function BreakComponents(const ALine, ABaseIndent: string; ALevel: Integer): string;` -- the broken multi-line result.
+  - `function FindComponentBoundaries(const Line: string; ADepth: Integer): TArray<Integer>;` -- 1-based positions of `and`/`or`/`xor`/`+`/`-` at bracket depth 0.
+  - `function BreakComponents(const ALine, ABaseIndent: string; ALevel, ADepth: Integer): string;` -- the broken multi-line result.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -290,7 +290,7 @@ Expected: FAIL on `nogreedy: component 2 alone on its line` -- the greedy breake
 // AddIfWord calls never consult St.Depth); that is harmless for the
 // greedy breaker, which picks one position, but would shatter groups
 // under the break-at-every-boundary rule.
-  function FindComponentBoundaries(const Line: string): TArray<Integer>;
+  function FindComponentBoundaries(const Line: string; ADepth: Integer): TArray<Integer>;
   var
     Done     : Boolean       ;
     i        : Integer       ;
@@ -368,7 +368,7 @@ Expected: FAIL on `nogreedy: component 2 alone on its line` -- the greedy breake
 //      and would split inside a parenthesised group.
 // A continuation line already begins with its operator; that leading
 // operator is NOT a boundary, hence the MinAt guard.
-  function BreakComponents(const ALine, ABaseIndent: string; ALevel: Integer): string;
+  function BreakComponents(const ALine, ABaseIndent: string; ALevel, ADepth: Integer): string;
   var
     Bounds: TArray<Integer>;
     i     : Integer        ;
@@ -404,7 +404,7 @@ Expected: FAIL on `nogreedy: component 2 alone on its line` -- the greedy breake
         Piece:= Ind + Trim(Piece);
         OutVal.Append(CRLF);
         if Length(Piece) > AOpts.MaxLen then
-          OutVal.Append(BreakComponents(Piece, ABaseIndent, ALevel + 1))
+          OutVal.Append(BreakComponents(Piece, ABaseIndent, ALevel + 1, ADepth + 1))
         else
           OutVal.Append(Piece);
       end; // for
@@ -429,7 +429,7 @@ with:
 ```pascal
       for i:= 0 to Lines.Count - 1 do if (Length(Lines[i]) > AOpts.MaxLen) and not Locked[i] then
         if AOpts.BreakLongExpressions then
-          Lines[i]:= BreakComponents(Lines[i], LeadingIndent(Lines[i]), 0)
+          Lines[i]:= BreakComponents(Lines[i], LeadingIndent(Lines[i]), 0, 0)
         else
           Lines[i]:= BreakLineByOperators(Lines[i]);
 ```
@@ -553,7 +553,7 @@ Replace the Task 2 branch:
 
 ```pascal
         if AOpts.BreakLongExpressions then
-          Lines[i]:= BreakComponents(Lines[i], LeadingIndent(Lines[i]), 0)
+          Lines[i]:= BreakComponents(Lines[i], LeadingIndent(Lines[i]), 0, 0)
         else
           Lines[i]:= BreakLineByOperators(Lines[i]);
 ```
@@ -565,9 +565,9 @@ with:
         begin
           HeadWS:= LeadingIndent(Lines[i]);
           if SplitTrailingHeaderKeyword(Lines[i], Body, Kw) then
-            Lines[i]:= BreakComponents(Body, HeadWS, 0) + CRLF + HeadWS + Kw
+            Lines[i]:= BreakComponents(Body, HeadWS, 0, 0) + CRLF + HeadWS + Kw
           else
-            Lines[i]:= BreakComponents(Lines[i], HeadWS, 0);
+            Lines[i]:= BreakComponents(Lines[i], HeadWS, 0, 0);
         end // if
         else
           Lines[i]:= BreakLineByOperators(Lines[i]);
