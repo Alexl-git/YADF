@@ -141,10 +141,23 @@ the opening parenthesis column. Column-anchored continuation fights
 `ReindentByDepth` and degrades once a long qualified name pushes the anchor past
 `AlignMaxColumn` -- the same reasoning that settled the parameter-list geometry.
 
-## Trailing control keywords
+## Control headers
 
-After a header line is broken, a trailing `then` or `do` moves to its own line at
-the **header's** indent:
+**All three control headers have their conditions broken** by the component rule
+above -- there is nothing special about them, they are simply over-long lines:
+
+- `if <condition> then`
+- `while <condition> do`
+- `until <condition>`
+
+They differ only in what happens to the trailing keyword.
+
+### Trailing keyword placement
+
+`then` and `do` move to their own line at **exactly the indent of the header
+keyword that introduced them**: `then` aligns with its `if`, `do` aligns with its
+`while`. Not the component indent, not the body indent -- the header's own
+column, so the keyword brackets the condition visually.
 
 ```pascal
 if (Aa)
@@ -152,14 +165,29 @@ if (Aa)
   or (VeryLongConditionNameThatGoesOnAndOnForAges
     and Aa)
 then
+  DoSomething;
+
+while (Aa)
+  or (Bb)
+do
+  Step;
 ```
 
-Applies to `if ... then` and `while ... do`. `repeat ... until` is excluded:
-`until` LEADS its condition rather than trailing it, so there is nothing to move.
+`until` has **no trailing keyword** -- it LEADS its condition rather than
+following it -- so there is nothing to move. Its condition is still broken into
+components exactly like the other two:
 
-**Open for maintainer confirmation:** `while ... do` is included for consistency
-with `if ... then`. Only `if ... then` was explicitly requested. If `do` should
-stay on the last component line, that is a one-line change to the keyword list.
+```pascal
+repeat
+  Step;
+until (Aa)
+  or (Bb)
+  or (VeryLongConditionNameThatGoesOnAndOnForAges
+    and Aa);
+```
+
+Note the terminating `;` stays on the final component line, since it closes the
+statement rather than introducing a body.
 
 ## Interactions
 
@@ -217,9 +245,16 @@ TDD, failing test first. Fixtures must cover:
 - an arithmetic expression (`X := A + B + C;`) breaking by the same rule
 - **no greedy packing**: three top-level components where two would fit on one
   line must still produce three lines
-- `then` and `do` on their own lines
+- `then` on its own line, at exactly the same column as its `if`
+- `do` on its own line, at exactly the same column as its `while`
+- a long `until` condition broken into components, with `until` keeping its
+  leading position and the terminating `;` on the final component line
 - a line at or under `MaxLen` left completely untouched
 - option OFF reproducing today's greedy output exactly
+
+The `then` / `do` column assertions are the load-bearing ones: they are what
+`ReindentByDepth` is most likely to get wrong, since a lone keyword line looks
+like a statement to an indent pass that works on depth alone.
 
 Plus idempotency (formatting twice is a fixed point), the `--check` content
 round-trip, a `dcc64` compile gate on the broken output, and `Test\run_tests.ps1`
