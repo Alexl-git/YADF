@@ -651,6 +651,10 @@ implementation
   (Left/Top/Width/Height only); the real controls are code-built below. }
 {$R *.dfm}
 
+// Source-side version constant. Used ONLY as a cross-check against the running
+// binary's own FileVersion in BuildBanner -- never as the headline.
+{$I YADF.Version.inc}
+
 { ============ build identity of the owning module ============ }
 // These three read the RUNNING binary, never a source constant. The frame is
 // linked into more than one host (YADFOT.bpl inside the IDE, YADFSetup.exe on
@@ -750,8 +754,20 @@ begin
   Text   := ExtractFileName(OwningModulePath);
   Version:= OwningModuleVersion;
   Stamp  := OwningModuleCompiledAt;
+  // The binary's OWN FileVersion stays the headline -- see the note above these
+  // helpers. But only build_all.bat stamps it, and only for Release, so a Debug
+  // binary carries whatever stale VerInfo its .dproj happens to hold (1.0.3.0 at
+  // the time of writing) and the banner would state it as fact. Show the source
+  // constant beside it whenever the two disagree: that turns a misleading number
+  // into a visible "this is an unstamped local build" signal, without making a
+  // compile-time constant the headline (which a partial build can leave stale).
   if Version <> '' then
-    Text:= Text + '  ' + Version;
+    if Version = YADF_VERSION then
+      Text:= Text + '  ' + Version
+    else
+      Text:= Text + '  ' + Version + ' (unstamped build; source ' + YADF_VERSION + ')'
+  else
+    Text:= Text + '  (no version resource; source ' + YADF_VERSION + ')';
   if Stamp > 0 then
     Text:= Text + '  -  built ' + FormatDateTime('yyyy-mm-dd hh:nn', Stamp)
   else
