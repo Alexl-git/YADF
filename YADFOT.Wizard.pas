@@ -575,13 +575,13 @@ end;
 
 // --- IOTAKeyboardBinding (Ctrl+Shift+Alt+F) ----------------------------
 
-procedure TYadfotKeyboardBinding.FormatBufferAction(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);  // dl:ok unused-parameter@ff73
+procedure TYadfotKeyboardBinding.FormatBufferAction(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
 begin
   DoFormatCurrentBuffer(False);
   BindingResult:= krHandled;
 end;
 
-procedure TYadfotKeyboardBinding.FormatBufferActionR(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);  // dl:ok unused-parameter@42f2
+procedure TYadfotKeyboardBinding.FormatBufferActionR(const Context: IOTAKeyContext; KeyCode: TShortcut; var BindingResult: TKeyBindingResult);
 begin
   DoFormatCurrentBuffer(True);
   BindingResult:= krHandled;
@@ -665,7 +665,7 @@ begin
     if Supports(BorlandIDEServices, IOTAAboutBoxServices, ABS) and Assigned(GIconBmp) then
       GAboutIndex:= ABS.AddPluginInfo(
         SplashCaption, AboutDescription, GIconBmp.Handle, False, AboutLicense, YADF_VERSION);
-  except  // dl:ok empty-except@b112, try-except-swallowed@b112
+  except  // dl:ok empty-except@b112, try-except-swallowed@e230
   end;
   // Eager-load so Register runs at startup (needed for the splash to paint).
   try ForceDemandLoadState(dlDisable); except end;  // dl:ok empty-except@2c6e, try-except-swallowed@2c6e
