@@ -8,6 +8,18 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **`BreakParamsOnePerLine` (default false; `--break-params`).** Lays out a
+  named routine declaration with one parameter per line. Fires on declarations
+  with 2 or more parameters; a grouped declaration (`const A, B: string`) is
+  split into one name per line with the modifier repeated. Separator placement
+  follows `UsesCommaLast`, so a file's uses clauses and parameter lists share
+  one style. A group carrying an attribute, an interior comment, or an `=`
+  default value is kept whole. Call-site argument lists are never touched.
+
 ## [1.0.14.0] - 2026-08-07
 
 ### Fixed

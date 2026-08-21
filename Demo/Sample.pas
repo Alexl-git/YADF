@@ -110,6 +110,14 @@ end;
 Writeln(A, B);
 end;
 
+// --- BreakParamsOnePerLine ('Break parameters one per line') ---------------
+// ON: a named routine declaration with 2+ parameters gets one parameter per
+// line, and a grouped 'const ASrc, ADest: string' splits into one name per
+// line with the modifier repeated. Separator placement follows UsesCommaLast.
+procedure ShowcaseParams(const ASrc, ADest: string; AFlags: Integer; out AErr: string);
+begin
+end;
+
 // --- BreakLoopBody / BreakWithBody / BreakIfBody ----------------------------
 // Three independent options, all OFF by default -- so with stock settings the
 // one-line control statements below stay exactly as they are. Turn one on and
