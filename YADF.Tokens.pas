@@ -303,8 +303,8 @@ begin
     finally
       Lex.Free;
     end; // try
-  except
-    Result.Free;  // dl:ok bare-except@5a3b
+  except  // dl:ok bare-except@041e
+    Result.Free;
     raise;
   end; // try
 end; // function
