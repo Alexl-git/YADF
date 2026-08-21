@@ -889,7 +889,7 @@ begin
   WriteStdoutLine(Format('  --break-params        break routine parameters one per line              [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
   WriteStdoutLine('  --no-break-params     keep the parameter list inline (default)');
   WriteStdoutLine(Format('  --break-expr          break a long line one component per line             [expr=%s]', [OnOff(AOpts.BreakLongExpressions)]));
-  WriteStdoutLine('  --no-break-expr       use the greedy line breaker (default)');
+  WriteStdoutLine('  --no-break-expr       use the greedy line breaker');
   WriteStdoutLine(Format('  --[no-]trim-trailing  trim / keep trailing whitespace                  [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
   WriteStdoutLine(''            );
   WriteStdoutLine('Uses clause:');

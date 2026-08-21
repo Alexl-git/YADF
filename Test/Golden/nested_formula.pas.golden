@@ -30,8 +30,8 @@ var
 begin
   X:= VeryLongFunctionNameOne(
     VeryLongFunctionNameTwo(VeryLongFunctionNameThree(VeryLongFunctionNameFour(100), VeryLongFunctionNameFour(200), VeryLongFunctionNameFour(300)))
-      + VeryLongFunctionNameTwo(VeryLongFunctionNameThree(VeryLongFunctionNameFour(400), VeryLongFunctionNameFour(500), VeryLongFunctionNameFour(600))), 99
-  ) + VeryLongFunctionNameOne(VeryLongFunctionNameTwo(VeryLongFunctionNameFour(700)), VeryLongFunctionNameTwo(VeryLongFunctionNameFour(800)));
+      + VeryLongFunctionNameTwo(VeryLongFunctionNameThree(VeryLongFunctionNameFour(400), VeryLongFunctionNameFour(500), VeryLongFunctionNameFour(600))),
+    99) + VeryLongFunctionNameOne(VeryLongFunctionNameTwo(VeryLongFunctionNameFour(700)), VeryLongFunctionNameTwo(VeryLongFunctionNameFour(800)));
 end;
 
 end.

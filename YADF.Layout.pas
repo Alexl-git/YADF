@@ -30,8 +30,7 @@
   5. WalkGroup               -- emit the token stream into a string,
                                 substituting structural renderings for
                                 uses / parens / brackets groups, and
-                                inserting `// keyword` block-end labels
-                                and unclosed-block TODOs.
+                                inserting unclosed-block TODOs.
   6. Sequence of string -> string passes on the rendered output:
        NormalizeCRLF          canonicalise line endings.
        TrimTrailingWhitespace strip per-line trailing spaces.
@@ -52,6 +51,9 @@
        AlignByAnchor          pad `=` in const blocks.
        SmartAlignAssignments  pad `:=` and shared anchors across
                               adjacent shape-matched lines.
+  8. ApplyBlockEndLabels     -- `end; // while` markers, decided on the
+                                FINAL line shape (after every pass that
+                                can change a block's line count).
 
   Design constraints
   --------------------------------------------------------------------
@@ -4505,6 +4507,126 @@ begin
   Result:= 'begin';
 end; // function
 
+// Block-end labelling (`end; // while`) as a POST-PASS over the FINAL,
+// line-broken text.
+//
+// It MUST run after every pass that can change a block's LINE COUNT --
+// BreakLongLines, ReflowLineBreaks, JoinShortCaseAlts, CollapseShortBlocks,
+// the param/body splitters -- because the reader only ever sees that final
+// shape. This decision used to live in the token walk (WalkGroup, measuring
+// CurLine - StartLine), which measured a shape that no longer existed by the
+// time the file was written: a block under LabelMinLines pre-break but over it
+// post-break got no marker on pass 1 and a marker on pass 2. That
+// non-idempotency is why BreakLongExpressions had to ship default-off.
+//
+// The pass re-lexes and re-parses its own input, so Tokens[..].Line (1-based)
+// maps 1:1 onto the physical output lines it edits. Input is CRLF-normalized
+// and multi-line atoms are still shielded to one line, so both runs measure
+// the same thing.
+//
+// ADD only: a block whose closing `end` line already carries a `//` comment is
+// left untouched (that is either an author's note or our own marker from a
+// previous run).
+function ApplyBlockEndLabels(const S: string; const AOpts: TYadfOptions): string;
+var
+  Tokens: TTokenList                  ;
+  Root  : TGroup                      ;
+  Labels: TDictionary<Integer, string>;
+  Sb    : TStringBuilder              ;
+  Lbl   : string                      ;
+  i     : Integer                     ;
+  Eol   : Integer                     ;
+  Start : Integer                     ;
+  LineNo: Integer                     ;
+
+  // True when the physical line holding G's closing `end` already carries a
+  // `//` comment after it.
+  function EndLineHasSlashesComment(G: TGroup): Boolean;
+  var
+    EndLine: Integer;
+    k      : Integer;
+  begin
+    EndLine:= Tokens[G.CloseIdx].Line;
+    k:= G.CloseIdx + 1;
+    while (k < Tokens.Count) and (Tokens[k].Line = EndLine) do
+    begin
+      if Tokens[k].Kind = ptSlashesComment then
+        Exit(True);
+      Inc   (k   );
+    end;
+    Result:= False;
+  end; // function
+
+  // Post-order: an inner block is recorded BEFORE its enclosing one, so when
+  // two `end`s land on the same output line the OUTER block's keyword wins --
+  // the same precedence the old in-walker PendingLabel had (it was overwritten
+  // as the walk unwound).
+  procedure Visit(G: TGroup);
+  var
+    Child: TGroup;
+  begin
+    for Child in G.Children do
+    begin
+      Visit(Child);
+      if (Child.Kind = gkBlock) and not Child.ForceClosed and (Child.CloseIdx > Child.OpenIdx) and
+        (Tokens[Child.CloseIdx].Line - Tokens[Child.OpenIdx].Line >= AOpts.LabelMinLines) and not EndLineHasSlashesComment(Child) then
+        Labels.AddOrSetValue(Tokens[Child.CloseIdx].Line, ' // ' + FindBlockLabel(Tokens, Child.OpenIdx));
+    end;
+  end; // procedure
+
+begin
+  Result:= S;
+  if not AOpts.LabelLongBlocks then
+    Exit;
+  Labels:= TDictionary<Integer, string>.Create;
+  try
+    Tokens:= LoadTokensFromString(S);
+    try
+      Root:= ParseGroups(Tokens);
+      try
+        Visit(Root);
+      finally
+        Root.Free;
+      end;
+    finally
+      Tokens.Free;
+    end;
+    if Labels.Count = 0 then
+      Exit;
+    // Splice each label in just before its line's terminator, leaving the
+    // terminator bytes (and the absence of one on a final unterminated line)
+    // exactly as they were.
+    Sb:= TStringBuilder.Create;
+    try
+      Start := 1;
+      LineNo:= 1;
+      for i:= 1 to Length(S) do if S[i] = LF then
+      begin
+        Eol:= i - 1;
+        if (Eol >= Start) and (S[Eol] = CR) then
+          Dec(Eol);
+        Sb.Append(Copy(S, Start, Eol - Start + 1));
+        if Labels.TryGetValue(LineNo, Lbl) then
+          Sb.Append(Lbl);
+        Sb.Append(Copy(S, Eol + 1, i - Eol));
+        Start := i + 1;
+        Inc(LineNo);
+      end;
+      if Start <= Length(S) then
+      begin
+        Sb.Append(Copy(S, Start, MaxInt));
+        if Labels.TryGetValue(LineNo, Lbl) then
+          Sb.Append(Lbl);
+      end;
+      Result:= Sb.ToString;
+    finally
+      Sb.Free;
+    end; // try
+  finally
+    Labels.Free;
+  end; // try
+end; // function
+
 // Multi-line ATOMS -- ('''...''') string literals AND multi-line block
 // comments ({...}, (*...*)) -- must survive Stage 3/4 byte-for-byte: their
 // interior is data/prose, not code, so re-indent/reflow/align must never
@@ -5323,17 +5445,14 @@ end; // procedure
 //   CurLine      - track the current output position so the walker
 //                  can decide whether a parens group fits inline at
 //                  the current column or must be broken.
-//   PendingLabel - block-end label that needs to be appended to the
-//                  next-emitted closing `end`. Buffered here because
-//                  the label is computed at the moment we leave a
-//                  child group, but must appear AFTER the `end`
-//                  token text and BEFORE the next CRLF.
+// Block-end labels are NOT decided here: they are a post-pass over the
+// final line-broken text (ApplyBlockEndLabels), because the line count
+// the walker sees is not the one the reader gets.
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
   Cursor      : Integer       ;
-  PendingLabel: string        ;
   Root        : TGroup        ;
   Sb          : TStringBuilder;
   Tokens      : TTokenList    ;
@@ -5360,45 +5479,13 @@ var
       Inc(CurCol);
   end; // procedure
 
-// Appends S to the output StringBuilder, flushing any PendingLabel
-// first. If S contains a line break, the label is spliced in BEFORE
-// the break -- e.g. `end;` + pending `// while` + `\r\n` becomes
-// `end; // while\r\n`. CurCol/CurLine are kept in sync via
-// UpdateColumn so subsequent walker decisions remain accurate.
+// Appends S to the output StringBuilder. CurCol/CurLine are kept in
+// sync via UpdateColumn so subsequent walker decisions remain accurate.
   procedure EmitText(const S: string);
-  var
-    i   : Integer;
-    k   : Integer;
-    Pre : string ;
-    Lbl : string ;
-    Post: string ;
   begin
-    if PendingLabel <> '' then
-    begin
-      k:= 0;
-      for i:= 1 to Length(S) do if (S[i] = CR) or (S[i] = LF) then
-      begin
-        k:= i;
-        Break;
-      end;
-      if k > 0 then
-      begin
-        Pre:= Copy(S, 1, k - 1);
-        Lbl:= PendingLabel;
-        Post:= Copy(S, k, MaxInt);
-        PendingLabel:= '';
-        Sb.Append(Pre);
-        UpdateColumn(Pre);
-        Sb.Append(Lbl);
-        UpdateColumn(Lbl);
-        Sb.Append(Post);
-        UpdateColumn(Post);
-        Exit;
-      end; // if
-    end; // if
     Sb.Append(S);
     UpdateColumn(S);
-  end; // procedure
+  end;
 
   procedure EmitTokenRange(AFrom, ATo: Integer);
   var
@@ -5508,22 +5595,6 @@ var
     EmitText(Tokens[G.CloseIdx].Text);
   end; // procedure
 
-  function BlockAlreadyLabeled(G: TGroup): Boolean;
-  var
-    EndLine: Integer;
-    k      : Integer;
-  begin
-    EndLine:= Tokens[G.CloseIdx].Line;
-    k:= G.CloseIdx + 1;
-    while (k < Tokens.Count) and (Tokens[k].Line = EndLine) do
-    begin
-      if Tokens[k].Kind = ptSlashesComment then
-        Exit(True);
-      Inc   (k   );
-    end;
-    Result:= False;
-  end; // function
-
 // The structural emission walker. Recursively descends the TGroup
 // tree, handing off to specialised renderers per group kind:
 //   gkUses     -> RenderUsesGroup (uses-clause formatter)
@@ -5533,19 +5604,16 @@ var
 //     - else descend into children (let inner groups break)
 //   gkBlock and everything else -> recurse, emitting tokens
 //                                   between child groups verbatim.
-// After each child closes, two side-channels may fire:
+// After each child closes, one side-channel may fire:
 //   * MarkUnclosed: emits a // TODO -oYADF marker if Child was  // dl:ok compiler-magic-comments@e3b0
 //     ForceClosed by the group parser (unmatched begin/record).
-//   * LabelLongBlocks: stores a PendingLabel that EmitText will
-//     splice in on the next CRLF if the block was long enough.
+// Block-end labels are decided later, by ApplyBlockEndLabels.
   procedure WalkGroup(G: TGroup);
   var
-    Child     : TGroup ;
-    GroupEnd  : Integer;
-    InlineW   : Integer;
-    Marker    : string ;
-    StartLine : Integer;
-    BlockLines: Integer;
+    Child   : TGroup ;
+    GroupEnd: Integer;
+    InlineW : Integer;
+    Marker  : string ;
   begin
     GroupEnd:= G.CloseIdx;
     for Child in G.Children do
@@ -5555,7 +5623,6 @@ var
         EmitTokenRange(Cursor, Child.OpenIdx - 1);
         Cursor:= Child.OpenIdx;
       end;
-      StartLine:= CurLine;
       if Child.Kind = gkUses then
       begin
         EmitText(RenderUsesGroup(Tokens, Child, AOpts));
@@ -5596,12 +5663,6 @@ var
         Marker:= Format('// TODO -oYADF : ''%s'' on line %d has no matching ''end''', [Tokens[Child.OpenIdx].Text, Tokens[Child.OpenIdx].Line]);
         if Pos(Marker, ASource) = 0 then
           EmitText(CRLF + Marker);
-      end;
-      if AOpts.LabelLongBlocks and (Child.Kind = gkBlock) and not Child.ForceClosed and (Child.CloseIdx > Child.OpenIdx) then
-      begin
-        BlockLines:= CurLine - StartLine;
-        if (BlockLines >= AOpts.LabelMinLines) and not BlockAlreadyLabeled(Child) then
-          PendingLabel:= ' // ' + FindBlockLabel(Tokens, Child.OpenIdx);
       end;
     end; // for
     if Cursor <= GroupEnd then
@@ -5993,18 +6054,10 @@ begin
       Sb:= TStringBuilder.Create;
       try
         // Stage 2: structural emission. WalkGroup writes into Sb.
-        Cursor      := 0;
-        CurCol      := 0;
-        CurLine     := 1;
-        PendingLabel:= '';
+        Cursor := 0;
+        CurCol := 0;
+        CurLine:= 1;
         WalkGroup(Root);
-        // A trailing PendingLabel (block-end label on the last block
-        // of the file) needs an explicit CRLF to flush.
-        if PendingLabel <> '' then
-        begin
-          EmitText(CRLF);
-          PendingLabel:= '';  // dl:ok overwrite-before-read@7148
-        end;
 
         // Stage 3: string-level passes. Order matters here:
         //   * CRLF first so every subsequent pass sees a uniform
@@ -6106,6 +6159,15 @@ begin
         // sentinels are still single-line and can be detected + skipped).
         if AOpts.CollapseShortBlocks then
           Result:= CollapseShortBlocks(Result, AOpts.MaxLen);
+
+        // Stage 4b: block-end labels (`end; // while`). LAST pass that touches
+        // line SHAPE, so it is the first place where a block's line span is the
+        // one the reader will see -- every earlier pass (BreakLongLines, reflow,
+        // JoinShortCaseAlts, the splitters, CollapseShortBlocks) can move that
+        // count. Must stay BEFORE the unshield: shielded multi-line atoms are
+        // one line here on every run, which is what makes the measurement -- and
+        // therefore the whole formatter -- idempotent.
+        Result:= ApplyBlockEndLabels(Result, AOpts);
 
         // Stage 5: restore shielded multi-line strings and block comments verbatim.
         Result:= UnshieldMultilineTokens(Result, MLMap);

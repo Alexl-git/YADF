@@ -541,7 +541,7 @@ begin
   Result.BreakWithBody        := False;
   Result.BreakIfBody          := False;
   Result.BreakParamsOnePerLine:= False;
-  Result.BreakLongExpressions := False;  // flips to True once LabelLongBlocks measures post-break
+  Result.BreakLongExpressions := True;
   Result.Delphi10Compat       := False;
   Result.Backup               := False;
   Result.BackupDir            := '';
