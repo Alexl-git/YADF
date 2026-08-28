@@ -8,6 +8,25 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+
+- **A routine header's trailing directives (`overload`, `stdcall`, `virtual`,
+  etc.) split onto their own line are now joined back onto the header line.**
+  `JoinRoutineHeaders` previously only joined the parameter-list portion of a
+  split header; a directive clause the source placed on its own physical line
+  right after the header's terminating `;` was left dangling there. Such
+  clauses are now pulled up onto the header, `MaxLen` permitting (an over-long
+  result still greedy-wraps at the `;` separators exactly as before).
+
+  ```pascal
+  // before                    // after
+  function Foo(A: Integer):    function Foo(A: Integer): Integer; overload;
+    Integer;
+    overload;
+  ```
+
 ## [1.0.15.0] - 2026-08-21
 
 ### Fixed

@@ -695,4 +695,60 @@ $tnchk = & $exe --ini $ini --check $tno1 2>&1
 if ("$tnchk" -notmatch 'PASS') { Fail 'roundtrip/guard: trailing-note header' }
 Remove-Item $tnSrc,$tno1,$tno2 -Force -ErrorAction SilentlyContinue
 
+# ----- CORRECTION: a trailing directive the source split onto its OWN line
+# (e.g. `overload;` / `stdcall;` on the physical line right after the header's
+# terminating `;`) is pulled back onto the header line, MaxLen permitting --
+# rather than left dangling on its own line. -----
+$dirOwn = Fmt @(
+  'unit probe;'
+  'interface'
+  'implementation'
+  'function Foo(A: Integer): Integer;'
+  '  overload;'
+  'begin'
+  '  Result := A;'
+  'end;'
+  'procedure Bar(A: Integer);'
+  '  stdcall;'
+  'begin'
+  'end;'
+  'end.'
+)
+MustMatch    $dirOwn '(?m)^function Foo\(A: Integer\): Integer; overload;\s*$'    'trailing directive on its own line joined onto the header (overload)'
+MustMatch    $dirOwn '(?m)^procedure Bar\(A: Integer\); stdcall;\s*$'            'trailing directive on its own line joined onto the header (stdcall)'
+MustNotMatch $dirOwn '(?m)^\s*overload;\s*$'                                     'no leftover directive-only line (overload)'
+MustNotMatch $dirOwn '(?m)^\s*stdcall;\s*$'                                      'no leftover directive-only line (stdcall)'
+
+# Multiple directive clauses each on their own line all ride up together.
+$dirMulti = Fmt @(
+  'unit probe;'
+  'interface'
+  'implementation'
+  'procedure Baz(A: Integer);'
+  '  virtual;'
+  '  abstract;'
+  'end.'
+)
+MustMatch $dirMulti '(?m)^procedure Baz\(A: Integer\); virtual; abstract;\s*$' 'multiple directive-only lines all joined onto the header'
+
+# Idempotency: re-running the already-joined output is a no-op.
+$dirSrc = Join-Path $env:TEMP 'jh_dir.pas'
+$dirO1  = Join-Path $env:TEMP 'jh_dir1.pas'
+$dirO2  = Join-Path $env:TEMP 'jh_dir2.pas'
+@'
+unit probe;
+interface
+implementation
+function Foo(A: Integer): Integer;
+  overload;
+begin
+  Result := A;
+end;
+end.
+'@ | Set-Content $dirSrc -Encoding ascii
+& $exe --ini $ini $dirSrc --o $dirO1 | Out-Null
+& $exe --ini $ini $dirO1  --o $dirO2 | Out-Null
+if ((Get-FileHash $dirO1).Hash -ne (Get-FileHash $dirO2).Hash) { Fail 'idempotent: directive-on-own-line join is stable on a second pass' }
+Remove-Item $dirSrc,$dirO1,$dirO2 -Force -ErrorAction SilentlyContinue
+
 Finish 'join_headers'

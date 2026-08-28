@@ -2990,6 +2990,19 @@ var
   Aborted: Boolean       ;
   CmtOpen: Boolean       ;
   CmtBail: Boolean       ;
+  NextIdx: Integer       ;
+
+const
+  // Routine directives that may trail a header's terminating `;`. The source
+  // often splits these onto their own physical line (`function Foo: Integer;`
+  // / newline / `overload;`); ConsumeTrailingDirectives below pulls them back
+  // onto the header line, MaxLen permitting, the same as any other join here.
+  DirectiveKeywords: array[0..24] of string = (
+    'overload', 'reintroduce', 'static', 'virtual', 'dynamic', 'override',
+    'abstract', 'final', 'inline', 'cdecl', 'pascal', 'register', 'safecall',
+    'stdcall', 'export', 'external', 'forward', 'varargs', 'local', 'message',
+    'dispid', 'deprecated', 'platform', 'experimental', 'unsafe'
+  );
 
 // True iff position p in L starts the whole word Kw (ident boundary before AND
 // after) and the next non-space char after the word is '(' -- an inline routine
@@ -3179,6 +3192,124 @@ var
     LeadWord(Tr, 'for') or LeadWord(Tr, 'if') or LeadWord(Tr, 'repeat') or LeadWord(Tr, 'with') or LeadWord(Tr, 'try');
   end;
 
+// True iff AWord (case-insensitively) is one of the known routine directives.
+  function IsKnownDirective(const AWord: string): Boolean;
+  var
+    k: Integer;
+  begin
+    Result:= False;
+    for k:= Low(DirectiveKeywords) to High(DirectiveKeywords) do
+      if SameText(AWord, DirectiveKeywords[k]) then
+        Exit(True);
+  end;
+
+// True iff L (trimmed) is nothing but a `;`-separated run of known routine
+// directives (e.g. `virtual; abstract;`, `deprecated 'msg';`, `stdcall;`) --
+// the shape of a directive clause the source split onto its own physical
+// line after a header's terminating `;`. Only the clause's leading word is
+// checked (so `external 'x.dll' name 'Y';` and `message WM_USER;` both
+// qualify); string-literal `;` (e.g. inside `deprecated '...;...'`) is
+// scanned past, not treated as a clause separator. A trailing `//` comment is
+// tolerated (AHasComment reports it) but ends the scan: the caller must not
+// pull in any FURTHER line after one, since the comment would swallow it.
+  function IsDirectiveOnlyLine(const L: string; out AHasComment: Boolean): Boolean;
+  var
+    Tr, Code, Clause: string;
+    n, p, CmtPos, ClauseStart: Integer;
+    InStr, HasClause: Boolean;
+
+    function FirstWord(const AClause: string): string;
+    var
+      q: Integer;
+    begin
+      q:= 1;
+      while (q <= Length(AClause)) and CharInSet(AClause[q], ['a'..'z', 'A'..'Z', '0'..'9', '_']) do
+        Inc(q);
+      Result:= Copy(AClause, 1, q - 1);
+    end;
+
+  begin
+    Result:= False;
+    AHasComment:= False;
+    Tr:= Trim(L);
+    if Tr = '' then
+      Exit;
+    // Locate a trailing `//` comment (outside a string literal), if any.
+    n:= Length(Tr); p:= 1; InStr:= False; CmtPos:= 0;
+    while p <= n do
+    begin
+      if InStr then
+      begin
+        if Tr[p] = '''' then
+        begin
+          if (p < n) and (Tr[p + 1] = '''') then Inc(p) else InStr:= False;
+        end;
+        Inc(p); Continue;
+      end;
+      if Tr[p] = '''' then begin InStr:= True; Inc(p); Continue; end;
+      if (Tr[p] = '/') and (p < n) and (Tr[p + 1] = '/') then begin CmtPos:= p; Break; end;
+      Inc(p);
+    end;
+    if CmtPos > 0 then
+    begin
+      AHasComment:= True;
+      Code:= TrimRight(Copy(Tr, 1, CmtPos - 1));
+    end
+    else
+      Code:= Tr;
+    if (Code = '') or (Code[Length(Code)] <> ';') then
+      Exit(False);
+    n:= Length(Code); p:= 1; InStr:= False; ClauseStart:= 1; HasClause:= False;
+    while p <= n do
+    begin
+      if InStr then
+      begin
+        if Code[p] = '''' then
+        begin
+          if (p < n) and (Code[p + 1] = '''') then Inc(p) else InStr:= False;
+        end;
+        Inc(p); Continue;
+      end;
+      if Code[p] = '''' then begin InStr:= True; Inc(p); Continue; end;
+      if Code[p] = ';' then
+      begin
+        Clause:= Trim(Copy(Code, ClauseStart, p - ClauseStart));
+        if (Clause = '') or (not IsKnownDirective(FirstWord(Clause))) then
+          Exit(False);
+        HasClause:= True;
+        ClauseStart:= p + 1;
+      end;
+      Inc(p);
+    end;
+    Result:= HasClause and (Trim(Copy(Code, ClauseStart, MaxInt)) = '');
+  end; // function
+
+// From AIdx (the line right after a completed header), pull in every
+// immediately-following directive-only line (IsDirectiveOnlyLine) onto ABase,
+// single-space joined -- the same join style as any other header
+// continuation -- and advance AIdx past each line consumed. Stops at the
+// first non-matching line, or right after a directive line that carried a
+// trailing `//` comment (further lines would be folded into that comment).
+// Deliberately does NOT pre-check MaxLen here: WrapHeaderLine (run by both
+// call sites right after) already greedy-breaks at top-level `;` -- which is
+// exactly where directive clauses are separated -- so an over-long result
+// still lands on one line when it fits and wraps cleanly when it does not.
+  function ConsumeTrailingDirectives(var AIdx: Integer; const ABase: string): string;
+  var
+    LocalCmtOpen, HasComment: Boolean;
+  begin
+    Result:= ABase;
+    while (AIdx < Lines.Count) and (St.Depth = 0) and (not St.InBlockComment)
+      and IsDirectiveOnlyLine(Lines[AIdx], HasComment) do
+    begin
+      Result:= Result + ' ' + Trim(Lines[AIdx]);
+      ScanLine(Lines[AIdx], LocalCmtOpen);
+      Inc(AIdx);
+      if HasComment then
+        Break;
+    end;
+  end;
+
 begin
   Lines:= TStringList.Create;
   try
@@ -3197,9 +3328,24 @@ begin
           ScanLine(Lines[i], CmtOpen);
           if St.Depth = 0 then
           begin
-            // Header already complete on this single physical line -- emit as-is.
-            OutVal.Append(Lines[i]); OutVal.Append(CRLF);
-            Inc(i); Continue;
+            // Header already complete on this single physical line. Still
+            // check for a trailing directive-only line (e.g. `overload;`)
+            // split onto the NEXT line -- pull it up onto the header, MaxLen
+            // permitting, same as the multi-line case below.
+            NextIdx:= i + 1;
+            Joined:= ConsumeTrailingDirectives(NextIdx, Lines[i]);
+            if NextIdx = i + 1 then
+            begin
+              // No trailing directive pulled in -- emit as-is, unchanged.
+              OutVal.Append(Lines[i]); OutVal.Append(CRLF);
+              Inc(i); Continue;
+            end;
+            if ParamsWillBeBroken(Joined) then
+              OutVal.Append(Joined)
+            else
+              OutVal.Append(WrapHeaderLine(Joined));
+            OutVal.Append(CRLF);
+            i:= NextIdx; Continue;
           end;
           if CmtOpen then
           begin
@@ -3249,12 +3395,17 @@ begin
             for var k:= i to j - 1 do begin OutVal.Append(Lines[k]); OutVal.Append(CRLF); end;
             i:= j; Continue;
           end;
+          // Pull in any immediately-following directive-only line(s) (e.g. a
+          // trailing `; overload;` the source split onto its own line)
+          // before deciding whether the header still fits on one line.
+          NextIdx:= j + 1;
+          Joined:= ConsumeTrailingDirectives(NextIdx, Joined);
           if ParamsWillBeBroken(Joined) then
             OutVal.Append(Joined)
           else
             OutVal.Append(WrapHeaderLine(Joined));
           OutVal.Append(CRLF);
-          i:= j + 1; Continue;
+          i:= NextIdx; Continue;
         end // if
         else
         begin
