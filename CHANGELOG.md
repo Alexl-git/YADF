@@ -8,7 +8,7 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.0.16.0] - 2026-08-28
 
 ### Fixed
 
