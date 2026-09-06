@@ -512,6 +512,20 @@ YADF\
   yadf.ini              shared CLI + wizard + GUI config (optional)
 ```
 
+## Further reading
+
+**[Three Ways to Read Delphi](https://github.com/Alexl-git/Delphi-RAG-Lint/blob/main/docs/PARSING-LAYERS.md)**
+-- an article on why YADF links DelphiAST's *lexer* and never its parser, and how that
+choice compares with a full AST (DelphiAST) or an error-tolerant CST
+([tree-sitter-delphi13](https://github.com/Alexl-git/tree-sitter-delphi13)). It covers
+conditional compilation, byte-exact round-trip fidelity, and which layer is the right
+foundation for a formatter, an indexer, or a one-shot analyser.
+
+The same article is also published as a
+[styled HTML page](https://github.com/Alexl-git/Delphi-RAG-Lint/blob/main/docs/PARSING-LAYERS.html)
+and a
+[Word document](https://github.com/Alexl-git/Delphi-RAG-Lint/raw/main/docs/PARSING-LAYERS.docx).
+
 ## Acknowledgements
 
 YADF is built on top of [DelphiAST](https://github.com/RomanYankovsky/DelphiAST)
