@@ -3842,6 +3842,7 @@ var
   PendingCtrl       : Integer            ; // accumulated then/do/else/case-`:` body levels
   CtrlCarried       : Integer            ; // control levels locked into open begin/case/try blocks
   CtrlStack         : TList<Integer>     ; // carried-control per Stack entry (parallel to Stack)
+  ClassHeaderOpen   : TList<Boolean>     ; // per Stack entry: class/object/interface still in its HEADER (parallel to Stack)
   CurLineLast       : TptTokenKind       ;
   EffectiveDepth    : Integer            ;
   ExpectSectionDecl : Boolean            ;
@@ -3907,8 +3908,12 @@ var
   procedure StackPush(k: TptTokenKind);
   begin
     PushCtrlCarry;
-    Stack     .Add(k    );
-    IsProcBody.Add(False);
+    Stack          .Add(k    );
+    IsProcBody     .Add(False);
+    // A class/object/interface enters with its HEADER open: everything up to
+    // the ancestor list / `of T` is header, and a `;` reached while still in
+    // it means the declaration has NO body (see CloseClassHeaderOrPop).
+    ClassHeaderOpen.Add(k in [ptClass, ptObject, ptInterface]);
   end;
 
   procedure StackPushBegin;
@@ -3948,6 +3953,8 @@ var
           Dec(OpenProcRegions);
       if IsProcBody.Count > 0 then
         IsProcBody.Delete(IsProcBody.Count - 1);
+      if ClassHeaderOpen.Count > 0 then
+        ClassHeaderOpen.Delete(ClassHeaderOpen.Count - 1);
       Stack       .Delete(Stack     .Count - 1);
     end; // if
   end; // procedure
@@ -3956,6 +3963,42 @@ var
   begin
     if StackTop in [ptType, ptVar, ptConst] then
       StackPop;
+  end;
+
+// A class/object/interface block is normally closed by `end`. The BODYLESS
+// forms have no `end` at all -- they finish at their own `;`:
+//
+//   EFoo        = class(Exception);   ETrivial = class;   IFwd = interface;
+//   TFooClass   = class of TFoo;
+//
+// Without this, the StackPush done for `= class` was never popped, so every
+// following sibling declaration sat one level deeper -- the "ladder" bug
+// (ORM3 CommonExceptions.pas, 2026-09-10).
+//
+// The header runs from the `class`/`object`/`interface` keyword up to the end
+// of the ancestor list or the `of T` of a class-reference type. Only the
+// tokens that can legally appear THERE keep it open; the first token that
+// cannot means a body has started, so the block will get its `end` and must
+// not be popped early. Parenthesised content is skipped wholesale via
+// ParensDepth, which also keeps a `;` inside a parameter list from popping.
+//
+// Whitelisting the header (rather than blacklisting body-starters) makes an
+// unforeseen token fail toward "leave it pushed" -- i.e. toward the old
+// cosmetic bug -- never toward dedenting a real class body out of its block.
+  procedure NoteClassHeaderToken(AKind: TptTokenKind);
+  const
+    // Identifier, dotted/qualified name, comma-separated ancestor list, the
+    // parens around it, and the `of` of a class-reference type.
+    HeaderTokens = [ptIdentifier, ptOf, ptComma, ptPoint, ptRoundOpen, ptRoundClose, ptSpace, ptCRLF, ptCRLFCo];
+  begin
+    if ParensDepth > 0 then
+      Exit;
+    if (ClassHeaderOpen.Count = 0) or (not ClassHeaderOpen[ClassHeaderOpen.Count - 1]) then
+      Exit;
+    if AKind = ptSemiColon then
+      StackPop // bodyless declaration: this `;` closes it in place of an `end`
+    else if not (AKind in HeaderTokens) then
+      ClassHeaderOpen[ClassHeaderOpen.Count - 1]:= False; // a body has started
   end;
 
 // True when a `case` met at the current stack state is the VARIANT PART of
@@ -3999,6 +4042,7 @@ begin
     PendingProcStack:= TList<Boolean     >.Create;
     DirDepths       := TList<Integer     >.Create;
     CtrlStack       := TList<Integer     >.Create;
+    ClassHeaderOpen := TList<Boolean     >.Create;
     try
       PrevNonKind       := ptUnknown;
       InVisibility      := False;
@@ -4155,6 +4199,10 @@ begin
 
         if not (T.Kind in [ptAnsiComment, ptBorComment, ptSlashesComment]) then
         begin
+          // Runs BEFORE the case so ParensDepth still holds the value this
+          // token was read at: `(` is seen at depth 0 (header), the ancestor
+          // list at depth 1 (skipped), and the closing `;` back at depth 0.
+          NoteClassHeaderToken(T.Kind);
           case T.Kind of
             ptRoundOpen, ptSquareOpen  : Inc(ParensDepth)                        ;
             ptRoundClose, ptSquareClose: if ParensDepth > 0 then Dec(ParensDepth);
@@ -4310,6 +4358,7 @@ begin
       IsProcBody.Free;
       DirDepths.Free;
       CtrlStack.Free;
+      ClassHeaderOpen.Free;
       Stack.Free;
       OutVal.Free;
     end; // try

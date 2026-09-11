@@ -8,6 +8,49 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Bodyless `class` / `interface` declarations no longer indent the following
+  siblings into a staircase.** A type declaration with no body ends at its own
+  `;` and never reaches an `end` -- `EFoo = class(Exception);`, `T = class;`,
+  `IFwd = interface;` and the class-reference form `TFooClass = class of TFoo;`.
+  `ReindentByDepth` pushed a stack level when it saw `= class` / `= interface`
+  and popped it only on `end`, so each such declaration leaked one level and
+  every following declaration was indented one step deeper:
+
+  ```pascal
+  type
+    EMicroniteMessage                   = class(Exception);
+      EDirectoryInvalid                 = class(Exception);
+        ENoControlGroup                 = class(Exception);
+          ESentinelDriverProblem        = class(Exception);
+  ```
+
+  A new `NoteClassHeaderToken` tracks, per stack entry, whether the block is
+  still inside its HEADER -- the span from the `class`/`object`/`interface`
+  keyword through the ancestor list or the `of T` of a class-reference type. A
+  `;` reached while still in the header means the declaration has no body, so
+  the level is popped there instead of waiting for an `end`. The header is
+  recognised by a whitelist of the tokens that may legally appear in it, so an
+  unforeseen token fails toward leaving the level pushed -- never toward
+  dedenting a real class body out of its own block. Parenthesised content is
+  skipped via `ParensDepth`, which also keeps a `;` inside a parameter list
+  from closing anything.
+
+  Reported against a unit whose nine sibling exception classes rendered as a
+  nine-step ladder. Covered by `Test\test_bodyless_class.ps1` and the new
+  `Cases\bodyless_class_decls.pas` fixture (compile-gated + golden).
+
+  The `genericconstraints.pas` golden changes with this fix: its six bodyless
+  generic declarations now align correctly. Its last two lines sit at indent 0
+  because of a **separate, pre-existing** defect -- `constructor` / `record`
+  used as a generic *constraint* (`TBaz<T: TComponent, IUnknown, constructor>`)
+  is treated as a real routine/section keyword and closes the enclosing `type`
+  section. That was verified byte-identical before and after this change; the
+  ladder had merely been masking it. Not fixed here.
+
 ## [1.0.16.0] - 2026-08-28
 
 ### Fixed
