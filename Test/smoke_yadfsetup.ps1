@@ -1,9 +1,18 @@
 $ErrorActionPreference = 'Stop'
-$exe = Join-Path $PSScriptRoot '..\Win32\Release\EXE\YADFSetup.exe'
+# YADFSetup.exe is Win64-ONLY -- build_all.bat builds it for Win64 alone, and the
+# release matrix ships only the Win64 binary. This script used to look under
+# Win32\, where nothing has been built since the Win64 switch; it found whatever
+# ancient relic happened to still be sitting there and smoke-tested THAT. The
+# same Win32-fallback mistake let `drag-lint format` run a 2026-06-02 YADF.exe
+# and corrupt source (docs/INBOX-yadf-splits-inline-multi-var-declarations.md).
+# Release first, Debug second, and NO fallback to a platform we do not build.
+$exe = Join-Path $PSScriptRoot '..\Win64\Release\EXE\YADFSetup.exe'
 if (-not (Test-Path $exe)) {
-  $exe = Join-Path $PSScriptRoot '..\Win32\Debug\EXE\YADFSetup.exe'
+  $exe = Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADFSetup.exe'
 }
-if (-not (Test-Path $exe)) { Write-Error "YADFSetup.exe not found"; exit 1 }
+if (-not (Test-Path $exe)) {
+  Write-Error "YADFSetup.exe not found under Win64\Release or Win64\Debug -- run build_all.bat"; exit 1
+}
 
 # ensure the sample is reachable next to the exe
 $sampleSrc = Join-Path $PSScriptRoot '..\Demo\Sample.pas'
