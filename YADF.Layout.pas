@@ -748,12 +748,12 @@ begin
 end; // function
 
 // True iff ALine starts with a structural keyword that breaks any
-// in-progress alignment run (begin/end/type/var/const/procedure/
+// in-progress alignment run (begin/end/type/var/const/resourcestring/threadvar/procedure/
 // function/constructor/destructor/interface/implementation) or is
 // blank. The nested StartsKW helper ensures we match whole keywords
 // rather than identifier prefixes (so `endpoint` is not detected as
 // `end`).
-function StartsBlockBoundary(const ALine: string): Boolean;  // dl:ok too-many-exit-points@99b8
+function StartsBlockBoundary(const ALine: string): Boolean;  // dl:ok too-many-exit-points@9062
 var
   T: string;
 
@@ -786,6 +786,10 @@ begin
   if StartsKW('var' ) then
     Exit(True);
   if StartsKW('const' ) then
+    Exit(True);
+  if StartsKW('resourcestring') then
+    Exit(True);
+  if StartsKW('threadvar' ) then
     Exit(True);
   if StartsKW('procedure' ) then
     Exit(True);
@@ -2197,10 +2201,10 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     // with any of these can never be merged onto its predecessor. Order is
     // irrelevant -- every hit yields the same answer -- so this is a lookup
     // table, not a decision tree, and is scanned as one.
-    BlockingWords: array[0..21] of string = (
+    BlockingWords: array[0..23] of string = (
       'begin', 'end', 'else', 'until', 'finally', 'except',
       'interface', 'implementation', 'initialization', 'finalization',
-      'type', 'var', 'const',
+      'type', 'var', 'const', 'resourcestring', 'threadvar',
       'procedure', 'function', 'constructor', 'destructor',
       'private', 'public', 'protected', 'published',
       'uses');
@@ -3836,7 +3840,7 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@a1d0, deep-nesting@a1d0, cyclomatic-complexity@a1d0, cognitive-complexity@a1d0
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@a1d0, deep-nesting@a1d0, cyclomatic-complexity@8b0d, cognitive-complexity@5889
 var
   AfterCRLF         : Boolean            ;
   PendingCtrl       : Integer            ; // accumulated then/do/else/case-`:` body levels
@@ -4033,6 +4037,25 @@ var
     Result:= (j < Tokens.Count) and (Tokens[j].Kind in [ptVar, ptConst, ptType]);
   end;
 
+// Maps a declaration-section keyword onto the three section kinds this pass
+// tracks on Stack, or ptUnknown when AKind does not open a section here.
+// `resourcestring` is a const section and `threadvar` a var section as far as
+// layout goes; without them a resourcestring block was indented one level
+// under the preceding section and its first entry merged onto the keyword.
+// The `type` of a distinct-type alias (`UTF8String = type AnsiString`) follows
+// an `=` and is NOT a section opener: treating it as one broke the line after
+// `type` and pushed a phantom section that indented everything after it.
+  function SectionKindOf(AKind: TptTokenKind): TptTokenKind;
+  begin
+    Result:= ptUnknown;
+    case AKind of
+      ptVar, ptThreadvar       : Result:= ptVar  ;
+      ptConst, ptResourcestring: Result:= ptConst;
+      ptType                   : if PrevNonKind <> ptEqual then
+        Result:= ptType;
+    end;
+  end; // function
+
 begin
   Tokens:= LoadTokensFromString(ASrc);
   try
@@ -4142,7 +4165,7 @@ begin
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if T.Kind in [ptExcept, ptFinally] then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
-          if ((T.Kind in [ptType, ptVar, ptConst]) or IsClassSectionLine(i)) and (StackTop in [ptType, ptVar, ptConst]) then
+          if ((SectionKindOf(T.Kind) <> ptUnknown) or IsClassSectionLine(i)) and (StackTop in [ptType, ptVar, ptConst]) then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if (T.Kind = ptBegin) and (not InClassOrRecord) and (StackTop in [ptType, ptVar, ptConst]) then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
@@ -4206,10 +4229,11 @@ begin
           case T.Kind of
             ptRoundOpen, ptSquareOpen  : Inc(ParensDepth)                        ;
             ptRoundClose, ptSquareClose: if ParensDepth > 0 then Dec(ParensDepth);
-            ptType, ptVar, ptConst     : if (ParensDepth = 0) and not (StackTop in [ptBegin, ptCase, ptTry, ptAsm]) then
+            ptType, ptVar, ptConst, ptResourcestring, ptThreadvar: if (ParensDepth = 0) and (SectionKindOf(T.Kind) <> ptUnknown)
+              and not (StackTop in [ptBegin, ptCase, ptTry, ptAsm]) then
             begin
               CloseSectionIfOpen;
-              StackPush(T.Kind);
+              StackPush(SectionKindOf(T.Kind));
               // A var/const/type section inside a class/record must NOT clear the
               // visibility level -- it belongs to the current private/protected/...
               // group, so its fields (and any following section) keep that level
@@ -4372,54 +4396,200 @@ end; // begin
 // breaking rules don't apply -- it has no parentheses and uses
 // comma-first formatting when broken.
 
+// One piece of a uses-clause entry: either the unit name (with any
+// `in 'path'` tail) joined onto one line, or one comment token verbatim.
+// NewLine records that the piece started on a fresh source line; a piece
+// that follows a `//` comment always does, because the lexer emits the
+// comment's line break as its own token.
+type
+  TUsesPart = record
+    Text     : string ;
+    IsComment: Boolean;
+    NewLine  : Boolean;
+  end;
+  TUsesItem = TArray<TUsesPart>;
+
 // Walks the token range covering one uses clause body (between the
-// `uses` keyword and the closing `;`) and returns the list of "name"
-// strings. Each name is the full identifier including dots; a name
-// followed by `in 'path'` is captured as the single string
-// `Unit in 'path'`. Sets AHasInClause = True when any `in` form is
-// present (which forces breaking even when the joined inline form
-// would fit, because mixed inline+in looks awful).
-function CollectUsesItems(const ATokens: TTokenList; AStartIdx, AEndIdx: Integer; out AHasInClause: Boolean): TArray<string>;
+// `uses` keyword and the closing `;`) and returns one entry per
+// comma-separated unit. Each entry is a list of parts: the unit name
+// (the full identifier including dots; a name followed by `in 'path'` is
+// captured as the single part `Unit in 'path'`) and every comment that
+// sits between this unit's comma and the next, in source order. A comment
+// belongs to the unit BEFORE the comma that follows it, so a commented-out
+// `//, Unit` line travels with the unit above it.
+// Whitespace and line-break tokens are never copied into a part: joining
+// them used to grow a comment-adjacent line's indent by two spaces on every
+// format (the `' ' + indent + ' '` drift). Only the NewLine flag survives.
+// Sets AHasInClause = True when any `in` form is present (which forces
+// breaking even when the joined inline form would fit, because mixed
+// inline+in looks awful).
+function CollectUsesItems(const ATokens: TTokenList; AStartIdx, AEndIdx: Integer; out AHasInClause: Boolean): TArray<TUsesItem>;
 var
-  CurText: string       ;
-  i      : Integer      ;
-  Items  : TList<string>;
-  T      : TToken       ;
+  Broke : Boolean          ;
+  Code  : string           ;
+  CodeNL: Boolean          ;
+  i     : Integer          ;
+  Items : TList<TUsesItem> ;
+  Part  : TUsesPart        ;
+  Parts : TList<TUsesPart> ;
+  T     : TToken           ;
+
+  procedure FlushCode;
+  begin
+    if Code = '' then
+      Exit;
+    Part.Text     := Code;
+    Part.IsComment:= False;
+    Part.NewLine  := CodeNL;
+    Parts.Add(Part);
+    Code:= '';
+  end;
+
 begin
-  Items:= TList<string>.Create;
+  Items:= TList<TUsesItem>.Create;
+  Parts:= TList<TUsesPart>.Create;
   try
     AHasInClause:= False;
-    CurText     := '';
+    Code        := '';
+    CodeNL      := False;
+    Broke       := False;
     for i:= AStartIdx to AEndIdx do
     begin
       T:= ATokens[i];
-      if T.Kind = ptComma then
-      begin
-        Items.Add(Trim(CurText));
-        CurText:= '';
-      end
+      case T.Kind of
+        ptComma:
+        begin
+          FlushCode;
+          Items.Add(Parts.ToArray);
+          Parts.Clear;
+          Broke:= False;
+        end;
+        ptSpace:
+          ; // layout is re-derived; source spacing is never copied into a part
+        ptCRLF, ptCRLFCo:
+          Broke:= True;
+        ptAnsiComment, ptBorComment, ptSlashesComment:
+        begin
+          FlushCode;
+          Part.Text     := T.Text;
+          Part.IsComment:= True;
+          Part.NewLine  := Broke;
+          // A comment on the comma's own line, before anything else of the
+          // next entry (`Unit, // why`  or  `, // why` + unit on the next
+          // line), annotates the unit BEFORE that comma. Keeping it with that
+          // unit is also what makes comma-last output stable: re-collected,
+          // `C, // why` must not hand the comment to the following unit.
+          if (Parts.Count = 0) and (not Broke) and (Items.Count > 0) then
+            Items[Items.Count - 1]:= Items[Items.Count - 1] + [Part]
+          else
+            Parts.Add(Part);
+          Broke:= False;
+        end;
       else
-      begin
         if T.Kind = ptIn then
           AHasInClause:= True;
-        if (CurText <> '') and (T.Kind <> ptPoint) and not CurText.EndsWith('.') then
-          CurText:= CurText + ' ';  // dl:ok concat-in-loop@37c6
-        CurText:= CurText + T.Text;  // dl:ok concat-in-loop@f8c6
-      end;
+        if Code = '' then
+          CodeNL:= Broke
+        else if (T.Kind <> ptPoint) and not Code.EndsWith('.') then
+          Code:= Code + ' ';  // dl:ok concat-in-loop@17ad
+        Code := Code + T.Text;  // dl:ok concat-in-loop@6357
+        Broke:= False;
+      end; // case
     end; // for
-    if Trim(CurText) <> '' then
-      Items.Add(Trim(CurText));
+    FlushCode;
+    if Parts.Count > 0 then
+      Items.Add(Parts.ToArray);
     Result:= Items.ToArray;
   finally
+    Parts.Free;
     Items.Free;
   end; // try
 end; // function
+
+// Renders one uses-clause entry as one or more output lines starting at a
+// fresh line: Indent + ALead (`, ` or nothing) + its parts. ASep (`,` / `;`
+// in comma-last style, empty in comma-first) is written straight after the
+// unit name -- BEFORE any trailing comment -- so a `//` comment can never
+// swallow it. A part that started on its own source line keeps its own line:
+// a comment at Indent (level with the unit lines around it), a unit name at
+// Indent plus the width of ALead (level with the other unit names).
+// True when AItem has a comment AFTER its unit name that starts a line of
+// its own (or follows a `//` comment, which forces the same).
+function HasOwnLineTailComment(const AItem: TUsesItem): Boolean;
+var
+  k       : Integer;
+  SeenCode: Boolean;
+begin
+  Result  := False;
+  SeenCode:= False;
+  for k:= 0 to High(AItem) do
+    if not AItem[k].IsComment then
+    begin
+      SeenCode:= True;
+      Result  := False;
+    end
+    else if SeenCode and (AItem[k].NewLine or ((k > 0) and AItem[k - 1].IsComment and AItem[k - 1].Text.StartsWith('//'))) then
+      Result:= True;
+end; // function
+
+procedure AppendUsesItem(ASb: TStringBuilder; const AItem: TUsesItem; const AIndent, ALead, ASep: string);
+var
+  AtStart : Boolean;
+  First   : Integer;
+  k       : Integer;
+  LastCode: Integer;
+begin
+  LastCode:= -1;
+  for k:= 0 to High(AItem) do if not AItem[k].IsComment then
+    LastCode:= k;
+  // Comments that precede the unit on lines of their own (a commented-out
+  // `//stList,` between two units) go ABOVE the unit's line, level with it,
+  // rather than being wedged between its lead comma and its name.
+  First:= 0;
+  while (First < LastCode) and AItem[First].IsComment and (AItem[First].NewLine or AItem[First].Text.StartsWith('//')) do
+  begin
+    ASb.Append(CRLF   );
+    ASb.Append(AIndent);
+    ASb.Append(AItem[First].Text);
+    Inc(First);
+  end;
+  ASb.Append(CRLF   );
+  ASb.Append(AIndent);
+  ASb.Append(ALead  );
+  AtStart:= True;
+  for k:= First to High(AItem) do
+  begin
+    // A `//` comment runs to the end of its line, so whatever follows it MUST
+    // start a new one, whatever the NewLine flag says.
+    if (k > First) and (AItem[k].NewLine or ((AItem[k - 1].IsComment) and AItem[k - 1].Text.StartsWith('//'))) then
+    begin
+      ASb.Append(CRLF   );
+      ASb.Append(AIndent);
+      if not AItem[k].IsComment then
+        ASb.Append(StringOfChar(' ', Length(ALead)));
+    end
+    else if not AtStart then
+      ASb.Append(' ');
+    ASb.Append(AItem[k].Text);
+    AtStart:= False;
+    if k = LastCode then
+      ASb.Append(ASep);
+  end; // for
+  // An entry made only of comments (malformed source) still owes its
+  // separator; put it on a line of its own so no comment can hide it.
+  if (LastCode < 0) and (ASep <> '') then
+  begin
+    ASb.Append(CRLF   );
+    ASb.Append(AIndent);
+    ASb.Append(ASep   );
+  end;
+end; // procedure
 
 // Renders one uses/contains/requires clause, replacing it inline in
 // the token stream. Two output forms:
 //
 //   Inline (chosen when UsesAlwaysBreak is False AND the joined form
-//   fits within MaxLen AND no `in 'path'` items appear):
+//   fits within MaxLen AND no `in 'path'` items AND no comments appear):
 //       uses System.SysUtils, System.Classes;
 //
 //   Broken (default; chosen otherwise):
@@ -4431,18 +4601,21 @@ end; // function
 // The broken form uses comma-first style at column (BaseCol + Indent),
 // with the closing semicolon on its own line at the same column. This
 // makes diffs cleaner when units are added/removed -- the line being
-// added is a complete row including its comma.
+// added is a complete row including its comma. Comments inside the
+// clause are kept, laid out by AppendUsesItem.
 function RenderUsesGroup(const ATokens: TTokenList; G: TGroup; const AOpts: TYadfOptions): string;
 var
-  BaseCol  : Integer       ;
-  HasIn    : Boolean       ;
-  i        : Integer       ;
-  Indent   : string        ;
-  InlineLen: Integer       ;
-  Items    : TArray<string>;
-  Joined   : string        ;
-  OpenTok  : TToken        ;
-  Sb       : TStringBuilder;
+  BaseCol   : Integer         ;
+  HasComment: Boolean         ;
+  HasIn     : Boolean         ;
+  i         : Integer         ;
+  Indent    : string          ;
+  InlineLen : Integer         ;
+  Items     : TArray<TUsesItem>;
+  Joined    : string          ;
+  k         : Integer         ;
+  OpenTok   : TToken          ;
+  Sb        : TStringBuilder  ;
 begin
   OpenTok:= ATokens[G.OpenIdx];
   Items:= CollectUsesItems(ATokens, G.OpenIdx + 1, G.CloseIdx - 1, HasIn);
@@ -4451,16 +4624,21 @@ begin
 
   BaseCol:= ColumnFromPre(OpenTok.Pre);
 
-  Joined:= '';
+  Joined    := '';
+  HasComment:= False;
   for i:= 0 to High(Items) do
   begin
     if i > 0 then
       Joined:= Joined + ', ';  // dl:ok concat-in-loop@809a
-    Joined:= Joined + Items[i];  // dl:ok concat-in-loop@db9c
+    for k:= 0 to High(Items[i]) do
+      if Items[i][k].IsComment then
+        HasComment:= True
+      else
+        Joined:= Joined + Items[i][k].Text;  // dl:ok concat-in-loop@8fd0
   end;
   InlineLen:= BaseCol + Length(OpenTok.Text) + 1 + Length(Joined) + 1;
 
-  if (not AOpts.UsesAlwaysBreak) and (InlineLen <= AOpts.MaxLen) and (not HasIn) then
+  if (not AOpts.UsesAlwaysBreak) and (InlineLen <= AOpts.MaxLen) and (not HasIn) and (not HasComment) then
     Exit(OpenTok.Pre + OpenTok.Text + ' ' + Joined + ';');
 
   Indent:= StringOfChar(' ', BaseCol + AOpts.Indent);
@@ -4475,32 +4653,30 @@ begin
       //     uses
       //       System.SysUtils,
       //       System.Classes;
-      for i:= 0 to High(Items) do
+      // Exception: when the last unit is followed by a comment on a line of
+      // its own (a commented-out `// Unit,`), the ';' goes on its own line
+      // after it, so the comment stays INSIDE the clause and is not pushed
+      // past the ';' into whatever section follows.
+      for i:= 0 to High(Items) - 1 do
+        AppendUsesItem(Sb, Items[i], Indent, '', ',');
+      if HasOwnLineTailComment(Items[High(Items)]) then
       begin
+        AppendUsesItem(Sb, Items[High(Items)], Indent, '', '');
         Sb.Append(CRLF  );
         Sb.Append(Indent);
-        Sb.Append(Items[i]);
-        if i < High(Items) then
-          Sb.Append(',')
-        else
-          Sb.Append(';');
-      end;
+        Sb.Append(';'   );
+      end
+      else
+        AppendUsesItem(Sb, Items[High(Items)], Indent, '', ';');
     end // if
     else
     begin
       // Comma-FIRST (default): leading comma per unit, ';' on its own line.
       for i:= 0 to High(Items) do
-      begin
-        Sb.Append(CRLF  );
-        Sb.Append(Indent);
         if i = 0 then
-          Sb.Append(Items[i])
+          AppendUsesItem(Sb, Items[i], Indent, '', '')
         else
-        begin
-          Sb.Append(', ');
-          Sb.Append(Items[i]);
-        end;
-      end; // for
+          AppendUsesItem(Sb, Items[i], Indent, ', ', '');
       Sb.Append(CRLF  );
       Sb.Append(Indent);
       Sb.Append(';'   );

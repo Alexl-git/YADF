@@ -1,0 +1,25 @@
+unit uses_comments;
+
+// Regression (2026-10-13, ORM3 BASICS.PAS): comments inside a uses clause
+// gained two spaces of indent on every format, and made the comma-last and
+// inline styles corrupt the clause (guard declined the whole file).
+
+interface
+
+uses
+  Winapi.Windows
+  //  , Winapi.ShellAPI
+  //  , Winapi.ShlObj
+  , System.Classes
+  , System.Win.Registry // for the registry read access
+  , Vcl.Graphics
+  , System.Math //stList,
+  //stNVList,
+  , System.SysUtils
+  , System.IniFiles
+  // MachineControlObject_TLB,
+  ;
+
+implementation
+
+end.
