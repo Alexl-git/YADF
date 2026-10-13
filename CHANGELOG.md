@@ -1,10 +1,10 @@
 # Changelog
 
 All notable changes to YADF (and the YADFOT IDE wizard, which shares
-the same engine) are recorded here. Versions track the build counter
-stamped into `YADF.exe` (`1.0.1.<build>`; the fourth field is the
-auto-incrementing build number). Entries below `1.0.1.16` predate the
-scheme correction and keep their original `1.0.0.x` headings.
+the same engine) are recorded here. The version scheme is `1.0.PATCH.0`
+where PATCH increments on each release; the fourth field is always 0
+and is reserved for future per-platform builds. Entries below `1.0.1.16`
+predate the scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 

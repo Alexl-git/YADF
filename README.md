@@ -104,6 +104,12 @@ YADFOT is a design-time Delphi IDE package, built for **both Win32 and Win64**
 
 The release zip ships both, renamed `YADFOT-Win32.bpl` / `YADFOT-Win64.bpl`.
 
+### Prerequisites
+
+Before building, **ensure the sibling `DelphiAST` repository is available with the
+required patches**. See [`.private/BUILD.md`](.private/BUILD.md) for setup instructions.
+This is a one-time step; the delphiAST working copy is then reused for all YADF rebuilds.
+
 ### From the IDE
 
 1. Open `YADFOT.dproj` in Delphi 13.
@@ -116,9 +122,17 @@ The wizard registers itself on package load -- no IDE restart needed.
 
 ### From the command line
 
+For a full release build (all platforms, all artifacts):
+
+```cmd
+build_all.bat
+```
+
+Or to build a single artifact (e.g., YADFOT Win64 Release):
+
 ```cmd
 cmd.exe /c "call \"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat\" ^
-        && msbuild /t:Build /p:Config=Release /p:Platform=Win32 YADFOT.dproj"
+        && msbuild /t:Build /p:Config=Release /p:Platform=Win64 YADFOT.dproj"
 ```
 
 Then install via the IDE (step 4 above).

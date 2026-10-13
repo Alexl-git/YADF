@@ -87,3 +87,6 @@ lint-report-*.txt
 
 # Cross-project INBOX notes and replies (kept local, like .private/)
 INBOX-*.md
+YADF.res
+YADFOT.res
+YADFSetup.res
