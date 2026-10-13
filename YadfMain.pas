@@ -219,8 +219,10 @@ var
 
 function LogFilePath: string;
 begin
+  // %APPDATA%\YADF (Roaming), beside yadf.ini -- NOT beside the exe, which is
+  // read-only once installed under Program Files. LogMsg creates the folder.
   if GLogPath = '' then
-    GLogPath:= TPath.Combine(ExtractFilePath(ParamStr(0)), 'yadf-startup.log');
+    GLogPath:= TPath.Combine(ProfilesDir, 'yadf-startup.log');
   Result:= GLogPath;
 end;
 
@@ -233,6 +235,7 @@ begin
   Line:= FormatDateTime('hh:nn:ss.zzz ', Now) + S;
   OutputDebugString(PChar('[YADF] ' + Line));  // dl:ok outputdebugstring@70fb
   try
+    ForceDirectories(ExtractFilePath(LogFilePath));
     TFile.AppendAllText(LogFilePath, Line + sLineBreak, TEncoding.ANSI);
   except
     on E: Exception do
@@ -867,7 +870,7 @@ begin
   WriteStdoutLine('  --ini <file>          explicit INI file (overrides the F profile below)'            );
   WriteStdoutLine('                          default: the F profile named in %APPDATA%\YADF\profiles.ini');
   WriteStdoutLine('                          (F=yadf.ini out of the box; created on first run if absent)');
-  WriteStdoutLine(Format('  --log / --no-log      write yadf-startup.log next to the exe + OutputDebugString  [Logging=%s]', [OnOff(AOpts.Logging)]));
+  WriteStdoutLine(Format('  --log / --no-log      append %%APPDATA%%\YADF\yadf-startup.log + OutputDebugString  [Logging=%s]', [OnOff(AOpts.Logging)]));
   WriteStdoutLine(Format('  --d10 / --no-d10      downgrade inline vars for Delphi 10.2.3 (best-effort)        [Delphi10Compat=%s]', [OnOff(AOpts.Delphi10Compat)]));
   WriteStdoutLine(''                              );
   WriteStdoutLine('Layout (current values in []):');

@@ -14,10 +14,8 @@ if (-not (Test-Path $exe)) {
   Write-Error "YADFSetup.exe not found under Win64\Release or Win64\Debug -- run build_all.bat"; exit 1
 }
 
-# ensure the sample is reachable next to the exe
-$sampleSrc = Join-Path $PSScriptRoot '..\Demo\Sample.pas'
-$sampleDst = Join-Path (Split-Path $exe) 'Sample.pas'
-if (Test-Path $sampleSrc) { Copy-Item $sampleSrc $sampleDst -Force }
+# No Sample.pas is copied beside the exe: the preview seeds
+# %APPDATA%\YADF\Sample.pas from the embedded YADF_SAMPLE resource.
 
 $p = Start-Process -FilePath $exe -PassThru
 Start-Sleep -Seconds 3

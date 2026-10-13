@@ -8,6 +8,20 @@ predate the scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+
+- **Nothing is written or read beside the binaries any more**, so YADF runs
+  from a read-only install folder (Program Files):
+  - `--log` appends to `%APPDATA%\YADF\yadf-startup.log` (Roaming, beside
+    `yadf.ini`) instead of beside `YADF.exe`, where an installed copy could
+    not write.
+  - The Options-page / YADFSetup preview demo is embedded in YADFOT.bpl and
+    YADFSetup.exe (`YADFSample.rc`). On first use it is written once to
+    `%APPDATA%\YADF\Sample.pas` -- one per-user copy, editable, re-seeded if
+    deleted. `Sample.pas` no longer ships beside the exe/bpl.
+
 ## [1.0.18.0] - 2026-10-13
 
 ### Fixed

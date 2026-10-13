@@ -29,11 +29,13 @@ what you change here is what `YADF.exe` and `YADFOT.bpl` use.
 ### Setup
 
 1. **Get the binary.** Download `YADFSetup.exe` from the release zip (alongside
-   `YADF.exe`, `YADFOT.bpl`, and `Demo\Sample.pas`), or build it yourself
+   `YADF.exe` and `YADFOT.bpl`), or build it yourself
    (see [Building](#building)).
-2. **No installation required.** It is a standalone Win32 executable — just run
-   it. Keep `Demo\Sample.pas` next to it (or in a `Demo\` subfolder) and it
-   auto-loads on first launch so you immediately see formatting at work.
+2. **No installation required.** It is a standalone Win64 executable — just run
+   it. The demo unit (`Demo\Sample.pas`) is built into it: on first launch it is
+   written to `%APPDATA%\YADF\Sample.pas` and loaded, so you immediately see
+   formatting at work. Edit that file to preview your own code; delete it to get
+   the shipped demo back.
 3. **First run creates the config.** If no `yadf.ini` exists yet, YADFSetup
    writes a fully-commented one to `%APPDATA%\YADF\yadf.ini` and starts editing
    it (see [Where the INI lives](#where-the-ini-lives)).
@@ -521,7 +523,7 @@ YADF\
   YADFSetup.dpr/.dproj  settings-editor GUI project
   YADFOT.Wizard.pas     IDE wizard (ToolsAPI + buffer I/O + INI loader)
   YADFOT.dpk / .dproj   IDE design-time package
-  Demo\Sample.pas       feature-demonstration unit (auto-loaded by YADFSetup)
+  Demo\Sample.pas       preview demo unit (embedded via YADFSample.rc -> .RES)
   build_all.bat         builds all 3 artifacts with one version stamp
   yadf.ini              shared CLI + wizard + GUI config (optional)
 ```

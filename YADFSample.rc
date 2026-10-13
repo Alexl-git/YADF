@@ -1,0 +1,5 @@
+// Embeds Demo\Sample.pas (the Options-page live-preview source) as RCDATA.
+// YADF.OptionsFrame seeds %APPDATA%\YADF\Sample.pas from it on first use, so no
+// copy ships beside YADFOT.bpl / YADFSetup.exe. Rebuild after editing the demo:
+//   brcc32 YADFSample.rc   (Test\test_sample_resource.ps1 catches drift)
+YADF_SAMPLE RCDATA "Demo\\Sample.pas"

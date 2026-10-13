@@ -267,17 +267,25 @@ type
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure Reformat;
+      /// <summary>Fill the Source memo from %APPDATA%\YADF\Sample.pas, seeding that
+      /// file from the embedded YADF_SAMPLE resource (Demo\Sample.pas) when absent.</summary>
       /// <remarks>
+      /// Single per-user copy: nothing is read from beside the host module
+      /// (YADFOT.bpl / YADFSetup.exe), so an install under Program Files needs no
+      /// sample file. An existing copy is never overwritten -- the user may edit it;
+      /// deleting it re-seeds the shipped demo. If the seed cannot be written the
+      /// memo is filled straight from the resource.
       /// <!-- drag-lint:auto BEGIN -->
-      /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas)
-      /// Calls: ExtractFileName, ExtractFilePath, GetModuleName
-      /// Reads: FSource, FSourceName
-      /// Touches: file system
+      /// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas)</para>
+      /// <para>Calls: ForceDirectories, YADF.Options.ProfilesDir</para>
+      /// <para>Reads: FSource, FSourceName</para>
+      /// <para>Catches: Exception (swallowed)</para>
+      /// <para>Touches: file system</para>
+      /// <seealso cref="YADF.Options.ProfilesDir"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure LoadSample;
@@ -650,6 +658,11 @@ implementation
   YADF.OptionsFrame.dfm supplies a bare streamable root object
   (Left/Top/Width/Height only); the real controls are code-built below. }
 {$R *.dfm}
+
+// Demo\Sample.pas as RCDATA 'YADF_SAMPLE' (YADFSample.rc -> YADFSample.RES via
+// brcc32; committed, not rebuilt by msbuild -- Test\test_sample_resource.ps1
+// fails when it drifts from the demo). Seeds %APPDATA%\YADF\Sample.pas.
+{$R 'YADFSample.res'}
 
 // Source-side version constant. Used ONLY as a cross-check against the running
 // binary's own FileVersion in BuildBanner -- never as the headline.
@@ -1544,31 +1557,35 @@ begin
 end;
 
 procedure TYadfOptionsFrame.LoadSample;
-const
-  // Built-in fallback so the preview always shows something even when no
-  // Sample.pas is found next to the host module. Deliberately "ugly" so the
-  // formatter has visible work to do.
-  FALLBACK = 'unit Sample;'#13#10 + 'interface'#13#10 + 'type TFoo=record A:Integer;B:string; end;'#13#10 + 'const K=1;LongName=2;'#13#10 + 'procedure Go(X:Integer);'#13#10 +
-  'implementation'#13#10 + 'procedure Go(X:Integer);begin if X>0 then Inc(X) else Dec(X); end;'#13#10 + 'end.'#13#10;
 var
-  Base: string        ;
-  Cand: TArray<string>;
-  i   : Integer       ;
+  Path: string         ;
+  Res : TResourceStream;
 begin
-  // Try a bundled Demo\Sample.pas relative to a few plausible roots -- the
-  // host module's dir (YADFSetup.exe or YADFOT.bpl) and its build-tree
-  // parents. If none is present, fall back to the built-in snippet above.
-  Base:= ExtractFilePath(GetModuleName(HInstance));
-  Cand:= [ Base + 'Sample.pas', Base + 'Demo\Sample.pas', Base + '..\..\..\Demo\Sample.pas' ];
-  for i:= 0 to High(Cand) do
-    if TFile.Exists(Cand[i]) then
-    begin
-      FSource.Lines.LoadFromFile(Cand[i]);
-      FSourceName.Caption:= 'file: ' + ExtractFileName(Cand[i]);
-      Exit;
+  Path:= TPath.Combine(ProfilesDir, 'Sample.pas');
+  if not TFile.Exists(Path) then
+  begin
+    Res:= TResourceStream.Create(HInstance, 'YADF_SAMPLE', RT_RCDATA);
+    try
+      try
+        ForceDirectories(ProfilesDir);
+        Res.SaveToFile(Path);
+      except
+        on E: Exception do
+        begin
+          // Seed failed (read-only profile, locked folder): show the embedded
+          // demo anyway and say where it came from.
+          Res.Position:= 0;
+          FSource.Lines.LoadFromStream(Res);
+          FSourceName.Caption:= 'sample (built-in; ' + E.Message + ')';
+          Exit;
+        end;
+      end;
+    finally
+      Res.Free;
     end;
-  FSource    .Text   := FALLBACK;
-  FSourceName.Caption:= 'sample (built-in)';
+  end;
+  FSource.Lines.LoadFromFile(Path);
+  FSourceName.Caption:= 'file: ' + Path;
 end; // procedure
 
 { ==================== lifecycle ==================== }
