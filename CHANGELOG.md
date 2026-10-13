@@ -8,6 +8,42 @@ scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.18.0] - 2026-10-13
+
+### Fixed
+
+- **A distinct-type alias stays on one line.** `UTF8String = type AnsiString;`
+  was rendered as `UTF8String = type` / `AnsiString;`. The indent engine took
+  every `type` for the start of a type section, including the `type` of an
+  alias, so it broke the line after it and opened a phantom section that also
+  pushed the following section one level right. A `type` that follows `=` no
+  longer opens a section.
+- **`resourcestring` and `threadvar` are section keywords.** They used to be
+  indented under the section before them, with their first entry merged onto
+  the keyword line (`  resourcestring SDotStar = '.*';`). They now sit at the
+  same column as `const` / `var`, entries one level in.
+- **Comments inside a `uses` clause no longer drift right.** A comment line in
+  a `uses` clause (a commented-out `//, Winapi.ShellAPI`, or a unit on the line
+  after `, // reason`) gained two spaces of indent on every format, so a file
+  formatted repeatedly crept further right each time. Comments are now laid out
+  level with the unit lines, a comment written after a comma stays with the
+  unit it describes, and the output is stable on a second format:
+
+  ```pascal
+  uses
+    Winapi.Windows
+    //, Winapi.ShellAPI
+    , System.Win.Registry // for the registry read access
+    , Vcl.Graphics
+    ;
+  ```
+
+- **`UsesCommaLast` and inline `uses` handle comments.** With either style, a
+  comment anywhere in a `uses` clause made the safety guard decline the whole
+  file (it detected that a `//` comment would swallow a separator). Separators
+  are now written before any trailing comment, and a clause holding comments is
+  never joined onto one line.
+
 ## [1.0.17.0] - 2026-09-10
 
 ### Fixed
