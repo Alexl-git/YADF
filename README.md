@@ -108,9 +108,9 @@ The release zip ships both, renamed `YADFOT-Win32.bpl` / `YADFOT-Win64.bpl`.
 
 ### Prerequisites
 
-Before building, **ensure the sibling `DelphiAST` repository is available with the
-required patches**. See [`.private/BUILD.md`](.private/BUILD.md) for setup instructions.
-This is a one-time step; the delphiAST working copy is then reused for all YADF rebuilds.
+YADF builds from a plain clone -- nothing else to check out. The DelphiAST lexer
+it depends on is vendored in [`vendor/DelphiAST/`](vendor/DelphiAST/VENDORED.md)
+together with the two local fixes it needs.
 
 ### From the IDE
 
@@ -432,46 +432,20 @@ order — see [YADFOT install](#yadfot-install) above.
 ## Building
 
 Requires Delphi 13 (RAD Studio 37.0). Depends on
-[DelphiAST](https://github.com/RomanYankovsky/DelphiAST) for its lexer; the
-project files expect DelphiAST checked out at `..\DelphiAST` relative to YADF.
+[DelphiAST](https://github.com/RomanYankovsky/DelphiAST) for its lexer only, which
+is **vendored** in `vendor\DelphiAST\` (the three lexer files + its MPL 2.0
+license) -- a fresh clone builds with no sibling checkout.
 
-> **Note — temporary local fixup in our DelphiAST copy.** We don't control
-> DelphiAST, and upstream has a known multi-line string (`'''`) lexing bug.
-> Our working copy carries the pending one-line fix from
-> [DelphiAST PR #337](https://github.com/RomanYankovsky/DelphiAST/pull/337)
-> (by Uwe Raabe). Until that PR is merged upstream, apply the same change
-> after cloning, or Delphi 12+ triple-quoted multi-line strings may be
-> mis-lexed. In `Source\SimpleParser\SimpleParser.Lexer.pas` (~line 2365,
-> inside the multi-line string scan loop), move `Inc(FBuffer.Run);` from
-> AFTER the inner `case`'s `end;` to INSIDE it, as the last statement:
->
-> ```diff
->          else
->            if NewLine and (FBuffer.Buf[FBuffer.Run] <> #9) and (FBuffer.Buf[FBuffer.Run] <> #32) then
->              NewLine := False;
-> +         Inc(FBuffer.Run);
->        end;
-> -     Inc(FBuffer.Run);
->      until False;
-> ```
+The vendored copy carries two fixes that are not in upstream master yet:
 
-> **Note — second local fixup: `unsafe` is a directive, not a keyword.** Our
-> working copy also carries the one-word fix from
-> [DelphiAST PR #346](https://github.com/RomanYankovsky/DelphiAST/pull/346).
-> Upstream's `Func66` returns `ptUnsafe` as the token *kind*, so the lexer
-> reports a plain identifier spelled `Unsafe` as a reserved word and YADF's
-> `LowercaseKeywords` pass rewrites it to `unsafe`. Peer directives (`Virtual`,
-> `Overload`, `Static`) are ExIDs and were never affected. Until the PR is
-> merged, apply the same change after cloning — in
-> `Source\SimpleParser\SimpleParser.Lexer.pas`, `Func66`:
->
-> ```diff
-> -      if KeyComp('Unsafe') then Result := ptUnsafe;
-> +      if KeyComp('Unsafe') then FExID := ptUnsafe;
-> ```
->
-> Without it, YADF still formats correctly in every other respect; only the
-> casing of an identifier named `Unsafe` differs.
+- [PR #337](https://github.com/RomanYankovsky/DelphiAST/pull/337) (Uwe Raabe):
+  Delphi 12+ triple-quoted multi-line strings were mis-lexed.
+- The `unsafe` fix from [PR #346](https://github.com/RomanYankovsky/DelphiAST/pull/346):
+  `unsafe` is a directive, not a reserved word, so an identifier named `Unsafe`
+  keeps its casing.
+
+Provenance (upstream base, local commits) and how to refresh the copy are in
+[`vendor/DelphiAST/VENDORED.md`](vendor/DelphiAST/VENDORED.md).
 
 Build the CLI:
 
@@ -550,12 +524,8 @@ lexer (`SimpleParser.Lexer`) handles all token-level details including modern
 Delphi syntax (multi-line strings, inline vars, generic constraints, etc.) and
 made this project possible.
 
-To build YADF from source you'll need DelphiAST checked out alongside this
-repo — clone it from
-[RomanYankovsky/DelphiAST](https://github.com/RomanYankovsky/DelphiAST), then
-apply the one-line multi-line-string lexer fixup described in
-[Building](#building) (pending upstream
-[PR #337](https://github.com/RomanYankovsky/DelphiAST/pull/337)).
+Its lexer is vendored in `vendor\DelphiAST\`, so building YADF from source needs
+no separate DelphiAST checkout.
 
 DelphiAST is Copyright (c) 2014-2020 Roman Yankovsky (roman@yankovsky.me) et
 al, released under the Mozilla Public License v2.0.

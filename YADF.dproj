@@ -52,7 +52,7 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
-        <DCC_UnitSearchPath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\DelphiAST\Source;$(MSBuildProjectDirectory)\..\DelphiAST\Source\SimpleParser;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\vendor\DelphiAST\Source\SimpleParser;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_DcuOutput>.\$(Platform)\$(Config)\DCU</DCC_DcuOutput>
         <DCC_ExeOutput>.\$(Platform)\$(Config)\EXE</DCC_ExeOutput>
         <DCC_E>false</DCC_E>
@@ -138,8 +138,8 @@
         <DCCReference Include="YADF.Layout.pas"/>
         <DCCReference Include="YADF.Debug.pas"/>
         <DCCReference Include="YadfMain.pas"/>
-        <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas"/>
-        <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas"/>
+        <DCCReference Include="vendor\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas"/>
+        <DCCReference Include="vendor\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

@@ -29,7 +29,7 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
-        <DCC_UnitSearchPath>..\..\DelphiAST\Source;..\..\DelphiAST\Source\SimpleParser;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>..\vendor\DelphiAST\Source\SimpleParser;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_DcuOutput>.\$(Platform)\$(Config)\DCU</DCC_DcuOutput>
         <DCC_ExeOutput>.\$(Platform)\$(Config)\EXE</DCC_ExeOutput>
         <DCC_ConsoleTarget>true</DCC_ConsoleTarget>

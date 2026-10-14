@@ -46,7 +46,7 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
-        <DCC_UnitSearchPath>..\DelphiAST\Source;..\DelphiAST\Source\SimpleParser;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>vendor\DelphiAST\Source\SimpleParser;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_DcuOutput>.\$(Platform)\$(Config)\DCU</DCC_DcuOutput>
         <!-- Emit the .dcp into the project tree, platform-split (like the DCU/BPL
              outputs), NOT the shared $(BDSCOMMONDIR)\Dcp. The shared folder is
@@ -139,8 +139,8 @@
         <DCCReference Include="YADF.Guard.pas"/>
         <DCCReference Include="YADF.LineScan.pas"/>
         <DCCReference Include="YADF.Layout.pas"/>
-        <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas"/>
-        <DCCReference Include="..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas"/>
+        <DCCReference Include="vendor\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas"/>
+        <DCCReference Include="vendor\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

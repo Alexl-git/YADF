@@ -20,8 +20,8 @@ program YADF;
 
 uses
   System.SysUtils,
-  SimpleParser.Lexer in '..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas',
-  SimpleParser.Lexer.Types in '..\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas',
+  SimpleParser.Lexer in 'vendor\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.pas',
+  SimpleParser.Lexer.Types in 'vendor\DelphiAST\Source\SimpleParser\SimpleParser.Lexer.Types.pas',
   YADF.Tokens,
   YADF.Options,
   YADF.Groups,

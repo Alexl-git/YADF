@@ -22,6 +22,14 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
     `%APPDATA%\YADF\Sample.pas` -- one per-user copy, editable, re-seeded if
     deleted. `Sample.pas` no longer ships beside the exe/bpl.
 
+### Build
+
+- **A fresh clone now builds.** The DelphiAST lexer (three files + MPL 2.0
+  license) is vendored in `vendor\DelphiAST\`, including the two fixes still
+  pending upstream (PR #337 multi-line strings, PR #346 `unsafe`). The project
+  files no longer reference a sibling `..\DelphiAST` checkout. Provenance and
+  the refresh procedure: `vendor\DelphiAST\VENDORED.md`.
+
 ## [1.0.18.0] - 2026-10-13
 
 ### Fixed
