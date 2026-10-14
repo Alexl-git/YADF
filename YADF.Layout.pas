@@ -471,8 +471,94 @@ end; // procedure
 // Each rule is independent; they're applied as separate passes for
 // clarity, not performance. The IsLiteralKind block-list keeps us
 // from accidentally lowercasing string contents, comments, etc.
+// Token positions whose SPELLING reaches the binary, so FirstOccCasing must
+// leave them exactly as written (review 2026-10-14, reviewer 1):
+//   * an enum member at its declaration (`TColor = (Red, Green)`) -- RTTI /
+//     GetEnumName return the declared spelling;
+//   * the name of an `external` routine with no `name` clause -- the import
+//     is resolved by that exact spelling at load time, so re-casing it to an
+//     earlier same-named identifier made the exe fail with "entry point not
+//     found" while still compiling and linking.
+// Every OTHER occurrence (call sites, uses) is still normalised.
+function SpellingSensitiveIdents(const ATokens: TTokenList): TArray<Boolean>;
+const
+  Skip = [ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment];
+var
+  i, j, Depth: Integer;
+  ExpectName : Boolean;
+  HasName    : Boolean;
+
+  function IsKind(AIdx: Integer; AKind: TptTokenKind): Boolean;
+  begin
+    Result:= (ATokens[AIdx].Kind = AKind) or (ATokens[AIdx].ExID = AKind);
+  end;
+
+begin
+  SetLength(Result, ATokens.Count);
+  for i:= 0 to ATokens.Count - 1 do
+  begin
+    // Enumerated type: `= (` followed by names at paren depth 0.
+    if ATokens[i].Kind = ptRoundOpen then
+    begin
+      j:= i - 1;
+      while (j >= 0) and (ATokens[j].Kind in Skip) do
+        Dec(j);
+      if (j >= 0) and (ATokens[j].Kind = ptEqual) then
+      begin
+        ExpectName:= True;
+        Depth     := 0;
+        j         := i + 1;
+        while j < ATokens.Count do
+        begin
+          if not (ATokens[j].Kind in Skip) then
+            case ATokens[j].Kind of
+              ptRoundOpen : Inc(Depth);
+              ptRoundClose: if Depth = 0 then Break else Dec(Depth);
+              ptComma     : ExpectName:= Depth = 0;
+              ptSemiColon : Break;
+              else
+              begin
+                if (Depth = 0) and ExpectName and (ATokens[j].Kind = ptIdentifier) then
+                  Result[j]:= True;
+                ExpectName:= False;
+              end;
+            end; // case
+          Inc(j);
+        end; // while
+      end; // if
+    end; // if
+    // `external` without `name`: pin the routine's own name.
+    if IsKind(i, ptExternal) then
+    begin
+      HasName:= False;
+      j:= i + 1;
+      while (j < ATokens.Count) and (ATokens[j].Kind <> ptSemiColon) do
+      begin
+        if IsKind(j, ptName) then
+          HasName:= True;
+        Inc(j);
+      end;
+      if not HasName then
+      begin
+        j:= i - 1;
+        while (j >= 0) and not (ATokens[j].Kind in [ptProcedure, ptFunction, ptBegin, ptEnd, ptImplementation, ptInterface]) do
+          Dec(j);
+        if (j >= 0) and (ATokens[j].Kind in [ptProcedure, ptFunction]) then
+        begin
+          Inc(j);
+          while (j < i) and (ATokens[j].Kind in Skip) do
+            Inc(j);
+          if (j < i) and (ATokens[j].Kind = ptIdentifier) then
+            Result[j]:= True;
+        end;
+      end; // if
+    end; // if
+  end; // for
+end; // function
+
 procedure ApplyCapitalization(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@38d5
 var
+  Pinned       : TArray<Boolean>            ;
   Existing     : string                     ;
   FirstMap     : TDictionary<string, string>;
   i            : Integer                    ;
@@ -521,6 +607,7 @@ begin
 
   if AOpts.FirstOccCasing then
   begin
+    Pinned:= SpellingSensitiveIdents(ATokens);
     FirstMap:= TDictionary<string, string>.Create;
     try
       for i:= 0 to ATokens.Count - 1 do
@@ -536,7 +623,7 @@ begin
       for i:= 0 to ATokens.Count - 1 do
       begin
         T:= ATokens[i];
-        if (T.Kind = ptIdentifier) and (T.Text <> '') then
+        if (T.Kind = ptIdentifier) and (T.Text <> '') and not Pinned[i] then
         begin
           Key:= LowerCase(T.Text);
           if FirstMap.TryGetValue(Key, Existing) then
@@ -1253,6 +1340,12 @@ begin
           // leave such lines alone.
           if St.InBlockComment then
             DoSplit:= False;
+          // A compiler DIRECTIVE in the tail (`I, J: Integer; {$IFDEF X}`) is
+          // not a comment: riding it on the first split line moves the other
+          // names across the conditional boundary (J became conditional ->
+          // E2003 when X is undefined). Leave such lines alone.
+          if (Pos('{$', Tail) > 0) or (Pos('(*$', Tail) > 0) then
+            DoSplit:= False;
           if HasComma and (TypePart <> '') and DoSplit then
           begin
             NameTokens:= Names.Split([','], TStringSplitOptions.ExcludeEmpty);
@@ -1573,7 +1666,11 @@ var
   Lex  : TmwPasLex          ;
   Shape: TList<TptTokenKind>;
   Tok  : TptTokenKind       ;
+  Prev : string             ; // text of the token just before Tok (spaces included)
+  PrevK: TptTokenKind       ;
 begin
+  Prev := '';
+  PrevK:= ptUnknown;
   Result.HasAssign:= False;
   SetLength(Result.Shape, 0);
   SetLength(Result.Cols , 0);
@@ -1587,12 +1684,21 @@ begin
       Tok:= Lex.TokenID;
       if Tok = ptAssign then
         Result.HasAssign:= True;
+      // The line is re-lexed in isolation, so `1E-9` arrives as `1E` `-` `9`.
+      // That sign is part of the number, not an anchor: padding before it
+      // produced `1E   -9` (E2053). Same leading-digit rule as
+      // NormalizeOperatorSpacing (`$5E - 16` is a real subtraction).
+      if (Tok in [ptPlus, ptMinus]) and (PrevK in [ptFloat, ptIntegerConst]) and (Prev <> '') and CharInSet(Prev[1], ['0'..'9'])
+        and CharInSet(Prev[Length(Prev)], ['E', 'e']) then
+        Tok:= ptFloat; // treat as part of the literal: not a shape anchor
       if not (Tok in [ ptSpace, ptCRLF, ptCRLFCo, ptIdentifier, ptStringConst, ptStringDQConst, ptIntegerConst, ptFloat, ptAsciiChar, ptAnsiComment, ptBorComment,
           ptSlashesComment]) then
       begin
         Shape.Add(Tok);
         Cols.Add(Lex.PosXY.X);
       end;
+      Prev := Lex.Token;
+      PrevK:= Lex.TokenID;
       Lex.Next;
     end;
     Result.Shape:= Shape.ToArray;

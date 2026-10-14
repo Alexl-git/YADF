@@ -14,8 +14,8 @@ const
   // no-decimal mantissa: lexer splits 5E-16 into '5' 'E' '-' '16'
   MachineEpsilon = 5E-16;
   MaxRealNumber  = 1E300;
-  MinRealNumber = 1E-300;
-  Tiny          = 1E-12;
+  MinRealNumber  = 1E-300;
+  Tiny           = 1E-12;
   Big            = 2E+5;
 
 implementation

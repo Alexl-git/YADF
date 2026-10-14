@@ -75,6 +75,19 @@ if ($incOut) {
   }
 }
 
+# ---- review_r1_semantics: exponent alignment, directive tail on a split,
+#      casing of external imports / enum members (all default settings) ----
+$r1Out = Format-Case 'review_r1_semantics.pas'
+if ($r1Out) {
+  $txt = [IO.File]::ReadAllText($r1Out)
+  if ($txt -notmatch 'Eps:=\s*1E-9;')  { Fail 'review_corruption: signed exponent 1E-9 was split' }
+  if ($txt -cnotmatch 'function GetTickCount\b') { Fail 'review_corruption: external import GetTickCount was re-cased (load-time entry point)' }
+  if ($txt -cnotmatch 'TColor\s*=\s*\(Red, Green\)') { Fail 'review_corruption: enum member Red was re-cased (RTTI name)' }
+  if (Test-Path (Join-Path $bin 'dcc64.exe')) {
+    if (-not (Compiles 'dcc64' $r1Out)) { Fail 'review_corruption: formatted review_r1_semantics.pas does not compile with dcc64' }
+  }
+}
+
 # ---- NUL byte: the lexer stops at #0, so everything after it used to vanish
 # (83 -> 38 bytes, "wrote", exit 0). Now the file must be left byte-identical.
 $nulDir = Join-Path $env:TEMP ("revcorr_" + [guid]::NewGuid().ToString('N'))

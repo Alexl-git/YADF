@@ -1557,35 +1557,64 @@ begin
 end;
 
 procedure TYadfOptionsFrame.LoadSample;
+const
+  // The user may replace Sample.pas with anything; a huge file would hang the
+  // IDE's Options dialog (it is loaded into a memo AND formatted on open).
+  MAX_SAMPLE_BYTES = 256 * 1024;
 var
-  Path: string         ;
-  Res : TResourceStream;
-begin
-  Path:= TPath.Combine(ProfilesDir, 'Sample.pas');
-  if not TFile.Exists(Path) then
+  Path: string;
+
+  // The embedded demo, straight from the resource. Never raises: this runs
+  // inside the IDE's Options-dialog construction (review 2026-10-14, #8).
+  procedure LoadBuiltIn(const AWhy: string);
+  var
+    Res: TResourceStream;
+  begin
+    try
+      Res:= TResourceStream.Create(HInstance, 'YADF_SAMPLE', RT_RCDATA);
+      try
+        FSource.Lines.LoadFromStream(Res);
+      finally
+        Res.Free;
+      end;
+    except
+      on E: Exception do
+        FSource.Text:= '// YADF preview sample unavailable: ' + E.Message;
+    end;
+    FSourceName.Caption:= 'sample (built-in; ' + AWhy + ')';
+  end;
+
+  procedure SeedFromResource;
+  var
+    Res: TResourceStream;
   begin
     Res:= TResourceStream.Create(HInstance, 'YADF_SAMPLE', RT_RCDATA);
     try
-      try
-        ForceDirectories(ProfilesDir);
-        Res.SaveToFile(Path);
-      except
-        on E: Exception do
-        begin
-          // Seed failed (read-only profile, locked folder): show the embedded
-          // demo anyway and say where it came from.
-          Res.Position:= 0;
-          FSource.Lines.LoadFromStream(Res);
-          FSourceName.Caption:= 'sample (built-in; ' + E.Message + ')';
-          Exit;
-        end;
-      end;
+      ForceDirectories(ProfilesDir);
+      Res.SaveToFile(Path);
     finally
       Res.Free;
     end;
   end;
-  FSource.Lines.LoadFromFile(Path);
-  FSourceName.Caption:= 'file: ' + Path;
+
+begin
+  Path:= TPath.Combine(ProfilesDir, 'Sample.pas');
+  try
+    if not TFile.Exists(Path) then
+      SeedFromResource;
+    if TFile.GetSize(Path) > MAX_SAMPLE_BYTES then
+    begin
+      LoadBuiltIn(ExtractFileName(Path) + ' is larger than 256 KB');
+      Exit;
+    end;
+    FSource.Lines.LoadFromFile(Path);
+    FSourceName.Caption:= 'file: ' + Path;
+  except
+    on E: Exception do
+      // Unwritable profile folder, locked or unreadable Sample.pas: show the
+      // embedded demo and say why.
+      LoadBuiltIn(E.Message);
+  end;
 end; // procedure
 
 { ==================== lifecycle ==================== }

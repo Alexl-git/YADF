@@ -1,0 +1,48 @@
+unit review_r1_semantics;
+
+// Regression fixture (review 2026-10-14, reviewer 1): three default-settings
+// rewrites that changed meaning.
+//  * a signed exponent (1E-9) next to a binary-minus line was shape-aligned
+//    INSIDE the number: `1E   -9` -> E2053;
+//  * splitting `I, J: Integer; {$IFDEF X}` kept the directive on the first
+//    line only, moving J into the conditional region;
+//  * first-occurrence casing re-spelled an `external` import (no `name`) and
+//    an enum member after an earlier same-named identifier -- the import then
+//    fails at load (entry point not found) and RTTI names change.
+
+interface
+
+type
+  TClock = class
+    class procedure gettickcount(red: Integer);
+  end;
+
+  TColor = (Red, Green);
+
+function GetTickCount: Cardinal; stdcall; external 'kernel32.dll';
+
+var
+  Eps  : Double ;
+  Tol  : Double ;
+  Alpha: Double ;
+  Beta : Double ;
+  I, J : Integer; {$IFDEF YADF_TEST_NEVER_DEFINED}
+  K    : Integer;
+  {$ENDIF}
+
+procedure Calc;
+
+implementation
+
+class procedure TClock.gettickcount(red: Integer);
+begin
+end;
+
+procedure Calc;
+begin
+  Eps:= 1E-9;
+  Tol:= Alpha - Beta;
+  J:= Ord(red);
+end;
+
+end.
