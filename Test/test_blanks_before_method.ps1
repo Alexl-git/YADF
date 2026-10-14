@@ -10,7 +10,7 @@ New-Item -ItemType Directory $tmp -Force | Out-Null
 $ini = Join-Path $tmp 'bbm2.ini'
 [IO.File]::WriteAllText($ini, "[Format]`r`nBlanksBeforeMethod=2", (New-Object Text.ASCIIEncoding))
 $out = Join-Path $tmp 'out.pas'
-& $exe $case --ini $ini --o $out | Out-Null
+[void](Invoke-Yadf $case $ini $out)
 $o = Get-Content $out -Raw
 
 # In-class method declarations stay adjacent (no blank-line floor between members).

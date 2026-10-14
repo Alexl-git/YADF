@@ -21,12 +21,22 @@ if (-not (Test-Path $exe)) {
   Write-Output "  build first:  msbuild /t:Build /p:Config=Debug /p:Platform=Win64 YADF.dproj"
   exit 1
 }
+# The engine's real build inputs: the YADF*/YadfMain units (NOT the YADFOT
+# IDE units, which no test binary links), the version include, the CLI .dpr,
+# and the vendored DelphiAST lexer the whole engine sits on.
+$root = Join-Path $PSScriptRoot '..'
+$srcFiles = @(Get-ChildItem $root -Filter 'YADF*.pas' | Where-Object { $_.Name -notlike 'YADFOT*' }) +
+            @(Get-Item (Join-Path $root 'YADF.Version.inc'), (Join-Path $root 'YADF.dpr') -ErrorAction SilentlyContinue) +
+            @(Get-ChildItem (Join-Path $root 'vendor\DelphiAST\Source') -Recurse -Include '*.pas', '*.inc' -ErrorAction SilentlyContinue)
+$runnerFail = 0
 $exeTime = (Get-Item $exe).LastWriteTime
-$newer = Get-ChildItem (Join-Path $PSScriptRoot '..') -Filter 'YADF*.pas' |
-         Where-Object { $_.LastWriteTime -gt $exeTime }
+$newer = @($srcFiles | Where-Object { $_.LastWriteTime -gt $exeTime })
 if ($newer) {
-  Write-Output ("run_tests: WARNING -- YADF.exe ({0:yyyy-MM-dd HH:mm}) is OLDER than: {1}" -f $exeTime, (($newer | ForEach-Object Name) -join ', '))
-  Write-Output "  results below may reflect a stale build."
+  # FATAL, not a warning (review 2026-10-14): a green run against a binary
+  # older than its sources tests code that no longer exists.
+  Write-Output ("run_tests: FATAL -- YADF.exe ({0:yyyy-MM-dd HH:mm}) is OLDER than: {1}" -f $exeTime, (($newer | ForEach-Object Name) -join ', '))
+  Write-Output "  build first:  msbuild /t:Build /p:Config=Debug /p:Platform=Win64 YADF.dproj"
+  $runnerFail++
 }
 
 # The two prebuilt CONSOLE runners get the same treatment -- harder, in fact.
@@ -35,8 +45,6 @@ if ($newer) {
 # GuardTest.exe sat at 2026-07-17 through nine commits to YADF.Guard.pas, and
 # how OptionsTest's EXPECTED_OPTION_COUNT invariant drifted by four options
 # unnoticed for a month. Missing OR stale is a FAILURE here, not a warning.
-$srcFiles = Get-ChildItem (Join-Path $PSScriptRoot '..') -Filter 'YADF*.pas'
-$runnerFail = 0
 foreach ($r in @(
     @{ Name = 'GuardTest';   Dpr = 'GuardTest.dpr'   },
     @{ Name = 'OptionsTest'; Dpr = 'OptionsTest.dpr' })) {
@@ -82,7 +90,7 @@ $results | Format-Table Script, Status, Secs, Detail -AutoSize | Out-String -Wid
 $pass = ($results | Where-Object Status -eq 'PASS').Count
 $skip = ($results | Where-Object Status -eq 'SKIP').Count
 if ($runnerFail) {
-  Write-Output ("run_tests: FATAL -- {0} console runner(s) missing or stale (see the top of this run); counted as failures." -f $runnerFail)
+  Write-Output ("run_tests: FATAL -- {0} test binary(ies) missing or stale (see the top of this run); counted as failures." -f $runnerFail)
   $fail += $runnerFail
 }
 Write-Output ("run_tests: {0} passed, {1} failed, {2} skipped" -f $pass, $fail, $skip)

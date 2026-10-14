@@ -11,7 +11,7 @@ function Fmt([string]$iniBody) {
   $ini = Join-Path $tmp 'o.ini'
   [IO.File]::WriteAllText($ini, "[Format]`r`n$iniBody", (New-Object Text.ASCIIEncoding))
   $out = Join-Path $tmp 'out.pas'
-  & $exe $case --ini $ini --o $out | Out-Null
+  [void](Invoke-Yadf $case $ini $out)
   return (Get-Content $out -Raw)
 }
 

@@ -111,6 +111,34 @@ begin
       'S := ''''''' + CRLF + '  keep this' + CRLF + ''''''';'));
 end;
 
+// Review 2026-10-14: damage the three original content streams cannot see.
+procedure TestRejectsReviewFindings;
+const
+  AsmSrc = 'procedure P;' + CRLF + 'asm' + CRLF + '  mov eax, 1' + CRLF + '  add eax, 2' + CRLF + 'end;';
+begin
+  Check('asm instruction lines joined rejected',
+    not FormatPreservesContent(AsmSrc,
+      'procedure P;' + CRLF + 'asm' + CRLF + '  mov eax, 1 add eax, 2' + CRLF + 'end;'));
+  Check('asm mnemonic re-cased rejected',
+    not FormatPreservesContent(AsmSrc,
+      'procedure P;' + CRLF + 'asm' + CRLF + '  mov eax, 1' + CRLF + '  Add eax, 2' + CRLF + 'end;'));
+  Check('asm body re-indented passes',
+    FormatPreservesContent(AsmSrc,
+      'procedure P;' + CRLF + 'asm' + CRLF + '    mov  eax, 1' + CRLF + #9'add eax, 2' + CRLF + 'end;'));
+  Check('include-shield marker leaked into output rejected',
+    not FormatPreservesContent('S := ''{$I a.inc}'';', 'S := ''{$IZQYADF a.inc}'';'));
+  Check('layout sentinel leaked into output rejected',
+    not FormatPreservesContent('X := 1;', 'X := 1; //__YADF_ASM_0__'));
+  Check('marker already in the input is not a leak',
+    FormatPreservesContent('S := ''ZQYADF'';', 'S  :=  ''ZQYADF'';'));
+  Check('asm lines after an @@End label are still compared',
+    not FormatPreservesContent(
+      'asm' + CRLF + '  jnz @@End' + CRLF + '  mov eax, 1' + CRLF + '@@End:' + CRLF + '  ret' + CRLF + 'end;',
+      'asm' + CRLF + '  jnz @@End' + CRLF + '  mov eax, 1 @@End:' + CRLF + '  ret' + CRLF + 'end;'));
+  Check('one-character literal case change rejected',
+    not FormatPreservesContent('C := ''A'';', 'C := ''a'';'));
+end;
+
 // The extended overload: BreakCaseLabels duplicates arm bodies (strings
 // included), so with AAllowStringDuplication the original sequence need only
 // survive IN ORDER; loss/alteration still fails, and AReason names the cause.
@@ -350,6 +378,7 @@ begin
     TestRejectsDroppedInclude;
     TestRejectsCommentDamage;
     TestRejectsStringDamage;
+    TestRejectsReviewFindings;
     TestDuplicationToleranceAndReason;
     TestLabelRemovalTolerance;
     TestLineScanCore;

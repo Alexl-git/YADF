@@ -19,8 +19,7 @@ function Fmt([string]$case, [string]$iniBody) {
   $script:ini = Join-Path $tmp 'o.ini'
   [IO.File]::WriteAllText($script:ini, "[Format]`r`n$iniBody", (New-Object Text.ASCIIEncoding))
   $out = Join-Path $tmp 'out.pas'
-  $msg = & $exe (Join-Path $PSScriptRoot "Cases\$case") --ini $script:ini --o $out
-  if ("$msg" -match 'declined') { Fail "$case [$iniBody]: guard declined: $msg" }
+  if (-not (Invoke-Yadf (Join-Path $PSScriptRoot "Cases\$case") $script:ini $out)) { return '' }
   return (Get-Content $out -Raw)
 }
 

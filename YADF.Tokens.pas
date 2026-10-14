@@ -71,7 +71,29 @@ function LoadTokensFromString(const ASource: string): TTokenList;
 /// </remarks>
 function EmitTokens(const ATokens: TTokenList): string;
 
+/// <summary>True when ATokens[AIdx] is the `end` that closes an `asm` block --
+/// i.e. a ptEnd token that is NOT a BASM label such as `@@End` / `@End`.</summary>
+/// <param name="ATokens">The token list.</param>
+/// <param name="AIdx">Index to test; out-of-range returns False.</param>
+/// <returns>False for any other token, and for an `end` glued to a preceding
+/// `@` (the lexer reports the `End` of `@@End:` as the keyword).</returns>
+/// <remarks>Shared by the asm shield (YADF.Layout) and the guard's asm-line
+/// stream (YADF.Guard), which must agree on where an asm body stops.</remarks>
+function IsAsmBlockEnd(const ATokens: TTokenList; AIdx: Integer): Boolean;
+
 implementation
+
+function IsAsmBlockEnd(const ATokens: TTokenList; AIdx: Integer): Boolean;
+var
+  Prev: string;
+begin
+  Result:= (AIdx >= 0) and (AIdx < ATokens.Count) and (ATokens[AIdx].Kind = ptEnd);
+  if Result and (AIdx > 0) and (ATokens[AIdx].Pre = '') then
+  begin
+    Prev:= ATokens[AIdx - 1].Text;
+    Result:= not ((Prev <> '') and (Prev[Length(Prev)] = '@'));
+  end;
+end;
 
 // ---------------------------------------------------------------------------
 // Include-directive shield.
@@ -116,6 +138,8 @@ var
   WordEnd: Integer       ;
   Wrd    : string        ;
   NextCh : Char          ;
+  Run    : Integer       ; // apostrophes opening a multi-line string
+  EndRun : Integer       ; // apostrophes in a run inside one
 begin
   n:= Length(ASource);
   Sb:= TStringBuilder.Create;
@@ -123,7 +147,42 @@ begin
     i:= 1;
     while i <= n do
     begin
-      // Skip string literals verbatim.
+      // Skip a multi-line ''' string verbatim, by the lexer's own rule
+      // (SimpleParser.Lexer StringProc): an ODD run of 3+ apostrophes followed
+      // directly by a line break opens it; the next run of the SAME length
+      // closes it. Without this an odd apostrophe in the body (`don't`)
+      // desynchronised the scan for the rest of the file.
+      if ASource[i] = '''' then
+      begin
+        Run:= 0;
+        while (i + Run <= n) and (ASource[i + Run] = '''') do
+          Inc(Run);
+        if (Run >= 3) and Odd(Run) and (i + Run <= n) and CharInSet(ASource[i + Run], [#13, #10]) then
+        begin
+          Sb.Append(ASource, i - 1, Run);
+          Inc(i, Run);
+          while i <= n do
+          begin
+            if ASource[i] = '''' then
+            begin
+              EndRun:= 0;
+              while (i + EndRun <= n) and (ASource[i + EndRun] = '''') do
+                Inc(EndRun);
+              Sb.Append(ASource, i - 1, EndRun);
+              Inc(i, EndRun);
+              if EndRun = Run then
+                Break;
+            end
+            else
+            begin
+              Sb.Append(ASource[i]);
+              Inc(i);
+            end;
+          end; // while
+          Continue;
+        end; // if
+      end; // if
+      // Skip single-line string literals verbatim.
       if ASource[i] = '''' then
       begin
         Sb.Append(ASource[i]);

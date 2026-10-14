@@ -141,13 +141,55 @@ const
     ptResourceDirect, ptCompDirect, ptScopedEnumsDirect];
   CommentKinds = [ptAnsiComment, ptBorComment, ptSlashesComment];
   StringKinds  = [ptStringConst, ptStringDQConst];
+  // Text the formatter's own shields insert and must remove again: the
+  // include-directive suffix (YADF.Tokens.IncSentinel) and the multi-line /
+  // asm placeholders (YADF.Layout `__YADF_ML_n__`, `__YADF_MLC_n__`, ...).
+  SHIELD_MARKERS: array[0..1] of string = ('ZQYADF', '__YADF_');
 
   // Extracts the three ordered content streams from ASource in one lex. When
   // ACommentIsLabel is supplied it receives one flag per COMMENT, marking the
   // ones the formatter is licensed to delete (Rule 3: exactly the marker it
   // would itself have written for that block); that costs an extra group parse,
   // so callers that do not need it pass nil.
-procedure ExtractContent(const ASource: string; const AStrings, AComments, ADirectives: TList<string>; const ACommentIsLabel: TList<Boolean> = nil);
+// Appends the instruction LINES of every `asm ... end` body to AAsmLines: each
+// physical line's text with whitespace runs collapsed to one space and
+// trimmed, empty lines skipped. BASM separates instructions by line break and
+// is NOT free-form Pascal, so joining, splitting or re-spelling an instruction
+// line changes meaning (or breaks the build) while leaving every string,
+// comment and directive intact -- the other three streams cannot see it.
+procedure AddAsmLines(const ATokens: TTokenList; var AIdx: Integer; const AAsmLines: TList<string>);
+var
+  Line: string;
+
+  procedure Flush;
+  var
+    S: string;
+  begin
+    S:= Trim(Line);
+    while Pos('  ', S) > 0 do
+      S:= StringReplace(S, '  ', ' ', [rfReplaceAll]);
+    if S <> '' then
+      AAsmLines.Add(S);
+    Line:= '';
+  end;
+
+begin
+  Line:= '';
+  Inc(AIdx); // past `asm`
+  while (AIdx < ATokens.Count) and not IsAsmBlockEnd(ATokens, AIdx) do
+  begin
+    if ATokens[AIdx].Kind in [ptCRLF, ptCRLFCo] then
+      Flush
+    else
+      Line:= Line + StringReplace(ATokens[AIdx].Text, #9, ' ', [rfReplaceAll]);
+    Inc(AIdx);
+  end;
+  Flush;
+  Dec(AIdx); // the caller's loop steps onto the closing `end`
+end; // procedure
+
+procedure ExtractContent(const ASource: string; const AStrings, AComments, ADirectives: TList<string>; const ACommentIsLabel: TList<Boolean> = nil;
+  const AAsmLines: TList<string> = nil);
 var
   Tokens: TTokenList    ;
   T     : TToken        ;
@@ -158,14 +200,29 @@ begin
   try
     if ACommentIsLabel <> nil then
       IsLbl:= CollectBlockLabelComments(Tokens);
-    for i:= 0 to Tokens.Count - 1 do
+    i:= 0;
+    while i < Tokens.Count do
     begin
       T:= Tokens[i];
+      if (T.Kind = ptAsm) and (AAsmLines <> nil) then
+      begin
+        // Strings / comments / directives inside the body are still collected
+        // below, so walk the body twice: once for its lines, once for content.
+        var j:= i;
+        AddAsmLines(Tokens, j, AAsmLines);
+      end;
       if T.Kind in StringKinds then
         AStrings.Add(NormalizeNewlines(T.Text))
       else if T.Kind = ptAsciiChar then
-        // `#$AB` vs `#$ab` is a legitimate hex-case normalization.
-        AStrings.Add(LowerCase(T.Text))
+      begin
+        // `#$AB` vs `#$ab` is a legitimate hex-case normalization -- but the
+        // lexer also files a one-character literal ('A') under ptAsciiChar,
+        // and 'A' -> 'a' is a real change, so only #-forms are case-folded.
+        if (T.Text <> '') and (T.Text[1] = '#') then
+          AStrings.Add(LowerCase(T.Text))
+        else
+          AStrings.Add(T.Text);
+      end
       else if T.Kind in CommentKinds then
       begin
         // TrimRight: the trailing-whitespace pass may trim spaces at the end
@@ -176,7 +233,8 @@ begin
       end
       else if T.Kind in DirectiveKinds then
         ADirectives.Add(DirectiveKey(T.Text));
-    end; // for
+      Inc(i);
+    end; // while
   finally
     Tokens.Free;
   end; // try
@@ -271,9 +329,23 @@ var
   FmtDir : TList<string>;
   OrigLbl: TList<Boolean>;
   FmtLbl : TList<Boolean>;
+  OrigAsm: TList<string>;
+  FmtAsm : TList<string>;
   StrOk  : Boolean      ;
+  Marker : string       ;
 begin
   AReason:= '';
+  // A formatter-internal marker in the output that the input never had is a
+  // shield that failed to restore -- decline before anything else. Checked on
+  // the RAW text: the lexer-based streams below go through the same shield and
+  // would be just as blind to it.
+  for Marker in SHIELD_MARKERS do
+    if (Pos(Marker, AFormatted) > 0) and (Pos(Marker, AOriginal) = 0) then
+    begin
+      AReason:= 'formatter shield marker leaked into the output: ' + Marker;
+      Exit(False);
+    end;
+  OrigAsm:= TList<string>.Create; FmtAsm:= TList<string>.Create;
   OrigStr:= TList<string>.Create; FmtStr:= TList<string>.Create;
   OrigCom:= TList<string>.Create; FmtCom:= TList<string>.Create;
   OrigDir:= TList<string>.Create; FmtDir:= TList<string>.Create;
@@ -282,8 +354,8 @@ begin
     try
       if AAllowLabelRemoval then
       begin
-        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir, OrigLbl);
-        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir , FmtLbl );
+        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir, OrigLbl, OrigAsm);
+        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir , FmtLbl , FmtAsm );
         // Formatter-owned block-end markers take no part in the user-content
         // check -- on EITHER side. Everything else stays exactly as strict.
         DropFlagged(OrigCom, OrigLbl);
@@ -291,8 +363,8 @@ begin
       end
       else
       begin
-        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir);
-        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir );
+        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir, nil, OrigAsm);
+        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir , nil, FmtAsm );
       end;
       // Directives stay STRICT even under duplication-tolerant mode: a
       // duplicated {$IFDEF}/{$ENDIF} inside a duplicated case arm would
@@ -306,7 +378,9 @@ begin
       else if not SameSequence(OrigDir, FmtDir) then
         AReason:= 'compiler directive lost, altered or duplicated: ' + FirstUnmatched(OrigDir, FmtDir)
       else if not IsSubsequence(OrigCom, FmtCom) then
-        AReason:= 'comment lost or altered: ' + FirstUnmatched(OrigCom, FmtCom);
+        AReason:= 'comment lost or altered: ' + FirstUnmatched(OrigCom, FmtCom)
+      else if not SameSequence(OrigAsm, FmtAsm) then
+        AReason:= 'asm instruction lines joined, split or altered: ' + FirstUnmatched(OrigAsm, FmtAsm);
       Result:= AReason = '';
     except  // dl:ok bare-except@1e8f
       // Cannot verify -> fail closed; the caller keeps the original text.
@@ -318,6 +392,7 @@ begin
     OrigCom.Free; FmtCom.Free;
     OrigDir.Free; FmtDir.Free;
     OrigLbl.Free; FmtLbl.Free;
+    OrigAsm.Free; FmtAsm.Free;
   end; // try
 end; // function
 

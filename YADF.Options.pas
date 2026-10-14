@@ -575,11 +575,30 @@ begin
   end;
 end;
 
+// Cuts a trailing inline comment -- `; ...` or `// ...` that starts the value
+// or follows whitespace -- and trims. A `;` glued to text (`C:\bak;old`) is
+// part of the value. TIniFile returns the raw text after `=`, so without this
+// `Key=false ; note` was unparseable and silently fell back to the default.
+function StripIniComment(const AValue: string): string;
+var
+  i: Integer;
+begin
+  Result:= AValue;
+  for i:= 1 to Length(Result) do
+    if ((Result[i] = ';') or ((Result[i] = '/') and (i < Length(Result)) and (Result[i + 1] = '/')))
+      and ((i = 1) or CharInSet(Result[i - 1], [' ', #9])) then
+    begin
+      SetLength(Result, i - 1);
+      Break;
+    end;
+  Result:= Trim(Result);
+end; // function
+
 function ReadBoolIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: Boolean): Boolean;
 var
   S: string;
 begin
-  S:= LowerCase(Trim(AIni.ReadString(ASection, AIdent, '')));
+  S:= LowerCase(StripIniComment(AIni.ReadString(ASection, AIdent, '')));
   if (S = '1') or (S = 'true' ) or (S = 'yes') or (S = 'on' ) then Exit(True );
   if (S = '0') or (S = 'false') or (S = 'no' ) or (S = 'off') then Exit(False);
   Result:= ADefault;
@@ -828,7 +847,8 @@ begin
       okBool:
         T[i].SetVal(Result, ReadBoolIni(Ini, 'Format', T[i].Ident, T[i].GetVal(Result)));
       okString, okEnum:
-        T[i].SetVal(Result, Ini.ReadString('Format', T[i].Ident, VarToStr(T[i].GetVal(Result))));
+        if Ini.ValueExists('Format', T[i].Ident) then
+          T[i].SetVal(Result, StripIniComment(Ini.ReadString('Format', T[i].Ident, '')));
     end;
   finally
     Ini.Free;

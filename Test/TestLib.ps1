@@ -61,6 +61,25 @@ function CheckStable([string]$label, [string[]]$flags) {
   Remove-Item $o1, $o2 -Force -ErrorAction SilentlyContinue
 }
 
+# Formats $src into $out with the given ini (and optional extra flags) and
+# FAILS the suite -- returning $false -- when YADF exits nonzero, reports a
+# guard decline, or writes nothing. $out is deleted first, so a crashed or
+# declining run can never be scored against a previous run's output (review
+# 2026-10-14: fixed-name temp outputs let a crashing exe pass two suites).
+# CONTRACT: reads $exe from the calling script's scope.
+function Invoke-Yadf([string]$src, [string]$iniPath, [string]$out, [string[]]$flags = @()) {
+  if (Test-Path $out) { Remove-Item $out -Force }
+  $msg = & $exe --ini $iniPath $src @flags --o $out 2>&1 | Out-String
+  $leaf = Split-Path $src -Leaf
+  if ($LASTEXITCODE -ne 0)           { Fail "YADF exit $LASTEXITCODE on ${leaf}: $($msg.Trim())"; return $false }
+  if ($msg -match '(?i)\bdeclined\b') { Fail "guard declined ${leaf}: $($msg.Trim())"; return $false }
+  if (-not (Test-Path $out))         { Fail "no output written for $leaf"; return $false }
+  return $true
+}
+
+# A fresh, unique temp path (never reused across runs or cases).
+function New-TempOut([string]$ext = '.pas') { Join-Path $env:TEMP ("yt_" + [guid]::NewGuid().ToString('N') + $ext) }
+
 function Finish([string]$suite) {
   if ($script:fail -eq 0) { Write-Output "${suite}: PASS"; exit 0 }
   else { Write-Output "${suite}: $($script:fail) FAILED"; exit 1 }

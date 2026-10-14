@@ -9,9 +9,10 @@ $casesDir = Join-Path $PSScriptRoot 'Cases'
 
 function Fmt([string]$name) {
   $src = Join-Path $casesDir $name
-  $tmp = Join-Path $env:TEMP ("fmt_" + [IO.Path]::GetFileNameWithoutExtension($name) + ".out")
-  & $exe --ini $ini $src --o $tmp | Out-Null
+  $tmp = New-TempOut
+  if (-not (Invoke-Yadf $src $ini $tmp)) { return '' }
   $out = Get-Content $tmp -Raw
+  Remove-Item $tmp -Force -ErrorAction SilentlyContinue
   return $out
 }
 

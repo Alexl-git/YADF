@@ -144,6 +144,34 @@ begin
   end;
 end;
 
+// Review 2026-10-14: a trailing `; comment` / `// comment` on a BOOLEAN or
+// STRING/ENUM key used to make the whole value unparseable, so the setting
+// was silently reset to its compiled default (`LowercaseKeywords=false ;
+// keep casing` lowercased keywords; `Encoding=UTF-8 ; convert` wrote ANSI).
+// A `;` that is part of a value (no whitespace before it) is kept.
+procedure TestInlineCommentsOnAllKinds;
+var
+  Path: string;
+  O   : TYadfOptions;
+begin
+  Path := TPath.Combine(TPath.GetTempPath, 'yadf_inlinecomment_test.ini');
+  TFile.WriteAllText(Path,
+    '[Format]' + sLineBreak +
+    'LowercaseKeywords=false ; keep casing' + sLineBreak +
+    'TrimTrailing=false // keep' + sLineBreak +
+    'Encoding=UTF-8 ; convert' + sLineBreak +
+    'BackupDir=C:\bak;old ; where backups go' + sLineBreak);
+  try
+    O := LoadOptionsFromIni(Path);
+    Check('bool: trailing ; comment ignored',  not O.LowercaseKeywords);
+    Check('bool: trailing // comment ignored', not O.TrimTrailing);
+    Check('enum: trailing ; comment ignored',  O.Encoding = encUTF8BOM);
+    Check('string: inner ; kept, comment cut', O.BackupDir = 'C:\bak;old');
+  finally
+    TFile.Delete(Path);
+  end;
+end;
+
 // LooksLikeUtf8 drives BOM-less encoding detection in the CLI and the wizard:
 // valid multi-byte UTF-8 must be promoted from the ANSI fallback; everything
 // ambiguous or invalid must stay ANSI.
@@ -169,6 +197,7 @@ begin
     TestCommentPreservation;
     TestHelpCoversAll;
     TestLenientIntRead;
+    TestInlineCommentsOnAllKinds;
     TestLooksLikeUtf8;
     Writeln('');
     if GFailures = 0 then

@@ -3921,7 +3921,10 @@ var
     ClassHeaderOpen.Add(k in [ptClass, ptObject, ptInterface]);
   end;
 
-  procedure StackPushBegin;
+  // AKind = ptAsm for an `asm` block: a routine whose body is `asm ... end`
+  // (no `begin`) must consume its pending-body marker exactly like `begin`,
+  // else the proc region stays open and every later routine indents deeper.
+  procedure StackPushBegin(AKind: TptTokenKind = ptBegin);
   var
     IsBody         : Boolean;
     HasContextBlock: Boolean;
@@ -3940,8 +3943,8 @@ var
       PendingProcStack.Delete(PendingProcStack.Count - 1);
     end;
     PushCtrlCarry;
-    Stack     .Add(ptBegin);
-    IsProcBody.Add(IsBody );
+    Stack     .Add(AKind );
+    IsProcBody.Add(IsBody);
   end; // procedure
 
   procedure StackPop;
@@ -4055,7 +4058,11 @@ var
   // `class` / `record` / `constructor` are CONSTRAINTS, not keywords.
   function GenericOpen: Boolean;
   begin
-    Result:= (ParensDepth = 0) and (PrevNonKind = ptIdentifier) and (StackTop in [ptUnknown, ptType, ptClass, ptObject, ptRecord, ptInterface]);
+    // Inside a class/record a `class var` / `const` / nested `type` section is
+    // never closed by a following method, so it can be the stack top when a
+    // generic METHOD header (`class function Make<T: record>`) arrives.
+    Result:= (ParensDepth = 0) and (PrevNonKind = ptIdentifier)
+      and ((StackTop in [ptUnknown, ptType, ptClass, ptObject, ptRecord, ptInterface]) or (InClassOrRecord and (StackTop in [ptVar, ptConst])));
   end; // function
 
   function SectionKindOf(AKind: TptTokenKind): TptTokenKind;
@@ -4299,7 +4306,14 @@ begin
               StackPushBegin;
               InVisibility:= False;
             end;
-            ptRecord, ptTry, ptAsm, ptRepeat: if (T.Kind <> ptRecord) or (AngleDepth = 0) then
+            ptAsm:
+            begin
+              if (not InClassOrRecord) then
+                CloseSectionIfOpen;
+              StackPushBegin(ptAsm);
+              InVisibility:= False;
+            end;
+            ptRecord, ptTry, ptRepeat: if (T.Kind <> ptRecord) or (AngleDepth = 0) then
             // A `record` CONSTRAINT (`TBax<T2: record>`) opens no block -- nothing
             // would ever close it.
             begin
@@ -5121,6 +5135,101 @@ begin
   end;
 end; // function
 
+// BASM bodies (`asm ... end`) are not free-form Pascal: one instruction per
+// line, and the mnemonics / operands are not identifiers or expressions.
+// Every pass that treats them as code corrupts them -- ReflowLines joined
+// instruction lines, first-occurrence casing turned `add` into `Add` (after a
+// routine named Add), operator spacing turned `[esp+4]` into `[esp + 4]` --
+// and the result no longer compiles (E2109). ShieldAsmBodies runs BEFORE
+// Stage 1 and collapses each body -- from the line break that ends the `asm`
+// line through the last non-blank token before `end` -- into ONE line-comment
+// token. `asm` and `end` stay real tokens, so the depth tracker still sees the
+// block; a line comment can have nothing joined after it and is never
+// re-spelled. UnshieldAsmBodies restores each body byte-for-byte (dropping any
+// padding a pass put in front of the placeholder). A body that has no line
+// break before `end` (`asm ... end` on one line) is left alone; the guard's
+// asm-line check still protects it.
+function AsmSentinel(AIdx: Integer): string;
+begin
+  Result:= '//__YADF_ASM_' + IntToStr(AIdx) + '__';
+end;
+
+procedure ShieldAsmBodies(const ATokens: TTokenList; const AMap: TStringList);
+var
+  i      : Integer;
+  j      : Integer;
+  First  : Integer;
+  Last   : Integer;
+  Body   : TStringBuilder;
+  T      : TToken ;
+begin
+  AMap.Clear;
+  i:= 0;
+  while i < ATokens.Count do
+  begin
+    if ATokens[i].Kind <> ptAsm then
+    begin
+      Inc(i);
+      Continue;
+    end;
+    // First line break after `asm`, and the closing `end`.
+    First:= -1;
+    j:= i + 1;
+    while (j < ATokens.Count) and not IsAsmBlockEnd(ATokens, j) do
+    begin
+      if (First < 0) and (ATokens[j].Kind in [ptCRLF, ptCRLFCo]) then
+        First:= j;
+      Inc(j);
+    end;
+    // j = the `end` (or past the list); Last = last non-blank token before it.
+    Last:= j - 1;
+    while (Last > i) and (ATokens[Last].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
+      Dec(Last);
+    if (First < 0) or (Last < First) then
+    begin
+      i:= j;
+      Continue;
+    end;
+    Body:= TStringBuilder.Create;
+    try
+      for j:= First to Last do
+        Body.Append(ATokens[j].Pre).Append(ATokens[j].Text);
+      AMap.Add(Body.ToString);
+    finally
+      Body.Free;
+    end;
+    T:= ATokens[First];
+    T.Kind:= ptSlashesComment;
+    T.ExID:= ptUnknown;
+    T.Pre := '';
+    T.Text:= AsmSentinel(AMap.Count - 1);
+    ATokens[First]:= T;
+    ATokens.DeleteRange(First + 1, Last - First);
+    i:= First + 1;
+  end; // while
+end; // procedure
+
+function UnshieldAsmBodies(const S: string; const AMap: TStringList): string;
+var
+  i  : Integer;
+  P  : Integer;
+  Q  : Integer;
+  Sen: string ;
+begin
+  Result:= S;
+  for i:= AMap.Count - 1 downto 0 do
+  begin
+    Sen:= AsmSentinel(i);
+    P:= Pos(Sen, Result);
+    if P = 0 then
+      Continue; // the guard declines on the missing body
+    Q:= P;
+    while (Q > 1) and CharInSet(Result[Q - 1], [' ', #9]) do
+      Dec(Q);
+    Result:= Copy(Result, 1, Q - 1) + AMap[i] + Copy(Result, P + Length(Sen), MaxInt);
+  end;
+end; // function
+
 // Delphi 10.2.3 compatibility: hoist inline `var` declarations into a classic
 // top-of-routine `var` block so the code builds on pre-10.3 compilers. A
 // self-contained token->token pass run before ParseGroups (so it cannot
@@ -5881,6 +5990,7 @@ var
   Sb          : TStringBuilder;
   Tokens      : TTokenList    ;
   MLMap       : TStringList   ;
+  AsmMap      : TStringList   ; // asm bodies shielded before Stage 1 (ShieldAsmBodies)
   EffMaxBlanks: Integer       ; // hoisted from inline var in the pipeline (XE8/D10)
 
   // Updates CurCol/CurLine after every text emission. Tabs are
@@ -6477,9 +6587,22 @@ var
 // The code below is a literal rendering of those stages.
 begin
   ADeclineReason:= '';
+  // The lexer treats #0 as end of input, so everything after a NUL would be
+  // dropped from the output -- and from the guard's view of BOTH sides, so it
+  // could not decline. A NUL never belongs in Delphi source (a BOM-less UTF-16
+  // file read as ANSI is the usual cause): leave the text untouched.
+  if Pos(#0, ASource) > 0 then
+  begin
+    ADeclineReason:= 'source contains a NUL character (binary or BOM-less UTF-16 file?)';
+    Exit(ASource);
+  end;
   Tokens:= LoadTokensFromString(ASource);
   MLMap:= TStringList.Create;
+  AsmMap:= TStringList.Create;
   try
+    // Stage 0: hide asm bodies from every pass, Stage 1 included -- casing and
+    // operator spacing would otherwise rewrite BASM mnemonics and operands.
+    ShieldAsmBodies(Tokens, AsmMap);
     // Stage 1: token-level passes (mutate Tokens in place).
     ApplyCapitalization   (Tokens, AOpts);
     NormalizeAssignSpacing(Tokens, AOpts);
@@ -6614,6 +6737,7 @@ begin
 
         // Stage 5: restore shielded multi-line strings and block comments verbatim.
         Result:= UnshieldMultilineTokens(Result, MLMap);
+        Result:= UnshieldAsmBodies(Result, AsmMap);
 
         // Stage 6: content-preservation safety net (see YADF.Guard). If any
         // user content -- a string literal, a comment, a compiler directive --
@@ -6637,6 +6761,7 @@ begin
   finally
     Tokens.Free;
     MLMap.Free;
+    AsmMap.Free;
   end; // try
 end; // begin
 

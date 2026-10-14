@@ -21,6 +21,14 @@ type
     procedure After;
   end;
   TSibling = class(TObject);
+  TAfterSection = class
+  strict private
+    class var FInst: TAfterSection;
+    class function Make<T: record>(const A: T): T; static;
+  public
+    procedure P;
+  end;
+  TLast = class(TObject);
 
 procedure Global<T: record>(const AValue: T);
 procedure GlobalAfter;

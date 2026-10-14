@@ -15,8 +15,8 @@ Assert-ToolOrSkip 'class_var_333' $exe
 $src = Join-Path $PSScriptRoot 'Cases\class_var_sections.pas'
 function Ind([string]$s) { $s.Length - $s.TrimStart().Length }
 
-$tmp = Join-Path $env:TEMP "cv333.out"
-& $exe --ini $ini $src --o $tmp | Out-Null
+$tmp = New-TempOut
+if (-not (Invoke-Yadf $src $ini $tmp)) { Finish 'class_var_333'; return }
 $lines = Get-Content $tmp
 
 # Section-keyword lines: a line whose trimmed text is exactly 'var' or 'class var'.

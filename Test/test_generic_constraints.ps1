@@ -37,7 +37,7 @@ function LineOf([string]$pattern) {
 }
 function Show([int[]]$idx) { ($idx | ForEach-Object { if ($_ -ge 0) { "$(Ind $lines[$_]):" + $lines[$_].Trim() } else { '<missing>' } }) -join ' | ' }
 
-$decls = @('^\s*TBaz<', '^\s*TBaz2<', '^\s*TBax<', '^\s*TSibling\s*=') | ForEach-Object { LineOf $_ }
+$decls = @('^\s*TBaz<', '^\s*TBaz2<', '^\s*TBax<', '^\s*TSibling\s*=', '^\s*TAfterSection\s*=', '^\s*TLast\s*=') | ForEach-Object { LineOf $_ }
 if ($decls -contains -1) {
   Fail ("generic_constraints: a type declaration is missing: " + (Show $decls))
 }
