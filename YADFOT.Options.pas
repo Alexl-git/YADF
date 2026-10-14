@@ -31,9 +31,8 @@ interface
 /// Idempotent-safe: re-registering after an unregister re-adds the page.</summary>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADFOT.Wizard.Register (YADFOT.Wizard.pas)
-/// Calls: Supports, YADFOT.Options.RegisterYADFOptions.Add
-/// Pure
+/// <para>Called from: YADFOT.Wizard.Register (YADFOT.Wizard.pas)</para>
+/// <para>Calls: Supports, YADFOT.Options.RegisterYADFOptions.Add</para>
 /// <seealso cref="YADFOT.Options.RegisterYADFOptions.Add"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -45,9 +44,9 @@ procedure RegisterYADFOptions;
 /// so a second call is a safe no-op.</summary>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: declaration (YADFOT.Options.pas), YADFOT.Wizard.TYadfotMenuWizard.Destroyed (YADFOT.Wizard.pas)
-/// Calls: Supports
-/// Pure
+/// <para>Called from: declaration (YADFOT.Options.pas), YADFOT.Wizard.TYadfotMenuWizard.Destroyed (YADFOT.Wizard.pas)</para>
+/// <para>Calls: Supports</para>
+/// <para>Catches: Exception (empty)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure UnregisterYADFOptions;

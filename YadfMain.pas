@@ -165,17 +165,17 @@ type
   /// </remarks>
   EYadfUsage = class(Exception);
 
+/// <exception cref="EYadfUsage"><!-- drag-lint:auto exc -->via YadfMain.ExpandFileSpec: Directory not found:; via YadfMain.ParseFlags: --blanks-before-method requires a value; via YadfMain.ParseFlags: --blanks-before-section requires a value (+11 more)</exception>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: declaration (YADF.dpr)
-/// Calls: Format, ParamStr, YADF.Options.EnsureIniExists, YadfMain.BatchFormat, YadfMain.CheckDir, YadfMain.CheckFile, YadfMain.DebugTree, YadfMain.ExpandFileSpec, YadfMain.ExtractIniPath, YadfMain.FormatToFile (+8 more)
-/// Complexity: 23 (cyclomatic, outer body), 154 lines (full implementation)
-/// Pure
+/// <para>Called from: declaration (YADF.dpr)</para>
+/// <para>Calls: Format, ParamStr, YADF.Options.DefaultOptions, YADF.Options.EnsureIniExists, YadfMain.BatchFormat, YadfMain.CheckDir, YadfMain.CheckFile, YadfMain.DebugTree, YadfMain.ExpandFileSpec, YadfMain.ExtractIniPath (+9 more)</para>
+/// <para>Complexity: 23 (cyclomatic, outer body), 154 lines (full implementation)</para>
+/// <seealso cref="YADF.Options.DefaultOptions"/>
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
 /// <seealso cref="YadfMain.BatchFormat"/>
 /// <seealso cref="YadfMain.CheckDir"/>
 /// <seealso cref="YadfMain.CheckFile"/>
-/// <seealso cref="YadfMain.DebugTree"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure RunYadf;

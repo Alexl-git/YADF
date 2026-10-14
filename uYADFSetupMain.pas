@@ -39,24 +39,25 @@ type
     /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.Create, YADF.OptionsFrame.TYadfOptionsFrame.Load
-    /// Reads: FFrame   Writes: FFrame
-    /// Handles: frmMain.OnCreate
+    /// <para>Calls: uYADFSetupMain.GetExeVersion, YADF.OptionsFrame.TYadfOptionsFrame.Create, YADF.OptionsFrame.TYadfOptionsFrame.Load</para>
+    /// <para>Reads: FFrame   Writes: FFrame</para>
+    /// <para>Handles: frmMain.OnCreate</para>
+    /// <para>UI thread only -- touches FFrame</para>
+    /// <seealso cref="uYADFSetupMain.GetExeVersion"/>
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Create"/>
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.Load"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>
-    /// <seealso cref="uYADFSetupMain.TfrmMain.btnSaveSettingsClick"/>
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     procedure FormCreate          (Sender: TObject);
     /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile
-    /// Reads: dlgOpen, FFrame
-    /// Handles: btnLoadSettings.OnClick
-    /// Pure
+    /// <para>Calls: YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile</para>
+    /// <para>Reads: dlgOpen, FFrame</para>
+    /// <para>Handles: btnLoadSettings.OnClick</para>
+    /// <para>UI thread only -- touches FFrame</para>
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnSaveSettingsClick"/>
@@ -68,10 +69,10 @@ type
     /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Calls: YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile
-    /// Reads: dlgSaveIni, FFrame
-    /// Handles: btnSaveSettings.OnClick
-    /// Pure
+    /// <para>Calls: YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile</para>
+    /// <para>Reads: dlgSaveIni, FFrame</para>
+    /// <para>Handles: btnSaveSettings.OnClick</para>
+    /// <para>UI thread only -- touches FFrame</para>
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.SaveOptionsToFile"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>
@@ -83,10 +84,10 @@ type
     /// <param name="Sender"><!-- drag-lint:auto type -->TObject</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Calls: ExtractFileName, MessageDlg, YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults
-    /// Reads: FFrame
-    /// Handles: btnReset.OnClick
-    /// Pure
+    /// <para>Calls: ExtractFileName, MessageDlg, YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults</para>
+    /// <para>Reads: FFrame</para>
+    /// <para>Handles: btnReset.OnClick</para>
+    /// <para>UI thread only -- touches FFrame</para>
     /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
     /// <seealso cref="uYADFSetupMain.TfrmMain.btnSaveSettingsClick"/>
@@ -100,8 +101,7 @@ type
       /// <param name="AText"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
-      /// Reads: lblIniPath
-      /// Pure
+      /// <para>Reads: lblIniPath</para>
       /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
       /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>
       /// <seealso cref="uYADFSetupMain.TfrmMain.btnSaveSettingsClick"/>
