@@ -8,7 +8,76 @@ predate the scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.0.19.0] - 2026-10-14
+
+This release comes out of a full nine-part software review. It found nine
+ways YADF could rewrite valid code into code that no longer compiles, or
+that behaves differently, with **default settings** -- none of them caught
+by the content guard. All are fixed, each with a regression test that
+compiles the formatted output, and the guard now checks what it missed.
+
+### Fixed -- output that no longer compiled or changed meaning
+
+- **`asm` blocks are left exactly as written.** Instruction lines were
+  joined onto one line, mnemonics re-cased (`add` -> `Add` after a routine
+  named `Add`) and operands re-spaced (`[esp+4]` -> `[esp + 4]`); the result
+  failed to compile (E2109). A `@@End:` label no longer ends the block early,
+  and a routine whose body is `asm ... end` no longer indents every routine
+  after it.
+- **`{$I file}` after a multi-line string is no longer dropped.** An odd
+  number of apostrophes inside a `'''` string threw off the include-directive
+  scan for the rest of the file: later include directives vanished, and
+  `{$I ...}` text inside later strings had an internal marker written into it.
+- **A file containing a NUL byte is left untouched.** It used to be
+  truncated at the NUL and reported as "wrote" (typically a UTF-16 file
+  without a BOM).
+- **Signed exponents stay intact.** `Eps:= 1E-9;` next to `Tol:= A - B;` was
+  aligned into `1E   -9` (E2053).
+- **`I, J: Integer; {$IFDEF X}` is no longer split.** Splitting moved `J`
+  inside the conditional, so the unit failed to compile with `X` undefined.
+- **Spelling that reaches the binary is preserved.** First-occurrence casing
+  re-spelled the name of an `external` routine (no `name` clause) and enum
+  members after an earlier identifier with the same name: the program then
+  failed at start-up ("entry point not found") and RTTI names changed.
+- **`--d10` no longer hoists out of `{$IFDEF}`.** An inline var or const
+  inside a conditional is left in place with a TODO instead of being moved
+  to the routine's top `var` block, outside the conditional.
+- **A setting followed by a comment is honoured.** `LowercaseKeywords=false
+  ; keep casing` was read as the default (`true`); the same applied to every
+  on/off and text setting, e.g. `Encoding=UTF-8 ; note` wrote ANSI.
+
+### Fixed -- safety of the original file
+
+- `yadf --b foo.pas` took `foo.pas` as the backup folder and formatted
+  nothing; the next argument is now a folder only if it exists or is not a
+  source file.
+- With a backup folder, two files with the same name in one second shared
+  one backup name and the second overwrote the first; backups now never
+  overwrite.
+- `--o` / `--of` pointing back at the input overwrote it without a backup,
+  even with `--b`; it now formats in place with the usual backup.
+  `--batch` with the same input and output folder is refused.
+- `--encoding <unknown>` is now an error instead of being ignored, and
+  out-of-range numbers (`Indent=-3`, `MaxLen=0`) are corrected with a warning.
+
+### Fixed -- other
+
+- The IDE wizard and the Options-page preview now say when the content guard
+  refused a result, instead of looking like "nothing to format".
+- Two passes that moved code into a trailing `//` comment (`overload;` after
+  `// c`; a comment ending in "then"/"do") made the guard refuse the whole
+  file; those lines are now left alone.
+- The Options-page preview can no longer raise into the IDE when
+  `Sample.pas` is locked, unreadable or very large.
+- **Generic constraints no longer break indentation.** `class`, `record` and
+  `constructor` used as a generic constraint were taken for real keywords:
+  `constructor` closed the enclosing `type` section and `record` opened a
+  block nothing ever closed. Declarations such as
+  `TBax<T1: class; T2: record> = class(TObject)` dropped to column 0, the
+  class body after them was over-indented, and every later `end` was paired
+  with the wrong opener (the unit's `end.` could be labelled `// record`).
+  Covers type declarations, generic methods (`procedure Make<T: record>`)
+  and unit-level generic routines; a `<` comparison is unaffected.
 
 ### Changed
 
