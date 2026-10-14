@@ -24,6 +24,17 @@ try {
   MustMatch $out 'unknown option --no-such-flag' 'unknown-flag message'
   if ((Get-FileHash $src).Hash -ne $before) { Fail "unknown-flag: input file was modified" }
 
+  # ----- unknown --encoding value: used to be accepted silently (file then
+  #       written in the INI's encoding, exit 0). Review 2026-10-14. -----
+  $out = & $exe --ini $ini --encoding bogus $src 2>&1 | Out-String
+  if ($LASTEXITCODE -eq 0) { Fail "--encoding bogus exit: expected nonzero, got 0" }
+  MustMatch $out '(?i)encoding' '--encoding bogus message names the option'
+  if ((Get-FileHash $src).Hash -ne $before) { Fail "--encoding bogus: input file was modified" }
+
+  # ----- out-of-range integer: clamped, with a warning, never silently -----
+  $out = & $exe --ini $ini --indent -3 --stdout $src 2>&1 | Out-String
+  MustMatch $out '(?i)warning.*Indent' '--indent -3 warns that it was clamped'
+
   # ----- typo'd value flag: same treatment, value arg not eaten as a file -----
   $out = & $exe --ini $ini --max-length 100 $src 2>&1 | Out-String
   if ($LASTEXITCODE -eq 0) { Fail "typo-flag exit: expected nonzero, got 0" }

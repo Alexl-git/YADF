@@ -329,6 +329,18 @@ function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 
 function LoadOptionsFromIni(const APath: string): TYadfOptions;
 
+/// <summary>Pulls every integer option that is out of its valid range back to
+/// the nearest valid value (negative counts -> 0, MaxLen -> at least 40,
+/// TabWidth / LabelMinLines / AlignShapeMinAnchors -> at least 1, Indent ->
+/// at most 16).</summary>
+/// <param name="AOpts">Options to correct in place.</param>
+/// <returns>'' when nothing changed, else a readable list such as
+/// 'Indent -3 -> 0, MaxLen 0 -> 40' for a warning.</returns>
+/// <remarks>Applied by LoadOptionsFromIni (CLI, wizard, YADFSetup) and by the
+/// CLI after its flags. Before 2026-10-14 nothing was checked: Indent=-3 with
+/// MaxLen=0 produced zero-indented output with every operator on its own line.</remarks>
+function ClampOptions(var AOpts: TYadfOptions): string;
+
 // Persist current values over the commented template (so comments survive).
 /// <summary><!-- drag-lint:auto -->Persist current values over the commented template (so
 /// comments survive).</summary>
@@ -829,6 +841,48 @@ begin
   Result:= GOptTable;
 end; // function
 
+function ClampOptions(var AOpts: TYadfOptions): string;
+const
+  MIN_MAX_LEN = 40;
+  MAX_INDENT  = 16;
+var
+  Changes: TStringList;
+
+  procedure Fix(const AName: string; var AValue: Integer; AMin, AMax: Integer);
+  var
+    Was: Integer;
+  begin
+    Was:= AValue;
+    if AValue < AMin then
+      AValue:= AMin
+    else if AValue > AMax then
+      AValue:= AMax;
+    if AValue <> Was then
+      Changes.Add(Format('%s %d -> %d', [AName, Was, AValue]));
+  end;
+
+begin
+  Changes:= TStringList.Create;
+  try
+    Fix('MaxLen'              , AOpts.MaxLen              , MIN_MAX_LEN, MaxInt    );
+    Fix('Indent'              , AOpts.Indent              , 0          , MAX_INDENT);
+    Fix('TabWidth'            , AOpts.TabWidth            , 1          , MAX_INDENT);
+    Fix('LabelMinLines'       , AOpts.LabelMinLines       , 1          , MaxInt    );
+    Fix('MaxBlankLines'       , AOpts.MaxBlankLines       , 0          , MaxInt    );
+    Fix('BlanksBeforeSection' , AOpts.BlanksBeforeSection , 0          , MaxInt    );
+    Fix('BlanksBeforeMethod'  , AOpts.BlanksBeforeMethod  , 0          , MaxInt    );
+    Fix('BlanksBeforeType'    , AOpts.BlanksBeforeType    , 0          , MaxInt    );
+    Fix('AlignMaxColumn'      , AOpts.AlignMaxColumn      , 0          , MaxInt    );
+    Fix('AlignShapeMinAnchors', AOpts.AlignShapeMinAnchors, 1          , MaxInt    );
+    Fix('AlignCommentMaxShift', AOpts.AlignCommentMaxShift, 0          , MaxInt    );
+    Changes.Delimiter      := ',';
+    Changes.StrictDelimiter:= True;
+    Result:= StringReplace(Changes.DelimitedText, ',', ', ', [rfReplaceAll]);
+  finally
+    Changes.Free;
+  end;
+end; // function
+
 function LoadOptionsFromIni(const APath: string): TYadfOptions;
 var
   Ini: TIniFile        ;
@@ -853,6 +907,7 @@ begin
   finally
     Ini.Free;
   end; // try
+  ClampOptions(Result); // an INI value out of range is corrected, not obeyed
 end; // function
 
 procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);

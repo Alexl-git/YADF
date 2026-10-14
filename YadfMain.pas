@@ -443,14 +443,27 @@ begin
     Writeln(ErrOutput, 'declined ' + AFileName + ' (content guard: ' + Declined + ') -- output is the unchanged input');
 end;
 
+function ProcessOneFile(const AFile: string; const AOpts: TYadfOptions): Boolean; forward;
+
 procedure FormatToFile(const AInFile, AOutFile: string; const AOpts: TYadfOptions);
 var
-  Dir     : string   ;
-  Source  : string   ;
-  Declined: string   ;
-  WEnc    : TEncoding;
-  WBom    : Boolean  ;
+  Dir     : string      ;
+  Source  : string      ;
+  Declined: string      ;
+  WEnc    : TEncoding   ;
+  WBom    : Boolean     ;
+  InPlace : TYadfOptions;
 begin
+  // `--o <the input itself>` is an in-place format: unchanged check and
+  // backup apply, exactly as without --o (review 2026-10-14).
+  if SameFileName(ExpandFileName(AInFile), ExpandFileName(AOutFile)) then
+  begin
+    InPlace:= AOpts;
+    InPlace.ResultDir:= '';
+    if not ProcessOneFile(AInFile, InPlace) then
+      ExitCode:= 1;
+    Exit;
+  end;
   Source:= LoadFile(AInFile, AOpts, WEnc, WBom);
   Dir:= TPath.GetDirectoryName(AOutFile);
   if Dir <> '' then
@@ -481,8 +494,9 @@ end;
 
 procedure BackupOriginalFile(const AFile: string; const ABackupDir: string);
 var
-  Stamp : string;
-  Target: string;
+  Stamp : string ;
+  Target: string ;
+  n     : Integer;
 begin
   if Trim(ABackupDir) = '' then
   begin
@@ -494,8 +508,27 @@ begin
     TDirectory.CreateDirectory(ABackupDir);
   Stamp:= FormatDateTime('yyyymmdd-hhnnss', Now);
   Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '.bak');
-  TFile.Copy(AFile, Target, True);
+  // Two inputs with the same basename in one second used to share this name
+  // and the second Copy overwrote the first file's only backup. Never
+  // overwrite: number the collision instead.
+  n:= 1;
+  while TFile.Exists(Target) do
+  begin
+    Inc(n);
+    Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '-' + IntToStr(n) + '.bak');
+  end;
+  TFile.Copy(AFile, Target, False);
 end; // procedure
+
+// True when AArg names a source input rather than a folder: a .pas/.dpr/
+// .dproj/.dpk/.inc file name or a wildcard spec.
+function LooksLikeSourceSpec(const AArg: string): Boolean;
+var
+  Ext: string;
+begin
+  Ext:= LowerCase(ExtractFileExt(AArg));
+  Result:= (Pos('*', AArg) > 0) or (Pos('?', AArg) > 0) or (Ext = '.pas') or (Ext = '.dpr') or (Ext = '.dproj') or (Ext = '.dpk') or (Ext = '.inc');
+end;
 
 procedure CheckDir(const ADir: string; const AOpts: TYadfOptions);
 var
@@ -541,6 +574,14 @@ begin
   if not TDirectory.Exists(AInDir) then
   begin
     WriteStdoutLine('error: input directory not found: ' + AInDir);
+    ExitCode:= 1;
+    Exit;
+  end;
+  // Batch writes every result, declined ones included, with no backup: it
+  // must never target the input folder itself (review 2026-10-14).
+  if SameFileName(ExcludeTrailingPathDelimiter(ExpandFileName(AInDir)), ExcludeTrailingPathDelimiter(ExpandFileName(AOutDir))) then
+  begin
+    WriteStdoutLine('error: --batch output folder is the input folder -- use in-place mode (with --b) instead');
     ExitCode:= 1;
     Exit;
   end;
@@ -740,7 +781,11 @@ begin
       WriteStdoutLine('declined ' + AFile + ' (content guard: ' + Declined + ') -- left unchanged');
       Exit;
     end;
-    if Trim(AOpts.ResultDir) <> '' then
+    // A result dir that resolves to the input's own folder is IN-PLACE: take
+    // the in-place path below (unchanged check + backup), never a blind
+    // overwrite of the source (review 2026-10-14).
+    if (Trim(AOpts.ResultDir) <> '')
+      and not SameFileName(ExpandFileName(TPath.Combine(AOpts.ResultDir, ExtractFileName(AFile))), ExpandFileName(AFile)) then
     begin
       if not TDirectory.Exists(AOpts.ResultDir) then
         TDirectory.CreateDirectory(AOpts.ResultDir);
@@ -1071,7 +1116,12 @@ begin
       else if AArgs[i] = '--b' then
       begin
         AOpts.Backup:= True;
-        if (i + 1 <= High(AArgs)) and not AArgs[i + 1].StartsWith('--') then
+        // The next argument is the backup FOLDER only when it cannot be an
+        // input: an existing directory, or anything that is not a source
+        // spec. `yadf --b foo.pas` used to make foo.pas the BackupDir and
+        // format nothing (review 2026-10-14).
+        if (i + 1 <= High(AArgs)) and not AArgs[i + 1].StartsWith('--')
+          and (TDirectory.Exists(AArgs[i + 1]) or not LooksLikeSourceSpec(AArgs[i + 1])) then
         begin
           AOpts.BackupDir:= AArgs[i + 1];
           Inc(i, 2);
@@ -1221,6 +1271,10 @@ begin
       begin
         if i + 1 > High(AArgs) then
           raise EYadfUsage.Create('--encoding requires ansi|utf8|utf16');
+        // An unknown value used to fall back to the current encoding silently.
+        // Unknown = ParseEncoding just hands back whichever default it gets.
+        if (ParseEncoding(AArgs[i + 1], encANSI) = encANSI) and (ParseEncoding(AArgs[i + 1], encUTF8BOM) = encUTF8BOM) then
+          raise EYadfUsage.Create('--encoding: unknown value "' + AArgs[i + 1] + '" (use ansi|utf8|utf16)');
         AOpts.Encoding:= ParseEncoding(AArgs[i + 1], AOpts.Encoding);
         Inc(i, 2);
       end
@@ -1373,6 +1427,7 @@ var
   OutFile   : string        ;
   Spec      : string        ;
   StdoutMode: Boolean       ;
+  Clamped   : string        ;
 begin
   SetLength(Args, ParamCount);
   for i:= 1 to ParamCount do
@@ -1407,6 +1462,11 @@ begin
     WriteStdoutLine('Created default config: ' + IniPath);
   LoadIniDefaults(Opts, IniPath);
   ParseFlags(Args, Opts, OutFile, StdoutMode);
+  // CLI values are range-checked like INI values. To stderr: in --stdout mode
+  // stdout carries the formatted source.
+  Clamped:= ClampOptions(Opts);
+  if Clamped <> '' then
+    Writeln(ErrOutput, 'warning: out-of-range option(s) corrected: ' + Clamped);
   GLogEnabled:= Opts.Logging;
   LogStartup(Args, Opts, IniPath);
 

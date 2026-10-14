@@ -172,6 +172,35 @@ begin
   end;
 end;
 
+// Review 2026-10-14: integers were never range-checked -- Indent=-3 with
+// MaxLen=0 produced zero-indented output with every operator on its own line.
+procedure TestIntRangeClamp;
+var
+  Path: string;
+  O   : TYadfOptions;
+begin
+  Path := TPath.Combine(TPath.GetTempPath, 'yadf_clamp_test.ini');
+  TFile.WriteAllText(Path,
+    '[Format]' + sLineBreak +
+    'Indent=-3' + sLineBreak +
+    'MaxLen=0' + sLineBreak +
+    'TabWidth=0' + sLineBreak +
+    'MaxBlankLines=-1' + sLineBreak +
+    'LabelMinLines=0' + sLineBreak);
+  try
+    O := LoadOptionsFromIni(Path);
+    Check('clamp: Indent >= 0',        O.Indent >= 0);
+    Check('clamp: MaxLen >= 40',       O.MaxLen >= 40);
+    Check('clamp: TabWidth >= 1',      O.TabWidth >= 1);
+    Check('clamp: MaxBlankLines >= 0', O.MaxBlankLines >= 0);
+    Check('clamp: LabelMinLines >= 1', O.LabelMinLines >= 1);
+    O.Indent:= 4;
+    Check('clamp: in-range value reports nothing', ClampOptions(O) = '');
+  finally
+    TFile.Delete(Path);
+  end;
+end;
+
 // LooksLikeUtf8 drives BOM-less encoding detection in the CLI and the wizard:
 // valid multi-byte UTF-8 must be promoted from the ANSI fallback; everything
 // ambiguous or invalid must stay ANSI.
@@ -198,6 +227,7 @@ begin
     TestHelpCoversAll;
     TestLenientIntRead;
     TestInlineCommentsOnAllKinds;
+    TestIntRangeClamp;
     TestLooksLikeUtf8;
     Writeln('');
     if GFailures = 0 then
