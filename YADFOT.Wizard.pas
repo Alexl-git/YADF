@@ -329,11 +329,18 @@ var
   OutBytes : TBytes;
   Original : string;
   Formatted: string;
+  Declined : string;
 begin
   Bytes    := TFile.ReadAllBytes(AFileName);
   DetectSourceEncoding(Bytes, Enc, PreLen);
   Original := Enc.GetString(Bytes, PreLen, Length(Bytes) - PreLen);
-  Formatted:= FormatSource(Original, AOpts);
+  Formatted:= FormatSource(Original, AOpts, Declined);
+  if Declined <> '' then
+  begin
+    // A guard decline must not read as "already formatted" (review 2026-10-14).
+    MessageDlg('YADFOT: file left unchanged -- the content guard declined the result.' + sLineBreak + Declined, mtWarning, [mbOK], 0);
+    Exit(False);
+  end;
   Result   := Formatted <> Original;
   if Result then
   begin
@@ -458,6 +465,7 @@ var
   Opts     : TYadfOptions;
   Original : string;
   Formatted: string;
+  Declined : string;
   RIni     : string;
 begin
   try
@@ -523,7 +531,13 @@ begin
     end;
 
     Original := ReadEditorText(Editor);
-    Formatted:= FormatSource(Original, Opts);
+    Formatted:= FormatSource(Original, Opts, Declined);
+    if Declined <> '' then
+    begin
+      // A guard decline must not read as "already formatted" (review 2026-10-14).
+      MessageDlg('YADFOT: buffer left unchanged -- the content guard declined the result.' + sLineBreak + Declined, mtWarning, [mbOK], 0);
+      Exit;
+    end;
     if Formatted = Original then Exit;
     WriteEditorText(Editor, Formatted);
   except

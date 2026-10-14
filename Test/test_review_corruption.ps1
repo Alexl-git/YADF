@@ -28,9 +28,9 @@ function Format-Case([string]$name) {
   New-Item -ItemType Directory $tmpDir | Out-Null
   $out = Join-Path $tmpDir $name
   $msg = & $exe --ini $ini (Join-Path $cases $name) --o $out 2>&1 | Out-String
-  if ($LASTEXITCODE -ne 0)        { Fail "review_corruption: $name exit $LASTEXITCODE -- $msg"; return $null }
-  if ($msg -match '(?i)declin')   { Fail "review_corruption: $name was DECLINED -- $msg"; return $null }
-  if (-not (Test-Path $out))      { Fail "review_corruption: $name produced no output"; return $null }
+  if ($LASTEXITCODE -ne 0)        { Fail "review_corruption: $name exit $LASTEXITCODE -- $msg" | Out-Host; return $null }
+  if ($msg -match '(?m)^declined ') { Fail "review_corruption: $name was DECLINED -- $msg" | Out-Host; return $null }
+  if (-not (Test-Path $out))      { Fail "review_corruption: $name produced no output" | Out-Host; return $null }
   return $out
 }
 
@@ -85,6 +85,18 @@ if ($r1Out) {
   if ($txt -cnotmatch 'TColor\s*=\s*\(Red, Green\)') { Fail 'review_corruption: enum member Red was re-cased (RTTI name)' }
   if (Test-Path (Join-Path $bin 'dcc64.exe')) {
     if (-not (Compiles 'dcc64' $r1Out)) { Fail 'review_corruption: formatted review_r1_semantics.pas does not compile with dcc64' }
+  }
+}
+
+# ---- review_r2_declines: code must never be moved into a // comment
+#      (Format-Case fails on a guard decline) ----
+$r2Out = Format-Case 'review_r2_declines.pas'
+if ($r2Out) {
+  $txt = [IO.File]::ReadAllText($r2Out)
+  if ($txt -notmatch '// second\s*\r?\n') { Fail 'review_corruption: code was appended to the // second comment' }
+  if ($txt -notmatch '// see what we do\s*\r?\n') { Fail 'review_corruption: the // see what we do comment was altered' }
+  if (Test-Path (Join-Path $bin 'dcc64.exe')) {
+    if (-not (Compiles 'dcc64' $r2Out)) { Fail 'review_corruption: formatted review_r2_declines.pas does not compile with dcc64' }
   }
 }
 

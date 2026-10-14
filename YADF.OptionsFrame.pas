@@ -1498,6 +1498,8 @@ end; // procedure
 { ==================== preview ==================== }
 
 procedure TYadfOptionsFrame.Reformat;
+var
+  Declined: string;
 begin
   // Render the result memo from the current source + FOpts. A malformed paste
   // can raise inside FormatSource (DelphiAST lexer/parser); show it in the
@@ -1505,8 +1507,13 @@ begin
   if FResult = nil then
     Exit;
   try
-    FResult.Text:= FormatSource(FSource.Text, FOpts);
-    FResultStat.Caption:= 'OK';
+    FResult.Text:= FormatSource(FSource.Text, FOpts, Declined);
+    // A guard decline returns the source unchanged -- say so instead of "OK"
+    // (review 2026-10-14).
+    if Declined <> '' then
+      FResultStat.Caption:= 'declined: ' + Declined
+    else
+      FResultStat.Caption:= 'OK';
   except
     on E: Exception do
     begin

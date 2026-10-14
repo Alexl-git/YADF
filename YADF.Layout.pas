@@ -3409,6 +3409,12 @@ const
     LocalCmtOpen, HasComment: Boolean;
   begin
     Result:= ABase;
+    // A header that already ends in a `//` comment can take nothing after it:
+    // `procedure Foo; // c` + `overload;` became `... // c overload;` -- the
+    // directive vanished into the comment and the guard declined the whole
+    // file (review 2026-10-14, reviewer 2).
+    if TopLevelLineCommentCol(ABase) > 0 then
+      Exit;
     while (AIdx < Lines.Count) and (St.Depth = 0) and (not St.InBlockComment)
       and IsDirectiveOnlyLine(Lines[AIdx], HasComment) do
     begin
@@ -6542,10 +6548,11 @@ var
 // `then` or `do`, returning the line without it plus the keyword as
 // written (source casing preserved -- LowercaseKeywords may be off).
 // `until` is absent by design: it LEADS its condition, so there is
-// nothing to move. A trailing `//` comment makes the keyword non-final
-// and the line simply does not match, which is the safe outcome; so
-// does a body riding the same line (`then Foo;`) -- moving the BODY is
-// BreakIfBody's job, not this pass's.
+// nothing to move. A line carrying a trailing `//` comment never matches
+// -- the comment's own last word may be `then`/`do` (`// see what we do`),
+// and cutting it out altered the comment, so the guard declined the whole
+// file (review 2026-10-14). A body riding the same line (`then Foo;`)
+// does not match either -- moving the BODY is BreakIfBody's job.
   function SplitTrailingHeaderKeyword(const ALine: string; out ABody, AKeyword: string): Boolean;
   const
     Trailing: array[0..1] of string = ('then', 'do');
@@ -6557,6 +6564,8 @@ var
     Result  := False;
     ABody   := ALine;
     AKeyword:= '';
+    if TopLevelLineCommentCol(ALine) > 0 then
+      Exit;
     T:= TrimRight(ALine);
     for i:= 0 to High(Trailing) do
     begin

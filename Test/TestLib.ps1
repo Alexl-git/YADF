@@ -72,7 +72,7 @@ function Invoke-Yadf([string]$src, [string]$iniPath, [string]$out, [string[]]$fl
   $msg = & $exe --ini $iniPath $src @flags --o $out 2>&1 | Out-String
   $leaf = Split-Path $src -Leaf
   if ($LASTEXITCODE -ne 0)           { Fail "YADF exit $LASTEXITCODE on ${leaf}: $($msg.Trim())"; return $false }
-  if ($msg -match '(?i)\bdeclined\b') { Fail "guard declined ${leaf}: $($msg.Trim())"; return $false }
+  if ($msg -match '(?m)^declined ') { Fail "guard declined ${leaf}: $($msg.Trim())"; return $false }
   if (-not (Test-Path $out))         { Fail "no output written for $leaf"; return $false }
   return $true
 }
