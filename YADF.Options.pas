@@ -593,16 +593,23 @@ end;
 // `Key=false ; note` was unparseable and silently fell back to the default.
 function StripIniComment(const AValue: string): string;
 var
-  i: Integer;
+  i          : Integer;
+  OpensSlash : Boolean;
+  OpensCmt   : Boolean;
+  AfterBlank : Boolean;
 begin
   Result:= AValue;
   for i:= 1 to Length(Result) do
-    if ((Result[i] = ';') or ((Result[i] = '/') and (i < Length(Result)) and (Result[i + 1] = '/')))
-      and ((i = 1) or CharInSet(Result[i - 1], [' ', #9])) then
+  begin
+    OpensSlash:= (Result[i] = '/') and (i < Length(Result)) and (Result[i + 1] = '/');
+    OpensCmt  := (Result[i] = ';') or OpensSlash;
+    AfterBlank:= (i = 1) or CharInSet(Result[i - 1], [' ', #9]);
+    if OpensCmt and AfterBlank then
     begin
       SetLength(Result, i - 1);
       Break;
     end;
+  end; // for
   Result:= Trim(Result);
 end; // function
 

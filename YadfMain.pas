@@ -523,11 +523,18 @@ end; // procedure
 // True when AArg names a source input rather than a folder: a .pas/.dpr/
 // .dproj/.dpk/.inc file name or a wildcard spec.
 function LooksLikeSourceSpec(const AArg: string): Boolean;
+const
+  SOURCE_EXTS: array[0..4] of string = ('.pas', '.dpr', '.dproj', '.dpk', '.inc');
 var
   Ext: string;
 begin
-  Ext:= LowerCase(ExtractFileExt(AArg));
-  Result:= (Pos('*', AArg) > 0) or (Pos('?', AArg) > 0) or (Ext = '.pas') or (Ext = '.dpr') or (Ext = '.dproj') or (Ext = '.dpk') or (Ext = '.inc');
+  if (Pos('*', AArg) > 0) or (Pos('?', AArg) > 0) then
+    Exit(True);
+  Ext:= ExtractFileExt(AArg);
+  for var S in SOURCE_EXTS do
+    if SameText(Ext, S) then
+      Exit(True);
+  Result:= False;
 end;
 
 procedure CheckDir(const ADir: string; const AOpts: TYadfOptions);

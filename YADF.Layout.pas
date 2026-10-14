@@ -480,79 +480,95 @@ end; // procedure
 //     earlier same-named identifier made the exe fail with "entry point not
 //     found" while still compiling and linking.
 // Every OTHER occurrence (call sites, uses) is still normalised.
-function SpellingSensitiveIdents(const ATokens: TTokenList): TArray<Boolean>;
 const
-  Skip = [ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment];
+  SPELL_SKIP = [ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment];
+
+// True when ATokens[AIdx] is AKind as a reserved word OR as a directive word
+// (the lexer files `external` / `name` under ExID when used as directives).
+function TokIs(const ATokens: TTokenList; AIdx: Integer; AKind: TptTokenKind): Boolean;
+begin
+  Result:= (ATokens[AIdx].Kind = AKind) or (ATokens[AIdx].ExID = AKind);
+end;
+
+// Marks the member names of an enumerated type whose `(` is at AOpen (the
+// caller has checked it follows `=`): identifiers at paren depth 0 that
+// start the list or follow a comma.
+procedure MarkEnumMembers(const ATokens: TTokenList; AOpen: Integer; var AMarks: TArray<Boolean>);
 var
-  i, j, Depth: Integer;
-  ExpectName : Boolean;
-  HasName    : Boolean;
-
-  function IsKind(AIdx: Integer; AKind: TptTokenKind): Boolean;
+  j         : Integer;
+  Depth     : Integer;
+  ExpectName: Boolean;
+begin
+  ExpectName:= True;
+  Depth     := 0;
+  j         := AOpen + 1;
+  while j < ATokens.Count do
   begin
-    Result:= (ATokens[AIdx].Kind = AKind) or (ATokens[AIdx].ExID = AKind);
-  end;
+    case ATokens[j].Kind of
+      ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment: ; // layout only
+      ptRoundOpen : Inc(Depth);
+      ptRoundClose: if Depth = 0 then
+          Exit
+        else
+          Dec(Depth);
+      ptComma    : ExpectName:= Depth = 0;
+      ptSemiColon: Exit;
+      ptIdentifier:
+      begin
+        if (Depth = 0) and ExpectName then
+          AMarks[j]:= True;
+        ExpectName:= False;
+      end;
+      else
+        ExpectName:= False;
+    end; // case
+    Inc(j);
+  end; // while
+end; // procedure
 
+// Marks the routine name of an `external` declaration at AExt -- unless the
+// clause carries `name '...'`, which fixes the import spelling by itself.
+procedure MarkExternalName(const ATokens: TTokenList; AExt: Integer; var AMarks: TArray<Boolean>);
+var
+  j: Integer;
+begin
+  j:= AExt + 1;
+  while (j < ATokens.Count) and (ATokens[j].Kind <> ptSemiColon) do
+  begin
+    if TokIs(ATokens, j, ptName) then
+      Exit;
+    Inc(j);
+  end;
+  j:= AExt - 1;
+  while (j >= 0) and not (ATokens[j].Kind in [ptProcedure, ptFunction, ptBegin, ptEnd, ptImplementation, ptInterface]) do
+    Dec(j);
+  if (j < 0) or not (ATokens[j].Kind in [ptProcedure, ptFunction]) then
+    Exit;
+  Inc(j);
+  while (j < AExt) and (ATokens[j].Kind in SPELL_SKIP) do
+    Inc(j);
+  if (j < AExt) and (ATokens[j].Kind = ptIdentifier) then
+    AMarks[j]:= True;
+end; // procedure
+
+function SpellingSensitiveIdents(const ATokens: TTokenList): TArray<Boolean>;
+var
+  i: Integer;
+  j: Integer;
 begin
   SetLength(Result, ATokens.Count);
   for i:= 0 to ATokens.Count - 1 do
   begin
-    // Enumerated type: `= (` followed by names at paren depth 0.
     if ATokens[i].Kind = ptRoundOpen then
     begin
       j:= i - 1;
-      while (j >= 0) and (ATokens[j].Kind in Skip) do
+      while (j >= 0) and (ATokens[j].Kind in SPELL_SKIP) do
         Dec(j);
       if (j >= 0) and (ATokens[j].Kind = ptEqual) then
-      begin
-        ExpectName:= True;
-        Depth     := 0;
-        j         := i + 1;
-        while j < ATokens.Count do
-        begin
-          if not (ATokens[j].Kind in Skip) then
-            case ATokens[j].Kind of
-              ptRoundOpen : Inc(Depth);
-              ptRoundClose: if Depth = 0 then Break else Dec(Depth);
-              ptComma     : ExpectName:= Depth = 0;
-              ptSemiColon : Break;
-              else
-              begin
-                if (Depth = 0) and ExpectName and (ATokens[j].Kind = ptIdentifier) then
-                  Result[j]:= True;
-                ExpectName:= False;
-              end;
-            end; // case
-          Inc(j);
-        end; // while
-      end; // if
-    end; // if
-    // `external` without `name`: pin the routine's own name.
-    if IsKind(i, ptExternal) then
-    begin
-      HasName:= False;
-      j:= i + 1;
-      while (j < ATokens.Count) and (ATokens[j].Kind <> ptSemiColon) do
-      begin
-        if IsKind(j, ptName) then
-          HasName:= True;
-        Inc(j);
-      end;
-      if not HasName then
-      begin
-        j:= i - 1;
-        while (j >= 0) and not (ATokens[j].Kind in [ptProcedure, ptFunction, ptBegin, ptEnd, ptImplementation, ptInterface]) do
-          Dec(j);
-        if (j >= 0) and (ATokens[j].Kind in [ptProcedure, ptFunction]) then
-        begin
-          Inc(j);
-          while (j < i) and (ATokens[j].Kind in Skip) do
-            Inc(j);
-          if (j < i) and (ATokens[j].Kind = ptIdentifier) then
-            Result[j]:= True;
-        end;
-      end; // if
-    end; // if
+        MarkEnumMembers(ATokens, i, Result);
+    end
+    else if TokIs(ATokens, i, ptExternal) then
+      MarkExternalName(ATokens, i, Result);
   end; // for
 end; // function
 
@@ -5815,7 +5831,7 @@ var
 // An inline `const` inside an anonymous method body: its scope is the anon
 // method, not the enclosing routine, so we will not hoist it. Leave it in
 // place with a TODO (reuses the ikFallbackTodo rewrite -- const has a `;`).  // dl:ok compiler-magic-comments@e3b0
-  function TryFlagAnonConst(AConst: Integer; out ARec: TInlineRec; const AWhere: string = 'inside an anonymous method'): Boolean;  // dl:ok duplicate-code@7aaf
+  function TryFlagAnonConst(AConst: Integer; out ARec: TInlineRec; const AWhere: string = 'inside an anonymous method'): Boolean;  // dl:ok duplicate-code@af1b
   var
     Ni      : Integer;
     Semi    : Integer;
@@ -5879,9 +5895,9 @@ begin
         // i.e. OUT of any enclosing conditional -- a type or name that exists
         // only under the symbol then breaks the build (review 2026-10-14).
         if Ki in [ptIfDefDirect, ptIfNDefDirect, ptIfDirect, ptIfOptDirect] then
-        begin Inc(CondDepth); Inc(i); Continue; end;
-        if Ki in [ptEndIfDirect, ptIfEndDirect] then
-        begin if CondDepth > 0 then Dec(CondDepth); Inc(i); Continue; end;
+          Inc(CondDepth)
+        else if (Ki in [ptEndIfDirect, ptIfEndDirect]) and (CondDepth > 0) then
+          Dec(CondDepth);
         // A procedure/function keyword inside a body opens an anonymous method
         // (named nested routines live in the decl section, before `begin`).
         if Ki in [ptProcedure, ptFunction] then
@@ -5978,7 +5994,11 @@ begin
           if (AnonCount = 0) and (CondDepth > 0) then
           begin
             if TryFlagAnonConst(i, Rec, 'inside a conditional-compilation block') then
-            begin Inlines.Add(i, Rec); i:= Rec.SemiIdx + 1; Continue; end;
+            begin
+              Inlines.Add(i, Rec);
+              i:= Rec.SemiIdx + 1;
+              Continue;
+            end;
           end
           else if AnonCount = 0 then
           begin

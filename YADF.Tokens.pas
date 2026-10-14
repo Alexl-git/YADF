@@ -119,6 +119,7 @@ end;
 // literals and `//`, `(* *)`, `{ }` comments so a `{$I` inside those
 // is never transformed.
 const
+  ML_MIN_QUOTES = 3; // a multi-line string opens with an ODD run of at least this many apostrophes
   IncSentinel = 'ZQYADF'; // appended to the directive word; unique enough
   // that real source never collides.
 
@@ -157,7 +158,7 @@ begin
         Run:= 0;
         while (i + Run <= n) and (ASource[i + Run] = '''') do
           Inc(Run);
-        if (Run >= 3) and Odd(Run) and (i + Run <= n) and CharInSet(ASource[i + Run], [#13, #10]) then
+        if (Run >= ML_MIN_QUOTES) and Odd(Run) and (i + Run <= n) and CharInSet(ASource[i + Run], [#13, #10]) then
         begin
           Sb.Append(ASource, i - 1, Run);
           Inc(i, Run);

@@ -345,7 +345,8 @@ begin
       AReason:= 'formatter shield marker leaked into the output: ' + Marker;
       Exit(False);
     end;
-  OrigAsm:= TList<string>.Create; FmtAsm:= TList<string>.Create;
+  OrigAsm:= TList<string>.Create;
+  FmtAsm := TList<string>.Create;
   OrigStr:= TList<string>.Create; FmtStr:= TList<string>.Create;
   OrigCom:= TList<string>.Create; FmtCom:= TList<string>.Create;
   OrigDir:= TList<string>.Create; FmtDir:= TList<string>.Create;
@@ -392,7 +393,8 @@ begin
     OrigCom.Free; FmtCom.Free;
     OrigDir.Free; FmtDir.Free;
     OrigLbl.Free; FmtLbl.Free;
-    OrigAsm.Free; FmtAsm.Free;
+    OrigAsm.Free;
+    FmtAsm .Free;
   end; // try
 end; // function
 
