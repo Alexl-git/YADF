@@ -757,7 +757,7 @@ function StartsBlockBoundary(const ALine: string): Boolean;  // dl:ok too-many-e
 var
   T: string;
 
-  function StartsKW(const AKeyword: string): Boolean;  // dl:ok too-many-exit-points@4c44
+  function StartsKW(const AKeyword: string): Boolean;
   var
     L: Integer;
     C: Char   ;
@@ -1028,7 +1028,7 @@ end; // function
 // conservative -- a numeric label, a `:=`/`(` in the body, or a leading
 // statement keyword. (The rare `enumA, enumB: BareParamlessProc;` arm is not
 // caught and still splits; harmless and uncommon.)
-function CaseArmLikeBody(const ANames, AType: string): Boolean;  // dl:ok too-many-exit-points@3a8f
+function CaseArmLikeBody(const ANames, AType: string): Boolean;
 var
   FirstWord: string        ;
   T        : string        ;
@@ -2412,7 +2412,7 @@ var
       Result:= True;
   end;
 
-  function IsSimpleBody(const B: string): Boolean;  // dl:ok too-many-exit-points@d2a7
+  function IsSimpleBody(const B: string): Boolean;
   var
     Tb: string;
   begin
@@ -3513,7 +3513,7 @@ var
 
 // any comment involvement on the line forbids collapse (over-conservative on
 // `//` inside a string -- safe: we just decline to collapse that block)
-  function HasCommentChars(const L: string): Boolean;  // dl:ok too-many-exit-points@53f2
+  function HasCommentChars(const L: string): Boolean;
   var
     p: Integer;
   begin
