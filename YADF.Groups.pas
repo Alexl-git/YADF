@@ -273,6 +273,22 @@ begin
   Result:= (G <> nil) and (G.Kind = gkBlock) and (G.OpenerKind in [ptRecord, ptObject]);
 end;
 
+// True when the `record` at AIdx is a GENERIC CONSTRAINT (`TBax<T2: record>`,
+// `Make<T: record, IFoo>`), not a record type: a constraint is always followed
+// by `>`, `,` or `;` (the next type parameter), which can never follow a real
+// `record` -- that is followed by a field, `case`, a visibility or `end`. A
+// constraint has no `end`, so opening a block for it mis-paired every later
+// `end` in the unit (2026-10-14).
+function IsRecordConstraint(const ATokens: TTokenList; AIdx: Integer): Boolean;
+var
+  n: Integer;
+begin
+  n:= AIdx + 1;
+  while (n < ATokens.Count) and (ATokens[n].Kind in [ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment]) do
+    Inc(n);
+  Result:= (n < ATokens.Count) and (ATokens[n].Kind in [ptGreater, ptComma, ptSemiColon]);
+end;
+
 function ParseGroups(const ATokens: TTokenList): TGroup;
 var
   Root: TGroup      ;
@@ -299,7 +315,8 @@ begin
         Cur.CloseIdx:= i;
         Cur:= Cur.Parent;
       end;
-      ptBegin, ptRecord, ptTry, ptAsm: Cur:= TGroup.Create(gkBlock, i, K, Cur)                                   ;
+      ptBegin, ptTry, ptAsm          : Cur:= TGroup.Create(gkBlock, i, K, Cur)                                   ;
+      ptRecord                       : if not IsRecordConstraint(ATokens, i) then Cur:= TGroup.Create(gkBlock, i, K, Cur);
       ptCase                         : if not IsVariantPartCase(Cur) then Cur:= TGroup.Create(gkBlock, i, K, Cur);
       ptObject                       :
       begin

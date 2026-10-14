@@ -1,0 +1,57 @@
+unit generic_constraint_keywords;
+
+// Regression fixture: `class` / `record` / `constructor` used as GENERIC
+// CONSTRAINTS must not act as block / routine keywords for the indent engine.
+
+interface
+
+const
+  LimitA = 1;
+  LimitB = 2;
+  IsLess = LimitA < LimitB;
+
+type
+  TBaz<TThree: TComponent, IUnknown, constructor> = class(TObject);
+  TBaz2<TComma1, TComma2: class> = class(TObject);
+  TBax<T1: class; T2: record> = class(TObject)
+  public
+    procedure DoStuff;
+    procedure Make<T: record>(const AValue: T);
+    function Build<T: class, constructor>: T;
+    procedure After;
+  end;
+  TSibling = class(TObject);
+
+procedure Global<T: record>(const AValue: T);
+procedure GlobalAfter;
+
+implementation
+
+procedure TBax<T1, T2>.DoStuff;
+begin
+end;
+
+procedure TBax<T1, T2>.Make<T>(const AValue: T);
+begin
+end;
+
+function TBax<T1, T2>.Build<T>: T;
+begin
+  Result:= T.Create;
+end;
+
+procedure TBax<T1, T2>.After;
+begin
+end;
+
+procedure Global<T>(const AValue: T);
+begin
+end;
+
+procedure GlobalAfter;
+begin
+  if LimitA < LimitB then
+    Exit;
+end;
+
+end.

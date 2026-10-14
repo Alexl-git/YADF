@@ -3860,6 +3860,7 @@ var
   OpenProcRegions   : Integer            ;
   OutVal              : TStringBuilder     ;
   ParensDepth       : Integer            ;
+  AngleDepth        : Integer            ; // open generic `<...>` lists in a declaration (see GenericOpen)
   PendingProcStack  : TList<Boolean>     ;
   PendingWS         : string             ;
   PrevNonKind       : TptTokenKind       ;
@@ -4045,6 +4046,18 @@ var
 // The `type` of a distinct-type alias (`UTF8String = type AnsiString`) follows
 // an `=` and is NOT a section opener: treating it as one broke the line after
 // `type` and pushed a phantom section that indented everything after it.
+  // True when a `<` just read opens a GENERIC parameter list rather than a
+  // comparison: it follows an identifier (`TBax<`, `Make<`), outside parens,
+  // and where only declarations live -- a type section, a class/record/
+  // interface body, or unit level between routines (a generic routine
+  // header). Code (begin/case/try/...) and const/var sections are excluded,
+  // so `if A < B` and `C = A < B` never count. Inside such a list,
+  // `class` / `record` / `constructor` are CONSTRAINTS, not keywords.
+  function GenericOpen: Boolean;
+  begin
+    Result:= (ParensDepth = 0) and (PrevNonKind = ptIdentifier) and (StackTop in [ptUnknown, ptType, ptClass, ptObject, ptRecord, ptInterface]);
+  end; // function
+
   function SectionKindOf(AKind: TptTokenKind): TptTokenKind;
   begin
     Result:= ptUnknown;
@@ -4072,6 +4085,7 @@ begin
       VisOnThisLine     := False;
       AfterCRLF         := False;
       ParensDepth       := 0;
+      AngleDepth        := 0;
       PendingWS         := '';
       CurLineLast       := ptUnknown;
       PendingCtrl       := 0;
@@ -4229,6 +4243,8 @@ begin
           case T.Kind of
             ptRoundOpen, ptSquareOpen  : Inc(ParensDepth)                        ;
             ptRoundClose, ptSquareClose: if ParensDepth > 0 then Dec(ParensDepth);
+            ptLower                    : if (AngleDepth > 0) or GenericOpen then Inc(AngleDepth);
+            ptGreater                  : if AngleDepth > 0 then Dec(AngleDepth)        ;
             ptType, ptVar, ptConst, ptResourcestring, ptThreadvar: if (ParensDepth = 0) and (SectionKindOf(T.Kind) <> ptUnknown)
               and not (StackTop in [ptBegin, ptCase, ptTry, ptAsm]) then
             begin
@@ -4246,8 +4262,7 @@ begin
                 InVisibility   := False;
               ExpectSectionDecl:= True;
             end; // if
-            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) and (PrevNonKind <> ptEqual) and (PrevNonKind <> ptTo)
-              and (PrevNonKind <> ptColon) then
+            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) and (AngleDepth = 0) and not (PrevNonKind in [ptEqual, ptTo, ptColon]) then
               // ParensDepth = 0 distinguishes a real procedure/function
               // declaration from an inline anonymous method expression
               // (e.g. CallSomething(procedure(X) begin ... end)). The
@@ -4266,6 +4281,8 @@ begin
               // surrounding type section or open a proc region (else the
               // routine's own begin/end over-indents). (Bug repro: leading
               // procedure/function var type, 2026-06-18.)
+              // AngleDepth = 0: `constructor` as a generic CONSTRAINT
+              // (`TBaz<T: TComponent, constructor>`) is not a routine either.
             begin
               CloseSectionIfOpen;
               InVisibility:= False;
@@ -4282,7 +4299,9 @@ begin
               StackPushBegin;
               InVisibility:= False;
             end;
-            ptRecord, ptTry, ptAsm, ptRepeat:
+            ptRecord, ptTry, ptAsm, ptRepeat: if (T.Kind <> ptRecord) or (AngleDepth = 0) then
+            // A `record` CONSTRAINT (`TBax<T2: record>`) opens no block -- nothing
+            // would ever close it.
             begin
               StackPush(T.Kind);
               InVisibility:= False;
@@ -4361,6 +4380,11 @@ begin
                 Dec(OpenProcRegions);
             end;
           end; // case
+          // None of these can sit inside a generic `<...>` list, so a `<` that
+          // was never closed (a misread comparison) cannot outlive its line of
+          // declaration.
+          if T.Kind in [ptEqual, ptBegin, ptEnd, ptImplementation, ptInitialization, ptFinalization] then
+            AngleDepth:= 0;
           if T.ExID in [ptPrivate, ptPublic, ptProtected, ptPublished] then
           begin
             InVisibility := True;
