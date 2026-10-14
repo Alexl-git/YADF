@@ -23,11 +23,11 @@ Assert-ToolOrSkip 'review_corruption' $exe
 $cases = Join-Path $PSScriptRoot 'Cases'
 $bin   = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin'
 
-function Format-Case([string]$name) {
+function Format-Case([string]$name, [string[]]$flags = @()) {
   $tmpDir = Join-Path $env:TEMP ("revcorr_" + [guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory $tmpDir | Out-Null
   $out = Join-Path $tmpDir $name
-  $msg = & $exe --ini $ini (Join-Path $cases $name) --o $out 2>&1 | Out-String
+  $msg = & $exe --ini $ini (Join-Path $cases $name) @flags --o $out 2>&1 | Out-String
   if ($LASTEXITCODE -ne 0)        { Fail "review_corruption: $name exit $LASTEXITCODE -- $msg" | Out-Host; return $null }
   if ($msg -match '(?m)^declined ') { Fail "review_corruption: $name was DECLINED -- $msg" | Out-Host; return $null }
   if (-not (Test-Path $out))      { Fail "review_corruption: $name produced no output" | Out-Host; return $null }
@@ -97,6 +97,18 @@ if ($r2Out) {
   if ($txt -notmatch '// see what we do\s*\r?\n') { Fail 'review_corruption: the // see what we do comment was altered' }
   if (Test-Path (Join-Path $bin 'dcc64.exe')) {
     if (-not (Compiles 'dcc64' $r2Out)) { Fail 'review_corruption: formatted review_r2_declines.pas does not compile with dcc64' }
+  }
+}
+
+# ---- --d10 must not hoist an inline var/const out of a conditional ----
+$d10Out = Format-Case 'review_d10_ifdef.pas' @('--d10')
+if ($d10Out) {
+  $txt = [IO.File]::ReadAllText($d10Out)
+  $ifdefAt = $txt.IndexOf('{$IFDEF')
+  $hoisted = [regex]::Match($txt, '(?m)^\s*X\s*:\s*TOnlyWhenDefined\s*;')
+  if ($hoisted.Success -and $hoisted.Index -lt $ifdefAt) { Fail 'review_corruption: --d10 hoisted X out of the {$IFDEF}' }
+  if (Test-Path (Join-Path $bin 'dcc64.exe')) {
+    if (-not (Compiles 'dcc64' $d10Out)) { Fail 'review_corruption: --d10 output of review_d10_ifdef.pas does not compile with dcc64' }
   }
 }
 

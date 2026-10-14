@@ -5378,6 +5378,7 @@ var
   k          : Integer                                ;
   Pv         : Integer                                ;
   AnonCount  : Integer                                ;
+  CondDepth  : Integer                                ; // open {$IF..}/{$IFDEF..} regions in the current body
   PendingAnon: Boolean                                ;
   IsAnon     : Boolean                                ;
   Ki         : TptTokenKind                           ;
@@ -5749,7 +5750,7 @@ var
 // An inline var inside an anonymous method body: we will not hoist it (its
 // scope is the anon method, not the enclosing routine). Leave it in place +
 // a TODO. Statement vars only; for-vars/already-flagged are left untouched.  // dl:ok compiler-magic-comments@e3b0
-  function TryAnonFallback(AVar: Integer; out ARec: TInlineRec): Boolean;
+  function TryAnonFallback(AVar: Integer; out ARec: TInlineRec; const AWhere: string = 'inside an anonymous method'): Boolean;
   var
     Ni      : Integer;
     Semi    : Integer;
@@ -5775,7 +5776,7 @@ var
     SetLength(ARec.DeclLines, 0);
     SetLength(ARec.Names    , 0);
     ARec.TypeStr:= '';
-    ARec.Comment:= ' // TODO -oYADF : inline var inside an anonymous method is not auto-hoisted for Delphi 10 -- was: ' + OrigLine;
+    ARec.Comment:= ' // TODO -oYADF : inline var ' + AWhere + ' is not auto-hoisted for Delphi 10 -- was: ' + OrigLine;
     Result:= True;
   end; // function
 
@@ -5814,7 +5815,7 @@ var
 // An inline `const` inside an anonymous method body: its scope is the anon
 // method, not the enclosing routine, so we will not hoist it. Leave it in
 // place with a TODO (reuses the ikFallbackTodo rewrite -- const has a `;`).  // dl:ok compiler-magic-comments@e3b0
-  function TryFlagAnonConst(AConst: Integer; out ARec: TInlineRec): Boolean;  // dl:ok duplicate-code@7aaf
+  function TryFlagAnonConst(AConst: Integer; out ARec: TInlineRec; const AWhere: string = 'inside an anonymous method'): Boolean;  // dl:ok duplicate-code@7aaf
   var
     Ni      : Integer;
     Semi    : Integer;
@@ -5840,7 +5841,7 @@ var
     SetLength(ARec.DeclLines, 0);
     SetLength(ARec.Names    , 0);
     ARec.TypeStr:= '';
-    ARec.Comment:= ' // TODO -oYADF : inline const inside an anonymous method is not auto-hoisted for Delphi 10 -- was: ' + OrigLine;
+    ARec.Comment:= ' // TODO -oYADF : inline const ' + AWhere + ' is not auto-hoisted for Delphi 10 -- was: ' + OrigLine;
     Result:= True;
   end; // function
 
@@ -5868,11 +5869,19 @@ begin
       BlkAnon.Clear;
       BlkKind.Clear;
       AnonCount  := 0;
+      CondDepth  := 0;
       PendingAnon:= False;
       i:= G.OpenIdx + 1;
       while i < G.CloseIdx do
       begin
         Ki:= ATokens[i].Kind;
+        // Hoisting moves a declaration to the routine's top var/const block,
+        // i.e. OUT of any enclosing conditional -- a type or name that exists
+        // only under the symbol then breaks the build (review 2026-10-14).
+        if Ki in [ptIfDefDirect, ptIfNDefDirect, ptIfDirect, ptIfOptDirect] then
+        begin Inc(CondDepth); Inc(i); Continue; end;
+        if Ki in [ptEndIfDirect, ptIfEndDirect] then
+        begin if CondDepth > 0 then Dec(CondDepth); Inc(i); Continue; end;
         // A procedure/function keyword inside a body opens an anonymous method
         // (named nested routines live in the decl section, before `begin`).
         if Ki in [ptProcedure, ptFunction] then
@@ -5921,7 +5930,18 @@ begin
           // is a classic var section, not an inline var -- leave it.
           if PendingAnon then begin Inc(i); Continue; end;
           Pv:= PrevSig(i - 1);
-          if AnonCount > 0 then
+          if (CondDepth > 0) and (AnonCount = 0) then
+          begin
+            if ((Pv < 0) or (ATokens[Pv].Kind <> ptFor)) and TryAnonFallback(i, Rec, 'inside a conditional-compilation block') then
+            begin
+              Inlines.Add(i, Rec);
+              i:= Rec.SemiIdx + 1;
+              Continue;
+            end;
+            if (Pv >= 0) and (ATokens[Pv].Kind = ptFor) and not ForTodos.ContainsKey(Pv) then
+              ForTodos.Add(Pv, '// TODO -oYADF : inline loop var inside a conditional-compilation block is not auto-hoisted for Delphi 10');
+          end
+          else if AnonCount > 0 then
           begin
             if ((Pv < 0) or (ATokens[Pv].Kind <> ptFor)) and TryAnonFallback(i, Rec) then
             begin
@@ -5955,7 +5975,12 @@ begin
           // block; one inside a nested anon body has a different scope, so it is
           // left untouched.
           if PendingAnon then begin Inc(i); Continue; end;
-          if AnonCount = 0 then
+          if (AnonCount = 0) and (CondDepth > 0) then
+          begin
+            if TryFlagAnonConst(i, Rec, 'inside a conditional-compilation block') then
+            begin Inlines.Add(i, Rec); i:= Rec.SemiIdx + 1; Continue; end;
+          end
+          else if AnonCount = 0 then
           begin
             if TryParseInlineConst(i, Rec, ConstDecl) then
             begin
