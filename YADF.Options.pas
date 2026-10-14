@@ -821,11 +821,11 @@ begin
       + 'Lines that already fit are never touched. OFF reverts to the greedy breaker, which packs as many components per line as fit.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLongExpressions end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLongExpressions:= V end),
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Downgrade inline vars',
       'Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest get a // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.Delphi10Compat end, procedure(var O: TYadfOptions; const V: Variant) begin O.Delphi10Compat:= V end),
-    MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label long blocks', 'Insert "// end of <Name>" markers after long blocks.', okBool, True,
+    MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label long blocks', 'After a block longer than LabelMinLines, mark its end with the block keyword: "end; // while", "end; // procedure".', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.LabelLongBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelLongBlocks:= V end),
     MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines', 'Minimum lines a block must span before LabelLongBlocks adds the marker.', okInt, True,  // dl:ok duplicate-code@2f84
       function(const O: TYadfOptions): Variant begin Result:= O.LabelMinLines end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelMinLines:= V end),
-    MakeOpt('MarkUnclosed', 'Labels & markers', 'Mark unclosed blocks', 'Add a "// UNCLOSED" marker when an opening keyword has no matching close.', okBool, True,
+    MakeOpt('MarkUnclosed', 'Labels & markers', 'Mark unclosed blocks', 'When an opening begin/record/... has no matching end, add "// TODO -oYADF : ''begin'' on line N has no matching ''end''".', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.MarkUnclosed end, procedure(var O: TYadfOptions; const V: Variant) begin O.MarkUnclosed:= V end),
     MakeOpt('Backup', 'File & CLI (no preview effect)', 'Backup before overwrite', 'Create a backup of every file before overwriting it.', okBool, False,
       function(const O: TYadfOptions): Variant begin Result:= O.Backup end, procedure(var O: TYadfOptions; const V: Variant) begin O.Backup:= V end),

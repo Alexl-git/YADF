@@ -202,10 +202,11 @@ The buffer does not need to be saved -- the in-memory contents are read,
 formatted, and rewritten through an undoable IDE edit (so Ctrl+Z reverts
 the format).
 
-**Encoding.** All buffer I/O is UTF-8 by way of the IDE's edit
-reader/writer; the on-disk encoding of the file is irrelevant. The CLI's
-`Encoding` INI key (`ANSI` / `UTF-8` / `UTF-16`) only affects file I/O
-and is intentionally ignored by YADFOT.
+**Encoding.** Formatting the editor BUFFER goes through the IDE's UTF-8
+edit reader/writer, so `Encoding` does not apply there. When YADFOT has
+to format the FILE on disk instead (a form unit), it honours `Encoding`,
+`Backup` and `BackupDir` exactly like the CLI. `ResultDir` and `Logging`
+are CLI-only.
 
 **INI lookup — profile-based (since 1.0.8).**
 
@@ -253,8 +254,9 @@ in YADFSetup / the IDE Options page and re-run.
 The CLI prints `Created default config: <path>` on the first run that
 materialises the template, so you know where to find it.
 
-The `[Format]` section keys match the CLI keys exactly. The only key the
-IDE wizard ignores is `Encoding`, since IDE buffer I/O is always UTF-8.
+The `[Format]` section keys match the CLI keys exactly. The IDE wizard
+ignores `ResultDir` and `Logging` (CLI-only); `Encoding` applies only when it
+formats a form unit's file on disk -- buffer formatting is always UTF-8.
 
 ### Uninstall
 
