@@ -1148,7 +1148,7 @@ begin
       else if AArgs[i] = '--trim-trailing' then
       begin
         AOpts.TrimTrailing:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
       end
       else if AArgs[i] = '--no-trim-trailing' then
       begin
@@ -1168,7 +1168,7 @@ begin
       else if AArgs[i] = '--lowercase-keywords' then
       begin
         AOpts.LowercaseKeywords:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
       end
       else if AArgs[i] = '--no-lowercase-keywords' then
       begin
@@ -1203,14 +1203,14 @@ begin
       else if AArgs[i] = '--no-first-occ' then
       begin
         AOpts.FirstOccCasing:= False;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
       end
       else if AArgs[i] = '--blanks-before-section' then
       begin
         if i + 1 > High(AArgs) then
           raise EYadfUsage.Create('--blanks-before-section requires a value');
         AOpts.BlanksBeforeSection:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);  // dl:ok duplicate-code@cbc9
+        Inc(i, 2);  // dl:ok duplicate-code@cbc9 -- one arm of the flat switch ladder in ParseFlags; value-taking arms differ only in the target option
       end
       else if AArgs[i] = '--blanks-before-method' then
       begin
@@ -1255,7 +1255,7 @@ begin
       else if AArgs[i] = '--log' then
       begin
         AOpts.Logging:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
       end
       else if AArgs[i] = '--no-log' then
       begin
@@ -1275,7 +1275,7 @@ begin
       else if AArgs[i] = '--break-case' then
       begin
         AOpts.BreakCaseLabels:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
       end
       else if AArgs[i] = '--no-break-case' then
       begin
@@ -1295,7 +1295,7 @@ begin
       else if AArgs[i] = '--pack-bodies' then
       begin
         AOpts.PackShortBodies:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
       end
       else if AArgs[i] = '--no-pack-bodies' then
       begin
@@ -1315,7 +1315,7 @@ begin
       else if AArgs[i] = '--break-loop' then
       begin
         AOpts.BreakLoopBody:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
       end
       else if AArgs[i] = '--no-break-loop' then
       begin
@@ -1335,7 +1335,7 @@ begin
       else if AArgs[i] = '--break-if' then
       begin
         AOpts.BreakIfBody:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4
+        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
       end
       else if AArgs[i] = '--no-break-if' then
       begin

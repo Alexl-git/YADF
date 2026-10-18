@@ -151,7 +151,7 @@ type
     /// <!-- drag-lint:auto BEGIN -->
     /// <para>Called from: [YADF]YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas), [YADF]YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindComponentBoundaries (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindOperatorPositionsAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders.ScanLine (YADF.Layout.pas) ?, [YADF]YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas), [YADF]YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelSepPositions (YADF.Layout.pas), [YADF]YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), [YADF]YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)</para>
     /// <para>Returns: seLineComment; seCode; seEndOfLine</para>
-    /// <para>Complexity: 20 (cyclomatic, outer body), 54 lines (full implementation)</para>
+    /// <para>Complexity: 20 (cyclomatic, outer body), 64 lines (full implementation)</para>
     /// <para>Reads: InBrace, InParenStar, InString   Writes: InBrace, InParenStar, InString</para>
     /// <para>Mutates: i (var)</para>
     /// <seealso cref="YADF.LineScan.TLineScanState.AtTopLevel"/>

@@ -306,7 +306,7 @@ function OptionHint(const AInfo: TOptInfo): string;
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Options.DetectSourceEncoding (YADF.Options.pas)</para>
 /// <para>Returns: False; HasMulti</para>
-/// <para>Complexity: 22 (cyclomatic, outer body), 41 lines (full implementation)</para>
+/// <para>Complexity: 22 (cyclomatic, outer body), 56 lines (full implementation)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function LooksLikeUtf8(const ABytes: TBytes): Boolean;

@@ -98,7 +98,7 @@ function ParseGroups(const ATokens: TTokenList): TGroup;
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas)</para>
 /// <para>Returns: 'begin'</para>
-/// <para>Complexity: 23 (cyclomatic, outer body), 45 lines (full implementation)</para>
+/// <para>Complexity: 23 (cyclomatic, outer body), 47 lines (full implementation)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;
@@ -160,7 +160,7 @@ end;
 // initialization / finalization / a prior `end` which we treat as
 // "anonymous begin"). The Limit guard caps the backwards scan at 300
 // non-trivial tokens so pathological input can't pin the formatter.
-function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;  // dl:ok too-many-exit-points@a182
+function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;  // dl:ok too-many-exit-points@a773
 const
   MAX_LABEL_SCAN = 300;  // non-trivial tokens scanned backwards before giving up
 var

@@ -100,8 +100,8 @@ uses
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatSource(const ASource: string; const AOpts: TYadfOptions): string; overload ;
-/// <summary><!-- drag-lint:auto -->===== FormatSource ===== Top-level orchestrator. Runs
-/// the pipeline described in the unit header comment. The first stage is token-level
+/// <summary><!-- drag-lint:auto sum -->===== FormatSource ===== Top-level orchestrator.
+/// Runs the pipeline described in the unit header comment. The first stage is token-level
 /// (capitalisation, assignment spacing); the second is a structural emission driven by
 /// WalkGroup over the TGroup tree; the third is a sequence of pure string -&gt; string
 /// passes for indentation, blank lines, line breaks, and (optionally) reflow and column
@@ -120,11 +120,12 @@ function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 /// a post-pass over the final line-broken text (ApplyBlockEndLabels), because the line count the
 /// walker sees is not the one the reader gets.
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)
-/// Calls: AddIfWord, AddIfWordAtDepth, BreakComponents, BreakLineByOperators, CharInSet, CollectParensItems, ComputeBlockCommentLock, Copy, EmitText, EmitTokenRange (+48 more)
-/// Overload 2 of 2
-/// Complexity: 26 (cyclomatic, outer body), 752 lines (full implementation)
-/// Mutates: ADeclineReason (out)
+/// <para>Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)</para>
+/// <para>Calls: AddIfWord, AddIfWordAtDepth, BreakComponents, BreakLineByOperators, CharInSet, CodeLen, CollectParensItems, ComputeBlockCommentLock, Copy, EmitText (+55 more)</para>
+/// <para>Overload 2 of 2</para>
+/// <para>Complexity: 34 (cyclomatic, outer body), 816 lines (full implementation)</para>
+/// <para>Mutates: ADeclineReason (out)</para>
+/// <para>Directives: overload</para>
 /// <seealso cref="YADF.Groups.ParseGroups"/>
 /// <seealso cref="YADF.Guard.FormatPreservesContent"/>
 /// <seealso cref="YADF.Layout.AlignByAnchor"/>
@@ -975,7 +976,7 @@ begin
   if StartsKW('class') then
   begin
     T:= TrimLeft(Copy(T, Length('class') + 1, MaxInt));
-    Exit(StartsKW('procedure') or StartsKW('function') or StartsKW('constructor') or StartsKW('destructor') or StartsKW('operator'));  // dl:ok boolean-expression-complexity -- five-keyword routine-header test
+    Exit(StartsKW('procedure') or StartsKW('function') or StartsKW('constructor') or StartsKW('destructor') or StartsKW('operator'));  // five-keyword routine-header test
   end;
   Result:= False;
 end; // function
@@ -4430,7 +4431,7 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@5c87, cyclomatic-complexity@0aa8, cognitive-complexity@b97b, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@5f15, cyclomatic-complexity@0aa8, cognitive-complexity@b97b, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
 var
   AfterCRLF         : Boolean            ;
   PendingCtrl       : Integer            ; // accumulated then/do/else/case-`:` body levels
@@ -5928,7 +5929,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@3b1d, cyclomatic-complexity@7f1e, cognitive-complexity@166b, method-too-long@2dc9 -- 254 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@3b1d, cyclomatic-complexity@7f1e, cognitive-complexity@166b, method-too-long@d80d -- 286 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -7114,7 +7115,7 @@ var
             St.StepCode(Line, i);
             Continue;
           end;
-          if (i > 1) and (Line[i - 1] = ' ') and (St.Depth = ADepth) then
+          if (i > 1) and (Line[i - 1] = ' ') and (St.Depth = ADepth) then  // dl:ok duplicate-code@50d7 -- deliberate depth-filtering sibling of FindOperatorPositionsAtTopLevel (see the comment above FindComponentBoundaries); sharing the scanner would thread a depth flag through the hot path
           begin
             if CharInSet(Line[i], ['+', '-']) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
             begin
