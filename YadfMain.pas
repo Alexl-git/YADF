@@ -868,7 +868,7 @@ begin
   WriteStdoutLine('  <project>.dpr         format the .dpr and every unit named in its uses clause');
   WriteStdoutLine('  <project>.dproj       format every .pas referenced in the .dproj XML'         );
   WriteStdoutLine(''                                                                               );
-  WriteStdoutLine('Output (default = format in place):'                                            );
+  WriteStdoutLine('Output (formats in place unless --stdout, --o or --of is given):'                 );
   WriteStdoutLine('  --stdout              write formatted text to stdout as the exact bytes --o would write (input/--encoding encoding, BOM iff the file would have one)');
   WriteStdoutLine('  --o <file>            write the result to <file> (single input only)'         );
   WriteStdoutLine(Format('  --of <folder>         write each result to <folder>\<basename>          [%s]', [Quoted(AOpts.ResultDir)]));
@@ -878,12 +878,12 @@ begin
   WriteStdoutLine('Backup (opt-in; only when in-place; skipped when --o or --of is set):');
   WriteStdoutLine(Format('  --b                   backup; write <source>.BCKn next to source     [Backup=%s]', [OnOff (AOpts.Backup   )]));
   WriteStdoutLine(Format('  --b <folder>          backup; write timestamped .bak under <folder>   [%s]'      , [Quoted(AOpts.BackupDir)]));
-  WriteStdoutLine('  --no-b                skip backup (default)');
+  WriteStdoutLine(Format('  --no-b                skip backup                                    [Backup=%s]', [OnOff(AOpts.Backup)]));
   WriteStdoutLine(''                                             );
   WriteStdoutLine('Encoding:'                                    );
   WriteStdoutLine(Format(
       '  --encoding ansi|utf8|utf16   ansi = keep the file''s own encoding (BOM or detected UTF-8); utf8/utf16 = convert (+BOM)   [Encoding=%s]', [EncName(AOpts.Encoding)]));
-  WriteStdoutLine('                          (default ANSI; existing BOM in input is auto-detected)'     );
+  WriteStdoutLine('                          (an existing BOM in the input is auto-detected)'     );
   WriteStdoutLine(''                                                                                     );
   WriteStdoutLine('Configuration:'                                                                       );
   WriteStdoutLine('  --ini <file>          explicit INI file (overrides the F profile below)'            );
@@ -899,17 +899,17 @@ begin
   WriteStdoutLine(Format('  --max-blank-lines N   cap consecutive blank lines                      [%d]', [AOpts.MaxBlankLines]));
   WriteStdoutLine(Format('  --reflow|--no-reflow  reflow long lines / preserve source line breaks  [reflow=%s]', [OnOff(AOpts.ReflowLines)]));
   WriteStdoutLine(Format('  --pack-bodies         pack short loop/if bodies + case arms onto one line [pack=%s]', [OnOff(AOpts.PackShortBodies)]));
-  WriteStdoutLine('  --no-pack-bodies      keep each body / case arm on its own line (default)');
+  WriteStdoutLine(Format('  --no-pack-bodies      keep each body / case arm on its own line       [pack=%s]', [OnOff(AOpts.PackShortBodies)]));
   WriteStdoutLine(Format('  --collapse-blocks     fold a short if/for/while begin..end body onto one line [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
-  WriteStdoutLine('  --no-collapse-blocks  keep begin..end blocks expanded (default)');
+  WriteStdoutLine(Format('  --no-collapse-blocks  keep begin..end blocks expanded                  [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
   WriteStdoutLine(Format('  --break-loop          break for/while body onto its own line             [loop=%s]', [OnOff(AOpts.BreakLoopBody)]));
-  WriteStdoutLine('  --no-break-loop       keep the loop body inline (default)');
+  WriteStdoutLine(Format('  --no-break-loop       keep the loop body inline                        [loop=%s]', [OnOff(AOpts.BreakLoopBody)]));
   WriteStdoutLine(Format('  --break-with          break with..do body onto its own line              [with=%s]', [OnOff(AOpts.BreakWithBody)]));
-  WriteStdoutLine('  --no-break-with       keep the with body inline (default)');
+  WriteStdoutLine(Format('  --no-break-with       keep the with body inline                        [with=%s]', [OnOff(AOpts.BreakWithBody)]));
   WriteStdoutLine(Format('  --break-if            break if then/else body onto its own line          [if=%s]', [OnOff(AOpts.BreakIfBody)]));
-  WriteStdoutLine('  --no-break-if         keep the if/then/else body inline (default)');
+  WriteStdoutLine(Format('  --no-break-if         keep the if/then/else body inline                [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine(Format('  --break-params        break routine parameters one per line              [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
-  WriteStdoutLine('  --no-break-params     keep the parameter list inline (default)');
+  WriteStdoutLine(Format('  --no-break-params     keep the parameter list inline                   [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
   WriteStdoutLine(Format('  --break-expr          break a long line one component per line             [expr=%s]', [OnOff(AOpts.BreakLongExpressions)]));
   WriteStdoutLine('  --no-break-expr       use the greedy line breaker');
   WriteStdoutLine(Format('  --[no-]trim-trailing  trim / keep trailing whitespace                  [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
@@ -920,7 +920,7 @@ begin
   WriteStdoutLine(''                                                             );
   WriteStdoutLine('Case statements:'                                             );
   WriteStdoutLine(Format('  --break-case          split multi-label case arms one per line          [break=%s]', [OnOff(AOpts.BreakCaseLabels)]));
-  WriteStdoutLine('  --no-break-case       keep multi-label case arms on one line (default)');
+  WriteStdoutLine(Format('  --no-break-case       keep multi-label case arms on one line           [break=%s]', [OnOff(AOpts.BreakCaseLabels)]));
   WriteStdoutLine(''                                                                        );
   WriteStdoutLine('Comments:'                                                               );
   WriteStdoutLine(Format('  --indent-comments     re-indent comments to code depth                   [indent=%s]', [OnOff(AOpts.IndentComments)]));
@@ -943,7 +943,11 @@ begin
   WriteStdoutLine(Format('  --blanks-before-method N    blanks before procedure/func              [%d]' , [AOpts.BlanksBeforeMethod ]));
   WriteStdoutLine(Format('  --blanks-before-type N      blanks before `type`                       [%d]', [AOpts.BlanksBeforeType   ]));
   WriteStdoutLine('');
-  WriteStdoutLine(Format('Pass-2 alignment max column (INI: AlignMaxColumn): %d', [AOpts.AlignMaxColumn]));
+  WriteStdoutLine('INI-only keys (section [Format]; no CLI flag; current values):');
+  WriteStdoutLine(Format('  AssignNoSpaceBefore=%s  AssignSpaceAfter=%s  SpaceAroundOperators=%s', [OnOff(AOpts.AssignNoSpaceBefore), OnOff(AOpts.AssignSpaceAfter), OnOff(AOpts.SpaceAroundOperators)]));
+  WriteStdoutLine(Format('  AlignConstEquals=%s  AlignTypeColon=%s  AlignSmartAssign=%s  AlignDeclSemicolons=%s', [OnOff(AOpts.AlignConstEquals), OnOff(AOpts.AlignTypeColon), OnOff(AOpts.AlignSmartAssign), OnOff(AOpts.AlignDeclSemicolons)]));
+  WriteStdoutLine(Format('  AlignMatchingShapes=%s  AlignShapeMinAnchors=%d  AlignCommentMaxShift=%d  AlignMaxColumn=%d', [OnOff(AOpts.AlignMatchingShapes), AOpts.AlignShapeMinAnchors, AOpts.AlignCommentMaxShift, AOpts.AlignMaxColumn]));
+  WriteStdoutLine(Format('  UsesCommaLast=%s  SplitMultiVarDecls=%s', [OnOff(AOpts.UsesCommaLast), OnOff(AOpts.SplitMultiVarDecls)]));
   WriteStdoutLine(''                                                          );
   WriteStdoutLine('Precedence: CLI flags > INI values > compiled-in defaults.');
 end; // begin

@@ -71,6 +71,14 @@ try {
   & $exe --ini $iniNew --help | Out-Null
   if (-not (Test-Path $iniNew)) { Fail '--ini <new path> --help did not create the INI template' }
 
+  # ----- --help: live [x=on/off] values, no static "(default)" text; INI-only keys listed -----
+  $help = & $exe --ini $ini --help 2>&1 | Out-String
+  if ($help -match '\(default') { Fail '--help still contains a literal "(default" string' }
+  MustMatch $help '\[loop=(on|off)\]' '--help shows the live break-loop value'
+  MustMatch $help '\[collapse=(on|off)\]' '--help shows the live collapse value'
+  MustMatch $help 'INI-only' '--help lists the INI-only keys'
+  MustMatch $help 'AlignTypeColon=(on|off)' '--help shows a live INI-only value'
+
   # ----- mode flags still pass through ParseFlags -----
   $fmt = Join-Path $tmpDir 'formatted.pas'
   & $exe --ini $ini $src --o $fmt | Out-Null
