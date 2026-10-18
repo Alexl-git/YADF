@@ -78,6 +78,25 @@ try {
   $chk = & $exe --ini $ini --check $fmt 2>&1 | Out-String
   if ($LASTEXITCODE -ne 0) { Fail "--check exit: expected 0, got $LASTEXITCODE" }
   MustMatch $chk 'PASS' '--check still works'
+
+  # ----- WP7: --of with two inputs of the same basename: refused up front,
+  #       exit 1, nothing written (the second used to silently overwrite the first) -----
+  $da = Join-Path $tmpDir 'da'; $db = Join-Path $tmpDir 'db'; $dout = Join-Path $tmpDir 'dout'
+  New-Item -ItemType Directory $da, $db | Out-Null
+  Copy-Item $src (Join-Path $da 'same.pas'); Copy-Item $src (Join-Path $db 'same.pas')
+  $ha = (Get-FileHash (Join-Path $da 'same.pas')).Hash
+  $out = & $exe --ini $ini (Join-Path $da 'same.pas') (Join-Path $db 'same.pas') --of $dout 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 1) { Fail "--of same basename: expected exit 1, got $LASTEXITCODE" }
+  MustMatch $out '(?i)share the file name' '--of same basename message'
+  if (Test-Path (Join-Path $dout 'same.pas')) { Fail '--of same basename: a file was written despite the refusal' }
+  if ((Get-FileHash (Join-Path $da 'same.pas')).Hash -ne $ha) { Fail '--of same basename: an input was modified' }
+
+  # ----- WP7: the same file named twice (spec + wildcard overlap) is processed once -----
+  $dd = Join-Path $tmpDir 'dd'; New-Item -ItemType Directory $dd | Out-Null
+  $fd = Join-Path $dd 'dup.pas'; Copy-Item $src $fd
+  $out = & $exe --ini $ini $fd (Join-Path $dd '*.pas') $fd.ToUpper() 2>&1 | Out-String
+  $n = ([regex]::Matches($out, '(?im)^(wrote|unchanged) ')).Count
+  if ($n -ne 1) { Fail "duplicate input: expected 1 processed line, got $n" }
 }
 finally {
   Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue

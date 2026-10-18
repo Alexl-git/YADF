@@ -944,11 +944,6 @@ begin
     // Fresh install: create the default template and make F point at it so all
     // three front-ends (CLI / IDE / YADFSetup) share it going forward.
     EnsureIniExists(Result);
-    if Trim(Profiles.F) = '' then
-    begin
-      Profiles.F:= 'yadf.ini';
-      SaveProfiles(Profiles);
-    end;
   end;
 end; // function
 
@@ -1353,6 +1348,32 @@ begin
   end; // try
 end; // procedure
 
+// True when two inputs share a basename (case-insensitive); ADup receives it.
+// With --of every result lands in one folder as <basename>, so the second would
+// silently overwrite the first.
+function FindDuplicateBaseName(const AFiles: TList<string>; out ADup: string): Boolean;
+var
+  F   : string                    ;
+  Seen: TDictionary<string, Boolean>;
+begin
+  Result:= False;
+  ADup  := '';
+  Seen  := TDictionary<string, Boolean>.Create;
+  try
+    for F in AFiles do
+      if Seen.ContainsKey(LowerCase(ExtractFileName(F))) then
+      begin
+        ADup  := ExtractFileName(F);
+        Result:= True;
+        Break;
+      end
+      else
+        Seen.Add(LowerCase(ExtractFileName(F)), True);
+  finally
+    Seen.Free;
+  end;
+end; // function
+
 procedure RunYadf;  // dl:ok too-many-exit-points@d6d0
 var
   AllFiles  : TList<string> ;
@@ -1367,6 +1388,8 @@ var
   Spec      : string        ;
   StdoutMode: Boolean       ;
   Clamped   : string        ;
+  Dup       : string        ;
+  Seen      : TDictionary<string, Boolean>;
 begin
   SetLength(Args, ParamCount);
   for i:= 1 to ParamCount do
@@ -1471,11 +1494,21 @@ begin
 
   AllFiles:= TList<string>.Create;
   try
-    for Spec in Args do
-    begin
-      Files:= ExpandFileSpec(Spec, Opts);
-      for F in Files do
-        AllFiles.Add(F);
+    Seen:= TDictionary<string, Boolean>.Create;
+    try
+      for Spec in Args do
+      begin
+        Files:= ExpandFileSpec(Spec, Opts);
+        // The same file reached twice (named + wildcard, or two specs) is formatted once; order kept.
+        for F in Files do
+          if not Seen.ContainsKey(LowerCase(ExpandFileName(F))) then
+          begin
+            Seen.Add(LowerCase(ExpandFileName(F)), True);
+            AllFiles.Add(F);
+          end;
+      end;
+    finally
+      Seen.Free;
     end;
 
     if AllFiles.Count = 0 then
@@ -1488,6 +1521,13 @@ begin
     if (OutFile <> '') and (AllFiles.Count > 1) then
     begin
       WriteStdoutLine('error: --o only valid with a single input file');
+      ExitCode:= 1;
+      Exit;
+    end;
+
+    if (Trim(Opts.ResultDir) <> '') and (OutFile = '') and not StdoutMode and FindDuplicateBaseName(AllFiles, Dup) then
+    begin
+      WriteStdoutLine('error: --of: two inputs share the file name ' + Dup + ' -- the second result would overwrite the first; nothing was written');
       ExitCode:= 1;
       Exit;
     end;
