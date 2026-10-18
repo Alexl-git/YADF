@@ -141,7 +141,7 @@ begin
   Result:= ((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z'));
 end;
 
-function ShieldIncludeDirectives(const ASource: string): string;  // dl:ok deep-nesting@c98d, cyclomatic-complexity@c98d, cognitive-complexity@c98d
+function ShieldIncludeDirectives(const ASource: string): string;  // dl:ok deep-nesting@4396, cyclomatic-complexity@fc29, cognitive-complexity@0679
 var
   i      : Integer       ;
   n      : Integer       ;
