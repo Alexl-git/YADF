@@ -81,7 +81,7 @@ uses
 // reason FormatSource DECLINED and returned the input unchanged (see
 // YADF.Guard) -- callers that talk to a user should surface it instead of
 // silently pretending the file was formatted.
-/// <summary><!-- drag-lint:auto -->Format ASource per AOpts. The overload with
+/// <summary><!-- drag-lint:auto sum -->Format ASource per AOpts. The overload with
 /// ADeclineReason reports the content guard's verdict: '' when the output was accepted,
 /// otherwise the reason FormatSource DECLINED and returned the input unchanged (see
 /// YADF.Guard) -- callers that talk to a user should surface it instead of silently
@@ -91,11 +91,11 @@ uses
 /// <returns>Observed: FormatSource(ASource, AOpts, Reason).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Reformat (YADF.OptionsFrame.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)
-/// Calls: YADF.Layout.FormatSource/3
-/// Returns: FormatSource(ASource, AOpts, Reason)
-/// Overload 1 of 2
-/// Pure
+/// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Reformat (YADF.OptionsFrame.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
+/// <para>Calls: YADF.Layout.FormatSource/3</para>
+/// <para>Returns: FormatSource(ASource, AOpts, Reason)</para>
+/// <para>Overload 1 of 2</para>
+/// <para>Directives: overload</para>
 /// <seealso cref="YADF.Layout.FormatSource"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -2097,7 +2097,7 @@ var
       Exit(False);
     AInfo:= Info[AIdx];
     Result:= AInfo.HasAssign or  // dl:ok boolean-expression-complexity@ef5c
-    (AMatchShapes and (Length(AInfo.Shape) >= AMinAnchors) and (Length(AInfo.Shape) > 0) and (AInfo.Shape[0] <> ptColon) and not StructuralLead(AInfo.Shape[0]) and not IsParenContinuation(AIdx, AInfo));
+    (AMatchShapes and (Length(AInfo.Shape) >= AMinAnchors) and (Length(AInfo.Shape) > 0) and (AInfo.Shape[0] <> ptColon) and not StructuralLead(AInfo.Shape[0]) and not IsParenContinuation(AIdx, AInfo));  // dl:ok boolean-expression-complexity@3dbd
   end;
 
 begin
@@ -4248,7 +4248,7 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@5c87, deep-nesting@cf9e, cyclomatic-complexity@8b0d, cognitive-complexity@5889
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@5c87, cyclomatic-complexity@0aa8, cognitive-complexity@b97b, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
 var
   AfterCRLF         : Boolean            ;
   PendingCtrl       : Integer            ; // accumulated then/do/else/case-`:` body levels
@@ -5742,7 +5742,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@3b1d, cyclomatic-complexity@7f1e, cognitive-complexity@166b
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@3b1d, cyclomatic-complexity@7f1e, cognitive-complexity@166b, method-too-long@2dc9 -- 254 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -6516,7 +6516,7 @@ end; // procedure
 // Block-end labels are NOT decided here: they are a post-pass over the
 // final line-broken text (ApplyBlockEndLabels), because the line count
 // the walker sees is not the one the reader gets.
-function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
+function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@00e4
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
