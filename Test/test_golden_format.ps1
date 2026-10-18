@@ -42,22 +42,37 @@ $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRo
 
 # SameBytes comes from TestLib.ps1.
 $fail = 0
+$capFail = 0
 foreach ($f in $files) {
   $gold = Join-Path $goldDir ($f.Name + '.golden')
   if ($Capture) {
-    & $exe $f.FullName --ini $testIni --o $gold | Out-Null
+    # Capture into a temp dir under the fixture's own name (unit name must match),
+    # and REFUSE to bless output that stopped compiling when the fixture compiles
+    # standalone: goldens must not enshrine corruption.
+    $cdir = Join-Path $env:TEMP ("goldcap_" + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $cdir | Out-Null
+    try {
+      $ctmp = Join-Path $cdir $f.Name
+      if (-not (Invoke-Yadf $f.FullName $testIni $ctmp)) { $capFail++; continue }
+      $dcu = Join-Path $cdir 'dcu'; New-Item -ItemType Directory -Path $dcu | Out-Null
+      if ((Test-DccCompiles $f.FullName $f.DirectoryName $dcu) -and -not (Test-DccCompiles $ctmp $f.DirectoryName $dcu)) {
+        $capFail++; Write-Output "FAIL [capture refused: fixture compiles but new output does not]: $($f.Name)"; continue
+      }
+      Copy-Item $ctmp $gold -Force
+    }
+    finally { [IO.Directory]::Delete($cdir, $true) }
   }
   else {
     if (-not (Test-Path $gold)) { $script:fail++; Write-Output "FAIL [missing golden]: $($f.Name) (run -Capture)"; continue }
     $tmp  = Join-Path $env:TEMP ("gold_" + $f.Name + ".out")
     $tmp2 = Join-Path $env:TEMP ("gold_" + $f.Name + ".out2")
-    & $exe $f.FullName --ini $testIni --o $tmp | Out-Null
+    if (-not (Invoke-Yadf $f.FullName $testIni $tmp)) { continue }
     if (-not (SameBytes $gold $tmp)) { $script:fail++; Write-Output "FAIL [changed]: $($f.Name)" }
     # Corpus-wide idempotency: formatting the formatted output must be a
     # fixed point. format(format(x)) != format(x) means some pass keeps
     # rewriting its own output -- a non-idempotency bug even when the first
     # output matches the golden.
-    & $exe $tmp --ini $testIni --o $tmp2 | Out-Null
+    if (-not (Invoke-Yadf $tmp $testIni $tmp2)) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue; continue }
     if (-not (SameBytes $tmp $tmp2)) { $script:fail++; Write-Output "FAIL [not idempotent]: $($f.Name)" }
     Remove-Item $tmp, $tmp2 -Force -ErrorAction SilentlyContinue
   }
@@ -71,6 +86,9 @@ if (-not $Capture) {
     ForEach-Object { $script:fail++; Write-Output "FAIL [orphaned golden]: $($_.Name) (no matching fixture)" }
 }
 
-if ($Capture) { Write-Output ("golden_format: captured {0} files" -f $files.Count); exit 0 }
+if ($Capture) {
+  if ($capFail -gt 0) { Write-Output "golden_format: capture REFUSED/failed for $capFail file(s)"; exit 1 }
+  Write-Output ("golden_format: captured {0} files" -f $files.Count); exit 0
+}
 if ($fail -eq 0) { Write-Output ("golden_format: PASS ({0} files unchanged + idempotent)" -f $files.Count); exit 0 }
 else { Write-Output "golden_format: $fail FAILURE(S)"; exit 1 }

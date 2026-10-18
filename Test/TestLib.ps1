@@ -17,7 +17,9 @@ $script:fail = 0
 # Canonical tool paths. Every suite tests the SAME Win64 Debug exe that
 # run_tests.ps1 stale-checks, and pins the repo yadf.ini so a personal
 # %APPDATA% profile can never flip results.
-function Get-YadfExe { Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe' }
+# $env:YADF_TEST_EXE overrides the exe (used to prove the harness goes RED
+# against a stub that merely copies its input).
+function Get-YadfExe { if ($env:YADF_TEST_EXE) { $env:YADF_TEST_EXE } else { Join-Path $PSScriptRoot '..\Win64\Debug\EXE\YADF.exe' } }
 function Get-RepoIni { Join-Path $PSScriptRoot '..\yadf.ini' }
 
 # Exit 2 = "skip" (tool not built) -- run_tests.ps1 reports it as SKIP.
@@ -79,6 +81,15 @@ function Invoke-Yadf([string]$src, [string]$iniPath, [string]$out, [string[]]$fl
 
 # A fresh, unique temp path (never reused across runs or cases).
 function New-TempOut([string]$ext = '.pas') { Join-Path $env:TEMP ("yt_" + [guid]::NewGuid().ToString('N') + $ext) }
+
+# dcc64 + standalone-compile helper shared by the compile gate and the golden
+# -Capture guard. $dcuDir must exist; $incDir is the fixture dir ({$I} files).
+function Get-Dcc64 { 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc64.exe' }
+function Test-DccCompiles([string]$pasFile, [string]$incDir, [string]$dcuDir) {
+  $ns = 'System;System.Win;Winapi;Vcl;Data;Soap;Xml'
+  & (Get-Dcc64) -Q "-NS$ns" "-N0$dcuDir" "-E$dcuDir" "-I$incDir" $pasFile *> $null
+  return ($LASTEXITCODE -eq 0)
+}
 
 function Finish([string]$suite) {
   if ($script:fail -eq 0) { Write-Output "${suite}: PASS"; exit 0 }

@@ -11,7 +11,7 @@
 # is skipped -- not a formatter regression. A fixture whose original compiles
 # but whose FORMATTED output does not is a hard FAIL.
 #
-# Exit 0 = pass, 1 = failures, 2 = skip (YADF.exe or dcc64 missing).
+# Exit 0 = pass, 1 = failures (incl. dcc64 missing), 2 = skip (YADF.exe missing).
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
 $exe   = Get-YadfExe
@@ -19,7 +19,8 @@ $ini   = Get-RepoIni
 $dcc   = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc64.exe'
 
 Assert-ToolOrSkip 'compile_output' $exe
-Assert-ToolOrSkip 'compile_output' $dcc
+# A missing compiler is a FAILURE, not a skip: a silent skip lets the gate rot.
+if (-not (Test-Path $dcc)) { Write-Output "compile_output: FAIL (dcc64 missing at $dcc)"; exit 1 }
 
 $tmpDir = Join-Path $env:TEMP ("yadf_compile_" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmpDir | Out-Null
@@ -33,8 +34,7 @@ $ns = 'System;System.Win;Winapi;Vcl;Data;Soap;Xml'
 function CompilesOK([string]$pasFile, [string]$incDir) {
   # -I<fixture dir>: {$I ...} include files live next to the ORIGINAL fixture,
   # and the formatted copy compiles from a temp dir.
-  & $dcc -Q "-NS$ns" "-N0$dcuDir" "-E$dcuDir" "-I$incDir" $pasFile *> $null
-  return ($LASTEXITCODE -eq 0)
+  return (Test-DccCompiles $pasFile $incDir $dcuDir)
 }
 
 $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRoot 'Snippets') -Filter *.pas -Recurse
@@ -45,8 +45,7 @@ try {
   foreach ($f in $files) {
     if (-not (CompilesOK $f.FullName $f.DirectoryName)) { $skipped++; continue }   # fragment / edge snippet
     $out = Join-Path $tmpDir $f.Name    # keep the file name: unit name must match
-    & $exe $f.FullName --ini $ini --o $out | Out-Null
-    if (-not (Test-Path $out)) { $fail++; Write-Output "FAIL [no output]: $($f.Name)"; continue }
+    if (-not (Invoke-Yadf $f.FullName $ini $out)) { continue }   # exit!=0 / decline / no output = FAIL
     if (CompilesOK $out $f.DirectoryName) { $compiled++ }
     else { $fail++; Write-Output "FAIL [formatted output does not compile]: $($f.Name)" }
     Remove-Item $out -Force -ErrorAction SilentlyContinue
@@ -55,6 +54,11 @@ try {
 finally {
   Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+# Floor: if most fixtures silently stop compiling standalone (e.g. a broken
+# toolchain), the gate would 'pass' vacuously. Current corpus: 58.
+$floor = 50
+if ($compiled -lt $floor) { $fail++; Write-Output "FAIL [floor]: only $compiled fixtures compiled standalone (< $floor)" }
 
 if ($fail -eq 0) {
   Write-Output "compile_output: PASS ($compiled compiled, $skipped skipped as non-standalone)"

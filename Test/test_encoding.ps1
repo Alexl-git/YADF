@@ -15,7 +15,7 @@ Assert-ToolOrSkip 'encoding' $exe
 $tmpDir = Join-Path $env:TEMP ("yadf_encoding_" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmpDir | Out-Null
 
-# Deliberately ugly source (so the formatter always rewrites) with a marker
+# Deliberately mis-indented source (so the formatter always rewrites) with a marker
 # comment we inject per-case in the encoding under test.
 $srcTemplate = @"
 unit EncSample;
@@ -23,7 +23,10 @@ interface
 // MARKER
 procedure Go(X:Integer);
 implementation
-procedure Go(X:Integer);begin if X>0 then Inc(X) else Dec(X); end;
+procedure Go(X:Integer);
+begin
+if X > 0 then Inc(X) else Dec(X);
+end;
 end.
 "@
 
@@ -34,6 +37,15 @@ function WriteCase([string]$name, [byte[]]$markerBytes, [byte[]]$preamble) {
   $bytes = $preamble + $ascii.GetBytes($parts[0]) + $markerBytes + $ascii.GetBytes($parts[1])
   [IO.File]::WriteAllBytes($path, $bytes)
   return $path
+}
+
+# The source is deliberately mis-indented (`if` flush-left inside begin..end); a
+# formatter that no-ops (or a decline that leaves the file untouched) must not
+# pass the byte-preservation checks, so every case also asserts the text really
+# was reformatted (the `if` is indented by the engine).
+function MustBeFormatted([byte[]]$b, [string]$label) {
+  $t = [Text.Encoding]::GetEncoding(28591).GetString($b)
+  if ($t -notmatch '(?m)^  if X > 0 then') { Fail "${label}: output was not reformatted (expected indented 'if X > 0 then')" }
 }
 
 function CountBytes([byte[]]$hay, [byte[]]$needle) {
@@ -60,6 +72,7 @@ try {
   $f = WriteCase 'utf8_nobom.pas' ([byte[]]($eAcute8 + $eAcute8)) @()
   & $exe --ini $ini $f | Out-Null
   $b = [IO.File]::ReadAllBytes($f)
+  MustBeFormatted $b 'utf8-nobom'
   if ($b[0] -eq 0xEF) { Fail 'utf8-nobom: BOM appeared' }
   if ((CountBytes $b $eAcute8) -ne 2) { Fail 'utf8-nobom: UTF-8 e-acute pair not preserved' }
   if (BytesContain $b $mojibake) { Fail 'utf8-nobom: double-encoded mojibake' }
@@ -68,6 +81,7 @@ try {
   $f = WriteCase 'utf8_convert.pas' $eAcute8 @()
   & $exe --ini $ini --encoding utf8 $f | Out-Null
   $b = [IO.File]::ReadAllBytes($f)
+  MustBeFormatted $b 'utf8-convert'
   if (-not ($b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)) { Fail 'utf8-convert: BOM missing' }
   if (BytesContain $b $mojibake) { Fail 'utf8-convert: double-encoded mojibake' }
   if ((CountBytes $b $eAcute8) -ne 1) { Fail 'utf8-convert: e-acute not preserved as single UTF-8 pair' }
@@ -78,6 +92,7 @@ try {
   $f = WriteCase 'ansi.pas' $eAcuteA @()
   & $exe --ini $ini $f | Out-Null
   $b = [IO.File]::ReadAllBytes($f)
+  MustBeFormatted $b 'ansi'
   if ($b[0] -eq 0xEF) { Fail 'ansi: BOM appeared' }
   if (-not (BytesContain $b $eAcuteA)) { Fail 'ansi: 0xE9 byte lost' }
   if (BytesContain $b $eAcute8) { Fail 'ansi: byte was re-encoded as UTF-8' }
@@ -86,6 +101,7 @@ try {
   $f = WriteCase 'utf8_bom.pas' $eAcute8 $utf8Bom
   & $exe --ini $ini $f | Out-Null
   $b = [IO.File]::ReadAllBytes($f)
+  MustBeFormatted $b 'utf8-bom'
   if (-not ($b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)) { Fail 'utf8-bom: BOM stripped' }
   if ((CountBytes $b $eAcute8) -ne 1) { Fail 'utf8-bom: UTF-8 e-acute not preserved' }
 
@@ -95,6 +111,7 @@ try {
   $f = WriteCase 'ansi_convert.pas' $eAcuteA @()
   & $exe --ini $ini --encoding utf8 $f | Out-Null
   $b = [IO.File]::ReadAllBytes($f)
+  MustBeFormatted $b 'ansi-convert'
   if (-not ($b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)) { Fail 'ansi-convert: BOM missing' }
   if ((CountBytes $b $eAcute8) -ne 1) { Fail 'ansi-convert: e-acute not transcoded to UTF-8' }
   if (BytesContain $b ([byte[]](0xEF, 0xBF, 0xBD))) { Fail 'ansi-convert: U+FFFD replacement char in output' }
@@ -103,6 +120,7 @@ try {
   $f = WriteCase 'ascii.pas' ([Text.Encoding]::ASCII.GetBytes('plain')) @()
   & $exe --ini $ini $f | Out-Null
   $b = [IO.File]::ReadAllBytes($f)
+  MustBeFormatted $b 'ascii'
   if ($b[0] -eq 0xEF -or $b[0] -eq 0xFF -or $b[0] -eq 0xFE) { Fail 'ascii: BOM appeared' }
 }
 finally {
