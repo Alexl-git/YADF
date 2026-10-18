@@ -245,4 +245,43 @@ MustMatch $caseOut '(?m)^\s*ELSE\s*$' 'case: uppercase ELSE preserved under --no
 $caseDef = FmtStr '  if Sum > 0 then Inc(a) ELSE Dec(a);' '--break-if'
 MustMatch $caseDef '(?m)^\s*else\s*$' 'case: default still lowercases else'
 
+# (The shape aligner may pad sibling calls, e.g. Inc  (b); the regexes allow it.)
+# ----- WP16: `X:= 1; Y:= 2;` after a control header: only the FIRST statement is the
+#       body; the rest is a separate statement at the header's own indent. Compile-checked
+#       (the old output indented Y under the if, which reads as if Y were conditional). -----
+$wpSrcDir = Join-Path $env:TEMP ('wp16_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory $wpSrcDir | Out-Null
+$wpSrc = Join-Path $wpSrcDir 'ProbeIn.pas'
+$wpOut = Join-Path $wpSrcDir 'Probe.pas'
+@(
+  'unit Probe;'
+  'interface'
+  'procedure Demo;'
+  'implementation'
+  'type'
+  '  TRec = record a, b: Integer; end;'
+  'var'
+  '  Rec: TRec;'
+  'procedure Demo;'
+  'var'
+  '  a, b, k, Sum: Integer;'
+  'begin'
+  '  if a > 0 then Inc(a); Inc(b);'
+  '  while k > 0 do Dec(k); Inc(Sum);'
+  '  with Rec do a := 1; b := 2;'
+  '  if a > 0 then Inc(a) else Dec(a); Inc(k);'
+  '  if a > 0 then Inc(a); { keep }'
+  'end;'
+  'end.'
+) -join "`r`n" | Set-Content -Path $wpSrc -Encoding ascii
+& $exe --ini $ini $wpSrc --break-if --break-loop --break-with --o $wpOut | Out-Null
+$wp = Get-Content $wpOut -Raw
+MustMatch    $wp '(?m)^  if a > 0 then\s*\r?\n    Inc\(a\);\r?\n  Inc\s*\(b\);'      'wp16: if body then sibling at header indent'
+MustMatch    $wp '(?m)^    Dec\(k\s*\);\r?\n  Inc\s*\(Sum\);'                              'wp16: while body then sibling at header indent'
+MustMatch    $wp '(?m)^    a:= 1;\r?\n  b\s*:= 2;'                                       'wp16: with body then sibling at header indent'
+MustMatch    $wp '(?m)^    Dec\(a\);\r?\n  Inc\s*\(k\);'                                 'wp16: else body then sibling at header indent'
+MustNotMatch $wp '(?m)^\s+\{ keep \}\s*$'                                             'wp16: a trailing brace comment is not hoisted to its own line'
+if (-not (Test-Path (Get-Dcc64))) { Fail 'wp16: dcc64 missing -- cannot prove the output compiles' }
+elseif (-not (Test-DccCompiles $wpOut $wpSrcDir $wpSrcDir)) { Fail 'wp16: formatted output does not compile' }
+[IO.Directory]::Delete($wpSrcDir, $true)
 Finish 'break_control'

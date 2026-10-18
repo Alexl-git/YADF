@@ -2648,6 +2648,8 @@ end; // begin
 // Runs as the FINAL pass so it never feeds joined lines back through the column
 // passes, and preserves the header's already-correct indent. Idempotent: a
 // collapsed line presents no bare `begin` line to re-match.
+function TopLevelSepPositions(const AText: string; ASep: Char): TArray<Integer>; forward;
+
 /// <summary>Forces the body of a single-line control statement onto its own
 /// indented line: for/while/with `... do Stmt;` (BreakLoopBody / BreakWithBody)
 /// and if `... then A else B;` (BreakIfBody, added later). Structural mirror of
@@ -2791,6 +2793,29 @@ var
     OutVal.Append(L); OutVal.Append(CRLF);
   end;
 
+  // Emits ABody at AIndent; when it holds several statements (X:= 1; Y:= 2;)
+  // only the FIRST is the control body -- the rest is a sibling statement and
+  // goes on its own line at the header's own indent. A remainder that begins
+  // with a comment is left attached (hoisting it would detach the comment).
+  procedure OutBodySplit(const AIndent, ABody: string);
+  var
+    Seps: TArray<Integer>;
+    Rest: string;
+  begin
+    Seps:= TopLevelSepPositions(ABody, ';');
+    if Length(Seps) > 0 then
+      Rest:= Trim(Copy(ABody, Seps[0] + 1, MaxInt))
+    else
+      Rest:= '';
+    if (Rest = '') or Rest.StartsWith('{') or Rest.StartsWith('(*') then
+      OutLine(AIndent + ABody)
+    else
+    begin
+      OutLine(AIndent + Trim(Copy(ABody, 1, Seps[0])));
+      OutLine(AIndent + Rest);
+    end;
+  end;
+
 begin
   Lines:= TStringList.Create;
   try
@@ -2819,7 +2844,7 @@ begin
               if IsSimpleBody(Body) then
               begin
                 OutLine(Header);
-                OutLine(Indent + Body);
+                OutBodySplit(Indent, Body);
                 Continue;
               end;
             end;
@@ -2895,8 +2920,9 @@ begin
               end;
               if Ok and (Segs.Count >= 2) then
               begin
-                for S2:= 0 to Segs.Count - 1 do
+                for S2:= 0 to Segs.Count - 2 do
                   OutLine(Indent + Segs[S2]);
+                OutBodySplit(Indent, Segs[Segs.Count - 1]); // the trailing body
                 Continue; // line handled; skip fallthrough
               end;
             finally
