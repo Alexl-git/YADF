@@ -151,6 +151,9 @@ uses
   ;
 
 const
+  // Dynamic-array growth policy for the scan buffers: new length = Cnt * GrowMul + GrowAdd.
+  GrowMul = 2;
+  GrowAdd = 4;
   // Forced CRLF on every platform. System.sLineBreak is platform-dependent
   // (#10 on POSIX), so we use an explicit constant to keep output identical
   // everywhere. Also keeps the source clean of scattered #13#10 literals.
@@ -246,7 +249,7 @@ begin
     begin
       C:= Result[i];
       if (C >= 'a') and (C <= 'f') then
-        Result[i]:= Chr(Ord(C) - 32);
+        Result[i]:= UpCase(C);
     end
   else
     for i:= 1 to Length(Result) do if (Result[i] = 'e') then
@@ -264,15 +267,15 @@ var
   NameStart: Integer;
 begin
   Result:= S;
-  if (Length(Result) < 3) or (Result[1] <> '{') or (Result[2] <> '$') then
+  if (Length(Result) < Length('{$') + 1) or (Result[1] <> '{') or (Result[2] <> '$') then
     Exit;
-  NameStart:= 3;
+  NameStart:= Length('{$') + 1;
   i        := NameStart;
   while (i <= Length(Result)) and (((Result[i] >= 'a') and (Result[i] <= 'z')) or ((Result[i] >= 'A') and (Result[i] <= 'Z'))) do
   begin
     C:= Result[i];
     if (C >= 'a') and (C <= 'z') then
-      Result[i]:= Chr(Ord(C) - 32);
+      Result[i]:= UpCase(C);
     Inc(i);
   end;
 end; // function
@@ -971,7 +974,7 @@ begin
   // `class function|procedure|constructor|destructor|operator` is a routine header too.
   if StartsKW('class') then
   begin
-    T:= TrimLeft(Copy(T, 6, MaxInt));
+    T:= TrimLeft(Copy(T, Length('class') + 1, MaxInt));
     Exit(StartsKW('procedure') or StartsKW('function') or StartsKW('constructor') or StartsKW('destructor') or StartsKW('operator'));  // dl:ok boolean-expression-complexity -- five-keyword routine-header test
   end;
   Result:= False;
@@ -2797,9 +2800,9 @@ var
     begin
       if Cnt = Length(AW) then
       begin
-        SetLength(AW  , Cnt * 2 + 4);
-        SetLength(ABef, Cnt * 2 + 4);
-        SetLength(AAft, Cnt * 2 + 4);
+        SetLength(AW  , Cnt * GrowMul + GrowAdd);
+        SetLength(ABef, Cnt * GrowMul + GrowAdd);
+        SetLength(AAft, Cnt * GrowMul + GrowAdd);
       end;
       AW[Cnt]:= AWord; ABef[Cnt]:= ABp; AAft[Cnt]:= AAp; Inc(Cnt);
     end;
@@ -3032,9 +3035,9 @@ var
 begin
   Tr:= TrimLeft(ALine);
   if LeadWord(Tr, 'class') then
-    Tr:= TrimLeft(Copy(Tr, 6, MaxInt));
+    Tr:= TrimLeft(Copy(Tr, Length('class') + 1, MaxInt));
   if LeadWord(Tr, 'generic') then
-    Tr:= TrimLeft(Copy(Tr, 8, MaxInt));
+    Tr:= TrimLeft(Copy(Tr, Length('generic') + 1, MaxInt));
   Result:= LeadWord(Tr, 'function') or LeadWord(Tr, 'procedure') or LeadWord(Tr, 'constructor')
         or LeadWord(Tr, 'destructor') or LeadWord(Tr, 'operator');
 end;
@@ -3410,9 +3413,9 @@ const
   begin
     Tr:= TrimLeft(L);
     if LeadWord(Tr, 'class') then
-      Tr:= TrimLeft(Copy(Tr, 6, MaxInt));
+      Tr:= TrimLeft(Copy(Tr, Length('class') + 1, MaxInt));
     if LeadWord(Tr, 'generic') then
-      Tr:= TrimLeft(Copy(Tr, 8, MaxInt));
+      Tr:= TrimLeft(Copy(Tr, Length('generic') + 1, MaxInt));
     if LeadWord(Tr, 'function') or LeadWord(Tr, 'procedure') or LeadWord(Tr, 'constructor') or LeadWord(Tr, 'destructor') or LeadWord(Tr, 'operator') then
       Exit(True);
     // Case B: inline `procedure(` / `function(` scanned at top level.
@@ -4588,7 +4591,7 @@ begin
           PendingWS:= '';
           AfterCRLF:= False;
         end
-        else if AfterCRLF and (T.Kind in [ptSlashesComment, ptBorComment, ptAnsiComment]) and ((not AIndentComments) or (Copy(T.Text, 1, 3) = '//.')) then
+        else if AfterCRLF and (T.Kind in [ptSlashesComment, ptBorComment, ptAnsiComment]) and ((not AIndentComments) or (Copy(T.Text, 1, Length('//.')) = '//.')) then
         begin
           // Comment-only line, with comment-indenting disabled (IndentComments
           // = false) OR a `//.`-pinned line: keep the author's leading
@@ -6798,8 +6801,8 @@ var
               Continue;
             end;
             AddIfWord(i, 2, 'or' );
-            AddIfWord(i, 3, 'and');
-            AddIfWord(i, 3, 'xor');
+            AddIfWord(i, Length('and'), 'and');
+            AddIfWord(i, Length('xor'), 'xor');
           end; // if
           if (Line[i] = ',') and (St.Depth > 0) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
           begin
@@ -6874,8 +6877,8 @@ var
               Continue;
             end;
             AddIfWordAtDepth(i, 2, 'or' );
-            AddIfWordAtDepth(i, 3, 'and');
-            AddIfWordAtDepth(i, 3, 'xor');
+            AddIfWordAtDepth(i, Length('and'), 'and');
+            AddIfWordAtDepth(i, Length('xor'), 'xor');
             // `to` / `downto` join the two halves of a `for` bound exactly as
             // ` and ` joins two operands, so they are boundaries too. Without
             // them an over-long `for I:= A to B + C do` breaks at the `+` --
@@ -6885,7 +6888,7 @@ var
             // tested before `to`; the two cannot both match at one position
             // (the scanner only probes word starts, so the `to` inside
             // `downto` is never reached).
-            AddIfWordAtDepth(i, 6, 'downto');
+            AddIfWordAtDepth(i, Length('downto'), 'downto');
             AddIfWordAtDepth(i, 2, 'to'    );
           end; // if
           Inc(i);
