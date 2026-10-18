@@ -258,6 +258,12 @@ The `[Format]` section keys match the CLI keys exactly. The IDE wizard
 ignores `ResultDir` and `Logging` (CLI-only); `Encoding` applies only when it
 formats a form unit's file on disk -- buffer formatting is always UTF-8.
 
+Behaviour notes (by design): the wizard keeps your caret and scroll position
+across a format (clamped to the new line count). The profile is read live from
+its INI on every format, so cancelling the Options page after switching
+profiles has no cached state to roll back. LF-only buffers are returned with
+CRLF line endings.
+
 ### Uninstall
 
 Component → Install Packages → select `YADFOT` → Remove.
