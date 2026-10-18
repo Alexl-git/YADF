@@ -708,6 +708,8 @@ begin
   end; // try
 end; // function
 
+function TopLevelLineCommentCol(const ALine: string): Integer; forward;
+
 // Joins a `case` alternative label and a short body that fit within
 // AMaxLen onto a single line:
 //
@@ -718,7 +720,7 @@ end; // function
 // handles this in a more general way). Refuses to join when the
 // candidate body begins a structured construct (begin/case/try/asm/
 // record) so we don't end up with `Foo: begin ... end` collapsed.
-function JoinShortCaseAlts(const S: string; AMaxLen: Integer): string;  // dl:ok deep-nesting@9bf7
+function JoinShortCaseAlts(const S: string; AMaxLen: Integer): string;  // dl:ok deep-nesting@642a
 var
   Cur        : string        ;
   CurTrimmedR: string        ;
@@ -741,7 +743,8 @@ var
 
   function EndsWithColon: Boolean;
   begin
-    Result:= (CurTrimmedR <> '') and (CurTrimmedR[Length(CurTrimmedR)] = ':');
+    // A trailing // note: ends in a colon that is comment text, not a label colon.
+    Result:= (CurTrimmedR <> '') and (CurTrimmedR[Length(CurTrimmedR)] = ':') and (TopLevelLineCommentCol(CurTrimmedR) = 0);
   end;
 
   function NextStartsCompound(const ATrimmed: string): Boolean;

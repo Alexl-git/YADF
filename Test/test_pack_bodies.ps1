@@ -44,4 +44,33 @@ MustMatch    $on 'else DoDefault;'               'on: case-else body packed'
 CheckStable 'off' @('--no-pack-bodies')
 CheckStable 'on'  @('--pack-bodies')
 
+# ----- WP13: an arm label whose line ends in a `//` note ending in ':' is not a bare label -----
+# `2: // note:` ends with a colon, but the colon is comment text; joining the next
+# line onto it would swallow the body into the comment.
+$wpSrc = @(
+  'unit pb13;'
+  'interface'
+  'implementation'
+  'procedure P(X: Integer);'
+  'begin'
+  '  case X of'
+  '    1:'
+  '      DoOne;'
+  '    2: // note:'
+  '      DoTwo;'
+  '  end;'
+  'end;'
+  'end.'
+) -join "`r`n"
+$wpIn  = New-TempOut
+$wpOut = New-TempOut
+Set-Content -Path $wpIn -Value $wpSrc -Encoding ascii
+if (Invoke-Yadf $wpIn $ini $wpOut @('--pack-bodies', '--no-reflow')) {
+  $wpText = Get-Content $wpOut -Raw
+  MustMatch    $wpText '1: DoOne;'            'wp13: a real bare label still joins'
+  MustNotMatch $wpText '// note:[ \t]+DoTwo'     'wp13: body never pulled into the // comment'
+  MustMatch    $wpText '(?m)^\s+DoTwo;'       'wp13: body stays on its own line'
+}
+Remove-Item $wpIn, $wpOut -Force -ErrorAction SilentlyContinue
+
 Finish 'pack_bodies'
