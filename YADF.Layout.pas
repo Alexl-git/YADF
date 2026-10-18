@@ -2531,7 +2531,7 @@ end; // begin
 /// ReindentByDepth (called by the pipeline right after) fixes the body depth.
 /// A begin block, a body starting with a nested control header, or a line with a
 /// top-level line comment / open block comment is left unchanged. Idempotent.</summary>
-function BreakControlBodies(const S: string; const AOpts: TYadfOptions): string;  // dl:ok deep-nesting@d117, cyclomatic-complexity@d117, cognitive-complexity@d117
+function BreakControlBodies(const S: string; const AOpts: TYadfOptions): string;  // dl:ok deep-nesting@b853, cyclomatic-complexity@877a, cognitive-complexity@2aff
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -2584,7 +2584,7 @@ var
     Result:= True;
   end;
 
-  procedure ScanTop(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@45b9
+  procedure ScanTop(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@1198
   var
     p    : Integer;
     n    : Integer;
