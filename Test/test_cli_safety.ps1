@@ -71,4 +71,15 @@ $h0 = Hash $f
 if ($LASTEXITCODE -eq 0) { Fail '--batch d d: accepted (expected a refusal, exit 1)' }
 if ((Hash $f) -ne $h0) { Fail '--batch d d: source was modified' }
 
+# 6. in-place format keeps the file identity: Hidden attribute + alternate data stream (review 2026-10-14 #5)
+$f = New-Case 'ads'
+Set-Content -LiteralPath $f -Stream 'yadf.test' -Value 'keepme'
+(Get-Item -LiteralPath $f).Attributes = 'Hidden,Archive'
+& $exe --ini $ini $f | Out-Null
+if ($LASTEXITCODE -ne 0) { Fail "ads: exit $LASTEXITCODE" }
+if ((Hash $f) -eq $uglyHash) { Fail 'ads: file was not formatted' }
+if (-not ((Get-Item -LiteralPath $f -Force).Attributes -band [IO.FileAttributes]::Hidden)) { Fail 'in-place format dropped the Hidden attribute' }
+$s = Get-Content -LiteralPath $f -Stream 'yadf.test' -ErrorAction SilentlyContinue
+if ($s -ne 'keepme') { Fail 'in-place format dropped the alternate data stream' }
+
 Finish 'cli_safety'

@@ -184,7 +184,6 @@ implementation
 
 uses
   Winapi.Windows
-  , Winapi.ShlObj
   , System.Classes
   , System.IOUtils
   , System.IniFiles
@@ -324,73 +323,6 @@ begin
   Result:= LoadFile(AFileName, AOpts, WEnc, WBom);
 end;
 
-// Write AContent as AEnc, prepending the BOM only when AWithBOM (pass the pair
-// LoadFile detected to preserve the input file's encoding, or an explicit
-// encoding to convert).
-procedure SaveFile(const AFileName, AContent: string; AEnc: TEncoding; AWithBOM: Boolean);
-
-  procedure WriteAllBytesFlushed(const AFile: string; const ABytes: TBytes);
-  var
-    Stream: TFileStream;
-  begin
-    Stream:= TFileStream.Create(AFile, fmCreate or fmShareDenyWrite);
-    try
-      if Length(ABytes) > 0 then
-        Stream.WriteBuffer(ABytes[0], Length(ABytes));
-      FlushFileBuffers(Stream.Handle);
-    finally
-      Stream.Free;
-    end;
-  end;
-
-  procedure BumpModifiedTime(const AFile: string);
-  var
-    H : THandle  ;
-    Ft: TFileTime;
-  begin
-    H:= CreateFileW(PWideChar(AFile), GENERIC_WRITE, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-    if H = INVALID_HANDLE_VALUE then
-      Exit;
-    try
-      GetSystemTimeAsFileTime(Ft);
-      SetFileTime(H, nil, nil, @Ft);
-    finally
-      CloseHandle(H);
-    end;
-  end;
-
-var
-  All     : TBytes;
-  Bytes   : TBytes;
-  Preamble: TBytes;
-  Tmp     : string;
-begin
-  if AWithBOM then
-    Preamble:= AEnc.GetPreamble
-  else
-    Preamble:= nil;
-  Bytes:= AEnc.GetBytes(AContent);
-  if Length(Preamble) > 0 then
-  begin
-    SetLength(All, Length(Preamble) + Length(Bytes));
-    Move(Preamble[0], All[0], Length(Preamble));
-    Move(Bytes[0], All[Length(Preamble)], Length(Bytes));
-  end
-  else
-    All:= Bytes;
-
-  Tmp:= AFileName + '.yadf-tmp';
-  try
-    WriteAllBytesFlushed(Tmp, All);
-    if not MoveFileExW(PWideChar(Tmp), PWideChar(AFileName), MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then
-      RaiseLastOSError;
-  except  // dl:ok bare-except@98bb
-    DeleteFileW(PWideChar(Tmp));
-    raise;
-  end;
-  BumpModifiedTime(AFileName);
-  SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW, PWideChar(AFileName), nil);
-end; // begin
 
 function RoundTrip(const ASource: string): string;
 var

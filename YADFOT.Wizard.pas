@@ -326,7 +326,6 @@ var
   WriteEnc : TEncoding;
   WriteBom : Boolean;
   PreLen   : Integer;
-  OutBytes : TBytes;
   Original : string;
   Formatted: string;
   Declined : string;
@@ -364,10 +363,7 @@ begin
       WriteEnc:= EncodingOf(AOpts.Encoding);
       WriteBom:= True;
     end;
-    OutBytes:= WriteEnc.GetBytes(Formatted);
-    if WriteBom then
-      OutBytes:= WriteEnc.GetPreamble + OutBytes;
-    TFile.WriteAllBytes(AFileName, OutBytes);
+    SaveFile(AFileName, Formatted, WriteEnc, WriteBom);
   end;
 end;
 
