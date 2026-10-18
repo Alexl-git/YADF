@@ -751,4 +751,36 @@ end.
 if ((Get-FileHash $dirO1).Hash -ne (Get-FileHash $dirO2).Hash) { Fail 'idempotent: directive-on-own-line join is stable on a second pass' }
 Remove-Item $dirSrc,$dirO1,$dirO2 -Force -ErrorAction SilentlyContinue
 
+# ----- WP19: two headers sharing a tail across {$IFDEF}/{$ELSE}: a directive-only
+#       line inside the header span means the span is NOT one header -- leave it
+#       verbatim, or the joined line carries the directive and the indent unbalances
+#       (every later line is indented one level). Compile-checked. -----
+$ifd = Fmt @(
+  'unit Wp19Unit;'
+  'interface'
+  'procedure Probe(A: Integer; B: Integer; C: Integer);'
+  'implementation'
+  '{$IFDEF UNDEFINED_WP19}'
+  'procedure Probe(A: Integer;'
+  '{$ELSE}'
+  'procedure Probe(A: Integer; B: Integer;'
+  '{$ENDIF}'
+  '  C: Integer);'
+  'begin'
+  '  if A > 0 then'
+  '    Exit;'
+  'end;'
+  'end.'
+)
+MustMatch    $ifd '(?m)^begin\s*$'                  'wp19: begin stays at column 0 (indent balanced)'
+MustMatch    $ifd '(?m)^procedure Probe\(A: Integer; B: Integer;\s*$' 'wp19: the second header keeps its own line'
+MustNotMatch $ifd '(?m)\{\$ENDIF\} C: Integer'      'wp19: directive not folded into a joined header line'
+$ifdDir = Join-Path $env:TEMP ('wp19_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory $ifdDir | Out-Null
+$ifdFile = Join-Path $ifdDir 'Wp19Unit.pas'
+Set-Content -Path $ifdFile -Value $ifd -Encoding ascii -NoNewline
+if (-not (Test-Path (Get-Dcc64))) { Fail 'wp19: dcc64 missing -- cannot prove the output compiles' }
+elseif (-not (Test-DccCompiles $ifdFile $ifdDir $ifdDir)) { Fail 'wp19: formatted output does not compile' }
+[IO.Directory]::Delete($ifdDir, $true)
+
 Finish 'join_headers'

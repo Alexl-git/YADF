@@ -3678,6 +3678,15 @@ begin
           while j < Lines.Count do
           begin
             if StartsBlockKeyword(Lines[j]) then begin Aborted:= True; Break; end;
+            // A directive-only line ({$IFDEF X}/{$ELSE}/{$ENDIF}) inside the span
+            // means two headers share a tail across a conditional: joining would
+            // fold the directive into the header line and unbalance the indent.
+            // Bail, like a block keyword: line j stays unscanned.
+            if Trim(Lines[j]).StartsWith('{$') and Trim(Lines[j]).EndsWith('}') then
+            begin
+              Aborted:= True;
+              Break;
+            end;
             ScanLine(Lines[j], CmtOpen);
             if CmtOpen then begin CmtBail:= True; Break; end;
             if Trim(Lines[j]) <> '' then
@@ -4126,6 +4135,23 @@ begin
   Result:= k in [ptAnsiComment, ptBorComment, ptSlashesComment];
 end;
 
+type
+  // State saved at each open {$IFDEF so the {$ELSE} branch can start from it.
+  TDirMark = record
+    Depth  : Integer;
+    Parens : Integer;
+    Procs  : Integer;
+    Pending: Integer;
+  end;
+
+function MakeDirMark(ADepth, AParens, AProcs, APending: Integer): TDirMark;
+begin
+  Result.Depth  := ADepth;
+  Result.Parens := AParens;
+  Result.Procs  := AProcs;
+  Result.Pending:= APending;
+end;
+
 // ===== Structural re-indentation =====
 // Re-emits ASrc with every line's leading whitespace replaced by N *
 // AIndent spaces, where N is the structural depth at that point.
@@ -4165,7 +4191,7 @@ var
   InVisibility      : Boolean            ;
   VisOnThisLine     : Boolean            ;
   IsProcBody        : TList<Boolean>     ;
-  DirDepths         : TList<Integer>     ;
+  DirMarks          : TList<TDirMark>    ; // indent/parens/proc state at each open conditional
   OpenProcRegions   : Integer            ;
   OutVal              : TStringBuilder     ;
   ParensDepth       : Integer            ;
@@ -4392,7 +4418,7 @@ begin
     Stack           := TList<TptTokenKind>.Create;
     IsProcBody      := TList<Boolean     >.Create;
     PendingProcStack:= TList<Boolean     >.Create;
-    DirDepths       := TList<Integer     >.Create;
+    DirMarks        := TList<TDirMark    >.Create;
     CtrlStack       := TList<Integer     >.Create;
     ClassHeaderOpen := TList<Boolean     >.Create;
     try
@@ -4535,14 +4561,28 @@ begin
           // This keeps a directive group consistent in ANY context; it deliberately
           // does NOT indent the code between the directives (that would break inline
           // directives inside uses clauses / field lists / statement blocks).
+          // The open-paren depth is mirrored the same way: only ONE branch of a
+          // conditional is ever compiled, so each {$ELSE} branch starts at the depth
+          // the {$IFDEF} saw. Without it two routine headers sharing a tail
+          // (procedure P(A; {$ELSE} procedure P(A; B; {$ENDIF} C);) count two
+          // opens against one close and indent everything after them.
           if T.Kind in [ptIfDirect, ptIfDefDirect, ptIfNDefDirect, ptIfOptDirect] then
-            DirDepths.Add(EffectiveDepth)
-          else if (T.Kind in [ptElseDirect, ptElseIfDirect]) and (DirDepths.Count > 0) then
-            EffectiveDepth:= DirDepths[DirDepths.Count - 1]
-          else if (T.Kind in [ptEndIfDirect, ptIfEndDirect]) and (DirDepths.Count > 0) then
           begin
-            EffectiveDepth:= DirDepths[DirDepths.Count - 1];
-            DirDepths.Delete(DirDepths.Count - 1);
+            DirMarks.Add(MakeDirMark(EffectiveDepth, ParensDepth, OpenProcRegions, PendingProcStack.Count));
+          end
+          else if (T.Kind in [ptElseDirect, ptElseIfDirect]) and (DirMarks.Count > 0) then
+          begin
+            EffectiveDepth:= DirMarks[DirMarks.Count - 1].Depth;
+            ParensDepth   := DirMarks[DirMarks.Count - 1].Parens;
+            // Same for routine headers still waiting for their body.
+            OpenProcRegions:= Min(OpenProcRegions, DirMarks[DirMarks.Count - 1].Procs);
+            while PendingProcStack.Count > DirMarks[DirMarks.Count - 1].Pending do
+              PendingProcStack.Delete(PendingProcStack.Count - 1);
+          end
+          else if (T.Kind in [ptEndIfDirect, ptIfEndDirect]) and (DirMarks.Count > 0) then
+          begin
+            EffectiveDepth:= DirMarks[DirMarks.Count - 1].Depth;
+            DirMarks.Delete(DirMarks.Count - 1);
           end;
           OutVal.Append(StringOfChar(' ', EffectiveDepth * AIndent));
           AfterCRLF:= False;
@@ -4727,7 +4767,7 @@ begin
     finally
       PendingProcStack.Free;
       IsProcBody.Free;
-      DirDepths.Free;
+      DirMarks.Free;
       CtrlStack.Free;
       ClassHeaderOpen.Free;
       Stack.Free;
@@ -5101,6 +5141,23 @@ var
 begin
   for i:= AFrom to ATo do if ATokens[i].Kind = ptSlashesComment then
     Exit(True);
+  Result:= False;
+end;
+
+// True iff any token in [AFrom..ATo] is a conditional-compilation directive
+// ({$IFDEF}, {$ELSE}, {$ENDIF}, ...). A range spanning one carries
+// source that exists only under some defines -- two routine headers sharing a
+// tail across {$IFDEF}/{$ELSE} even look like ONE paren group -- so it must
+// never be flattened to one line: the directive would end up mid-line and the
+// indent engine would see unbalanced headers. Callers fall back to verbatim,
+// line-preserving emission, like RangeHasLineComment.
+function RangeHasConditionalDirective(const ATokens: TTokenList; AFrom, ATo: Integer): Boolean;
+var
+  i: Integer;
+begin
+  for i:= AFrom to ATo do
+    if ATokens[i].Kind in [ptIfDirect, ptIfDefDirect, ptIfNDefDirect, ptIfOptDirect, ptElseDirect, ptElseIfDirect, ptEndIfDirect, ptIfEndDirect] then
+      Exit(True);
   Result:= False;
 end;
 
@@ -6541,7 +6598,7 @@ var
         // argument-list corruption bug). Fall through to WalkGroup,
         // which emits the group's tokens verbatim and keeps the
         // developer's own line breaks (reflow is already comment-safe).
-        if RangeHasLineComment(Tokens, Child.OpenIdx, Child.CloseIdx) then
+        if RangeHasLineComment(Tokens, Child.OpenIdx, Child.CloseIdx) or RangeHasConditionalDirective(Tokens, Child.OpenIdx, Child.CloseIdx) then
           WalkGroup(Child)
         else if (CurCol + InlineW > AOpts.MaxLen) and (Length(CollectParensItems(Tokens, Child.OpenIdx, Child.CloseIdx)) > 1) then
         begin
