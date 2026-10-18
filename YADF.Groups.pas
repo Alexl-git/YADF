@@ -25,15 +25,16 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Groups.pas), YADF.Groups.TGroup.Create (YADF.Groups.pas)
+  /// <para>Used by: [YADF]declaration (YADF.Groups.pas), [YADF]YADF.Debug.KindName (YADF.Debug.pas), [YADF]YADF.Groups.TGroup.Create (YADF.Groups.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TGroupKind = ( gkRoot, gkParens, gkBrackets, gkBlock, gkUses );
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), YADF.Debug.WalkGroup (YADF.Debug.pas), YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), YADF.Groups.IsVariantPartCase (YADF.Groups.pas), YADF.Groups.ParseGroups (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)
-  /// Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain
+  /// <para>Used by: [YADF]declaration (YADF.Debug.pas), [YADF]declaration (YADF.Groups.pas), [YADF]YADF.Debug.WalkGroup (YADF.Debug.pas), [YADF]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), [YADF]YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), [YADF]YADF.Groups.IsVariantPartCase (YADF.Groups.pas), [YADF]YADF.Groups.ParseGroups (YADF.Groups.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.EndLineTailIsMultiline (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.TrailingCommentIdx (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindChildGroupAt (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.ParensContentInlineWidth (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.RenderParensBroken (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.WalkGroup (YADF.Layout.pas),
+  /// [YADF]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YadfMain.DebugTree (YadfMain.pas)</para>
+  /// <para>Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TGroup = class
@@ -50,17 +51,17 @@ type
     /// <param name="AParent"><!-- drag-lint:auto type -->TGroup</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Called from: YADF.Groups.ParseGroups (YADF.Groups.pas)
-    /// constructor
-    /// Writes: Kind, OpenIdx, CloseIdx, OpenerKind, ForceClosed, Parent, Children
+    /// <para>Called from: [YADF]YADF.Groups.ParseGroups (YADF.Groups.pas)</para>
+    /// <para>constructor</para>
+    /// <para>Writes: Kind, OpenIdx, CloseIdx, OpenerKind, ForceClosed, Parent, Children</para>
     /// <seealso cref="YADF.Groups.TGroup.Destroy"/>
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     constructor Create(AKind: TGroupKind; AOpenIdx: Integer; AOpener: TptTokenKind; AParent: TGroup);
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// Reads: Children
-    /// Pure
+    /// <para>Reads: Children</para>
+    /// <para>Directives: override</para>
     /// <seealso cref="YADF.Groups.TGroup.Create"/>
     /// <!-- drag-lint:auto END -->
     /// </remarks>
@@ -71,11 +72,11 @@ type
 /// <returns>Observed: Root.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)
-/// Calls: YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx, YADF.Groups.TGroup.Create
-/// Returns: Root
-/// Complexity: 21 (cyclomatic, outer body), 57 lines (full implementation)
-/// Pure
+/// <para>Called from: YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)</para>
+/// <para>Calls: YADF.Groups.IsRecordConstraint, YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx, YADF.Groups.TGroup.Create</para>
+/// <para>Returns: Root</para>
+/// <para>Complexity: 23 (cyclomatic, outer body), 58 lines (full implementation)</para>
+/// <seealso cref="YADF.Groups.IsRecordConstraint"/>
 /// <seealso cref="YADF.Groups.IsVariantPartCase"/>
 /// <seealso cref="YADF.Groups.PrevSignificantIdx"/>
 /// <seealso cref="YADF.Groups.TGroup.Create"/>
@@ -95,10 +96,9 @@ function ParseGroups(const ATokens: TTokenList): TGroup;
 /// the formatter may only delete a marker it would itself have written for that
 /// exact block, so add and remove must ask the same function.
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas)
-/// Returns: 'begin'
-/// Complexity: 23 (cyclomatic, outer body), 45 lines (full implementation)
-/// Pure
+/// <para>Called from: YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas)</para>
+/// <para>Returns: 'begin'</para>
+/// <para>Complexity: 23 (cyclomatic, outer body), 45 lines (full implementation)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;
@@ -116,10 +116,9 @@ function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;
 /// <c>// procedure -- see ticket 42</c> (trailing prose), or <c>{ procedure }</c>
 /// (not a <c>//</c> comment).
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas)
-/// Calls: FindBlockLabel, TrimRight, YADF.Groups.CollectBlockLabelComments.Visit, YADF.Groups.ParseGroups
-/// Returns: Flags
-/// Pure
+/// <para>Called from: YADF.Guard.ExtractContent (YADF.Guard.pas)</para>
+/// <para>Calls: FindBlockLabel, TrimRight, YADF.Groups.CollectBlockLabelComments.Visit, YADF.Groups.ParseGroups</para>
+/// <para>Returns: Flags</para>
 /// <seealso cref="YADF.Groups.CollectBlockLabelComments.Visit"/>
 /// <seealso cref="YADF.Groups.ParseGroups"/>
 /// <!-- drag-lint:auto END -->
@@ -162,6 +161,8 @@ end;
 // "anonymous begin"). The Limit guard caps the backwards scan at 300
 // non-trivial tokens so pathological input can't pin the formatter.
 function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;  // dl:ok too-many-exit-points@a182
+const
+  MAX_LABEL_SCAN = 300;  // non-trivial tokens scanned backwards before giving up
 var
   i    : Integer     ;
   k    : TptTokenKind;
@@ -175,7 +176,7 @@ begin
     ptObject: Exit('object');
   end;
   i:= AOpenIdx - 1;
-  Limit:= 300;  // dl:ok large-magic-number@86da
+  Limit:= MAX_LABEL_SCAN;
   while (i >= 0) and (Limit > 0) do
   begin
     Dec(Limit);

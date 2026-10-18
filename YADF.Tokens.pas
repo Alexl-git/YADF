@@ -27,8 +27,9 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.CollectParensItems (YADF.Layout.pas), YADF.Layout.CollectUsesItems (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.RenderUsesGroup (YADF.Layout.pas), YADF.Layout.ShieldMultilineTokens (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YADF.Tokens.EmitTokens (YADF.Tokens.pas), YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), YadfMain.ParseDprUnits (YadfMain.pas)
-  /// Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain
+  /// <para>Used by: [YADF]YADF.Guard.ExtractContent (YADF.Guard.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), [YADF]YADF.Layout.CollectParensItems (YADF.Layout.pas), [YADF]YADF.Layout.CollectUsesItems (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars.MakeTok (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing.MakeSpace (YADF.Layout.pas), [YADF]YADF.Layout.ReindentByDepth (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Layout.ShieldAsmBodies (YADF.Layout.pas), [YADF]YADF.Layout.ShieldMultilineTokens (YADF.Layout.pas), [YADF]YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), [YADF]YADF.Tokens.EmitTokens (YADF.Tokens.pas),
+  /// [YADF]YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), [YADF]YADF.Tokens.UnshieldIncludeToken (YADF.Tokens.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas)</para>
+  /// <para>Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TToken = record
@@ -42,7 +43,8 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.Debug.pas), declaration (YADF.Groups.pas), declaration (YADF.Tokens.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), YadfMain.DebugTree (YadfMain.pas), YadfMain.ParseDprUnits (YadfMain.pas), YadfMain.RoundTrip (YadfMain.pas)
+  /// <para>Used by: [YADF]declaration (YADF.Debug.pas), [YADF]declaration (YADF.Groups.pas), [YADF]declaration (YADF.Tokens.pas), [YADF]YADF.Debug.PreviewSpan (YADF.Debug.pas), [YADF]YADF.Debug.WalkGroup (YADF.Debug.pas), [YADF]YADF.Groups.IsRecordConstraint (YADF.Groups.pas), [YADF]YADF.Groups.PrevSignificantIdx (YADF.Groups.pas), [YADF]YADF.Guard.AddAsmLines (YADF.Guard.pas), [YADF]YADF.Guard.ExtractContent (YADF.Guard.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), [YADF]YADF.Layout.CollectParensItems (YADF.Layout.pas), [YADF]YADF.Layout.CollectUsesItems (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF]YADF.Layout.InlineRenderRange (YADF.Layout.pas), [YADF]YADF.Layout.MarkEnumMembers (YADF.Layout.pas), [YADF]YADF.Layout.MarkExternalName (YADF.Layout.pas),
+  /// [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasConditionalDirective (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasLineComment (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasMultiLineToken (YADF.Layout.pas), [YADF]YADF.Layout.ReindentByDepth (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Layout.ShieldAsmBodies (YADF.Layout.pas), [YADF]YADF.Layout.ShieldMultilineTokens (YADF.Layout.pas), [YADF]YADF.Layout.SpellingSensitiveIdents (YADF.Layout.pas), [YADF]YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), [YADF]YADF.Layout.TokIs (YADF.Layout.pas), [YADF]YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.RoundTrip (YadfMain.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TTokenList = TList<TToken>;
@@ -51,12 +53,15 @@ type
 /// <returns>Observed: TTokenList.Create.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas), YadfMain.ParseDprUnits (YadfMain.pas), YadfMain.RoundTrip (YadfMain.pas)
-/// Calls: Copy, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken
-/// Returns: TTokenList.Create
-/// Pure
-/// <seealso cref="YADF.Tokens.ShieldIncludeDirectives"/>
-/// <seealso cref="YADF.Tokens.UnshieldIncludeToken"/>
+/// <para>Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YADF.Layout.ReindentByDepth (YADF.Layout.pas), YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas), YadfMain.ParseDprUnits (YadfMain.pas), YadfMain.RoundTrip (YadfMain.pas)</para>
+/// <para>Calls: Copy, SimpleParser.Lexer.TmwBasePasLex.GetPosXY, SimpleParser.Lexer.TmwBasePasLex.GetToken, SimpleParser.Lexer.TmwBasePasLex.Next, SimpleParser.Lexer.TmwBasePasLex.SetOrigin, SimpleParser.Lexer.TmwPasLex.Create, YADF.Tokens.ShieldIncludeDirectives, YADF.Tokens.UnshieldIncludeToken</para>
+/// <para>Returns: TTokenList.Create</para>
+/// <para>Catches: Exception (re-raise)</para>
+/// <seealso cref="SimpleParser.Lexer.TmwBasePasLex.GetPosXY"/>
+/// <seealso cref="SimpleParser.Lexer.TmwBasePasLex.GetToken"/>
+/// <seealso cref="SimpleParser.Lexer.TmwBasePasLex.Next"/>
+/// <seealso cref="SimpleParser.Lexer.TmwBasePasLex.SetOrigin"/>
+/// <seealso cref="SimpleParser.Lexer.TmwPasLex.Create"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function LoadTokensFromString(const ASource: string): TTokenList;
@@ -64,9 +69,8 @@ function LoadTokensFromString(const ASource: string): TTokenList;
 /// <returns>Observed: Sb.ToString.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.RoundTrip (YadfMain.pas)
-/// Returns: Sb.ToString
-/// Pure
+/// <para>Called from: YadfMain.RoundTrip (YadfMain.pas)</para>
+/// <para>Returns: Sb.ToString</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function EmitTokens(const ATokens: TTokenList): string;
@@ -77,8 +81,14 @@ function EmitTokens(const ATokens: TTokenList): string;
 /// <param name="AIdx">Index to test; out-of-range returns False.</param>
 /// <returns>False for any other token, and for an `end` glued to a preceding
 /// `@` (the lexer reports the `End` of `@@End:` as the keyword).</returns>
-/// <remarks>Shared by the asm shield (YADF.Layout) and the guard's asm-line
-/// stream (YADF.Guard), which must agree on where an asm body stops.</remarks>
+/// <remarks>
+/// Shared by the asm shield (YADF.Layout) and the guard's asm-line
+/// stream (YADF.Guard), which must agree on where an asm body stops.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.Guard.AddAsmLines (YADF.Guard.pas), YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.ShieldAsmBodies (YADF.Layout.pas)</para>
+/// <para>Returns: (AIdx &gt;= 0) and (AIdx &lt; ATokens.Count) and (ATokens[AIdx].Kind = ptEnd); not ((Prev &lt;&gt; '') and (Prev[Length(Prev)] = '@'))</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function IsAsmBlockEnd(const ATokens: TTokenList; AIdx: Integer): Boolean;
 
 implementation
@@ -287,18 +297,21 @@ end; // function
 // sentinel from the directive word and returns True (caller resets
 // Kind to ptIncludeDirect). No-op (returns False) for any other token.
 function UnshieldIncludeToken(var AToken: TToken): Boolean;
+const
+  MIN_DIRECTIVE_LEN = 4;  // shortest shielded directive: '{$' + one letter + '}'
+  DIRECTIVE_WORD   = 3;  // 1-based index of the first directive-word char, after '{$'
 var
   P  : Integer;
   Wrd: string ;
   WE : Integer;
 begin
   Result:= False;
-  if (Length(AToken.Text) < 4) or (AToken.Text[1] <> '{') or (AToken.Text[2] <> '$') then
+  if (Length(AToken.Text) < MIN_DIRECTIVE_LEN) or (AToken.Text[1] <> '{') or (AToken.Text[2] <> '$') then
     Exit;
-  WE:= 3;
+  WE:= DIRECTIVE_WORD;
   while (WE <= Length(AToken.Text)) and IsAsciiAlpha(AToken.Text[WE]) do
     Inc(WE);
-  Wrd:= Copy(AToken.Text, 3, WE - 3);
+  Wrd:= Copy(AToken.Text, DIRECTIVE_WORD, WE - DIRECTIVE_WORD);
   if not SameText(Copy(Wrd, Length(Wrd) - Length(IncSentinel) + 1, Length(IncSentinel)), IncSentinel) then
     Exit;
   P:= Length(Wrd) - Length(IncSentinel);

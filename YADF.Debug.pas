@@ -26,10 +26,9 @@ uses
 /// <returns>Observed: Lines.Text.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YadfMain.DebugTree (YadfMain.pas)
-/// Calls: YADF.Debug.WalkGroup
-/// Returns: Lines.Text
-/// Pure
+/// <para>Called from: YadfMain.DebugTree (YadfMain.pas)</para>
+/// <para>Calls: YADF.Debug.WalkGroup</para>
+/// <para>Returns: Lines.Text</para>
 /// <seealso cref="YADF.Debug.WalkGroup"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -56,14 +55,16 @@ begin
 end; // function
 
 function PreviewSpan(const ATokens: TTokenList; AStart, AEnd: Integer): string;
+const
+  MAX_PREVIEW_TOKENS = 6;  // tokens shown before the span preview is cut short
 var
   i  : Integer       ;
   Sb : TStringBuilder;
   Lim: Integer       ;
 begin
   Lim:= AEnd;
-  if Lim - AStart > 6 then
-    Lim:= AStart + 6;
+  if Lim - AStart > MAX_PREVIEW_TOKENS then
+    Lim:= AStart + MAX_PREVIEW_TOKENS;
   Sb:= TStringBuilder.Create;
   try
     for i:= AStart to Lim do if i >= 0 then

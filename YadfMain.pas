@@ -159,23 +159,23 @@ type
   /// "internal error" style report.</summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADF.dpr), YadfMain.ExpandFileSpec (YadfMain.pas), YadfMain.ParseFlags (YadfMain.pas)
-  /// Used in units: YADF, YadfMain
+  /// <para>Used by: declaration (YADF.dpr), YadfMain.ExpandFileSpec (YadfMain.pas), YadfMain.ParseFlags (YadfMain.pas)</para>
+  /// <para>Used in units: YADF, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   EYadfUsage = class(Exception);
 
-/// <exception cref="EYadfUsage"><!-- drag-lint:auto exc -->via YadfMain.ExpandFileSpec: Directory not found:; via YadfMain.ParseFlags: --blanks-before-method requires a value; via YadfMain.ParseFlags: --blanks-before-section requires a value (+11 more)</exception>
+/// <exception cref="EYadfUsage"><!-- drag-lint:auto exc -->via YadfMain.ExpandFileSpec: Directory not found:; via YadfMain.ParseFlags: --blanks-before-method requires a value; via YadfMain.ParseFlags: --blanks-before-section requires a value (+12 more)</exception>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: declaration (YADF.dpr)</para>
-/// <para>Calls: Format, ParamStr, YADF.Options.DefaultOptions, YADF.Options.EnsureIniExists, YadfMain.BatchFormat, YadfMain.CheckDir, YadfMain.CheckFile, YadfMain.DebugTree, YadfMain.ExpandFileSpec, YadfMain.ExtractIniPath (+9 more)</para>
-/// <para>Complexity: 23 (cyclomatic, outer body), 154 lines (full implementation)</para>
+/// <para>Calls: ExpandFileName, Format, LowerCase, ParamStr, Trim, Writeln, YADF.Options.ClampOptions, YADF.Options.DefaultOptions, YADF.Options.EnsureIniExists, YadfMain.BatchFormat (+15 more)</para>
+/// <para>Complexity: 29 (cyclomatic, outer body), 179 lines (full implementation)</para>
+/// <seealso cref="YADF.Options.ClampOptions"/>
 /// <seealso cref="YADF.Options.DefaultOptions"/>
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
 /// <seealso cref="YadfMain.BatchFormat"/>
 /// <seealso cref="YadfMain.CheckDir"/>
-/// <seealso cref="YadfMain.CheckFile"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure RunYadf;
@@ -199,6 +199,8 @@ uses
 const
   /// <summary>Process exit code: at least one file was declined by the content guard and left unchanged (no failures).</summary>
   EXIT_DECLINED = 3;
+  /// <summary>Argument count of the --batch mode: --batch, a list file and an output directory.</summary>
+  BATCH_ARG_COUNT = 3;
 
 /// <summary>Records a guard decline in the process exit code.</summary>
 /// <remarks>Only lifts a clean 0 to EXIT_DECLINED; a failure code already set is never masked.</remarks>
@@ -1509,7 +1511,7 @@ begin
 
   if Args[0] = '--batch' then
   begin
-    if Length(Args) <> 3 then
+    if Length(Args) <> BATCH_ARG_COUNT then
     begin
       ShowUsage(Opts);
       ExitCode:= 1;
