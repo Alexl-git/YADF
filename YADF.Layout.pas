@@ -4383,6 +4383,12 @@ begin
             Inc(EffectiveDepth, CtrlCarried + Max(0, PendingCtrl - 1))
           else
             Inc(EffectiveDepth, CtrlCarried + PendingCtrl);
+          // A line that follows a trailing binary operator (`if A and // c`)
+          // continues the expression: one level deeper than the statement
+          // that owns it, never flush with it. Inside ()/[] the paren depth
+          // already supplies that level.
+          if (ParensDepth = 0) and (PrevNonKind in [ptAnd, ptOr, ptXor, ptPlus, ptMinus, ptStar, ptSlash, ptDiv, ptMod, ptShl, ptShr]) then
+            Inc(EffectiveDepth);
           if (OpenProcRegions > 1) and not ((T.Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) and (not InClassOrRecord)) then
             Inc(EffectiveDepth, OpenProcRegions - 1);
           // Conditional compiler directives: align {$ELSE}/{$ENDIF} with their

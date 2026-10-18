@@ -112,6 +112,25 @@ if ($d10Out) {
   }
 }
 
+# ---- continuation lines of `if A and // c` stay deeper than the `if` ----
+$ifcOut = Format-Case 'review_r3_if_comment.pas'
+if ($ifcOut) {
+  $ls = @(Get-Content $ifcOut)
+  $ifAt = ($ls | Select-String -SimpleMatch 'if Foo(1) and').LineNumber
+  if (-not $ifAt) { Fail 'review_corruption: if_comment: the if line is missing' }
+  else {
+    $ifInd = ($ls[$ifAt - 1] -replace '\S.*$').Length
+    foreach ($k in 0, 1) {
+      $cont = $ls[$ifAt + $k]
+      $ind = ($cont -replace '\S.*$').Length
+      if ($ind -le $ifInd) { Fail "review_corruption: if_comment: continuation [$cont] is not deeper than the if (indent $ind vs $ifInd)" }
+    }
+  }
+  if (Test-Path (Join-Path $bin 'dcc64.exe')) {
+    if (-not (Compiles 'dcc64' $ifcOut)) { Fail 'review_corruption: formatted review_r3_if_comment.pas does not compile with dcc64' }
+  }
+}
+
 # ---- a method line must not drag the field-semicolon column out ----
 $fmOut = Format-Case 'review_r3_field_method.pas'
 if ($fmOut) {
