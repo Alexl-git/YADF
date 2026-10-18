@@ -1425,6 +1425,36 @@ var
   Pad     : Integer        ;
   Line    : string         ;
 
+  // True when the line is a routine header (`[class] function|procedure|
+  // constructor|destructor|operator ...`): its top-level `:` is the result
+  // type, not a field declaration, so it must not join a field run.
+  function IsRoutineHeaderLine(const ALine: string): Boolean;
+  var
+    Rest: string;
+    W   : string;
+
+    function FirstWord(const AText: string): string;
+    var
+      n: Integer;
+    begin
+      n:= 1;
+      while (n <= Length(AText)) and CharInSet(AText[n], ['A'..'Z', 'a'..'z', '_']) do
+        Inc(n);
+      Result:= Copy(AText, 1, n - 1);
+    end; // function
+
+  begin
+    Rest:= TrimLeft(ALine);
+    W   := FirstWord(Rest);
+    if SameText(W, 'class') then
+    begin
+      Rest:= TrimLeft(Copy(Rest, Length(W) + 1, MaxInt));
+      W   := FirstWord(Rest);
+    end;
+    Result:= SameText(W, 'function') or SameText(W, 'procedure') or SameText(W, 'constructor') or
+      SameText(W, 'destructor') or SameText(W, 'operator');
+  end; // function
+
   function HasDeclShape(const ALine: string; out AColon, ASemi: Integer): Boolean;
   var
     p   : Integer       ;
@@ -1460,6 +1490,12 @@ var
     // the colon (i.e., this really is a `name : type;` declaration).
     // We also require that nothing non-whitespace follows the `;`
     // except an optional line comment.
+    // Callers read AColon/ASemi directly, so a routine header must clear them.
+    if IsRoutineHeaderLine(ALine) then
+    begin
+      AColon:= 0;
+      ASemi := 0;
+    end;
     Result:= (AColon > 0) and (ASemi > AColon);
     if Result then
     begin

@@ -112,6 +112,16 @@ if ($d10Out) {
   }
 }
 
+# ---- a method line must not drag the field-semicolon column out ----
+$fmOut = Format-Case 'review_r3_field_method.pas'
+if ($fmOut) {
+  $txt = [IO.File]::ReadAllText($fmOut)
+  if ($txt -notmatch '(?m)^\s*FVar2\s*:\s*string {0,2};') { Fail 'review_corruption: field_method: FVar2 semicolon padded out by the method line below' }
+  if (Test-Path (Join-Path $bin 'dcc64.exe')) {
+    if (-not (Compiles 'dcc64' $fmOut)) { Fail 'review_corruption: formatted review_r3_field_method.pas does not compile with dcc64' }
+  }
+}
+
 # ---- NUL byte: the lexer stops at #0, so everything after it used to vanish
 # (83 -> 38 bytes, "wrote", exit 0). Now the file must be left byte-identical.
 $nulDir = Join-Path $env:TEMP ("revcorr_" + [guid]::NewGuid().ToString('N'))
