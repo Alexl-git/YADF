@@ -48,9 +48,9 @@ if ($newer) {
 foreach ($r in @(
     @{ Name = 'GuardTest';   Dpr = 'GuardTest.dpr'   },
     @{ Name = 'OptionsTest'; Dpr = 'OptionsTest.dpr' })) {
-  $rexe  = Join-Path $PSScriptRoot ('Win32\Debug\EXE\' + $r.Name + '.exe')
+  $rexe  = Join-Path $PSScriptRoot ('Win64\Debug\EXE\' + $r.Name + '.exe')
   $rdpr  = Join-Path $PSScriptRoot $r.Dpr
-  $build = "  build first:  msbuild /t:Build /p:Config=Debug /p:Platform=Win32 Test\{0}.dproj" -f $r.Name
+  $build = "  build first:  msbuild /t:Build /p:Config=Debug /p:Platform=Win64 Test\{0}.dproj" -f $r.Name
   if (-not (Test-Path $rexe)) {
     Write-Output "run_tests: FATAL -- $($r.Name).exe is MISSING at $rexe"
     Write-Output "  its suite would report SKIP, which the summary counts as non-failure."
