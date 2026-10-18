@@ -114,25 +114,43 @@ begin
   Result:= StringReplace(Result, #13   , #10, [rfReplaceAll]);
 end;
 
-// Directive comparison key: lowercase with ALL whitespace removed.
-// UpperDirectives rewrites `{$ifdef}` as `{$IFDEF}` and the ifdef-spacing
-// normalization rewrites `{$IFDEF  x }` as `{$IFDEF x}`; neither is damage.
-// Stripping whitespace entirely still catches the bugs that matter here --
-// a dropped directive or a changed argument (e.g. the file in `{$I file}`).
+// Directive comparison key: lowercase, every whitespace run collapsed to ONE
+// space, and the padding just inside the delimiters (`{$ `, ` }`, `(*$ `,
+// ` *)`) stripped. UpperDirectives rewrites `{$ifdef}` as `{$IFDEF}` and the
+// ifdef-spacing normalization rewrites `{$IFDEF  x }` as `{$IFDEF x}`; neither
+// is damage. Whitespace INSIDE the argument is kept as a single space (it used
+// to be deleted outright, which made `{$I a b.inc}` equal `{$I ab.inc}` -- a
+// different file name the guard could not see).
 function DirectiveKey(const S: string): string;
 var
-  Sb: TStringBuilder;
-  C : Char          ;
+  Sb     : TStringBuilder;
+  C      : Char          ;
+  PrevSp : Boolean       ;
 begin
   Sb:= TStringBuilder.Create;
   try
+    PrevSp:= False;
     for C in S do
       if C > ' ' then
+      begin
         Sb.Append(C);
+        PrevSp:= False;
+      end
+      else if not PrevSp then
+      begin
+        Sb.Append(' ');
+        PrevSp:= True;
+      end;
     Result:= LowerCase(Sb.ToString);
   finally
     Sb.Free;
   end;
+  Result:= StringReplace(Result, '{$ ', '{$', []);
+  Result:= StringReplace(Result, '(*$ ', '(*$', []);
+  if Result.EndsWith('}') then
+    Result:= TrimRight(Copy(Result, 1, Length(Result) - 1)) + '}'
+  else if Result.EndsWith('*)') then
+    Result:= TrimRight(Copy(Result, 1, Length(Result) - 2)) + '*)';
 end; // function
 
 const

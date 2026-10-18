@@ -345,6 +345,18 @@ begin
   end;
 end;
 
+procedure TestDirectiveWhitespaceKey;
+begin
+  Check('WP2 {$I a b.inc} vs {$I ab.inc} rejected',
+    not FormatPreservesContent('{$I a b.inc}' + CRLF, '{$I ab.inc}' + CRLF));
+  Check('WP2 whitespace runs inside directive still equal',
+    FormatPreservesContent('{$IFDEF   A  }' + CRLF, '{$IFDEF A}' + CRLF));
+  Check('WP2 leading whitespace after {$ ok',
+    FormatPreservesContent('{$ifdef A}' + CRLF, '{$IFDEF A}' + CRLF));
+  Check('WP2 argument change rejected',
+    not FormatPreservesContent('{$IFDEF A B}' + CRLF, '{$IFDEF AB}' + CRLF));
+end;
+
 // --- integration: FormatSource must still format normal code --------------
 
 procedure TestFormatSourceStillFormats;
@@ -385,6 +397,7 @@ begin
     TestLineScanDepth;
     TestBlockCommentLock;
     TestLineStartDepths;
+    TestDirectiveWhitespaceKey;
     TestFormatSourceStillFormats;
     Writeln('');
     if GFailures = 0 then
