@@ -92,4 +92,20 @@ MustNotMatch $o '(?m-i)\(const unsafe:'                            'unsafe: para
 MustNotMatch $o '(?m-i)^\s*if unsafe then'                         'unsafe: expression use not lowercased'
 MustMatch    $o '(?m-i)\bVirtual\b'                                'unsafe: peer directive Virtual still keeps casing'
 
+# --- WP14a: `default -1` / `index -2` in a property declaration: the sign is
+#     UNARY (a directive is not an operand), so it stays attached; a variable
+#     that is merely NAMED Index is still a binary operand (`Index - 1`).
+#     Compile-checked: `default - 1` is not valid Delphi. ---
+$o = Fmt 'property_default_unary.pas'
+MustMatch    $o '(?m-i)\bdefault -1;'          'wp14a: default -1 keeps the unary sign'
+MustMatch    $o '(?m-i)\bindex\s+-2 read'        'wp14a: index -2 keeps the unary sign'
+MustMatch    $o '(?m-i)Result:= \w+ - 1;'      'wp14a: a variable named Index still gets a binary minus'
+$pduDir = Join-Path $env:TEMP ('pdu_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory $pduDir | Out-Null
+$pduFile = Join-Path $pduDir 'PropDefault.pas'
+Set-Content -Path $pduFile -Value $o -Encoding ascii -NoNewline
+if (-not (Test-Path (Get-Dcc64))) { Fail 'wp14a: dcc64 missing -- cannot prove the output compiles' }
+elseif (-not (Test-DccCompiles $pduFile $pduDir $pduDir)) { Fail 'wp14a: formatted property_default_unary.pas does not compile' }
+[IO.Directory]::Delete($pduDir, $true)
+
 Finish 'format_regressions'

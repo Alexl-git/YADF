@@ -363,6 +363,28 @@ var
     Result.Col := 0;
   end;
 
+// True when Outp[AIdx] is a directive word that takes a signed numeric argument
+// (default -1, index -2 in a property declaration; dispid -4, message -1
+// in a routine/dispinterface declaration) and not an identifier that merely
+// shares the spelling (Index - 1 in an expression). Decided by scanning back
+// to the previous ;: the declaration keyword must be in that span.
+  function IsDirectiveWord(AIdx: Integer): Boolean;
+  var
+    k: Integer;
+  begin
+    Result:= False;
+    if (Outp[AIdx].Kind <> ptIdentifier) or not (Outp[AIdx].ExID in [ptDefault, ptIndex, ptMessage, ptDispId]) then
+      Exit;
+    k:= AIdx - 1;
+    while (k >= 0) and (Outp[k].Kind <> ptSemiColon) do
+    begin
+      if Outp[k].Kind = ptProperty then
+        Exit(True);
+      if (Outp[AIdx].ExID in [ptMessage, ptDispId]) and (Outp[k].Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) then
+        Exit(True);
+      Dec(k);
+    end;
+  end; // function
 // Kind of the last non-space token already emitted; ptCRLF (line start)
 // when there is none yet on this line.
   function LastRealKind: TptTokenKind;
@@ -374,6 +396,8 @@ var
       Dec(k);
     if k < 0 then
       Result:= ptCRLF
+    else if IsDirectiveWord(k) then
+      Result:= ptUnknown // a directive word is not an operand: the sign after it is unary
     else
       Result:= Outp[k].Kind;
   end;

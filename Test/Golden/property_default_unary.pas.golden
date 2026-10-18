@@ -1,0 +1,29 @@
+unit PropDefault;
+
+interface
+
+type
+  TFoo = class
+    private
+      FX: Integer                          ;
+      function GetV(AIdx: Integer): Integer;
+    public
+      property X: Integer read FX write FX default -1;
+      property V: Integer index                    -2 read GetV;
+  end;
+
+function IndexMinus(index: Integer): Integer;
+
+implementation
+
+function TFoo.GetV(AIdx: Integer): Integer;
+begin
+  Result:= AIdx;
+end;
+
+function IndexMinus(index: Integer): Integer;
+begin
+  Result:= index - 1;
+end;
+
+end.
