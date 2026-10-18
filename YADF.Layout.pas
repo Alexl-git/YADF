@@ -1506,6 +1506,36 @@ var
   Pad     : Integer        ;
   Line    : string         ;
 
+  // True when the line is a routine header (`[class] function|procedure|
+  // constructor|destructor|operator ...`): its top-level `:` is the result
+  // type, not a field declaration, so it must not join a field run.
+  function IsRoutineHeaderLine(const ALine: string): Boolean;
+  var
+    Rest: string;
+    W   : string;
+
+    function FirstWord(const AText: string): string;
+    var
+      n: Integer;
+    begin
+      n:= 1;
+      while (n <= Length(AText)) and CharInSet(AText[n], ['A'..'Z', 'a'..'z', '_']) do
+        Inc(n);
+      Result:= Copy(AText, 1, n - 1);
+    end; // function
+
+  begin
+    Rest:= TrimLeft(ALine);
+    W   := FirstWord(Rest);
+    if SameText(W, 'class') then
+    begin
+      Rest:= TrimLeft(Copy(Rest, Length(W) + 1, MaxInt));
+      W   := FirstWord(Rest);
+    end;
+    Result:= SameText(W, 'function') or SameText(W, 'procedure') or SameText(W, 'constructor') or
+      SameText(W, 'destructor') or SameText(W, 'operator');
+  end; // function
+
   function HasDeclShape(const ALine: string; out AColon, ASemi: Integer): Boolean;
   var
     p   : Integer       ;
@@ -1542,6 +1572,12 @@ var
     // the colon (i.e., this really is a `name : type;` declaration).
     // We also require that nothing non-whitespace follows the `;`
     // except an optional line comment.
+    // Callers read AColon/ASemi directly, so a routine header must clear them.
+    if IsRoutineHeaderLine(ALine) then
+    begin
+      AColon:= 0;
+      ASemi := 0;
+    end;
     Result:= (AColon > 0) and (ASemi > AColon);
     if Result then
     begin
@@ -2677,7 +2713,7 @@ function TopLevelSepPositions(const AText: string; ASep: Char): TArray<Integer>;
 /// ReindentByDepth (called by the pipeline right after) fixes the body depth.
 /// A begin block, a body starting with a nested control header, or a line with a
 /// top-level line comment / open block comment is left unchanged. Idempotent.</summary>
-function BreakControlBodies(const S: string; const AOpts: TYadfOptions): string;  // dl:ok deep-nesting@d117, cyclomatic-complexity@d117, cognitive-complexity@d117
+function BreakControlBodies(const S: string; const AOpts: TYadfOptions): string;  // dl:ok deep-nesting@b853, cyclomatic-complexity@877a, cognitive-complexity@2aff
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -2730,7 +2766,7 @@ var
     Result:= True;
   end;
 
-  procedure ScanTop(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@45b9
+  procedure ScanTop(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@1198
   var
     p    : Integer;
     n    : Integer;
@@ -4605,6 +4641,12 @@ begin
             Inc(EffectiveDepth, CtrlCarried + Max(0, PendingCtrl - 1))
           else
             Inc(EffectiveDepth, CtrlCarried + PendingCtrl);
+          // A line that follows a trailing binary operator (`if A and // c`)
+          // continues the expression: one level deeper than the statement
+          // that owns it, never flush with it. Inside ()/[] the paren depth
+          // already supplies that level.
+          if (ParensDepth = 0) and (PrevNonKind in [ptAnd, ptOr, ptXor, ptPlus, ptMinus, ptStar, ptSlash, ptDiv, ptMod, ptShl, ptShr]) then
+            Inc(EffectiveDepth);
           if (OpenProcRegions > 1) and not ((T.Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) and (not InClassOrRecord)) then
             Inc(EffectiveDepth, OpenProcRegions - 1);
           // Conditional compiler directives: align {$ELSE}/{$ENDIF} with their
