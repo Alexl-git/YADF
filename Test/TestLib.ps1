@@ -27,7 +27,7 @@ function Assert-ToolOrSkip([string]$suite, [string]$path) {
   if (-not (Test-Path $path)) { Write-Output "${suite}: SKIP (no exe at $path)"; exit 2 }
 }
 
-function Fail([string]$msg) { $script:fail++; Write-Output "FAIL [$msg]" }
+function Fail([string]$msg) { $script:fail++; Write-Host "FAIL [$msg]" }
 
 function MustMatch([string]$out, [string]$rx, [string]$label) {
   if ($out -notmatch $rx) { $script:fail++; Write-Output "FAIL [$label]: expected /$rx/" }

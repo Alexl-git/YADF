@@ -65,6 +65,28 @@ MustMatch    $so "(?m)^\s*2: Writeln\('hello'\);" 'string-body: label 2 split wi
 MustNotMatch $so '1, 2'                           'string-body: no multi-label arm remains'
 Remove-Item $strSrc, $strOut -Force -ErrorAction SilentlyContinue
 
+# ----- anonymous types with a '(' / array[..] must NOT be split like case arms -----
+# `C, D: (Red, Green)` and `A, B: array[Low(T)..High(T)] of Integer` carry '(' in
+# the type part; CaseArmLikeBody used to classify them as case arms, so
+# --break-case split them into incompatible distinct types (E2008/E2004).
+# The real case arms in the same fixture must still split. Compile-checked.
+$tySrc = Join-Path $PSScriptRoot 'Cases\break_case_types.pas'
+$tyDir = Join-Path $env:TEMP ('bct_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tyDir | Out-Null
+try {
+  $tyOut = Join-Path $tyDir 'break_case_types.pas'
+  if (Invoke-Yadf $tySrc $ini $tyOut @('--break-case')) {
+    $to = Get-Content $tyOut -Raw
+    MustMatch    $to '(?m)^\s*C, D: \(Red, Green\)\s*;'                              'types: enum decl kept combined'
+    MustMatch    $to '(?m)^\s*A, B: array\[Low\(TRng\)\.\.High\(TRng\)\] of Integer;' 'types: array decl kept combined'
+    MustMatch    $to '(?m)^\s*0:\s*Flag'                                            'types: real case arm 0 still split'
+    MustMatch    $to '(?m)^\s*3:\s*Inc'                                             'types: real case arm 3 still split'
+    $dcu = Join-Path $tyDir 'dcu'; New-Item -ItemType Directory -Path $dcu | Out-Null
+    if (-not (Test-DccCompiles $tyOut (Split-Path $tySrc) $dcu)) { Fail 'types: formatted output does not compile' }
+  }
+}
+finally { [IO.Directory]::Delete($tyDir, $true) }
+
 # ----- idempotency + byte-faithful round-trip for both modes -----
 foreach ($flag in @('--no-break-case','--break-case')) {
   $o1 = Join-Path $env:TEMP "bc1.pas"; $o2 = Join-Path $env:TEMP "bc2.pas"

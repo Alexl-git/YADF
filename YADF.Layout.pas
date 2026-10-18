@@ -1204,6 +1204,21 @@ begin
   Result:= (W = 'array') or (W = 'record') or (W = 'set') or (W = 'file') or (W = 'packed') or (W = 'object') or (W = 'class') or (W = 'procedure') or (W = 'function');  // dl:ok boolean-expression-complexity@6919
 end; // function
 
+// True when `ANames: ATypePart` declares names of an anonymous ENUMERATION type
+// (`C, D: (Red, Green)`): the type part opens with `(` and the first name is an
+// identifier, not a numeric label (`0, 1: (X: Integer)` is a variant-record
+// field list / case arm, never an enum). Splitting would make C and D distinct,
+// incompatible enum types that redeclare Red/Green, so such lines stay combined.
+function TypePartIsEnum(const ANames, ATypePart: string): Boolean;
+var
+  T: string;
+  N: string;
+begin
+  T:= TrimLeft(ATypePart);
+  N:= TrimLeft(ANames);
+  Result:= (T <> '') and (T[1] = '(') and (N <> '') and not CharInSet(N[1], ['0'..'9']);
+end; // function
+
 function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@c87a, cyclomatic-complexity@c87a, cognitive-complexity@c87a
 var
   Lines     : TStringList    ;
@@ -1332,7 +1347,10 @@ begin
           // Route the split: a case-arm body obeys BreakCaseLabels; a real
           // declaration obeys SplitMultiVarDecls. When the governing flag is
           // off the line falls through and is emitted unchanged.
-          if CaseArmLikeBody(Names, TypePart) then
+          // A type that is anonymous-structured, or an enum `(A, B)` after
+          // identifier names, is a DECLARATION even though CaseArmLikeBody sees a
+          // `(`; classify it first.
+          if CaseArmLikeBody(Names, TypePart) and not TypePartIsAnonymousStructured(TypePart) and not TypePartIsEnum(Names, TypePart) then
             DoSplit:= ASplitCaseLabels
           else
           begin
@@ -1348,7 +1366,7 @@ begin
             // DISTINCT identity per declaration, so splitting "A, B: array of
             // Integer" makes two incompatible types and changes semantics
             // (E2008). Never split these; NAMED types (TFoo, Integer) still do.
-            if TypePartIsAnonymousStructured(TypePart) then
+            if TypePartIsAnonymousStructured(TypePart) or TypePartIsEnum(Names, TypePart) then
               DoSplit:= False;
           end; // else
           // A block comment left OPEN at the end of the line continues on the
