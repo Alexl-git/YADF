@@ -878,6 +878,7 @@ var
 begin
   Result:= 0;
   St.Reset;
+  St.TrackAngle:= True; // `:` / `=` inside T<A: B; C: D> is not top level
   i:= 1;
   while True do
   case St.SkipNonCode(ALine, i) of
@@ -885,7 +886,7 @@ begin
     seLineComment: Exit(0);
     seCode       :
     begin
-      if (St.Depth = 0) and (Copy(ALine, i, Length(AAnchor)) = AAnchor) then
+      if St.AtTopLevel and (Copy(ALine, i, Length(AAnchor)) = AAnchor) then
       begin
         // Looking for `:`: skip the `:` of a `:=` assignment.
         if (AAnchor = ':') and (i + 1 <= Length(ALine)) and (ALine[i + 1] = '=') then
@@ -1314,6 +1315,7 @@ begin
     try
       St.Reset;
       St.ClampDepth:= True;
+      St.TrackAngle:= True;
       for i:= 0 to Lines.Count - 1 do
       begin
         Line:= Lines[i];
@@ -1338,13 +1340,13 @@ begin
           seCode       :
           begin
             C:= Line[Col];
-            if (St.Depth = 0) and (C = ':') and not ((Col < Length(Line)) and (Line[Col + 1] = '=')) then
+            if St.AtTopLevel and (C = ':') and not ((Col < Length(Line)) and (Line[Col + 1] = '=')) then
             begin
               if ColonPos = 0 then
                 ColonPos:= Col;
               Inc(Col);
             end
-            else if (St.Depth = 0) and (C = ';') then
+            else if St.AtTopLevel and (C = ';') then
             begin
               SemiPos:= Col;
               Inc(Col);
@@ -1513,6 +1515,7 @@ var
   begin
     AColon:= 0; ASemi:= 0;
     St.Reset;
+    St.TrackAngle:= True;
     Done:= False;
     p   := 1;
     while not Done do
@@ -1520,13 +1523,13 @@ var
       seEndOfLine, seLineComment: Done:= True;
       seCode                    :
       begin
-        if (St.Depth = 0) and (ALine[p] = ':') and not ((p < Length(ALine)) and (ALine[p + 1] = '=')) then
+        if St.AtTopLevel and (ALine[p] = ':') and not ((p < Length(ALine)) and (ALine[p + 1] = '=')) then
         begin
           if AColon = 0 then
             AColon:= p;
           Inc(p);
         end
-        else if (St.Depth = 0) and (ALine[p] = ';') then
+        else if St.AtTopLevel and (ALine[p] = ';') then
         begin
           ASemi:= p;
           Inc(p);
@@ -3452,14 +3455,18 @@ const
         // parameter) is deliberately excluded so a break never lands inside
         // those.
         Best:= 0;
-        W.Reset; W.ClampDepth:= True; W.BeginLine;
-        Col:= 1; Done:= False;
+        W.Reset;
+        W.ClampDepth:= True;
+        W.TrackAngle:= True;
+        W.BeginLine;
+        Col := 1;
+        Done:= False;
         while not Done do
         case W.SkipNonCode(Cur, Col) of
           seEndOfLine, seLineComment: Done:= True;
           seCode                    :
           begin
-            if (W.Depth <= 1) and CharInSet(Cur[Col], [';', ',']) then
+            if (W.Depth <= 1) and (W.AngleDepth = 0) and CharInSet(Cur[Col], [';', ',']) then
             begin
               if Col <= AOpts.MaxLen then Best:= Col // break AFTER this sep
               else Done:= True; // past budget: stop scanning

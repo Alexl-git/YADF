@@ -1,0 +1,28 @@
+unit generic_angle_align;
+
+interface
+
+type
+  TSolo<T: class> = class end;
+  TOther<T: class; U: record> = class end;
+  IWide<T: IInterface; U: class> = interface
+  end;
+  TBar<T1: class; T2: record> = class(TObject)
+  public
+    procedure Make<A: class; B: record>(X: A);
+    procedure Q<A: class; B: record>;
+  end;
+
+
+implementation
+
+procedure TBar<T1, T2>.Make<A, B>(X: A);
+begin
+end;
+
+procedure TBar<T1, T2>.Q<A, B>;
+begin
+end;
+
+
+end.

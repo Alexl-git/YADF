@@ -11,21 +11,21 @@ const
   IsLess = LimitA < LimitB;
 
 type
-  TBaz<TThree           : TComponent, IUnknown, constructor>                               = class(TObject);
-  TBaz2<TComma1, TComma2: class>                                                           = class(TObject)                            ;
-  TBax<T1               : class                                              ; T2: record> = class(TObject)
+  TBaz<TThree: TComponent, IUnknown, constructor> = class(TObject);
+  TBaz2<TComma1, TComma2: class>                  = class(TObject);
+  TBax<T1: class; T2: record>                     = class(TObject)
     public
       procedure DoStuff;
       procedure Make<T: record>(const AValue: T);
-      function Build<T: class, constructor>: T  ;
+      function Build<T: class, constructor>: T;
       procedure After;
   end;
   TSibling      = class(TObject);
   TAfterSection = class
     strict private
       class var
-        FInst                : TAfterSection                 ;
-        class function Make<T: record>(const A: T): T; static;
+        FInst                                     : TAfterSection;
+        class function Make<T: record>(const A: T): T; static    ;
       public
         procedure P;
   end;

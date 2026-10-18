@@ -301,6 +301,46 @@ begin
   Check('paren-star opener is not counted as depth', St.Depth = 0);
 end;
 
+// Code characters of ALine that sit at TLineScanState.AtTopLevel.
+function TopLevelChars(var AState: TLineScanState; const ALine: string): string;
+var
+  i: Integer;
+begin
+  Result:= '';
+  AState.BeginLine;
+  i:= 1;
+  while AState.SkipNonCode(ALine, i) = seCode do
+  begin
+    if AState.AtTopLevel then
+      Result:= Result + ALine[i];
+    AState.StepCode(ALine, i);
+  end;
+end;
+
+procedure TestLineScanAngle;
+var
+  St: TLineScanState;
+begin
+  St.Reset;
+  St.TrackAngle:= True;
+  Check('colon/semicolon inside <...> are not top level',
+    TopLevelChars(St, 'TBar<T1: TComponent; T2: class> = class(TObject);') = 'TBar< = class(;');
+  Check('closer lowers AngleDepth', St.AngleDepth = 0);
+  St.Reset;
+  St.TrackAngle:= True;
+  CodeChars(St, 'if A<B then');
+  Check('less-than without closer is not an angle', St.AngleDepth = 0);
+  CodeChars(St, 'if A<B and C>D then');
+  Check('balanced compare span is closed again', St.AngleDepth = 0);
+  St.Reset;
+  St.TrackAngle:= True;
+  CodeChars(St, 'x:= A<>B; y:= A<=B; z:= (A<B) and (C>D);');
+  Check('<> <= and paren-broken spans are not angles', St.AngleDepth = 0);
+  St.Reset;
+  CodeChars(St, 'TList<Integer>');
+  Check('default (TrackAngle off) never tracks', St.AngleDepth = 0);
+end;
+
 procedure TestBlockCommentLock;
 var
   L   : TStringList;
@@ -482,6 +522,7 @@ begin
     TestLabelRemovalTolerance;
     TestLineScanCore;
     TestLineScanDepth;
+    TestLineScanAngle;
     TestBlockCommentLock;
     TestLineStartDepths;
     TestCodeTokenStream;

@@ -66,6 +66,8 @@ type
     Depth      : Integer; // ( and [ nesting depth of CODE brackets
     ClampDepth : Boolean; // when True, an unmatched closer keeps Depth at 0
     // instead of going negative (per-site policy)
+    TrackAngle : Boolean; // opt-in: also count generic <...> nesting in AngleDepth
+    AngleDepth : Integer; // generic < > nesting depth (only maintained when TrackAngle)
 
     /// <summary>Clears all state; call once before scanning a document.</summary>
     /// <remarks>
@@ -79,6 +81,14 @@ type
     /// <!-- drag-lint:auto END -->
     /// </remarks>
     procedure Reset;
+
+    /// <summary>True when the scan position is outside every ( ), [ ] group
+    /// and, when TrackAngle is on, outside every generic `<...>` span.</summary>
+    /// <returns>Depth = 0 and AngleDepth = 0.</returns>
+    /// <remarks>Pure. Callers that opt in to TrackAngle use this instead of
+    /// testing Depth alone, so `:` / `;` inside `T<A: B; C: D>` are not taken
+    /// for top-level declaration punctuation.</remarks>
+    function AtTopLevel: Boolean;
 
     /// <summary>Per-line reset: clears the string flag only (string literals
     /// never span lines); comment state and depth carry over.</summary>
@@ -137,7 +147,8 @@ type
     function SkipNonCode(const ALine: string; var i: Integer): TLineScanEvent;
 
     /// <summary>Consumes ONE code character at ALine[i] (only call after
-    /// SkipNonCode returned seCode), maintaining Depth for `( [ ) ]`.</summary>
+    /// SkipNonCode returned seCode), maintaining Depth for `( [ ) ]` and, when
+    /// TrackAngle is set, AngleDepth for generic `< >`.</summary>
     /// <param name="ALine"><!-- drag-lint:auto type -->const string</param>
     /// <param name="i"><!-- drag-lint:auto type -->var Integer</param>
     /// <remarks>
@@ -196,6 +207,10 @@ function ComputeLineStartDepths(ALines: TStringList): TArray<Integer>;
 
 implementation
 
+uses
+  System.SysUtils
+  ;
+
 { TLineScanState }
 
 procedure TLineScanState.Reset;
@@ -205,6 +220,40 @@ begin
   InString   := False;
   Depth      := 0;
   ClampDepth := False;
+  TrackAngle := False;
+  AngleDepth := 0;
+end;
+
+function TLineScanState.AtTopLevel: Boolean;
+begin
+  Result:= (Depth = 0) and (AngleDepth = 0);
+end;
+
+// True when the `<` at ALine[i] opens a generic argument/parameter list: the
+// previous character ends an identifier and a matching `>` is reachable from
+// i + 1 through identifier characters, spaces and , : ; . < > only (so
+// `A<B then`, `A<=B`, `A<>B` and `(A<B) and (C>D)` are comparisons).
+function IsGenericOpen(const ALine: string; i: Integer): Boolean;
+var
+  k   : Integer;
+  Nest: Integer;
+begin
+  Result:= False;
+  if (i < 2) or (i >= Length(ALine)) then Exit;
+  if not CharInSet(ALine[i - 1], ['A'..'Z', 'a'..'z', '0'..'9', '_']) then Exit;
+  if ALine[i + 1] = '>' then Exit; // `A<>B` is not-equal, never an empty list
+  Nest:= 1;
+  for k:= i + 1 to Length(ALine) do
+    case ALine[k] of
+      '<': Inc(Nest);
+      '>':
+      begin
+        Dec(Nest);
+        if Nest = 0 then Exit(True);
+      end;
+    else
+      if not CharInSet(ALine[k], ['A'..'Z', 'a'..'z', '0'..'9', '_', ' ', ',', ':', ';', '.']) then Exit;
+    end;
 end;
 
 procedure TLineScanState.BeginLine;
@@ -278,6 +327,8 @@ begin
   case ALine[i] of
     '(', '[': Inc(Depth)                                      ;
     ')', ']': if (Depth > 0) or not ClampDepth then Dec(Depth);
+    '<'     : if TrackAngle and IsGenericOpen(ALine, i) then Inc(AngleDepth);
+    '>'     : if TrackAngle and (AngleDepth > 0) then Dec(AngleDepth);
   end;
   Inc(i);
 end;
