@@ -645,7 +645,7 @@ end;
 var
   GOptTable: TArray<TOptInfo>;
 
-function MakeOpt(  // dl:ok too-many-parameters@6318
+function MakeOpt(  // dl:ok too-many-parameters@d966
   const AIdent, AGroup, ACaption, AHint: string; AKind: TOptKind; AAffects: Boolean; const AGet: TOptGetter; const ASet: TOptSetter; const AEnumValues: TArray<string> = nil
 ): TOptInfo;
 begin

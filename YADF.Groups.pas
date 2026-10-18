@@ -161,7 +161,7 @@ end;
 // initialization / finalization / a prior `end` which we treat as
 // "anonymous begin"). The Limit guard caps the backwards scan at 300
 // non-trivial tokens so pathological input can't pin the formatter.
-function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;  // dl:ok too-many-exit-points@a182
+function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;  // dl:ok too-many-exit-points@a773
 var
   i    : Integer     ;
   k    : TptTokenKind;

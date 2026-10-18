@@ -186,7 +186,6 @@ uses
   Winapi.Windows
   , System.Classes
   , System.IOUtils
-  , System.IniFiles
   , System      .Generics.Collections
   , SimpleParser.Lexer   .Types
   , YADF.Tokens
@@ -1033,7 +1032,7 @@ begin
   end; // try
 end; // function
 
-procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);  // dl:ok method-too-long@c5ce, cyclomatic-complexity@c5ce, cognitive-complexity@c5ce
+procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);  // dl:ok method-too-long@b788, cyclomatic-complexity@0d78, cognitive-complexity@f879
 var
   i   : Integer      ;
   OutVal: TList<string>;
@@ -1227,7 +1226,7 @@ begin
       end
       else if AArgs[i] = '--stdout' then
       begin
-        AStdoutMode:= True;  // dl:ok duplicate-code@2fb1
+        AStdoutMode:= True;
         Inc(i);
       end
       else if AArgs[i] = '--d10' then
@@ -1254,7 +1253,7 @@ begin
       else if AArgs[i] = '--log' then
       begin
         AOpts.Logging:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-log' then
       begin
@@ -1274,7 +1273,7 @@ begin
       else if AArgs[i] = '--break-case' then
       begin
         AOpts.BreakCaseLabels:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-break-case' then
       begin
@@ -1294,7 +1293,7 @@ begin
       else if AArgs[i] = '--pack-bodies' then
       begin
         AOpts.PackShortBodies:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-pack-bodies' then
       begin
@@ -1314,7 +1313,7 @@ begin
       else if AArgs[i] = '--break-loop' then
       begin
         AOpts.BreakLoopBody:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-break-loop' then
       begin
@@ -1334,7 +1333,7 @@ begin
       else if AArgs[i] = '--break-if' then
       begin
         AOpts.BreakIfBody:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4
       end
       else if AArgs[i] = '--no-break-if' then
       begin
@@ -1413,7 +1412,7 @@ begin
   end;
 end; // function
 
-procedure RunYadf;  // dl:ok too-many-exit-points@d6d0
+procedure RunYadf;  // dl:ok too-many-exit-points@f480
 var
   AllFiles  : TList<string> ;
   Args      : TArray<string>;

@@ -342,7 +342,7 @@ end; // procedure
 // An operator at end-of-line is left untouched so multi-line RHS reflow still
 // works (mirrors NormalizeAssignSpacing). Rebuilds the token list so insert/
 // delete bookkeeping stays simple.
-procedure NormalizeOperatorSpacing(const ATokens: TTokenList);  // dl:ok deep-nesting@d35e
+procedure NormalizeOperatorSpacing(const ATokens: TTokenList);  // dl:ok deep-nesting@42f3
 var
   Src     : TArray<TToken>;
   Outp    : TTokenList    ;
@@ -597,7 +597,7 @@ begin
   end; // for
 end; // function
 
-procedure ApplyCapitalization(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@38d5
+procedure ApplyCapitalization(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@effd
 var
   Pinned       : TArray<Boolean>            ;
   Existing     : string                     ;
@@ -918,7 +918,7 @@ end; // function
 // blank. The nested StartsKW helper ensures we match whole keywords
 // rather than identifier prefixes (so `endpoint` is not detected as
 // `end`).
-function StartsBlockBoundary(const ALine: string): Boolean;  // dl:ok too-many-exit-points@9062
+function StartsBlockBoundary(const ALine: string): Boolean;  // dl:ok too-many-exit-points@ff8f
 var
   T: string;
 
@@ -972,7 +972,7 @@ begin
   if StartsKW('class') then
   begin
     T:= TrimLeft(Copy(T, 6, MaxInt));
-    Exit(StartsKW('procedure') or StartsKW('function') or StartsKW('constructor') or StartsKW('destructor') or StartsKW('operator'));  // dl:ok boolean-expression-complexity review: five-keyword routine-header test
+    Exit(StartsKW('procedure') or StartsKW('function') or StartsKW('constructor') or StartsKW('destructor') or StartsKW('operator'));  // dl:ok boolean-expression-complexity -- five-keyword routine-header test
   end;
   Result:= False;
 end; // function
@@ -1287,7 +1287,7 @@ begin
   Result:= (T <> '') and (T[1] = '(') and (N <> '') and not CharInSet(N[1], ['0'..'9']);
 end; // function
 
-function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@c87a, cyclomatic-complexity@c87a, cognitive-complexity@c87a
+function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@1264, cognitive-complexity@7ead
 var
   Lines     : TStringList    ;
   OutVal      : TStringBuilder ;
@@ -1515,7 +1515,7 @@ var
   // True when the line is a routine header (`[class] function|procedure|
   // constructor|destructor|operator ...`): its top-level `:` is the result
   // type, not a field declaration, so it must not join a field run.
-  function IsRoutineHeaderLine(const ALine: string): Boolean;
+  function IsFieldRunRoutineHeader(const ALine: string): Boolean;
   var
     Rest: string;
     W   : string;
@@ -1579,7 +1579,7 @@ var
     // We also require that nothing non-whitespace follows the `;`
     // except an optional line comment.
     // Callers read AColon/ASemi directly, so a routine header must clear them.
-    if IsRoutineHeaderLine(ALine) then
+    if IsFieldRunRoutineHeader(ALine) then
     begin
       AColon:= 0;
       ASemi := 0;
@@ -1982,7 +1982,7 @@ begin
     Result:= Length(ALine);
 end; // function
 
-function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@7384, cyclomatic-complexity@7384, cognitive-complexity@7384
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@af7b, cognitive-complexity@d356
 var
   AnyOver  : Boolean                ;
   ColCols  : TArray<Integer>        ;
@@ -2543,7 +2543,7 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
 // predecessor. Mirrors CurBlocksMerge from the opposite direction:
 // structural keywords, line comments, directives, and section
 // openers all force a line break to be preserved.
-  function NextBlocksMerge(const ALine: string): Boolean;  // dl:ok too-many-exit-points@4680
+  function NextBlocksMerge(const ALine: string): Boolean;  // dl:ok too-many-exit-points@0d16
   const
     // Section openers, block closers and routine headers: a line STARTING
     // with any of these can never be merged onto its predecessor. Order is
@@ -3815,7 +3815,7 @@ begin
   end; // try
 end; // function
 
-function CollapseShortBlocks(const S: string; AMaxLen: Integer): string;  // dl:ok deep-nesting@362e
+function CollapseShortBlocks(const S: string; AMaxLen: Integer): string;  // dl:ok deep-nesting@6ce3
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -4245,7 +4245,7 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@a1d0, deep-nesting@a1d0, cyclomatic-complexity@8b0d, cognitive-complexity@5889
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@5c87, deep-nesting@cf9e, cyclomatic-complexity@8b0d, cognitive-complexity@5889
 var
   AfterCRLF         : Boolean            ;
   PendingCtrl       : Integer            ; // accumulated then/do/else/case-`:` body levels
@@ -5739,7 +5739,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@7ed8, cyclomatic-complexity@7ed8, cognitive-complexity@7ed8
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@3b1d, cyclomatic-complexity@7f1e, cognitive-complexity@166b
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -5844,7 +5844,7 @@ var
   end; // function
 
 // Single-name, explicitly-typed inline var at ptVar index AVar.
-  function TryParseExplicit(AVar: Integer; out ARec: TInlineRec): Boolean;  // dl:ok too-many-exit-points@f33d
+  function TryParseExplicit(AVar: Integer; out ARec: TInlineRec): Boolean;  // dl:ok too-many-exit-points@e017
   var
     FirstName: Integer       ;
     p        : Integer       ;
@@ -5997,7 +5997,7 @@ var
 // Literal-only type inference over an expression token span. Returns '' when
 // the type cannot be safely determined (-> fallback). Deliberately conservative:
 // no typecast inference (Ident(expr) is indistinguishable from a function call).
-  function InferLiteralType(AFrom, ATo: Integer): string;  // dl:ok too-many-exit-points@e344
+  function InferLiteralType(AFrom, ATo: Integer): string;  // dl:ok too-many-exit-points@13cf
   var
     S     : Integer;
     e     : Integer;
