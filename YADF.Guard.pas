@@ -93,18 +93,17 @@ type
 /// Same purity/fail-closed contract as the other overloads.
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Guard.FormatPreservesContent/5 (YADF.Guard.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas)</para>
-/// <para>Calls: Pos, YADF.Guard.CodeStreamReason, YADF.Guard.DropFlagged, YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence</para>
+/// <para>Calls: YADF.Guard.CodeStreamReason, YADF.Guard.CountOccurrences, YADF.Guard.DropFlagged, YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence</para>
 /// <para>Returns: False; AReason = ''</para>
 /// <para>Overload 2 of 3</para>
-/// <para>Complexity: 10 (cyclomatic, outer body), 89 lines (full implementation)</para>
 /// <para>Catches: Exception (swallowed)</para>
 /// <para>Mutates: AReason (out)</para>
 /// <para>Directives: overload</para>
 /// <seealso cref="YADF.Guard.CodeStreamReason"/>
+/// <seealso cref="YADF.Guard.CountOccurrences"/>
 /// <seealso cref="YADF.Guard.DropFlagged"/>
 /// <seealso cref="YADF.Guard.ExtractContent"/>
 /// <seealso cref="YADF.Guard.FirstUnmatched"/>
-/// <seealso cref="YADF.Guard.IsSubsequence"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication, AAllowLabelRemoval: Boolean; ACodeMode: TGuardCodeMode; out AReason: string): Boolean; overload;
@@ -377,6 +376,8 @@ end; // function
 // First element of A not matched in B by the ordered-subsequence walk
 // ('' when every element matched) -- the preview for the decline reason.
 function FirstUnmatched(const A, B: TList<string>): string;
+const
+  PREVIEW_LEN = 40;  // longest preview of the unmatched element before '...'
 var
   Ia: Integer;
   Ib: Integer;
@@ -392,8 +393,8 @@ begin
   if Ia < A.Count then
   begin
     Result:= A[Ia];
-    if Length(Result) > 40 then  // dl:ok large-magic-number@ea9c
-      Result:= Copy(Result, 1, 40) + '...';  // dl:ok large-magic-number@9e1e
+    if Length(Result) > PREVIEW_LEN then
+      Result:= Copy(Result, 1, PREVIEW_LEN) + '...';
   end
   else
     Result:= '';
@@ -549,10 +550,14 @@ begin
   FmtAsm := TList<string>.Create;
   OrigCod:= TList<string>.Create;
   FmtCod := TList<string>.Create;
-  OrigStr:= TList<string>.Create; FmtStr:= TList<string>.Create;
-  OrigCom:= TList<string>.Create; FmtCom:= TList<string>.Create;
-  OrigDir:= TList<string>.Create; FmtDir:= TList<string>.Create;
-  OrigLbl:= TList<Boolean>.Create; FmtLbl:= TList<Boolean>.Create;
+  OrigStr:= TList<string>.Create;
+  FmtStr:= TList<string>.Create;
+  OrigCom:= TList<string>.Create;
+  FmtCom:= TList<string>.Create;
+  OrigDir:= TList<string>.Create;
+  FmtDir:= TList<string>.Create;
+  OrigLbl:= TList<Boolean>.Create;
+  FmtLbl:= TList<Boolean>.Create;
   try
     try
       if AAllowLabelRemoval then
@@ -597,10 +602,14 @@ begin
       Result := False;
     end; // try
   finally
-    OrigStr.Free; FmtStr.Free;
-    OrigCom.Free; FmtCom.Free;
-    OrigDir.Free; FmtDir.Free;
-    OrigLbl.Free; FmtLbl.Free;
+    OrigStr.Free;
+    FmtStr.Free;
+    OrigCom.Free;
+    FmtCom.Free;
+    OrigDir.Free;
+    FmtDir.Free;
+    OrigLbl.Free;
+    FmtLbl.Free;
     OrigAsm.Free;
     FmtAsm .Free;
     OrigCod.Free;
