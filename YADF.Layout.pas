@@ -140,6 +140,7 @@ uses
   System.SysUtils
   , System.Classes
   , System.Math
+  , System.StrUtils
   , System.Generics.Collections
   , System.Character
   , SimpleParser.Lexer
@@ -710,6 +711,39 @@ end; // function
 
 function TopLevelLineCommentCol(const ALine: string): Integer; forward;
 
+threadvar
+  GShieldPrefix: string;
+
+// Prefix of every placeholder the shields (multi-line strings/comments, asm bodies)
+// leave in the text during Stages 1-4. FormatSource chooses it per call so that no
+// sentinel can equal text the author wrote; '__YADF' is the default.
+function ShieldPrefix: string;
+begin
+  Result:= GShieldPrefix;
+  if Result = '' then
+    Result:= '__YADF';
+end;
+
+// Marker that every multi-line string/comment sentinel contains (but no asm one).
+function MlShieldMark: string;
+begin
+  Result:= ShieldPrefix + '_ML';
+end;
+
+// Picks a shield prefix whose <prefix>_ form does not occur anywhere in ASource
+// (case-insensitively), so unshielding can never rewrite author text.
+procedure ChooseShieldPrefix(const ASource: string);
+var
+  n: Integer;
+begin
+  GShieldPrefix:= '__YADF';
+  n:= 0;
+  while ContainsText(ASource, GShieldPrefix + '_') do
+  begin
+    Inc(n);
+    GShieldPrefix:= '__YADF' + IntToStr(n);
+  end;
+end;
 // Joins a `case` alternative label and a short body that fit within
 // AMaxLen onto a single line:
 //
@@ -3751,7 +3785,7 @@ begin
       while i < Lines.Count do
       begin
         // trigger: control header, then a `begin`-only line
-        if (not Lock[i]) and IsHeaderEnd(Lines[i]) and (not HasCommentChars(Lines[i])) and (Pos('__YADF_ML', Lines[i]) = 0)  // dl:ok boolean-expression-complexity@3194
+        if (not Lock[i]) and IsHeaderEnd(Lines[i]) and (not HasCommentChars(Lines[i])) and (Pos(MlShieldMark, Lines[i]) = 0)  // dl:ok boolean-expression-complexity@e4ba
           and (i + 1 < Lines.Count) and (not Lock[i + 1]) and SameText(Trim(Lines[i + 1]), 'begin') then
         begin
           j:= i + 2;
@@ -3765,7 +3799,7 @@ begin
             if StartsWordCI(Tj, 'end') then Break; // matching end
             // a shielded multi-line string/comment sentinel would re-expand to
             // several lines after unshield -- never fold one into a one-liner
-            if (Tj = '') or HasCommentChars(Lines[j]) or (Tj[Length(Tj)] <> ';') or (Pos('__YADF_ML', Lines[j]) > 0)  // dl:ok boolean-expression-complexity@6489
+            if (Tj = '') or HasCommentChars(Lines[j]) or (Tj[Length(Tj)] <> ';') or (Pos(MlShieldMark, Lines[j]) > 0)  // dl:ok boolean-expression-complexity@743c
               or ContainsWordCI(Tj, 'begin') or ContainsWordCI(Tj, 'end') then
             begin Ok:= False; Break; end;
             Body:= Body + ' ' + Tj;
@@ -5125,7 +5159,7 @@ var
     while (k < Tokens.Count) and (Tokens[k].Line = EndLine) do
     begin
       if Tokens[k].Kind <> ptCRLF then
-        if (Pos(LF, Tokens[k].Text) > 0) or (Pos(CR, Tokens[k].Text) > 0) or (Pos('__YADF_ML', Tokens[k].Text) > 0) then
+        if (Pos(LF, Tokens[k].Text) > 0) or (Pos(CR, Tokens[k].Text) > 0) or (Pos(MlShieldMark, Tokens[k].Text) > 0) then
         Exit(True);
       Inc   (k   );
     end;
@@ -5257,12 +5291,12 @@ end; // function
 // token on their own line and the per-line re-lex already preserves them.
 function MlStrSentinel(AIdx: Integer): string;
 begin
-  Result:= '''__YADF_ML_' + IntToStr(AIdx) + '__''';
+  Result:= '''' + ShieldPrefix + '_ML_' + IntToStr(AIdx) + '__''';
 end;
 
 function MlComSentinel(AIdx: Integer): string;
 begin
-  Result:= '{__YADF_MLC_' + IntToStr(AIdx) + '__}';
+  Result:= '{' + ShieldPrefix + '_MLC_' + IntToStr(AIdx) + '__}';
 end;
 
 procedure ShieldMultilineTokens(const ATokens: TTokenList; const AMap: TStringList);
@@ -5322,7 +5356,7 @@ end; // function
 // asm-line check still protects it.
 function AsmSentinel(AIdx: Integer): string;
 begin
-  Result:= '//__YADF_ASM_' + IntToStr(AIdx) + '__';
+  Result:= '//' + ShieldPrefix + '_ASM_' + IntToStr(AIdx) + '__';
 end;
 
 procedure ShieldAsmBodies(const ATokens: TTokenList; const AMap: TStringList);
@@ -6802,6 +6836,7 @@ begin
     ADeclineReason:= 'source contains a NUL character (binary or BOM-less UTF-16 file?)';
     Exit(ASource);
   end;
+  ChooseShieldPrefix(ASource);
   Tokens:= LoadTokensFromString(ASource);
   MLMap:= TStringList.Create;
   AsmMap:= TStringList.Create;

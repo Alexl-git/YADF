@@ -150,11 +150,26 @@ implementation
 
 uses
   System.SysUtils
+  , System.StrUtils
   , System.Generics.Collections
   , SimpleParser.Lexer.Types
   , YADF.Groups
   , YADF.Tokens
   ;
+
+// Number of non-overlapping occurrences of ASub in AText (case-sensitive).
+function CountOccurrences(const ASub, AText: string): Integer;
+var
+  P: Integer;
+begin
+  Result:= 0;
+  P:= Pos(ASub, AText);
+  while P > 0 do
+  begin
+    Inc(Result);
+    P:= PosEx(ASub, AText, P + Length(ASub));
+  end;
+end; // function
 
 // Newline-style differences (LF-only input emitted as CRLF) are not content
 // damage; fold every newline flavor to #10 before comparing.
@@ -214,8 +229,11 @@ const
   StringKinds  = [ptStringConst, ptStringDQConst];
   // Text the formatter's own shields insert and must remove again: the
   // include-directive suffix (YADF.Tokens.IncSentinel) and the multi-line /
-  // asm placeholders (YADF.Layout `__YADF_ML_n__`, `__YADF_MLC_n__`, ...).
-  SHIELD_MARKERS: array[0..1] of string = ('ZQYADF', '__YADF_');
+  // asm placeholders (YADF.Layout `__YADF[k]_ML_n__`, `__YADF[k]_MLC_n__`, ... where the
+  // layout picks k so the prefix is absent from the source). A leak is detected by COUNT
+  // (more occurrences in the output than the input). Source text containing `ZQYADF` (the
+  // include-shield word, fixed in YADF.Tokens) is a known, safe decline.
+  SHIELD_MARKERS: array[0..1] of string = ('ZQYADF', '__YADF');
 
   // Extracts the three ordered content streams from ASource in one lex. When
   // ACommentIsLabel is supplied it receives one flag per COMMENT, marking the
@@ -522,7 +540,7 @@ begin
   // the RAW text: the lexer-based streams below go through the same shield and
   // would be just as blind to it.
   for Marker in SHIELD_MARKERS do
-    if (Pos(Marker, AFormatted) > 0) and (Pos(Marker, AOriginal) = 0) then
+    if CountOccurrences(Marker, AFormatted) > CountOccurrences(Marker, AOriginal) then
     begin
       AReason:= 'formatter shield marker leaked into the output: ' + Marker;
       Exit(False);

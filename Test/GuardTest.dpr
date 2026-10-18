@@ -437,6 +437,40 @@ begin
     FormatPreservesContent(Src, Res));
 end;
 
+// WP11: user text that looks exactly like a layout sentinel must neither be
+// replaced by a shielded multi-line atom on unshield nor make the guard decline.
+// FormatSource picks a shield prefix that is absent from the source.
+procedure TestShieldPrefixAvoidsUserText;
+const
+  Src =
+    'unit U;' + CRLF +
+    'interface' + CRLF +
+    'implementation' + CRLF +
+    'procedure P;' + CRLF +
+    'var a,b:Integer;' + CRLF +
+    'begin' + CRLF +
+    '{ real line one' + CRLF +
+    'real line two }' + CRLF +
+    'a:=1; {__YADF_MLC_0__}' + CRLF +
+    'b:=2; // __YADF_ML_0__ and //__YADF_ASM_0__' + CRLF +
+    'end;' + CRLF +
+    'end.' + CRLF;
+var
+  Opts  : TYadfOptions;
+  Res   : string;
+  Reason: string;
+begin
+  Opts:= DefaultOptions;
+  Res := FormatSource(Src, Opts, Reason);
+  Check('sentinel-lookalike source is formatted, not declined', (Reason = '') and (Res <> Src));
+  Check('lookalike brace comment kept verbatim', Pos('{__YADF_MLC_0__}', Res) > 0);
+  Check('lookalike line comment kept verbatim', Pos('// __YADF_ML_0__ and //__YADF_ASM_0__', Res) > 0);
+  Check('real multi-line comment kept verbatim', Pos('{ real line one' + CRLF + 'real line two }', Res) > 0);
+  Check('formatted lookalike output passes the guard', FormatPreservesContent(Src, Res));
+  Check('guard still flags a leaked prefixed sentinel',
+    not FormatPreservesContent('X := 1;', 'X := 1; //__YADF1_ASM_0__'));
+end;
+
 begin
   try
     TestAcceptsLegitimateFormatting;
@@ -454,6 +488,7 @@ begin
     TestCodeTokenSplitAndD10;
     TestDirectiveWhitespaceKey;
     TestFormatSourceStillFormats;
+    TestShieldPrefixAvoidsUserText;
     Writeln('');
     if GFailures = 0 then
       Writeln('ALL PASS')
