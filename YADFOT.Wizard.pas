@@ -439,6 +439,39 @@ end;
 
 // --- The action ---------------------------------------------------------
 
+// Number of lines in AText (a trailing line break does not add a line). Used
+// to clamp the restored cursor/scroll position after the whole buffer was
+// replaced.
+function CountTextLines(const AText: string): Integer;
+var
+  i: Integer;
+begin
+  Result:= 1;
+  for i:= 1 to Length(AText) - 1 do
+    if AText[i] = #10 then Inc(Result);
+end;
+
+// Restores the cursor and scroll position captured before a whole-buffer
+// rewrite. The rewrite resets both to the top of the file in the IDE, which is
+// jarring; the saved position is clamped to the new line count so a shorter
+// result never places the cursor past the end.
+procedure RestoreViewPosition(const AView: IOTAEditView; const APos: TOTAEditPos;
+  const ATopPos: TOTAEditPos; ALineCount: Integer);
+var
+  P, T: TOTAEditPos;
+begin
+  if AView = nil then Exit;
+  P:= APos;
+  if P.Line > ALineCount then P.Line:= ALineCount;
+  if P.Line < 1 then P.Line:= 1;
+  T:= ATopPos;
+  if T.Line > ALineCount then T.Line:= ALineCount;
+  if T.Line < 1 then T.Line:= 1;
+  AView.TopPos:= T;
+  AView.CursorPos:= P;
+  AView.Paint;
+end;
+
 // Sole entry point for "format the current buffer". Both the Tools menu
 // item and the keyboard binding call this. Flow:
 //   1. Locate the source editor that owns the focused edit view.
@@ -453,7 +486,7 @@ end;
 // escaping it (options I/O, OTA buffer write, module save/refresh -- not
 // just the formatter itself) would unwind through the IDE's own stack and
 // can destabilise it. Everything surfaces as a dialog instead.
-procedure DoFormatCurrentBuffer(AProfileR: Boolean = False);  // dl:ok too-many-exit-points@dade
+procedure DoFormatCurrentBuffer(AProfileR: Boolean = False);  // dl:ok too-many-exit-points@8e73
 var
   Editor   : IOTASourceEditor;
   Buffer   : IOTAEditBuffer;
@@ -463,6 +496,9 @@ var
   Formatted: string;
   Declined : string;
   RIni     : string;
+  View     : IOTAEditView;
+  SavedPos : TOTAEditPos;
+  SavedTop : TOTAEditPos;
 begin
   try
     Editor:= GetActiveSourceEditor(FileName);
@@ -526,6 +562,10 @@ begin
       Exit;
     end;
 
+    // By design: the profile is resolved live from the INI on every call, so
+    // cancelling the Options page (profile switch) never leaves a stale cache.
+    // By design: LF-only buffers come back CRLF -- the formatter normalises
+    // line endings (see README, Behaviour notes).
     Original := ReadEditorText(Editor);
     Formatted:= FormatSource(Original, Opts, Declined);
     if Declined <> '' then
@@ -535,7 +575,18 @@ begin
       Exit;
     end;
     if Formatted = Original then Exit;
+    // Whole-buffer replacement resets the caret to line 1; capture the view
+    // position first and restore it (clamped) afterwards.
+    View:= nil;
+    if Buffer <> nil then View:= Buffer.TopView;
+    if View <> nil then
+    begin
+      SavedPos:= View.CursorPos;
+      SavedTop:= View.TopPos;
+    end;
     WriteEditorText(Editor, Formatted);
+    if View <> nil then
+      RestoreViewPosition(View, SavedPos, SavedTop, CountTextLines(Formatted));
   except
     on E: Exception do
       MessageDlg('YADFOT: format failed.' + sLineBreak +
