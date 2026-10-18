@@ -196,6 +196,18 @@ uses
   , YADF.Debug
   ;
 
+const
+  /// <summary>Process exit code: at least one file was declined by the content guard and left unchanged (no failures).</summary>
+  EXIT_DECLINED = 3;
+
+/// <summary>Records a guard decline in the process exit code.</summary>
+/// <remarks>Only lifts a clean 0 to EXIT_DECLINED; a failure code already set is never masked.</remarks>
+procedure NoteDecline;
+begin
+  if ExitCode = 0 then
+    ExitCode:= EXIT_DECLINED;
+end;
+
 procedure WriteStdoutRaw(const S: string);
 var
   Bytes  : TBytes;
@@ -372,7 +384,10 @@ begin
   // stdout carries the (unchanged) source; the decline note goes to stderr so
   // pipelines still work while the user learns the file was left as-is.
   if Declined <> '' then
+  begin
     Writeln(ErrOutput, 'declined ' + AFileName + ' (content guard: ' + Declined + ') -- output is the unchanged input');
+    NoteDecline;
+  end;
 end;
 
 function ProcessOneFile(const AFile: string; const AOpts: TYadfOptions): Boolean; forward;
@@ -402,7 +417,10 @@ begin
     TDirectory.CreateDirectory(Dir);
   SaveFile(AOutFile, FormatSource(Source, AOpts, Declined), WEnc, WBom);
   if Declined <> '' then
-    WriteStdoutLine('declined ' + AInFile + ' (content guard: ' + Declined + ') -- wrote the unchanged input')
+  begin
+    WriteStdoutLine('declined ' + AInFile + ' (content guard: ' + Declined + ') -- wrote the unchanged input');
+    NoteDecline;
+  end
   else
     WriteStdoutLine('wrote ' + AOutFile);
 end; // procedure
@@ -534,7 +552,10 @@ begin
     OutVal:= TPath.Combine(AOutDir, RelName);
     SaveFile(OutVal, FormatSource(Source, AOpts, Declined), WEnc, WBom);
     if Declined <> '' then
-      WriteStdoutLine(Format('declined %s (content guard: %s) -- wrote the unchanged input', [F, Declined]))
+    begin
+      WriteStdoutLine(Format('declined %s (content guard: %s) -- wrote the unchanged input', [F, Declined]));
+      NoteDecline;
+    end
     else
       WriteStdoutLine(Format('wrote %s', [OutVal]));
     Inc(Count);
@@ -718,6 +739,7 @@ begin
       // guard caught.
       LogMsg('    DECLINED by content guard: ' + Declined);
       WriteStdoutLine('declined ' + AFile + ' (content guard: ' + Declined + ') -- left unchanged');
+      NoteDecline;
       Exit;
     end;
     // A result dir that resolves to the input's own folder is IN-PLACE: take
@@ -839,6 +861,7 @@ begin
   WriteStdoutLine('  --o <file>            write the result to <file> (single input only)'         );
   WriteStdoutLine(Format('  --of <folder>         write each result to <folder>\<basename>          [%s]', [Quoted(AOpts.ResultDir)]));
   WriteStdoutLine('  --no-o                clear --of/--o; format in place'              );
+  WriteStdoutLine('Exit codes: 0 ok | 1 usage error | N>=1 failed file(s) | 3 = declined by the content guard (file left unchanged)');
   WriteStdoutLine(''                                                                     );
   WriteStdoutLine('Backup (opt-in; only when in-place; skipped when --o or --of is set):');
   WriteStdoutLine(Format('  --b                   backup; write <source>.BCKn next to source     [Backup=%s]', [OnOff (AOpts.Backup   )]));

@@ -97,6 +97,34 @@ try {
   $out = & $exe --ini $ini $fd (Join-Path $dd '*.pas') $fd.ToUpper() 2>&1 | Out-String
   $n = ([regex]::Matches($out, '(?im)^(wrote|unchanged) ')).Count
   if ($n -ne 1) { Fail "duplicate input: expected 1 processed line, got $n" }
+
+  # ----- WP8: a guard decline exits 3 (declined, file unchanged), in every mode.
+  #       A NUL byte is a permanent, deterministic decline. -----
+  $dn = Join-Path $tmpDir 'nulcase'; New-Item -ItemType Directory $dn | Out-Null
+  $nulFile = Join-Path $dn 'declining.pas'
+  $nulBytes = [Text.Encoding]::ASCII.GetBytes("unit U;`r`ninterface`r`nimplementation`r`nprocedure P;`r`nbegin`r`n  X := 1; // a") + [byte[]](0) + [Text.Encoding]::ASCII.GetBytes("b`r`nend;`r`nend.`r`n")
+  [IO.File]::WriteAllBytes($nulFile, $nulBytes)
+  $hn = (Get-FileHash $nulFile).Hash
+  $good = Join-Path $dn 'good.pas'; Copy-Item $src $good
+  $nulOut = Join-Path $tmpDir 'dec_out.pas'
+  & $exe --ini $ini $nulFile | Out-Null
+  if ($LASTEXITCODE -ne 3) { Fail "decline in place: expected exit 3, got $LASTEXITCODE" }
+  if ((Get-FileHash $nulFile).Hash -ne $hn) { Fail 'decline in place: file was modified' }
+  & $exe --ini $ini $nulFile --o $nulOut | Out-Null
+  if ($LASTEXITCODE -ne 3) { Fail "decline --o: expected exit 3, got $LASTEXITCODE" }
+  & $exe --ini $ini $nulFile --of (Join-Path $tmpDir 'dec_of') | Out-Null
+  if ($LASTEXITCODE -ne 3) { Fail "decline --of: expected exit 3, got $LASTEXITCODE" }
+  & $exe --ini $ini --batch $dn (Join-Path $tmpDir 'dec_batch') | Out-Null
+  if ($LASTEXITCODE -ne 3) { Fail "decline --batch: expected exit 3, got $LASTEXITCODE" }
+  & $exe --ini $ini $nulFile --stdout 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 3) { Fail "decline --stdout: expected exit 3, got $LASTEXITCODE" }
+  # a decline next to a clean file is still 3; a real failure outranks it
+  & $exe --ini $ini $nulFile $good | Out-Null
+  if ($LASTEXITCODE -ne 3) { Fail "decline + ok: expected exit 3, got $LASTEXITCODE" }
+  & $exe --ini $ini $nulFile (Join-Path $dn 'missing.pas') | Out-Null
+  if ($LASTEXITCODE -eq 3 -or $LASTEXITCODE -eq 0) { Fail "decline + failure: expected the failure code, got $LASTEXITCODE" }
+  & $exe --ini $ini $good | Out-Null
+  if ($LASTEXITCODE -ne 0) { Fail "clean format: expected exit 0, got $LASTEXITCODE" }
 }
 finally {
   Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue

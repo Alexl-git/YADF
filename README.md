@@ -139,6 +139,8 @@ cmd.exe /c "call \"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat
 
 Then install via the IDE (step 4 above).
 
+**CLI exit codes.** `0` = success; `1` = usage error; a count above 1 = that many files failed; `3` = the content guard declined at least one file and nothing failed (the file is left unchanged - safe to ignore, but not silently `0`).
+
 ### Using the wizard
 
 Two entry points appear in the IDE after install:
