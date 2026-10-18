@@ -355,7 +355,7 @@ values pulled from `yadf.ini`.
   to reach the shared column
 
 **Other**
-- Always emits CRLF line endings
+- Always emits CRLF line endings - including inside multi-line strings, block comments and asm bodies of an LF source (normalised before lexing). An `Eol=preserve` option and LF editor buffers in YADFOT are deliberately not supported (declined: the engine, guard and aligners assume CRLF).
 - Reads and writes file bytes in the encoding chosen by `Encoding=` in
   `yadf.ini` (default `ANSI`; `UTF-8-BOM` and `UTF-16-BOM` also supported).
   Existing BOM in input is auto-detected on load. (YADFOT bypasses this

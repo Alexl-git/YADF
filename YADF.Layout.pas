@@ -6837,7 +6837,10 @@ begin
     Exit(ASource);
   end;
   ChooseShieldPrefix(ASource);
-  Tokens:= LoadTokensFromString(ASource);
+  // Output is CRLF-always: lex a CRLF-normalised copy so the verbatim-restored atoms
+  // (multi-line strings/comments, asm bodies) come back with CRLF too. The guard still
+  // compares against the raw ASource.
+  Tokens:= LoadTokensFromString(StringReplace(StringReplace(ASource, CRLF, LF, [rfReplaceAll]), LF, CRLF, [rfReplaceAll]));
   MLMap:= TStringList.Create;
   AsmMap:= TStringList.Create;
   try
