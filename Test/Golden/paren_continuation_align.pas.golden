@@ -30,8 +30,8 @@ begin
     (Eta.Th + 4000), // c
     R);
   if (Alpha.Beta = 1) and // x
-  (Gamma.Delta = 22222) and // y
-  (Eta.Th = 4) then // z
+    (Gamma.Delta = 22222) and // y
+    (Eta.Th = 4) then // z
     R:= 0;
 end;
 

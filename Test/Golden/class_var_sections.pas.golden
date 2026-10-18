@@ -26,7 +26,7 @@ type
         FCVar: string;
       class procedure AfterClassVar; static;
       var
-        FVar2: string            ;
+        FVar2: string;
       function AfterVar2: Integer;
       constructor Create;
   end;

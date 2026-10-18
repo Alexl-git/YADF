@@ -1,0 +1,29 @@
+unit OptCov;
+
+{$IFDEF FOO}
+{$DEFINE bar}
+{$ENDIF}
+
+interface
+
+type
+  TFoo = class
+  end;
+
+const
+  A          = 1;
+  LongerName = 22;
+
+implementation
+
+procedure Run;
+var
+  Counter: Integer;
+begin
+  Counter:= 1;
+  Counter:= Counter + 1;
+
+  Counter:= 3;
+end;
+
+end.

@@ -154,7 +154,7 @@ function New-Work {
   $d = Join-Path $env:TEMP ('yoc_' + [guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory $d | Out-Null
   $f = Join-Path $d 'work.pas'
-  [IO.File]::WriteAllText($f, $calls.Replace("`n", "`r`n"), $ascii)
+  [IO.File]::WriteAllText($f, $calls.Replace("`r`n", "`n").Replace("`n", "`r`n"), $ascii)
   return $d
 }
 function Run-InPlace([string]$ini, [string]$file) {

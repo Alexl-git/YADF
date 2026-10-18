@@ -968,6 +968,12 @@ begin
     Exit(True);
   if StartsKW('implementation') then
     Exit(True);
+  // `class function|procedure|constructor|destructor|operator` is a routine header too.
+  if StartsKW('class') then
+  begin
+    T:= TrimLeft(Copy(T, 6, MaxInt));
+    Exit(StartsKW('procedure') or StartsKW('function') or StartsKW('constructor') or StartsKW('destructor') or StartsKW('operator'));  // dl:ok boolean-expression-complexity review: five-keyword routine-header test
+  end;
   Result:= False;
 end; // function
 
@@ -2063,12 +2069,16 @@ var
   // anchors only pushes spaces INSIDE the parens (#2.7). A `(` row WITH a colon
   // is a record/array-constant row (`(idx: 1; Field: 'x')`) that must keep
   // aligning, so the colon is the discriminator.
-  function IsParenContinuation(const AInfo: TLineShape): Boolean;
+  function IsParenContinuation(AIdx: Integer; const AInfo: TLineShape): Boolean;
   var
     p: Integer;
   begin
     Result:= False;
     if (Length(AInfo.Shape) = 0) or (AInfo.Shape[0] <> ptRoundOpen) then
+      Exit;
+    // The identifier is not in the shape: `Foo(1, 2, 3);` also starts with ptRoundOpen
+    // but is an ordinary call row. Only a line whose first character is `(` qualifies.
+    if Copy(TrimLeft(Lines[AIdx]), 1, 1) <> '(' then
       Exit;
     for p:= 1 to High(AInfo.Shape) do if AInfo.Shape[p] = ptColon then
       Exit;
@@ -2084,7 +2094,7 @@ var
       Exit(False);
     AInfo:= Info[AIdx];
     Result:= AInfo.HasAssign or  // dl:ok boolean-expression-complexity@ef5c
-    (AMatchShapes and (Length(AInfo.Shape) >= AMinAnchors) and (Length(AInfo.Shape) > 0) and (AInfo.Shape[0] <> ptColon) and not StructuralLead(AInfo.Shape[0]) and not IsParenContinuation(AInfo));
+    (AMatchShapes and (Length(AInfo.Shape) >= AMinAnchors) and (Length(AInfo.Shape) > 0) and (AInfo.Shape[0] <> ptColon) and not StructuralLead(AInfo.Shape[0]) and not IsParenContinuation(AIdx, AInfo));
   end;
 
 begin

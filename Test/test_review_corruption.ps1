@@ -141,6 +141,13 @@ if ($fmOut) {
   }
 }
 
+# ---- a `class function` line must not drag a preceding field colon out ----
+$cfOut = Format-Case 'generic_constraint_keywords.pas'
+if ($cfOut) {
+  $txt = [IO.File]::ReadAllText($cfOut)
+  if ($txt -notmatch '(?m)^\s*FInst\s{0,1}: TAfterSection;') { Fail 'review_corruption: class_function_boundary: FInst colon padded out by the class function below' }
+}
+
 # ---- NUL byte: the lexer stops at #0, so everything after it used to vanish
 # (83 -> 38 bytes, "wrote", exit 0). Now the file must be left byte-identical.
 $nulDir = Join-Path $env:TEMP ("revcorr_" + [guid]::NewGuid().ToString('N'))

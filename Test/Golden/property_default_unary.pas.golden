@@ -5,7 +5,7 @@ interface
 type
   TFoo = class
     private
-      FX: Integer                          ;
+      FX: Integer;
       function GetV(AIdx: Integer): Integer;
     public
       property X: Integer read FX write FX default -1;
