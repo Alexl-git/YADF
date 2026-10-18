@@ -2022,6 +2022,23 @@ var
     end; // for
   end; // procedure
 
+  // A shape that starts with `(` and has no `:` is a continuation line of a
+  // call or condition (`(Gamma.Delta + 2),` / `(Eta.Th = 4) then`): padding its
+  // anchors only pushes spaces INSIDE the parens (#2.7). A `(` row WITH a colon
+  // is a record/array-constant row (`(idx: 1; Field: 'x')`) that must keep
+  // aligning, so the colon is the discriminator.
+  function IsParenContinuation(const AInfo: TLineShape): Boolean;
+  var
+    p: Integer;
+  begin
+    Result:= False;
+    if (Length(AInfo.Shape) = 0) or (AInfo.Shape[0] <> ptRoundOpen) then
+      Exit;
+    for p:= 1 to High(AInfo.Shape) do if AInfo.Shape[p] = ptColon then
+      Exit;
+    Result:= True;
+  end;
+
   function Eligible(AIdx: Integer): Boolean;
   var
     AInfo: TLineShape;
@@ -2031,7 +2048,7 @@ var
       Exit(False);
     AInfo:= Info[AIdx];
     Result:= AInfo.HasAssign or  // dl:ok boolean-expression-complexity@ef5c
-    (AMatchShapes and (Length(AInfo.Shape) >= AMinAnchors) and (Length(AInfo.Shape) > 0) and (AInfo.Shape[0] <> ptColon) and not StructuralLead(AInfo.Shape[0]));
+    (AMatchShapes and (Length(AInfo.Shape) >= AMinAnchors) and (Length(AInfo.Shape) > 0) and (AInfo.Shape[0] <> ptColon) and not StructuralLead(AInfo.Shape[0]) and not IsParenContinuation(AInfo));
   end;
 
 begin
@@ -4399,10 +4416,10 @@ var
   const
     Routines = [ptProcedure, ptFunction, ptConstructor, ptDestructor];
   begin
-    Result:= InClassOrRecord and (ParensDepth = 0) and (AngleDepth = 0)
-      and (StackTop in [ptType, ptVar, ptConst])
-      and not (PrevNonKind in [ptEqual, ptTo, ptColon])
-      and ((Tokens[AIdx].Kind in Routines) or (KindAfterClass(AIdx) in Routines));
+    Result:= False;
+    if not (InClassOrRecord and (StackTop in [ptType, ptVar, ptConst])) then Exit;
+    if (ParensDepth <> 0) or (AngleDepth <> 0) or (PrevNonKind in [ptEqual, ptTo, ptColon]) then Exit;
+    Result:= (Tokens[AIdx].Kind in Routines) or (KindAfterClass(AIdx) in Routines);
   end;
 
 // Maps a declaration-section keyword onto the three section kinds this pass

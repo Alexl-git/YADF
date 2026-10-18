@@ -1,0 +1,38 @@
+unit paren_continuation_align;
+
+interface
+
+implementation
+
+type
+  TPart = record
+    Beta : Integer;
+    Th   : Integer;
+    Delta: Integer;
+  end;
+
+function Sum4(A: Integer; B, C, D: Integer): Integer;
+begin
+  Result:= A + B + C + D;
+end;
+
+procedure P;
+var
+  Alpha: TPart  ;
+  Gamma: TPart  ;
+  Eta  : TPart  ;
+  R    : Integer;
+begin
+  Alpha.Beta:= 1; Gamma.Delta:= 2; Eta.Th:= 3;
+  // Continuation lines that START with ( inside a call are not alignment peers.
+  R:= Sum4(Alpha.Beta, // a
+    (Gamma.Delta + 2), // b
+    (Eta.Th + 4000), // c
+    R);
+  if (Alpha.Beta = 1) and // x
+  (Gamma.Delta = 22222) and // y
+  (Eta.Th = 4) then // z
+    R:= 0;
+end;
+
+end.
