@@ -1335,7 +1335,8 @@ begin
         // One scan does double duty: it advances the cross-line tracker AND
         // (for candidate lines) finds `:` / `;` at this line's top level (the
         // trailing-comment tail is taken from everything after the final `;`).
-        ColonPos:= 0; SemiPos:= 0;
+        ColonPos:= 0;
+        SemiPos:= 0;
         St.BeginLine;
         Col := 1;
         Done:= False;
@@ -1404,10 +1405,17 @@ begin
             for k:= 0 to High(NameTokens) do
             begin
               Body:= Trim(NameTokens[k]);
-              if Body = '' then begin HasComma:= False; Break; end;
+              if Body = '' then
+              begin
+                HasComma:= False;
+                Break;
+              end;
               for Col:= 1 to Length(Body) do
                 if not (AnsiChar(Body[Col]) in IdentChars) then
-                begin HasComma:= False; Break; end;
+                begin
+                  HasComma:= False;
+                  Break;
+                end;
               if not HasComma then
                 Break;
             end;
@@ -1549,7 +1557,8 @@ var
     St  : TLineScanState;
     Done: Boolean       ;
   begin
-    AColon:= 0; ASemi:= 0;
+    AColon:= 0;
+    ASemi:= 0;
     St.Reset;
     St.TrackAngle:= True;
     Done:= False;
@@ -1613,7 +1622,11 @@ begin
       HasDeclShape(Lines[i], ColonAt[i], SemiAt[i]);
       // A declaration-shaped line that actually sits inside a multi-line
       // ()/[] group is not a real top-level declaration -- leave it alone.
-      if Depths[i] > 0 then begin ColonAt[i]:= 0; SemiAt[i]:= 0; end;
+      if Depths[i] > 0 then
+      begin
+        ColonAt[i]:= 0;
+        SemiAt[i]:= 0;
+      end;
     end;
 
     OutVal:= TStringBuilder.Create;
@@ -2801,15 +2814,24 @@ var
         SetLength(ABef, Cnt * 2 + 4);
         SetLength(AAft, Cnt * 2 + 4);
       end;
-      AW[Cnt]:= AWord; ABef[Cnt]:= ABp; AAft[Cnt]:= AAp; Inc(Cnt);
+      AW[Cnt]:= AWord;
+      ABef[Cnt]:= ABp;
+      AAft[Cnt]:= AAp;
+      Inc(Cnt);
     end;
 
   begin
     ADisq:= False;
     Cnt  := 0;
-    SetLength(AW, 0); SetLength(ABef, 0); SetLength(AAft, 0);
+    SetLength(AW, 0);
+    SetLength(ABef, 0);
+    SetLength(AAft, 0);
     n:= Length(L);
-    p:= 1; Depth:= 0; InStr:= False; InBlk:= False; InPar:= False;
+    p:= 1;
+    Depth:= 0;
+    InStr:= False;
+    InBlk:= False;
+    InPar:= False;
     while p <= n do
     begin
       if InStr then
@@ -2819,30 +2841,70 @@ var
             Inc(p)
           else
             InStr:= False;
-        Inc(p); Continue;
+        Inc(p);
+        Continue;
       end;
       if InBlk then
       begin
         if L[p] = '}' then
           InBlk:= False;
-        Inc(p); Continue;
+        Inc(p);
+        Continue;
       end;
       if InPar then
       begin
-        if (L[p] = '*') and (p < n) and (L[p + 1] = ')') then begin InPar:= False; Inc(p); end;
-        Inc(p); Continue;
+        if (L[p] = '*') and (p < n) and (L[p + 1] = ')') then
+        begin
+          InPar:= False;
+          Inc(p);
+        end;
+        Inc(p);
+        Continue;
       end;
-      if L[p] = '''' then begin InStr:= True; Inc(p); Continue; end;
-      if L[p] = '{'  then begin InBlk:= True; Inc(p); Continue; end;
-      if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then begin InPar:= True; Inc(p, 2); Continue; end;
-      if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then begin ADisq:= True; Exit; end;
-      if (L[p] = '(') or (L[p] = '[') then begin Inc(Depth); Inc(p); Continue; end;
-      if (L[p] = ')') or (L[p] = ']') then begin if Depth > 0 then Dec(Depth); Inc(p); Continue; end;
+      if L[p] = '''' then
+      begin
+        InStr:= True;
+        Inc(p);
+        Continue;
+      end;
+      if L[p] = '{'  then
+      begin
+        InBlk:= True;
+        Inc(p);
+        Continue;
+      end;
+      if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then
+      begin
+        InPar:= True;
+        Inc(p, 2);
+        Continue;
+      end;
+      if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then
+      begin
+        ADisq:= True;
+        Exit;
+      end;
+      if (L[p] = '(') or (L[p] = '[') then
+      begin
+        Inc(Depth);
+        Inc(p);
+        Continue;
+      end;
+      if (L[p] = ')') or (L[p] = ']') then
+      begin
+        if Depth > 0 then Dec(Depth);
+        Inc(p);
+        Continue;
+      end;
       if IsIdent(L[p]) and ((p = 1) or not IsIdent(L[p - 1])) then
       begin
         Ws := p;
         Wrd:= '';
-        while (p <= n) and IsIdent(L[p]) do begin Wrd:= Wrd + L[p]; Inc(p); end;  // dl:ok concat-in-loop@2826
+        while (p <= n) and IsIdent(L[p]) do
+        begin
+          Wrd:= Wrd + L[p];  // dl:ok concat-in-loop@02e7
+          Inc(p);
+        end;
         if (Depth = 0) and (SameText(Wrd, 'do') or SameText(Wrd, 'then') or SameText(Wrd, 'else')) then
           AddHit(LowerCase(Wrd), Ws, p);
         Continue;
@@ -2851,12 +2913,15 @@ var
     end; // while
     if InBlk or InPar then
       ADisq:= True;
-    SetLength(AW, Cnt); SetLength(ABef, Cnt); SetLength(AAft, Cnt);
+    SetLength(AW, Cnt);
+    SetLength(ABef, Cnt);
+    SetLength(AAft, Cnt);
   end; // begin
 
   procedure OutLine(const L: string);
   begin
-    OutVal.Append(L); OutVal.Append(CRLF);
+    OutVal.Append(L);
+    OutVal.Append(CRLF);
   end;
 
   // Emits ABody at AIndent; when it holds several statements (X:= 1; Y:= 2;)
@@ -2902,7 +2967,11 @@ begin
           if not Disq then
           begin
             DoIx:= -1;
-            for M:= 0 to High(W) do if W[M] = 'do' then begin DoIx:= M; Break; end;
+            for M:= 0 to High(W) do if W[M] = 'do' then
+            begin
+              DoIx:= M;
+              Break;
+            end;
             if DoIx >= 0 then
             begin
               Header:= TrimRight(Copy(Cur, 1, AftP[DoIx] - 1));
@@ -2959,9 +3028,17 @@ begin
               // Walk the remaining else hits.
               while Ok and (k <= High(W)) do
               begin
-                if W[k] <> 'else' then begin Ok:= False; Break; end; // stray then = nested if body
+                if W[k] <> 'else' then  // stray then = nested if body
+                begin
+                  Ok:= False;
+                  Break;
+                end;
                 Body:= Trim(Copy(Cur, Cursor, BefP[k] - Cursor));
-                if not IsSimpleBody(Body) then begin Ok:= False; Break; end;
+                if not IsSimpleBody(Body) then
+                begin
+                  Ok:= False;
+                  Break;
+                end;
                 Segs.Add(Body);
                 if (k + 1 <= High(W)) and (W[k + 1] = 'then') then
                 begin
@@ -3416,15 +3493,56 @@ const
     if LeadWord(Tr, 'function') or LeadWord(Tr, 'procedure') or LeadWord(Tr, 'constructor') or LeadWord(Tr, 'destructor') or LeadWord(Tr, 'operator') then
       Exit(True);
     // Case B: inline `procedure(` / `function(` scanned at top level.
-    n:= Length(L); p:= 1; InStr:= False; InBlk:= False; InPar:= False;
+    n:= Length(L);
+    p:= 1;
+    InStr:= False;
+    InBlk:= False;
+    InPar:= False;
     while p <= n do
     begin
-      if InStr then begin if L[p] = '''' then begin if (p < n) and (L[p + 1] = '''') then Inc(p) else InStr:= False; end; Inc(p); Continue; end;
-      if InBlk then begin if L[p] = '}' then InBlk:= False; Inc(p); Continue; end;
-      if InPar then begin if (L[p] = '*') and (p < n) and (L[p + 1] = ')') then begin InPar:= False; Inc(p); end; Inc(p); Continue; end;
-      if L[p] = '''' then begin InStr:= True; Inc(p); Continue; end;
-      if L[p] = '{'  then begin InBlk:= True; Inc(p); Continue; end;
-      if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then begin InPar:= True; Inc(p, 2); Continue; end;
+      if InStr then
+      begin
+        if L[p] = '''' then
+        begin
+          if (p < n) and (L[p + 1] = '''') then Inc(p) else InStr:= False;
+        end;
+        Inc(p);
+        Continue;
+      end;
+      if InBlk then
+      begin
+        if L[p] = '}' then InBlk:= False;
+        Inc(p);
+        Continue;
+      end;
+      if InPar then
+      begin
+        if (L[p] = '*') and (p < n) and (L[p + 1] = ')') then
+        begin
+          InPar:= False;
+          Inc(p);
+        end;
+        Inc(p);
+        Continue;
+      end;
+      if L[p] = '''' then
+      begin
+        InStr:= True;
+        Inc(p);
+        Continue;
+      end;
+      if L[p] = '{'  then
+      begin
+        InBlk:= True;
+        Inc(p);
+        Continue;
+      end;
+      if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then
+      begin
+        InPar:= True;
+        Inc(p, 2);
+        Continue;
+      end;
       if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then
         Break;
       if KwParenAt(L, 'procedure', p) or KwParenAt(L, 'function', p) then
@@ -3465,11 +3583,16 @@ const
   begin
     ACmtWhileOpen:= False;
     St.BeginLine;
-    Col:= 1; Done:= False;
+    Col:= 1;
+    Done:= False;
     while not Done do
     case St.SkipNonCode(L, Col) of
       seEndOfLine  : Done:= True                                                      ;
-      seLineComment: begin if St.Depth > 0 then ACmtWhileOpen:= True; Done:= True; end;
+      seLineComment:
+      begin
+        if St.Depth > 0 then ACmtWhileOpen:= True;
+        Done:= True;
+      end;
       seCode       : St.StepCode(L, Col)                                              ;
     end;
   end; // procedure
@@ -3612,7 +3735,10 @@ const
     if Tr = '' then
       Exit;
     // Locate a trailing `//` comment (outside a string literal), if any.
-    n:= Length(Tr); p:= 1; InStr:= False; CmtPos:= 0;
+    n:= Length(Tr);
+    p:= 1;
+    InStr:= False;
+    CmtPos:= 0;
     while p <= n do
     begin
       if InStr then
@@ -3621,10 +3747,20 @@ const
         begin
           if (p < n) and (Tr[p + 1] = '''') then Inc(p) else InStr:= False;
         end;
-        Inc(p); Continue;
+        Inc(p);
+        Continue;
       end;
-      if Tr[p] = '''' then begin InStr:= True; Inc(p); Continue; end;
-      if (Tr[p] = '/') and (p < n) and (Tr[p + 1] = '/') then begin CmtPos:= p; Break; end;
+      if Tr[p] = '''' then
+      begin
+        InStr:= True;
+        Inc(p);
+        Continue;
+      end;
+      if (Tr[p] = '/') and (p < n) and (Tr[p + 1] = '/') then
+      begin
+        CmtPos:= p;
+        Break;
+      end;
       Inc(p);
     end;
     if CmtPos > 0 then
@@ -3636,7 +3772,11 @@ const
       Code:= Tr;
     if (Code = '') or (Code[Length(Code)] <> ';') then
       Exit(False);
-    n:= Length(Code); p:= 1; InStr:= False; ClauseStart:= 1; HasClause:= False;
+    n:= Length(Code);
+    p:= 1;
+    InStr:= False;
+    ClauseStart:= 1;
+    HasClause:= False;
     while p <= n do
     begin
       if InStr then
@@ -3645,9 +3785,15 @@ const
         begin
           if (p < n) and (Code[p + 1] = '''') then Inc(p) else InStr:= False;
         end;
-        Inc(p); Continue;
+        Inc(p);
+        Continue;
       end;
-      if Code[p] = '''' then begin InStr:= True; Inc(p); Continue; end;
+      if Code[p] = '''' then
+      begin
+        InStr:= True;
+        Inc(p);
+        Continue;
+      end;
       if Code[p] = ';' then
       begin
         Clause:= Trim(Copy(Code, ClauseStart, p - ClauseStart));
@@ -3720,15 +3866,18 @@ begin
             if NextIdx = i + 1 then
             begin
               // No trailing directive pulled in -- emit as-is, unchanged.
-              OutVal.Append(Lines[i]); OutVal.Append(CRLF);
-              Inc(i); Continue;
+              OutVal.Append(Lines[i]);
+              OutVal.Append(CRLF);
+              Inc(i);
+              Continue;
             end;
             if ParamsWillBeBroken(Joined) then
               OutVal.Append(Joined)
             else
               OutVal.Append(WrapHeaderLine(Joined));
             OutVal.Append(CRLF);
-            i:= NextIdx; Continue;
+            i:= NextIdx;
+            Continue;
           end;
           if CmtOpen then
           begin
@@ -3737,8 +3886,10 @@ begin
             // into that comment (silently deleting the rest of the header).
             // Leave it split: emit the start line verbatim; the continuation
             // lines then flow through below as ordinary top-level lines.
-            OutVal.Append(Lines[i]); OutVal.Append(CRLF);
-            Inc(i); Continue;
+            OutVal.Append(Lines[i]);
+            OutVal.Append(CRLF);
+            Inc(i);
+            Continue;
           end;
           // Multi-line header: accumulate until a line returns depth to 0.
           Joined:= TrimRight(Lines[i]);
@@ -3747,7 +3898,11 @@ begin
           j:= i + 1;
           while j < Lines.Count do
           begin
-            if StartsBlockKeyword(Lines[j]) then begin Aborted:= True; Break; end;
+            if StartsBlockKeyword(Lines[j]) then
+            begin
+              Aborted:= True;
+              Break;
+            end;
             // A directive-only line ({$IFDEF X}/{$ELSE}/{$ENDIF}) inside the span
             // means two headers share a tail across a conditional: joining would
             // fold the directive into the header line and unbalance the indent.
@@ -3758,7 +3913,11 @@ begin
               Break;
             end;
             ScanLine(Lines[j], CmtOpen);
-            if CmtOpen then begin CmtBail:= True; Break; end;
+            if CmtOpen then
+            begin
+              CmtBail:= True;
+              Break;
+            end;
             if Trim(Lines[j]) <> '' then
               Joined:= Joined + ' ' + Trim(Lines[j]);
             if St.Depth = 0 then Break; // closing line reached (inclusive)
@@ -3775,8 +3934,13 @@ begin
             // only floors decrements, so a net-open bracket on line j -- e.g.
             // a split set/array default -- could leave Depth stuck above 0
             // and silently suppress every later header-join in the file).
-            for var k:= i to j do begin OutVal.Append(Lines[k]); OutVal.Append(CRLF); end;
-            i:= j + 1; Continue;
+            for var k:= i to j do
+            begin
+              OutVal.Append(Lines[k]);
+              OutVal.Append(CRLF);
+            end;
+            i:= j + 1;
+            Continue;
           end; // if
           if Aborted or (j >= Lines.Count) then
           begin
@@ -3784,8 +3948,13 @@ begin
             // verbatim. Line j itself is UNSCANNED here (StartsBlockKeyword
             // trips before its ScanLine call), so it is excluded from this
             // range and left for the top-level loop to scan fresh.
-            for var k:= i to j - 1 do begin OutVal.Append(Lines[k]); OutVal.Append(CRLF); end;
-            i:= j; Continue;
+            for var k:= i to j - 1 do
+            begin
+              OutVal.Append(Lines[k]);
+              OutVal.Append(CRLF);
+            end;
+            i:= j;
+            Continue;
           end;
           // Pull in any immediately-following directive-only line(s) (e.g. a
           // trailing `; overload;` the source split onto its own line)
@@ -3797,12 +3966,14 @@ begin
           else
             OutVal.Append(WrapHeaderLine(Joined));
           OutVal.Append(CRLF);
-          i:= NextIdx; Continue;
+          i:= NextIdx;
+          Continue;
         end // if
         else
         begin
           ScanLine(Lines[i], CmtOpen); // keep cross-line St correct
-          OutVal.Append(Lines[i]); OutVal.Append(CRLF);
+          OutVal.Append(Lines[i]);
+          OutVal.Append(CRLF);
           Inc(i);
         end;
       end; // while
@@ -4003,15 +4174,26 @@ begin
           Body:= '';
           while True do
           begin
-            if j >= Lines.Count then begin Ok:= False; Break; end;
-            if Lock[j] then begin Ok:= False; Break; end;
+            if j >= Lines.Count then
+            begin
+              Ok:= False;
+              Break;
+            end;
+            if Lock[j] then
+            begin
+              Ok:= False;
+              Break;
+            end;
             Tj:= Trim(Lines[j]);
             if StartsWordCI(Tj, 'end') then Break; // matching end
             // a shielded multi-line string/comment sentinel would re-expand to
             // several lines after unshield -- never fold one into a one-liner
             if (Tj = '') or HasCommentChars(Lines[j]) or (Tj[Length(Tj)] <> ';') or (Pos(MlShieldMark, Lines[j]) > 0)  // dl:ok boolean-expression-complexity@743c
               or ContainsWordCI(Tj, 'begin') or ContainsWordCI(Tj, 'end') then
-            begin Ok:= False; Break; end;
+            begin
+              Ok:= False;
+              Break;
+            end;
             Body:= Body + ' ' + Tj;
             Inc(j);
           end; // while
@@ -4842,7 +5024,11 @@ begin
               StackPop; // then pop the begin/class/record/... block itself
               InVisibility:= False;
             end;
-            ptPrivate, ptPublic, ptProtected, ptPublished: begin InVisibility:= True; VisOnThisLine:= True; end;
+            ptPrivate, ptPublic, ptProtected, ptPublished:
+            begin
+              InVisibility:= True;
+              VisOnThisLine:= True;
+            end;
             ptUses, ptContains, ptRequires               : InUsesClause:= True                                 ;
             ptSemiColon                                  : if (ParensDepth = 0) and InUsesClause then
               InUsesClause:= False;
@@ -5819,8 +6005,12 @@ var
 
   function MakeTok(AKind: TptTokenKind; const AText: string): TToken;
   begin
-    Result.Kind:= AKind; Result.ExID:= ptUnknown; Result.Text:= AText;
-    Result.Pre := ''   ; Result.Line:= 0        ; Result.Col := 0;
+    Result.Kind:= AKind;
+    Result.ExID:= ptUnknown;
+    Result.Text:= AText;
+    Result.Pre := '';
+    Result.Line:= 0;
+    Result.Col := 0;
   end;
 
 // Terminating ptSemiColon for a statement scanned from AFrom, tracking () and
@@ -5830,14 +6020,21 @@ var
     j    : Integer;
     Depth: Integer;
   begin
-    AAssign:= -1; Result:= -1; Depth:= 0; j:= AFrom;
+    AAssign:= -1;
+    Result:= -1;
+    Depth:= 0;
+    j:= AFrom;
     while j < ATokens.Count do
     begin
       case ATokens[j].Kind of
         ptRoundOpen, ptSquareOpen  : Inc(Depth)                                       ;
         ptRoundClose, ptSquareClose: if Depth > 0 then Dec(Depth)                     ;
         ptAssign                   : if (Depth = 0) and (AAssign < 0) then AAssign:= j;
-        ptSemiColon                : if Depth = 0 then begin Result:= j; Exit; end    ;
+        ptSemiColon                : if Depth = 0 then
+        begin
+          Result:= j;
+          Exit;
+        end;
       end;
       Inc(j);
     end;
@@ -5860,7 +6057,8 @@ var
     FirstName:= NextSig(AVar + 1);
     if (FirstName >= ATokens.Count) or (ATokens[FirstName].Kind <> ptIdentifier) then
       Exit;
-    SetLength(Names, 1); Names[0]:= ATokens[FirstName].Text;
+    SetLength(Names, 1);
+    Names[0]:= ATokens[FirstName].Text;
     // Collect any comma-separated additional names (`var A, B: T;`).
     p:= NextSig(FirstName + 1);
     while (p < ATokens.Count) and (ATokens[p].Kind = ptComma) do
@@ -5868,7 +6066,8 @@ var
       p:= NextSig(p + 1);
       if (p >= ATokens.Count) or (ATokens[p].Kind <> ptIdentifier) then
         Exit;
-      SetLength(Names, Length(Names) + 1); Names[High(Names)]:= ATokens[p].Text;
+      SetLength(Names, Length(Names) + 1);
+      Names[High(Names)]:= ATokens[p].Text;
       p:= NextSig(p + 1);
     end;
     Ci:= p;
@@ -5881,11 +6080,15 @@ var
     // the single-name case.
     if (Length(Names) = 1) and (Ao >= 0) and (Ao < Semi) then
     begin
-      TypeEnd:= Ao - 1; ARec.Kind:= ikExplicitInit; ARec.AssignIdx:= Ao;
+      TypeEnd:= Ao - 1;
+      ARec.Kind:= ikExplicitInit;
+      ARec.AssignIdx:= Ao;
     end
     else
     begin
-      TypeEnd:= Semi - 1; ARec.Kind:= ikExplicitNoInit; ARec.AssignIdx:= -1;
+      TypeEnd:= Semi - 1;
+      ARec.Kind:= ikExplicitNoInit;
+      ARec.AssignIdx:= -1;
     end;
     Ty:= Trim(InlineRenderRange(ATokens, Ci + 1, TypeEnd));
     if Ty = '' then
@@ -5909,13 +6112,20 @@ var
     j    : Integer;
     Depth: Integer;
   begin
-    Result:= False; ASep:= -1; Depth:= 0; j:= AFrom;
+    Result:= False;
+    ASep:= -1;
+    Depth:= 0;
+    j:= AFrom;
     while j < ATokens.Count do
     begin
       case ATokens[j].Kind of
         ptRoundOpen, ptSquareOpen  : Inc(Depth)                                       ;
         ptRoundClose, ptSquareClose: if Depth > 0 then Dec(Depth)                     ;
-        ptAssign, ptIn             : if Depth = 0 then begin ASep:= j; Exit(True); end;
+        ptAssign, ptIn             : if Depth = 0 then
+        begin
+          ASep:= j;
+          Exit(True);
+        end;
         ptSemiColon, ptDo          : if Depth = 0 then Exit(False)                    ;
       end;
       Inc(j);
@@ -6127,7 +6337,10 @@ var
       Cname:= '';
       for M:= 0 to High(ARec.Names) do
         if RNames.ContainsKey(ARec.Names[M]) and not SameText(RNames[ARec.Names[M]], ARec.TypeStr) then
-        begin Cname:= ARec.Names[M]; Break; end;
+        begin
+          Cname:= ARec.Names[M];
+          Break;
+        end;
       ARec.Kind:= ikFallbackTodo;
       ARec.Comment:= ' // TODO -oYADF : name ''' + Cname + ''' already hoisted with a different type; resolve manually for Delphi 10 -- was: ' + OrigLine;
       Inlines.Add(AVarIdx, ARec);
@@ -6181,7 +6394,8 @@ var
     Semi : Integer;
     Dummy: Integer;
   begin
-    Result:= False; ADecl:= '';
+    Result:= False;
+    ADecl:= '';
     Ni:= NextSig(AConst + 1);
     if (Ni >= ATokens.Count) or (ATokens[Ni].Kind <> ptIdentifier) then
       Exit;
@@ -6276,7 +6490,11 @@ begin
         // A procedure/function keyword inside a body opens an anonymous method
         // (named nested routines live in the decl section, before `begin`).
         if Ki in [ptProcedure, ptFunction] then
-        begin PendingAnon:= True; Inc(i); Continue; end;
+        begin
+          PendingAnon:= True;
+          Inc(i);
+          Continue;
+        end;
         if Ki in [ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject] then
         begin
           // `of object` (method-pointer type in an inline var) is a modifier,
@@ -6288,21 +6506,28 @@ begin
           begin
             Pv:= PrevSig(i - 1);
             if (Pv >= 0) and (ATokens[Pv].Kind = ptOf) then
-            begin Inc(i); Continue; end;
+            begin
+              Inc(i);
+              Continue;
+            end;
           end;
           // Variant-part `case` inside a local record/object declaration
           // shares the record's end -- pushing an entry for it would leave the
           // record's entry dangling and skew the anon accounting for the rest
           // of the body (same rule as ReindentByDepth / ParseGroups).
           if (Ki = ptCase) and (BlkKind.Count > 0) and (BlkKind[BlkKind.Count - 1] in [ptRecord, ptObject]) then
-          begin Inc(i); Continue; end;
+          begin
+            Inc(i);
+            Continue;
+          end;
           IsAnon:= PendingAnon and (Ki = ptBegin);
           BlkAnon.Add(IsAnon);
           BlkKind.Add(Ki    );
           if IsAnon then
             Inc(AnonCount);
           PendingAnon:= False;
-          Inc(i); Continue;
+          Inc(i);
+          Continue;
         end; // if
         if Ki = ptEnd then
         begin
@@ -6313,13 +6538,18 @@ begin
             BlkAnon.Delete(BlkAnon.Count - 1);
             BlkKind.Delete(BlkKind.Count - 1);
           end;
-          Inc(i); Continue;
+          Inc(i);
+          Continue;
         end;
         if Ki = ptVar then
         begin
           // A `var` in an anon method's own decl section (seen before its begin)
           // is a classic var section, not an inline var -- leave it.
-          if PendingAnon then begin Inc(i); Continue; end;
+          if PendingAnon then
+          begin
+            Inc(i);
+            Continue;
+          end;
           Pv:= PrevSig(i - 1);
           if (CondDepth > 0) and (AnonCount = 0) then
           begin
@@ -6344,7 +6574,11 @@ begin
           else if (Pv >= 0) and (ATokens[Pv].Kind = ptFor) then
           begin
             if TryParseForExplicit(i, Rec) or TryParseForInferred(i, Rec) then
-            begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.Sep + 1; Continue; end;
+            begin
+              CommitInline(G.OpenIdx, i, Rec);
+              i:= Rec.Sep + 1;
+              Continue;
+            end;
             // Non-inferable inline loop var (e.g. `for var X in Coll`): can't
             // downgrade without the element/bound type. Flag a TODO before the  // dl:ok compiler-magic-comments@e3b0
             // `for`. Idempotent: skip if the line above is already a YADF flag.
@@ -6356,7 +6590,11 @@ begin
             end;
           end // if
           else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
-          begin CommitInline(G.OpenIdx, i, Rec); i:= Rec.SemiIdx + 1; Continue; end;
+          begin
+            CommitInline(G.OpenIdx, i, Rec);
+            i:= Rec.SemiIdx + 1;
+            Continue;
+          end;
         end; // if
         if Ki = ptConst then
         begin
@@ -6365,7 +6603,11 @@ begin
           // THIS routine's statement section (AnonCount = 0) hoists to a const
           // block; one inside a nested anon body has a different scope, so it is
           // left untouched.
-          if PendingAnon then begin Inc(i); Continue; end;
+          if PendingAnon then
+          begin
+            Inc(i);
+            Continue;
+          end;
           if (AnonCount = 0) and (CondDepth > 0) then
           begin
             if TryFlagAnonConst(i, Rec, 'inside a conditional-compilation block') then
@@ -6386,7 +6628,11 @@ begin
             end;
           end
           else if TryFlagAnonConst(i, Rec) then
-          begin Inlines.Add(i, Rec); i:= Rec.SemiIdx + 1; Continue; end;
+          begin
+            Inlines.Add(i, Rec);
+            i:= Rec.SemiIdx + 1;
+            Continue;
+          end;
         end; // if
         Inc(i);
       end; // while
