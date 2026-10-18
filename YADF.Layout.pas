@@ -6149,6 +6149,9 @@ var
   MLMap       : TStringList   ;
   AsmMap      : TStringList   ; // asm bodies shielded before Stage 1 (ShieldAsmBodies)
   EffMaxBlanks: Integer       ; // hoisted from inline var in the pipeline (XE8/D10)
+  PreSplit    : string        ; // Result just before the split stage (strict code-token check)
+  PreMode     : TGuardCodeMode; // code-token strictness for the pre-split snapshot
+  CodeMode    : TGuardCodeMode; // code-token strictness for the final guard call
 
   // Updates CurCol/CurLine after every text emission. Tabs are
   // counted as TabWidth columns; CR is ignored (column reset happens
@@ -6866,6 +6869,11 @@ begin
         // normalises spacing so anchor columns are predictable.
         // SplitMultiVarDecls runs first so the alignment sees one
         // declaration per line.
+        // Snapshot for the strict code-token check (Stage 6): every pass before
+        // this point may only re-space, re-case and re-flow code, never rewrite it.
+        // (Unshielded copy: the streams are compared against the raw ASource.)
+        if not AOpts.Delphi10Compat then
+          PreSplit:= UnshieldAsmBodies(UnshieldMultilineTokens(Result, MLMap), AsmMap);
         if AOpts.SplitMultiVarDecls or AOpts.BreakCaseLabels then
           Result:= SplitMultiVarDeclarations(Result, AOpts.SplitMultiVarDecls, AOpts.BreakCaseLabels);
         if AOpts.AlignTypeColon or AOpts.AlignConstEquals or AOpts.AlignSmartAssign then
@@ -6910,7 +6918,26 @@ begin
         // LabelLongBlocks legitimately DELETES a stale block-end marker, so the
         // comment stream relaxes to "this exact marker may be missing" -- and
         // only that (see AAllowLabelRemoval).
-        if not FormatPreservesContent(ASource, Result, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, ADeclineReason) then
+        // The code-token stream is checked too (WP1): STRICT up to the split
+        // stage (skipped under Delphi10Compat, whose token-level hoist runs
+        // before it), then the bounded SPLIT / D10 transformation on the final
+        // text, STRICT when neither applies.
+        if AOpts.Delphi10Compat then
+          CodeMode:= gcD10
+        else if AOpts.SplitMultiVarDecls or AOpts.BreakCaseLabels then
+          CodeMode:= gcSplit
+        else
+          CodeMode:= gcStrict;
+        // BreakParamsOnePerLine (which runs before the snapshot) re-spells
+        // `const A, B: T` as `const A: T; const B: T` -- the same bounded split
+        // the SPLIT mode allows -- so that option relaxes the snapshot check too.
+        if AOpts.BreakParamsOnePerLine then
+          PreMode:= gcSplit
+        else
+          PreMode:= gcStrict;
+        if (not AOpts.Delphi10Compat) and not FormatPreservesContent(ASource, PreSplit, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, PreMode, ADeclineReason) then
+          Result:= ASource
+        else if not FormatPreservesContent(ASource, Result, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, CodeMode, ADeclineReason) then
           Result:= ASource;
       finally
         Sb.Free;

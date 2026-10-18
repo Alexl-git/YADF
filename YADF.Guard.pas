@@ -22,11 +22,14 @@
                           whitespace normalized (UpperDirectives and the
                           ifdef-spacing pass legitimately touch those).
 
-  Code tokens are deliberately NOT compared: passes such as
-  SplitMultiVarDeclarations and DowngradeInlineVars legitimately duplicate
-  or rewrite them. The guard therefore catches "user content destroyed",
-  not "semantics changed" -- the former is the class that has actually
-  shipped.
+    * code tokens      -- (extended overload only, see TGuardCodeMode) the
+                          lowercased stream of every token that is not
+                          layout/comment/directive/literal/asm body must be
+                          identical (gcStrict), or -- for the passes that
+                          legitimately re-spell declarations
+                          (SplitMultiVarDeclarations, BreakCaseLabels,
+                          DowngradeInlineVars) -- a bounded transformation of
+                          it (gcSplit / gcD10).
 }
 
 unit YADF.Guard;   // dl:shared YADF, YADFOT, YADFSetup
@@ -46,14 +49,65 @@ interface
 /// Pure and thread-safe; lexes both inputs once. If lexing the inputs
 /// raises, the guard fails CLOSED (returns False).
 /// <!-- drag-lint:auto BEGIN -->
-/// Calls: YADF.Guard.FormatPreservesContent/5
-/// Returns: FormatPreservesContent(AOriginal, AFormatted, False, False, Reason)
-/// Overload 1 of 2
-/// Pure
+/// <para>Calls: YADF.Guard.FormatPreservesContent/5</para>
+/// <para>Returns: FormatPreservesContent(AOriginal, AFormatted, False, False, Reason)</para>
+/// <para>Overload 1 of 3</para>
+/// <para>Directives: overload</para>
 /// <seealso cref="YADF.Guard.FormatPreservesContent"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; overload;
+
+type
+  /// <summary>How strictly the guard compares the CODE-token stream (every token
+  /// that is not whitespace, a comment, a directive, a string/char literal or an
+  /// asm body), lowercased.</summary>
+  /// <remarks>
+  /// gcNone: code tokens are not compared (historic behaviour of the 2- and
+  /// 5-argument overloads). gcStrict: the sequences must be identical -- any
+  /// reordered, lost or duplicated token declines. gcSplit: for
+  /// SplitMultiVarDecls / BreakCaseLabels, which legitimately re-spell
+  /// `A, B: T;` as `A: T; B: T;`; the original minus its commas must be an
+  /// ordered subsequence of the output minus its commas AND the output may not
+  /// contain an identifier/number the original lacks. gcD10: the Delphi10Compat
+  /// hoist moves `name: Type` ahead of its statement, so order is NOT checked;
+  /// every original token (ignoring commas and var/const) must still occur in
+  /// the output at least as often (nothing lost; duplicates and new names
+  /// tolerated).
+  /// <!-- drag-lint:auto BEGIN -->
+  /// <para>Used by: declaration (YADF.Guard.pas), YADF.Guard.CodeStreamReason (YADF.Guard.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas)</para>
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
+  TGuardCodeMode = (gcNone, gcStrict, gcSplit, gcD10);
+
+/// <summary>As the 5-argument overload, plus the code-token comparison selected
+/// by ACodeMode (see TGuardCodeMode).</summary>
+/// <param name="AOriginal">Source text before formatting.</param>
+/// <param name="AFormatted">Candidate formatter output to validate.</param>
+/// <param name="AAllowStringDuplication">True when statements may be duplicated.</param>
+/// <param name="AAllowLabelRemoval">True when stale block-end markers may be removed.</param>
+/// <param name="ACodeMode">Strictness of the code-token comparison.</param>
+/// <param name="AReason">'' when preserved; otherwise the decline cause.</param>
+/// <returns>True when the content is fully preserved.</returns>
+/// <remarks>
+/// Same purity/fail-closed contract as the other overloads.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.Guard.FormatPreservesContent/5 (YADF.Guard.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas)</para>
+/// <para>Calls: Pos, YADF.Guard.CodeStreamReason, YADF.Guard.DropFlagged, YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence</para>
+/// <para>Returns: False; AReason = ''</para>
+/// <para>Overload 2 of 3</para>
+/// <para>Complexity: 10 (cyclomatic, outer body), 89 lines (full implementation)</para>
+/// <para>Catches: Exception (swallowed)</para>
+/// <para>Mutates: AReason (out)</para>
+/// <para>Directives: overload</para>
+/// <seealso cref="YADF.Guard.CodeStreamReason"/>
+/// <seealso cref="YADF.Guard.DropFlagged"/>
+/// <seealso cref="YADF.Guard.ExtractContent"/>
+/// <seealso cref="YADF.Guard.FirstUnmatched"/>
+/// <seealso cref="YADF.Guard.IsSubsequence"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
+function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication, AAllowLabelRemoval: Boolean; ACodeMode: TGuardCodeMode; out AReason: string): Boolean; overload;
 
 /// <summary>Extended check used by FormatSource. AAllowStringDuplication
 /// relaxes the string comparison from exact-sequence to ordered-subsequence:
@@ -82,16 +136,12 @@ function FormatPreservesContent(const AOriginal, AFormatted: string): Boolean; o
 /// <remarks>
 /// Same purity/fail-closed contract as the two-argument overload.
 /// <!-- drag-lint:auto BEGIN -->
-/// Called from: YADF.Guard.FormatPreservesContent/2 (YADF.Guard.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas)
-/// Calls: YADF.Guard.DropFlagged, YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence
-/// Returns: AReason = ''; False
-/// Overload 2 of 2
-/// Mutates: AReason (out)
-/// <seealso cref="YADF.Guard.DropFlagged"/>
-/// <seealso cref="YADF.Guard.ExtractContent"/>
-/// <seealso cref="YADF.Guard.FirstUnmatched"/>
-/// <seealso cref="YADF.Guard.IsSubsequence"/>
-/// <seealso cref="YADF.Guard.SameSequence"/>
+/// <para>Called from: [YADF]YADF.Guard.FormatPreservesContent/2 (YADF.Guard.pas)</para>
+/// <para>Calls: YADF.Guard.FormatPreservesContent/6</para>
+/// <para>Returns: FormatPreservesContent(AOriginal, AFormatted, AAllowStringDuplication, AAllowLabelRemoval, gcNone, AReason)</para>
+/// <para>Overload 3 of 3</para>
+/// <para>Directives: overload</para>
+/// <seealso cref="YADF.Guard.FormatPreservesContent"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication, AAllowLabelRemoval: Boolean; out AReason: string): Boolean; overload;
@@ -158,6 +208,9 @@ const
     ptIfDirect, ptIfDefDirect, ptIfNDefDirect, ptIfOptDirect, ptElseDirect, ptElseIfDirect, ptEndIfDirect, ptIfEndDirect, ptDefineDirect, ptUndefDirect, ptIncludeDirect,
     ptResourceDirect, ptCompDirect, ptScopedEnumsDirect];
   CommentKinds = [ptAnsiComment, ptBorComment, ptSlashesComment];
+  // Not part of the code-token stream: layout, plus the literal kinds that the
+  // string stream already compares byte-exact.
+  CodeSkipKinds = [ptSpace, ptCRLF, ptCRLFCo, ptNull, ptAsciiChar];
   StringKinds  = [ptStringConst, ptStringDQConst];
   // Text the formatter's own shields insert and must remove again: the
   // include-directive suffix (YADF.Tokens.IncSentinel) and the multi-line /
@@ -207,13 +260,15 @@ begin
 end; // procedure
 
 procedure ExtractContent(const ASource: string; const AStrings, AComments, ADirectives: TList<string>; const ACommentIsLabel: TList<Boolean> = nil;
-  const AAsmLines: TList<string> = nil);
+  const AAsmLines: TList<string> = nil; const ACode: TList<string> = nil);
 var
-  Tokens: TTokenList    ;
-  T     : TToken        ;
-  IsLbl : TArray<Boolean>;
-  i     : Integer       ;
+  Tokens : TTokenList    ;
+  T      : TToken        ;
+  IsLbl  : TArray<Boolean>;
+  i      : Integer       ;
+  AsmLast: Integer       ;
 begin
+  AsmLast:= -1;
   Tokens:= LoadTokensFromString(ASource);
   try
     if ACommentIsLabel <> nil then
@@ -229,6 +284,17 @@ begin
         var j:= i;
         AddAsmLines(Tokens, j, AAsmLines);
       end;
+      if (T.Kind = ptAsm) and (ACode <> nil) then
+      begin
+        // BASM bodies are not free-form Pascal and are covered by AAsmLines;
+        // keep `asm` and the closing `end` in the code stream, skip the body.
+        AsmLast:= i;
+        while (AsmLast + 1 < Tokens.Count) and not IsAsmBlockEnd(Tokens, AsmLast + 1) do
+          Inc(AsmLast);
+      end;
+      if (ACode <> nil) and ((i > AsmLast) or (T.Kind = ptAsm)) then
+        if not (T.Kind in StringKinds + CommentKinds + DirectiveKinds + CodeSkipKinds) and (T.Text <> '') then
+          ACode.Add(LowerCase(T.Text));
       if T.Kind in StringKinds then
         AStrings.Add(NormalizeNewlines(T.Text))
       else if T.Kind = ptAsciiChar then
@@ -337,7 +403,103 @@ begin
       AList.Delete(i);
 end;
 
+// True when S starts like an identifier, keyword or number token.
+function IsWordToken(const S: string): Boolean;
+begin
+  Result:= (S <> '') and (CharInSet(S[1], ['a'..'z', 'A'..'Z', '0'..'9', '_', '$', '&']));
+end;
+
+// Copy of AList without ',' (and, when ADropDecl, without var/const).
+function WithoutNoise(const AList: TList<string>; ADropDecl: Boolean): TList<string>;
+var
+  S: string;
+begin
+  Result:= TList<string>.Create;
+  for S in AList do
+    if (S <> ',') and not (ADropDecl and ((S = 'var') or (S = 'const'))) then
+      Result.Add(S);
+end;
+
+// '' when the code-token stream of the output is acceptable for AMode; else a
+// short decline cause. See TGuardCodeMode for the three rules.
+function CodeStreamReason(const AOrig, AFmt: TList<string>; AMode: TGuardCodeMode): string;
+var
+  O     : TList<string>;
+  F     : TList<string>;
+  Seen  : THashSet<string>;
+  Counts: TDictionary<string, Integer>;
+  S     : string;
+  i     : Integer;
+begin
+  Result:= '';
+  if AMode = gcNone then
+  begin
+    // not compared
+  end
+  else if AMode = gcStrict then
+  begin
+    if not SameSequence(AOrig, AFmt) then
+    begin
+      i:= 0;
+      while (i < AOrig.Count) and (i < AFmt.Count) and (AOrig[i] = AFmt[i]) do
+        Inc(i);
+      if i < AOrig.Count then
+        Result:= 'code token reordered, lost or altered near: ' + AOrig[i]
+      else
+        Result:= 'code token duplicated or added: ' + AFmt[i];
+    end;
+  end
+  else
+  begin
+    O     := WithoutNoise(AOrig, AMode = gcD10);
+    F     := WithoutNoise(AFmt , AMode = gcD10);
+    Seen  := THashSet<string>.Create;
+    Counts:= TDictionary<string, Integer>.Create;
+    try
+      if AMode = gcD10 then
+      begin
+        // The hoist MOVES `name: Type` ahead of the statement it came from, so
+        // order cannot be asserted; what must hold is that no original token
+        // was lost (multiset containment, so a duplicate is tolerated).
+        for S in F do
+          if Counts.TryGetValue(S, i) then
+            Counts[S]:= i + 1
+          else
+            Counts.Add(S, 1);
+        for S in O do
+          if Result = '' then
+          begin
+            if Counts.TryGetValue(S, i) and (i > 0) then
+              Counts[S]:= i - 1
+            else
+              Result:= 'code token lost by the Delphi 10 transform: ' + S;
+          end;
+      end
+      else if not IsSubsequence(O, F) then
+        Result:= 'code token lost or reordered near: ' + FirstUnmatched(O, F)
+      else
+      begin
+        for S in O do
+          Seen.Add(S);
+        for S in F do
+          if (Result = '') and IsWordToken(S) and not Seen.Contains(S) then
+            Result:= 'code token introduced by the split: ' + S;
+      end;
+    finally
+      Counts.Free;
+      Seen.Free;
+      O.Free;
+      F.Free;
+    end;
+  end;
+end; // function
+
 function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication, AAllowLabelRemoval: Boolean; out AReason: string): Boolean;
+begin
+  Result:= FormatPreservesContent(AOriginal, AFormatted, AAllowStringDuplication, AAllowLabelRemoval, gcNone, AReason);
+end;
+
+function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication, AAllowLabelRemoval: Boolean; ACodeMode: TGuardCodeMode; out AReason: string): Boolean;
 var
   OrigStr: TList<string>;
   FmtStr : TList<string>;
@@ -349,6 +511,8 @@ var
   FmtLbl : TList<Boolean>;
   OrigAsm: TList<string>;
   FmtAsm : TList<string>;
+  OrigCod: TList<string>;
+  FmtCod : TList<string>;
   StrOk  : Boolean      ;
   Marker : string       ;
 begin
@@ -365,6 +529,8 @@ begin
     end;
   OrigAsm:= TList<string>.Create;
   FmtAsm := TList<string>.Create;
+  OrigCod:= TList<string>.Create;
+  FmtCod := TList<string>.Create;
   OrigStr:= TList<string>.Create; FmtStr:= TList<string>.Create;
   OrigCom:= TList<string>.Create; FmtCom:= TList<string>.Create;
   OrigDir:= TList<string>.Create; FmtDir:= TList<string>.Create;
@@ -373,8 +539,8 @@ begin
     try
       if AAllowLabelRemoval then
       begin
-        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir, OrigLbl, OrigAsm);
-        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir , FmtLbl , FmtAsm );
+        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir, OrigLbl, OrigAsm, OrigCod);
+        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir , FmtLbl , FmtAsm , FmtCod );
         // Formatter-owned block-end markers take no part in the user-content
         // check -- on EITHER side. Everything else stays exactly as strict.
         DropFlagged(OrigCom, OrigLbl);
@@ -382,8 +548,8 @@ begin
       end
       else
       begin
-        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir, nil, OrigAsm);
-        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir , nil, FmtAsm );
+        ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir, nil, OrigAsm, OrigCod);
+        ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir , nil, FmtAsm , FmtCod );
       end;
       // Directives stay STRICT even under duplication-tolerant mode: a
       // duplicated {$IFDEF}/{$ENDIF} inside a duplicated case arm would
@@ -399,7 +565,13 @@ begin
       else if not IsSubsequence(OrigCom, FmtCom) then
         AReason:= 'comment lost or altered: ' + FirstUnmatched(OrigCom, FmtCom)
       else if not SameSequence(OrigAsm, FmtAsm) then
-        AReason:= 'asm instruction lines joined, split or altered: ' + FirstUnmatched(OrigAsm, FmtAsm);
+        AReason:= 'asm instruction lines joined, split or altered: ' + FirstUnmatched(OrigAsm, FmtAsm)
+      else
+      begin
+        AReason:= CodeStreamReason(OrigCod, FmtCod, ACodeMode);
+        if AReason <> '' then
+          AReason:= 'code tokens: ' + AReason;
+      end;
       Result:= AReason = '';
     except  // dl:ok bare-except@1e8f
       // Cannot verify -> fail closed; the caller keeps the original text.
@@ -413,6 +585,8 @@ begin
     OrigLbl.Free; FmtLbl.Free;
     OrigAsm.Free;
     FmtAsm .Free;
+    OrigCod.Free;
+    FmtCod .Free;
   end; // try
 end; // function
 

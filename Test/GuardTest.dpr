@@ -345,6 +345,59 @@ begin
   end;
 end;
 
+// --- WP1: strict code-token stream ----------------------------------------
+
+function CodeOk(const AOrig, AFmt: string; AMode: TGuardCodeMode): Boolean;
+var
+  Reason: string;
+begin
+  Result:= FormatPreservesContent(AOrig, AFmt, False, False, AMode, Reason);
+end;
+
+procedure TestCodeTokenStream;
+const
+  Base = 'begin' + CRLF + '  A:= 1;' + CRLF + '  B:= 2;' + CRLF + 'end;' + CRLF;
+begin
+  Check('STRICT identical passes'     , CodeOk(Base, Base, gcStrict));
+  Check('STRICT whitespace/case passes', CodeOk(Base, 'BEGIN A := 1;  b:=2; END;', gcStrict));
+  Check('STRICT hex literal case passes', CodeOk('X:= $ab;', 'X:= $AB;', gcStrict));
+  Check('STRICT reordered statements rejected',
+    not CodeOk(Base, 'begin' + CRLF + '  B:= 2;' + CRLF + '  A:= 1;' + CRLF + 'end;' + CRLF, gcStrict));
+  Check('STRICT lost token rejected',
+    not CodeOk(Base, 'begin' + CRLF + '  A:= 1;' + CRLF + 'end;' + CRLF, gcStrict));
+  Check('STRICT duplicated statement rejected',
+    not CodeOk(Base, 'begin' + CRLF + '  A:= 1;' + CRLF + '  A:= 1;' + CRLF + '  B:= 2;' + CRLF + 'end;' + CRLF, gcStrict));
+  Check('STRICT changed operator rejected', not CodeOk('X:= A + B;', 'X:= A - B;', gcStrict));
+  Check('STRICT comment/string/directive changes do not count here',
+    CodeOk('X:= ''a''; // c', 'X:= ''a''; // c', gcStrict));
+  Check('STRICT asm body is ignored by the code stream',
+    CodeOk('asm' + CRLF + '  mov eax, 1' + CRLF + 'end;', 'asm' + CRLF + '  mov  eax,  1' + CRLF + 'end;', gcStrict));
+  Check('gcNone does not compare code', CodeOk(Base, 'begin end;', gcNone));
+end;
+
+procedure TestCodeTokenSplitAndD10;
+begin
+  Check('SPLIT multi-var split ok',
+    CodeOk('var A, B: Integer;', 'var A: Integer; B: Integer;', gcSplit));
+  Check('SPLIT split with new identifier rejected',
+    not CodeOk('var A, B: Integer;', 'var A: Integer; C: Integer;', gcSplit));
+  Check('SPLIT dropped token rejected',
+    not CodeOk('var A, B: Integer;', 'var A: Integer;', gcSplit));
+  Check('SPLIT reordered rejected',
+    not CodeOk('var A, B: Integer;', 'var B: Integer; A: Integer;', gcSplit));
+  Check('SPLIT case-arm split ok',
+    CodeOk('case X of 1, 2: Foo; end;', 'case X of 1: Foo; 2: Foo; end;', gcSplit));
+  Check('D10 inline var hoist ok',
+    CodeOk('procedure P; begin var X: Integer:= 1; Use(X); end;',
+           'procedure P; var X: Integer; begin X:= 1; Use(X); end;', gcD10));
+  Check('D10 untyped for-var hoist with inferred type ok',
+    CodeOk('procedure P; begin for var I:= 0 to 3 do Use(I); end;',
+           'procedure P; var I: Integer; begin for I:= 0 to 3 do Use(I); end;', gcD10));
+  Check('D10 lost statement rejected',
+    not CodeOk('procedure P; begin var X: Integer:= 1; Use(X); end;',
+               'procedure P; var X: Integer; begin X:= 1; end;', gcD10));
+end;
+
 procedure TestDirectiveWhitespaceKey;
 begin
   Check('WP2 {$I a b.inc} vs {$I ab.inc} rejected',
@@ -397,6 +450,8 @@ begin
     TestLineScanDepth;
     TestBlockCommentLock;
     TestLineStartDepths;
+    TestCodeTokenStream;
+    TestCodeTokenSplitAndD10;
     TestDirectiveWhitespaceKey;
     TestFormatSourceStillFormats;
     Writeln('');
