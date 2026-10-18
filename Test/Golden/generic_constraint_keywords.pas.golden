@@ -24,10 +24,10 @@ type
   TAfterSection = class
     strict private
       class var
-        FInst                                     : TAfterSection;
-        class function Make<T: record>(const A: T): T; static    ;
-      public
-        procedure P;
+        FInst                                   : TAfterSection;
+      class function Make<T: record>(const A: T): T; static    ;
+    public
+      procedure P;
   end;
   TLast = class(TObject);
 

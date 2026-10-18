@@ -13,6 +13,39 @@ type
     Var3, Var4: string;
   end;
 
+  // WP18: routines declared AFTER a var / class var section close that section
+  TTestMethodsAfterVars = class
+  protected
+  var
+    FVar1: Boolean;
+    procedure AfterVar;
+  class var
+    FCVar: string;
+    class procedure AfterClassVar; static;
+  var
+    FVar2: string;
+    function AfterVar2: Integer;
+    constructor Create;
+  end;
+
 implementation
+
+procedure TTestMethodsAfterVars.AfterVar;
+begin
+end;
+
+class procedure TTestMethodsAfterVars.AfterClassVar;
+begin
+end;
+
+function TTestMethodsAfterVars.AfterVar2: Integer;
+begin
+  Result:= 0;
+end;
+
+constructor TTestMethodsAfterVars.Create;
+begin
+  inherited Create;
+end;
 
 end.

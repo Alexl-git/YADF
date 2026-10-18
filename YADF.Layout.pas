@@ -4370,17 +4370,39 @@ var
 // `class var` / `class const` / `class type` -- i.e. `class` immediately
 // followed by a section keyword. Such a line starts a section, so it must
 // dedent like a bare `var`/`const`/`type` even though its first token is `class`.
-  function IsClassSectionLine(AIdx: Integer): Boolean;
+  // Kind of the first non-whitespace token after a `class` token at AIdx;
+  // ptUnknown when AIdx is not a `class` token or nothing follows.
+  function KindAfterClass(AIdx: Integer): TptTokenKind;
   var
     j: Integer;
   begin
-    Result:= False;
+    Result:= ptUnknown;
     if (AIdx < 0) or (AIdx >= Tokens.Count) or (Tokens[AIdx].Kind <> ptClass) then
       Exit;
     j:= AIdx + 1;
     while (j < Tokens.Count) and (Tokens[j].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
       Inc(j);
-    Result:= (j < Tokens.Count) and (Tokens[j].Kind in [ptVar, ptConst, ptType]);
+    if j < Tokens.Count then
+      Result:= Tokens[j].Kind;
+  end;
+
+  function IsClassSectionLine(AIdx: Integer): Boolean;
+  begin
+    Result:= KindAfterClass(AIdx) in [ptVar, ptConst, ptType];
+  end;
+
+  // True when the line starting at token AIdx declares a member routine
+  // (`procedure|function|constructor|destructor`, optionally after `class`)
+  // INSIDE a class/record while a var/const/type section is open: that routine
+  // closes the section, so the line-start indent dedents one level (WP18).
+  function IsRoutineAfterSection(AIdx: Integer): Boolean;
+  const
+    Routines = [ptProcedure, ptFunction, ptConstructor, ptDestructor];
+  begin
+    Result:= InClassOrRecord and (ParensDepth = 0) and (AngleDepth = 0)
+      and (StackTop in [ptType, ptVar, ptConst])
+      and not (PrevNonKind in [ptEqual, ptTo, ptColon])
+      and ((Tokens[AIdx].Kind in Routines) or (KindAfterClass(AIdx) in Routines));
   end;
 
 // Maps a declaration-section keyword onto the three section kinds this pass
@@ -4532,6 +4554,11 @@ begin
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if (T.Kind = ptBegin) and (not InClassOrRecord) and (StackTop in [ptType, ptVar, ptConst]) then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
+          // WP18: a member routine after a var/const/type section INSIDE a
+          // class/record closes that section (the push side does the same), so
+          // it sits at the section keyword's level, not under its fields.
+          if IsRoutineAfterSection(i) then
+            EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if (T.Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) and (not InClassOrRecord) and (ParensDepth = 0) then
             // ParensDepth = 0: only a REAL proc/function declaration snaps to the
             // proc-region column. An anonymous method inside an expression
@@ -4625,7 +4652,7 @@ begin
                 InVisibility   := False;
               ExpectSectionDecl:= True;
             end; // if
-            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (not InClassOrRecord) and (ParensDepth = 0) and (AngleDepth = 0) and not (PrevNonKind in [ptEqual, ptTo, ptColon]) then
+            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (ParensDepth = 0) and (AngleDepth = 0) and not (PrevNonKind in [ptEqual, ptTo, ptColon]) then
               // ParensDepth = 0 distinguishes a real procedure/function
               // declaration from an inline anonymous method expression
               // (e.g. CallSomething(procedure(X) begin ... end)). The
@@ -4646,13 +4673,20 @@ begin
               // procedure/function var type, 2026-06-18.)
               // AngleDepth = 0: `constructor` as a generic CONSTRAINT
               // (`TBaz<T: TComponent, constructor>`) is not a routine either.
+              // INSIDE a class/record the routine is just a member: it only
+              // closes an open var/const/type section (so it is not indented
+              // under the fields of a preceding `var` / `class var`, WP18) --
+              // the visibility level and proc regions stay untouched.
             begin
               CloseSectionIfOpen;
-              InVisibility:= False;
-              if not InInterfaceSection then
+              if not InClassOrRecord then
               begin
-                PendingProcStack.Add(True);
-                Inc(OpenProcRegions);
+                InVisibility:= False;
+                if not InInterfaceSection then
+                begin
+                  PendingProcStack.Add(True);
+                  Inc(OpenProcRegions);
+                end;
               end;
             end;
             ptBegin:

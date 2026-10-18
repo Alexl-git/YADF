@@ -34,6 +34,13 @@ else {
     Fail "333: section keywords at inconsistent indents: $($secInd -join ', ')"
   }
   $base = $secInd[0]
+  # WP18: a routine declared after a var section closes it, so it sits at the
+  # section keyword's indent -- not under the fields.
+  $routines = @($lines | Where-Object { $_ -match '^\s*(class\s+)?(procedure|function|constructor|destructor)\s' -and $_ -match '^\s*(class\s+)?(procedure|function|constructor|destructor)\s+(After\w*|Create)\b' })
+  if ($routines.Count -ne 4) { Fail "333: expected 4 class method declarations, found $($routines.Count)" }
+  foreach ($ln in $routines) {
+    if ((Ind $ln) -ne $base) { Fail "333: method after a var section not at the section indent ${base}: '$($ln.Trim())' (indent $(Ind $ln))" }
+  }
   # Every field declaration (Name: Type;) must be indented deeper than $base.
   foreach ($ln in $lines) {
     if ($ln -match '^\s*\w+\s*:\s*\w+\s*;') {
