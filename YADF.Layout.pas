@@ -2269,6 +2269,26 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     Result:= EndsWordCI(Head, 'class') or EndsWordCI(Head, 'object') or EndsWordCI(Head, 'interface') or EndsWordCI(Head, 'dispinterface');
   end; // function
 
+// True when ALine is a type declaration head that has not been closed by ';'
+// (T = class ..., = record, = object, = interface, = dispinterface,
+// helper for). Whitespace runs are collapsed so =  class matches too.
+  function IsOpenTypeHead(const ALine: string): Boolean;
+  const
+    HEAD_MARKS: array[0..6] of string = ('= class', '= record', '= packed record', '= object', '= interface', '= dispinterface', ' helper for ');
+  var
+    L   : string;
+    Mark: string;
+  begin
+    Result:= False;
+    L:= TrimRight(LowerCase(ALine));
+    while Pos('  ', L) > 0 do
+      L:= StringReplace(L, '  ', ' ', [rfReplaceAll]);
+    if (L = '') or (L[Length(L)] = ';') then
+      Exit;
+    for Mark in HEAD_MARKS do
+      if Pos(Mark, L) > 0 then
+        Exit(True);
+  end; // function
 // True iff ALine starts with a control-statement keyword whose own body
 // would dangle if it were pulled onto a preceding `then`/`do` header --
 // pulling it up is the "half-merge" we never want. begin/asm count too:
@@ -2285,7 +2305,7 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
 // the line. The `else` case has one exception -- `else if ...` is
 // a chain we WANT to keep on one line, so an `else` is allowed to
 // merge if the next line starts with `if`.
-  function CurBlocksMerge(const ALine, ANext: string): Boolean;  // dl:ok too-many-exit-points@3316, cyclomatic-complexity@3316
+  function CurBlocksMerge(const ALine, ANext: string): Boolean;  // dl:ok too-many-exit-points@6a19, cyclomatic-complexity@a96f
   var
     R: string;
   begin
@@ -2318,6 +2338,11 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     // member up onto the opener re-creates the half-merged enum bug, so keep
     // the break.
     if (R[Length(R)] = '(') or (R[Length(R)] = '[') then
+      Exit(True);
+    // A type head with trailing modifiers (TFoo = class sealed, class abstract(TBase),
+    // class helper for TBase, packed record) is not terminated by ';' and its members
+    // follow on the next line: never glue them onto the head.
+    if IsOpenTypeHead(R) then
       Exit(True);
     if EndsWordCI(R, 'begin' ) then
       Exit(True);

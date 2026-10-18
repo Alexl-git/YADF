@@ -1,0 +1,52 @@
+unit TypeHeads;
+
+interface
+
+type
+  TBase = class
+  end;
+
+  TSealed = class sealed
+    FA: Integer;
+    procedure DoIt;
+  end;
+
+  TAbs = class abstract(TBase)
+    procedure Go; virtual; abstract;
+  end;
+
+  TOther = class sealed(TBase)
+    procedure Go2;
+  end;
+
+  TIntfHelper = class helper for TBase
+    procedure Extra;
+  end;
+
+  TRecHelper = record helper for Integer
+    procedure Twice;
+  end;
+
+  TRec = packed record
+    A: Integer;
+  end;
+
+implementation
+
+procedure TSealed.DoIt;
+begin
+end;
+
+procedure TOther.Go2;
+begin
+end;
+
+procedure TIntfHelper.Extra;
+begin
+end;
+
+procedure TRecHelper.Twice;
+begin
+end;
+
+end.

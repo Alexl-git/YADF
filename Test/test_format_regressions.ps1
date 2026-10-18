@@ -108,4 +108,21 @@ if (-not (Test-Path (Get-Dcc64))) { Fail 'wp14a: dcc64 missing -- cannot prove t
 elseif (-not (Test-DccCompiles $pduFile $pduDir $pduDir)) { Fail 'wp14a: formatted property_default_unary.pas does not compile' }
 [IO.Directory]::Delete($pduDir, $true)
 
+# --- WP15: a type head with modifiers (`class sealed`, `class abstract(T)`,
+#     `class helper for T`) is never glued to the first member line. Before the
+#     fix `TSealed = class sealed` + `FA: Integer;` reflowed to one line.
+#     Compile-checked. ---
+$o = Fmt 'type_head_merge.pas'
+MustMatch    $o '(?m-i)^\s*TSealed = class sealed\r?$'          'wp15: class sealed stays alone on its line'
+MustNotMatch $o '(?m-i)class sealed[ \t]+FA'                       'wp15: first member not glued to the head'
+MustMatch    $o '(?m-i)^\s*TOther = class sealed\(TBase\)\r?$'  'wp15: class sealed(TBase) head alone'
+MustMatch    $o '(?m-i)^\s*TIntfHelper = class helper for TBase\r?$' 'wp15: helper head alone'
+$thDir = Join-Path $env:TEMP ('th_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory $thDir | Out-Null
+$thFile = Join-Path $thDir 'TypeHeads.pas'
+Set-Content -Path $thFile -Value $o -Encoding ascii -NoNewline
+if (-not (Test-Path (Get-Dcc64))) { Fail 'wp15: dcc64 missing -- cannot prove the output compiles' }
+elseif (-not (Test-DccCompiles $thFile $thDir $thDir)) { Fail 'wp15: formatted type_head_merge.pas does not compile' }
+[IO.Directory]::Delete($thDir, $true)
+
 Finish 'format_regressions'
