@@ -2806,40 +2806,35 @@ begin
 end;
 
 /// <summary>Returns the 1-based positions of every ASep in AText that sits at
-/// bracket depth 0 and outside a quoted string.</summary>
+/// bracket depth 0 and outside a string literal or comment.</summary>
 /// <param name="AText">Text to scan.</param>
 /// <param name="ASep">Separator character; only ';' ',' ':' and '=' are used.</param>
 /// <returns>Ascending positions; empty when none found.</returns>
-/// <remarks>Tracks () and [] depth and '' string literals. Deliberately does
-/// NOT track &lt;&gt; -- see BreakRoutineParams for why that is safe.</remarks>
+/// <remarks>Scans with TLineScanState, so separators inside strings (including
+/// the '' escape), `{ }` / `(* *)` comments and after a `//` are ignored; tracks
+/// () and [] depth. Deliberately does NOT track &lt;&gt; -- see
+/// BreakRoutineParams for why that is safe.</remarks>
 function TopLevelSepPositions(const AText: string; ASep: Char): TArray<Integer>;
 var
-  Depth: Integer       ;
-  i    : Integer       ;
-  InStr: Boolean       ;
-  Res  : TList<Integer>;
+  i  : Integer       ;
+  Res: TList<Integer>;
+  St : TLineScanState;
 begin
   Res:= TList<Integer>.Create;
   try
-    Depth:= 0;
-    InStr:= False;
-    for i:= 1 to Length(AText) do
-    begin
-      if InStr then
+    St.Reset;
+    i:= 1;
+    while True do
+    case St.SkipNonCode(AText, i) of
+      seEndOfLine  : Break;
+      seLineComment: Break;
+      seCode       :
       begin
-        if AText[i] = '''' then
-          InStr:= False;
-        Continue;
-      end;
-      if AText[i] = '''' then
-        InStr:= True
-      else if CharInSet(AText[i], ['(', '[']) then
-        Inc(Depth)
-      else if CharInSet(AText[i], [')', ']']) then
-        Dec(Depth)
-      else if (AText[i] = ASep) and (Depth = 0) then
-        Res.Add(i);
-    end;
+        if (AText[i] = ASep) and (St.Depth = 0) then
+          Res.Add(i);
+        St.StepCode(AText, i);
+      end; // seCode
+    end; // case
     Result:= Res.ToArray;
   finally
     Res.Free;

@@ -237,6 +237,41 @@ end.
   Write-Output 'break_params: (dcc64 not found -- skipping compile check)'
 }
 
+# ----- REGRESSION (WP4): `;` inside a brace comment / '' escape in a header -----
+# TopLevelSepPositions used to scan raw characters, so the `;` in `{ x; y }` was
+# taken as a parameter separator: the comment was cut in half and the guard
+# declined the whole file (or worse, corrupted it). Must format, keep the
+# comment whole, and compile.
+$cdir2 = Join-Path $env:TEMP ('bparm_cm_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $cdir2 | Out-Null
+try {
+  $csrc2 = Join-Path $cdir2 'bparm_cm.pas'   # file name must equal unit name
+  @'
+unit bparm_cm;
+interface
+procedure P(A: Integer; { x; y } B: Integer);
+procedure Q(A: Integer; (* u; v *) B: Integer; C: Integer);
+implementation
+procedure P(A: Integer; { x; y } B: Integer);
+begin
+end;
+procedure Q(A: Integer; (* u; v *) B: Integer; C: Integer);
+begin
+end;
+end.
+'@ | Set-Content $csrc2 -Encoding ascii
+  $cout2 = Join-Path $cdir2 ('out' + [char]92 + 'bparm_cm.pas')
+  New-Item -ItemType Directory -Path (Split-Path $cout2) | Out-Null
+  if (Invoke-Yadf $csrc2 $ini $cout2 @('--break-params')) {
+    $ct = Get-Content $cout2 -Raw
+    MustContain $ct '{ x; y }' 'comment-sep: brace comment kept whole'
+    MustContain $ct '(* u; v *)' 'comment-sep: paren-star comment kept whole'
+    $dcu2 = Join-Path $cdir2 'dcu'; New-Item -ItemType Directory -Path $dcu2 | Out-Null
+    if (-not (Test-DccCompiles $cout2 (Split-Path $cout2) $dcu2)) { Fail 'comment-sep: output must compile' }
+  }
+}
+finally { [IO.Directory]::Delete($cdir2, $true) }
+
 # ----- REGRESSION: a GROUPED name list that only overflows once it is expanded
 # SplitParamGroup repeats the modifier per name, so `const A, B, C: T` becomes
 # three items and the header GROWS. A header that fitted MaxLen on pass 1 can
