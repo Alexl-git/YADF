@@ -1635,6 +1635,24 @@ begin
   end; // try
 end; // begin
 
+// True when ALine starts with a keyword that makes it a STATEMENT or a
+// condition, never a declaration: a = on such a line is a comparison and
+// must not be aligned like a const/type =.
+function LeadsWithConditionWord(const ALine: string): Boolean;
+var
+  i, n: Integer;
+  W   : string;
+begin
+  i:= 1;
+  while (i <= Length(ALine)) and (ALine[i] = ' ') do
+    Inc(i);
+  n:= i;
+  while (n <= Length(ALine)) and CharInSet(ALine[n], ['A'..'Z', 'a'..'z']) do
+    Inc(n);
+  W:= LowerCase(Copy(ALine, i, n - i));
+  Result:= MatchStr(W, ['if', 'while', 'until', 'else', 'and', 'or', 'not', 'case']);
+end; // function
+
 function AlignByAnchor(const S, AAnchor: string; AMaxColumn: Integer): string;
 var
   Anchors : TArray<Integer>;
@@ -1656,7 +1674,10 @@ begin
     Lines.Text     := S;
     SetLength(Anchors, Lines.Count);
     for i:= 0 to Lines.Count - 1 do
-      Anchors[i]:= FindAnchorAtTopLevel(Lines[i], AAnchor);
+      if (AAnchor = '=') and LeadsWithConditionWord(Lines[i]) then
+        Anchors[i]:= 0
+      else
+        Anchors[i]:= FindAnchorAtTopLevel(Lines[i], AAnchor);
     // Exclude lines inside a multi-line ()/[] group (enum bodies, array
     // literals, split parameter lists): they must not be aligned as if they
     // were top-level const/var/type declarations.
@@ -1743,6 +1764,14 @@ end; // function
 //   HasAssign - true iff `:=` appears anywhere on the line (used as
 //               the cheap precondition to skip lines that obviously
 //               can't participate).
+const
+  // Token kinds after which a following +/- is a unary sign (or the line
+  // start, ptUnknown): assignment, openers, separators, operators, keywords
+  // that introduce an expression.
+  UnaryLeadKinds: set of TptTokenKind = [ptUnknown, ptAssign, ptRoundOpen, ptSquareOpen, ptComma, ptColon, ptPlus, ptMinus, ptStar, ptSlash, ptDiv, ptMod, ptShl, ptShr,
+    ptAnd, ptOr, ptXor, ptNot, ptEqual, ptNotEqual, ptLower, ptGreater, ptLowerEqual, ptGreaterEqual, ptIn, ptThen, ptDo, ptElse, ptOf, ptTo, ptDownto, ptIf, ptWhile,
+    ptUntil];
+
 type
   TLineShape = record
     Shape    : TArray<TptTokenKind>;
@@ -1763,9 +1792,23 @@ var
   Tok  : TptTokenKind       ;
   Prev : string             ; // text of the token just before Tok (spaces included)
   PrevK: TptTokenKind       ;
+  LastSig: TptTokenKind     ; // last non-space token (ptUnknown = line start)
+  LastEx : TptTokenKind     ; // ExID of that token (directive words are identifiers)
+  SawProp: Boolean          ; // a property keyword precedes on this line
+  SawProc: Boolean          ; // a procedure/function/constructor/destructor keyword precedes
+  // True when the last token is a signed-argument directive word (see below).
+  function IsSignedDirective: Boolean;
+  begin
+    Result:= (LastSig = ptIdentifier) and (((LastEx in [ptDefault, ptIndex]) and SawProp) or ((LastEx in [ptMessage, ptDispId]) and SawProc));
+  end;
+
 begin
+  LastEx := ptUnknown;
+  SawProp:= False;
+  SawProc:= False;
   Prev := '';
   PrevK:= ptUnknown;
+  LastSig:= ptUnknown;
   Result.HasAssign:= False;
   SetLength(Result.Shape, 0);
   SetLength(Result.Cols , 0);
@@ -1786,6 +1829,12 @@ begin
       if (Tok in [ptPlus, ptMinus]) and (PrevK in [ptFloat, ptIntegerConst]) and (Prev <> '') and CharInSet(Prev[1], ['0'..'9'])
         and CharInSet(Prev[Length(Prev)], ['E', 'e']) then
         Tok:= ptFloat; // treat as part of the literal: not a shape anchor
+      // A sign at line start or right after := ( [ , : or an operator is
+      // UNARY (Y:= -1, (a, -b)): not an operand separator, so not an anchor.
+      // The same holds after the signed-argument directives default/index
+      // (property) and message/dispid (routine): index -2 is not a subtraction.
+      if (Tok in [ptPlus, ptMinus]) and ((LastSig in UnaryLeadKinds) or IsSignedDirective) then
+        Tok:= ptIntegerConst; // not a shape anchor (filtered below)
       if not (Tok in [ ptSpace, ptCRLF, ptCRLFCo, ptIdentifier, ptStringConst, ptStringDQConst, ptIntegerConst, ptFloat, ptAsciiChar, ptAnsiComment, ptBorComment,
           ptSlashesComment]) then
       begin
@@ -1794,6 +1843,13 @@ begin
       end;
       Prev := Lex.Token;
       PrevK:= Lex.TokenID;
+      if not (PrevK in [ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment]) then
+      begin
+        LastSig:= PrevK;
+        LastEx := Lex.ExID;
+        SawProp:= SawProp or (PrevK = ptProperty);
+        SawProc:= SawProc or (PrevK in [ptProcedure, ptFunction, ptConstructor, ptDestructor]);
+      end;
       Lex.Next;
     end;
     Result.Shape:= Shape.ToArray;
@@ -1911,7 +1967,7 @@ var
   function StructuralLead(k: TptTokenKind): Boolean;
   begin
     Result:= k in [ptEnd, ptBegin, ptTry, ptFinally, ptExcept, ptElse, ptRepeat, ptUntil, ptCase, ptRecord, ptClass, ptObject, ptInterface, ptInitialization, ptFinalization,
-      ptAsm];
+      ptAsm, ptIf, ptWhile, ptAnd, ptOr, ptXor, ptPlus, ptMinus, ptStar, ptSlash, ptDiv, ptMod];
   end;
 
   // Section keywords that can never occur inside a well-formed uses clause.

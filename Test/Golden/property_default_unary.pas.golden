@@ -9,7 +9,7 @@ type
       function GetV(AIdx: Integer): Integer;
     public
       property X: Integer read FX write FX default -1;
-      property V: Integer index                    -2 read GetV;
+      property V: Integer index -2 read GetV;
   end;
 
 function IndexMinus(index: Integer): Integer;

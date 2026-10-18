@@ -99,6 +99,7 @@ MustMatch    $o '(?m-i)\bVirtual\b'                                'unsafe: peer
 $o = Fmt 'property_default_unary.pas'
 MustMatch    $o '(?m-i)\bdefault -1;'          'wp14a: default -1 keeps the unary sign'
 MustMatch    $o '(?m-i)\bindex\s+-2 read'        'wp14a: index -2 keeps the unary sign'
+MustNotMatch $o '(?m-i)\bindex\s{2,}-2'         'wp14b: index -2 not padded by the aligner'
 MustMatch    $o '(?m-i)Result:= \w+ - 1;'      'wp14a: a variable named Index still gets a binary minus'
 $pduDir = Join-Path $env:TEMP ('pdu_' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $pduDir | Out-Null
@@ -124,5 +125,22 @@ Set-Content -Path $thFile -Value $o -Encoding ascii -NoNewline
 if (-not (Test-Path (Get-Dcc64))) { Fail 'wp15: dcc64 missing -- cannot prove the output compiles' }
 elseif (-not (Test-DccCompiles $thFile $thDir $thDir)) { Fail 'wp15: formatted type_head_merge.pas does not compile' }
 [IO.Directory]::Delete($thDir, $true)
+
+# --- WP14b: a unary sign after := ( , or an operator is not an alignment anchor
+#     (`Alpha:= -1` and `Be:= 22` are shape peers); conditions of if/while are
+#     not aligned like assignments (`if A     = 1 then`). Compile-checked. ---
+$o = Fmt 'unary_and_cond_align.pas'
+MustMatch    $o '(?m-i)^  Be   := 22;'              'wp14b: unary sign is not an anchor: := aligned across -1 / 22 / +3'
+MustMatch    $o '(?m-i)^  Gamma:= \+3;'             'wp14b: unary plus keeps attached'
+MustNotMatch $o '(?m-i)\bif A\s{2,}='               'wp14b: if condition not padded'
+MustNotMatch $o '(?m-i)\bwhile A\s{2,}='            'wp14b: while condition not padded'
+MustNotMatch $o '(?m-i)\bif \(A\s{2,}>'             'wp14b: if (cond) not padded'
+$ucDir = Join-Path $env:TEMP ('uca_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory $ucDir | Out-Null
+$ucFile = Join-Path $ucDir 'UnaryCondAlign.pas'
+Set-Content -Path $ucFile -Value $o -Encoding ascii -NoNewline
+if (-not (Test-Path (Get-Dcc64))) { Fail 'wp14b: dcc64 missing -- cannot prove the output compiles' }
+elseif (-not (Test-DccCompiles $ucFile $ucDir $ucDir)) { Fail 'wp14b: formatted unary_and_cond_align.pas does not compile' }
+[IO.Directory]::Delete($ucDir, $true)
 
 Finish 'format_regressions'
