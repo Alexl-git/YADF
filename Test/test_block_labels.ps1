@@ -149,6 +149,40 @@ MustMatch    $noRewrite.Pass1 '(?m)^  end; // if\s*$' 'a long block keeps its ha
 MustNotMatch $noRewrite.Pass1 '// while'              'a mismatched marker is never re-derived'
 if ($noRewrite.Pass1 -ne $noRewrite.Pass2) { Fail 'idempotent: marker never rewritten' }
 
+# ----- WP12: a multi-line comment/directive after `end;` must never get a label -----
+# The trailing text on the end line spans physical lines; appending ` // while`
+# lands the label mid-comment (guard decline / corruption). No label, no decline.
+$mlCases = @(
+  @{ Name = 'multi-line IF directive'; Keep = 'Defined(B)}'; Tail = "end; {`$IF Defined(A) or`r`n    Defined(B)}`r`n  {`$ENDIF}" },
+  @{ Name = 'multi-line brace comment'; Keep = 'lines }'; Tail = "end; { two`r`n    lines }" }
+)
+foreach ($c in $mlCases) {
+  $mlSrc = @(
+    'unit lbl;'
+    'interface'
+    'implementation'
+    'procedure P;'
+    'begin'
+    '  while A do'
+    '  begin'
+    '    B;'
+    '    C;'
+    '    D;'
+    "  $($c.Tail)"
+    'end;'
+    'end.'
+  ) -join "`r`n"
+  $mlIn  = New-TempOut
+  $mlOut = New-TempOut
+  Set-Content -Path $mlIn -Value $mlSrc -Encoding ascii
+  if (Invoke-Yadf $mlIn $ini $mlOut @('--label-min-lines', '2')) {
+    $mlText = Get-Content $mlOut -Raw
+    MustNotMatch $mlText '// while' ("no label after " + $c.Name)
+    MustContain  $mlText $c.Keep ("comment text survives: " + $c.Name)
+  }
+  Remove-Item $mlIn, $mlOut -Force -ErrorAction SilentlyContinue
+}
+
 # ----- Round-trip: --check still passes on output that lost a label -----
 $rt  = Join-Path $env:TEMP 'lbl_rt.pas'
 $rto = Join-Path $env:TEMP 'lbl_rt_out.pas'

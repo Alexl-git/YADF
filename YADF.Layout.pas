@@ -5108,6 +5108,27 @@ var
     Result:= -1;
   end; // function
 
+  // True when the physical line holding G's closing `end` carries (after it) a
+  // multi-line atom: a directive/comment token that spans lines, or the single-line
+  // sentinel a shielded multi-line comment stands in as at this stage. A label
+  // appended to such a line would land inside the atom, so the block is left alone.
+  function EndLineTailIsMultiline(G: TGroup): Boolean;
+  var
+    EndLine: Integer;
+    k      : Integer;
+  begin
+    EndLine:= Tokens[G.CloseIdx].Line;
+    k:= G.CloseIdx + 1;
+    while (k < Tokens.Count) and (Tokens[k].Line = EndLine) do
+    begin
+      if Tokens[k].Kind <> ptCRLF then
+        if (Pos(LF, Tokens[k].Text) > 0) or (Pos(CR, Tokens[k].Text) > 0) or (Pos('__YADF_ML', Tokens[k].Text) > 0) then
+        Exit(True);
+      Inc   (k   );
+    end;
+    Result:= False;
+  end; // function
+
   // Post-order: an inner block is recorded BEFORE its enclosing one, so when
   // two `end`s land on the same output line the OUTER block's verdict wins --
   // the same precedence the old in-walker PendingLabel had (it was overwritten
@@ -5125,6 +5146,12 @@ var
       Visit(Child);
       if (Child.Kind <> gkBlock) or Child.ForceClosed or (Child.CloseIdx <= Child.OpenIdx) then
         Continue;
+      if EndLineTailIsMultiline(Child) then
+      begin
+        Adds .Remove(Tokens[Child.CloseIdx].Line);
+        Drops.Remove(Tokens[Child.CloseIdx].Line);
+        Continue;
+      end;
       EndLine:= Tokens[Child.CloseIdx].Line;
       Kw     := '// ' + FindBlockLabel(Tokens, Child.OpenIdx);
       CmtIdx := TrailingCommentIdx(Child);
