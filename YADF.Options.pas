@@ -507,6 +507,14 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 
 function ResolveProfileIniPath(const AFileName: string): string;
 
+/// <summary>The exact bytes SaveFile writes for AContent: AEnc-encoded, with AEnc's preamble first only when AWithBOM.</summary>
+/// <param name="AContent">Text to encode.</param>
+/// <param name="AEnc">Target encoding; must not be nil.</param>
+/// <param name="AWithBOM">Prepend AEnc.GetPreamble when True.</param>
+/// <returns>Preamble (if any) followed by the encoded text.</returns>
+/// <remarks>Pure. Shared by SaveFile and the CLI's --stdout so both emit identical bytes.</remarks>
+function EncodeForSave(const AContent: string; AEnc: TEncoding; AWithBOM: Boolean): TBytes;
+
 /// <summary>Writes AContent to AFileName as AEnc, crash-safely (temp file + flush + replace).</summary>
 /// <param name="AFileName">Target path; an existing file is replaced in place, keeping its attributes, ACL and alternate data streams (ReplaceFileW). A missing file is created.</param>
 /// <param name="AContent">Text to encode.</param>
@@ -1133,6 +1141,23 @@ begin
     Result:= TPath.Combine(ProfilesDir, AFileName);
 end;
 
+function EncodeForSave(const AContent: string; AEnc: TEncoding; AWithBOM: Boolean): TBytes;
+var
+  Bytes   : TBytes;
+  Preamble: TBytes;
+begin
+  if AWithBOM then
+    Preamble:= AEnc.GetPreamble
+  else
+    Preamble:= nil;
+  Bytes:= AEnc.GetBytes(AContent);
+  SetLength(Result, Length(Preamble) + Length(Bytes));
+  if Length(Preamble) > 0 then
+    Move(Preamble[0], Result[0], Length(Preamble));
+  if Length(Bytes) > 0 then
+    Move(Bytes[0], Result[Length(Preamble)], Length(Bytes));
+end;
+
 procedure SaveFile(const AFileName, AContent: string; AEnc: TEncoding; AWithBOM: Boolean);
 
   procedure WriteAllBytesFlushed(const AFile: string; const ABytes: TBytes);
@@ -1166,24 +1191,10 @@ procedure SaveFile(const AFileName, AContent: string; AEnc: TEncoding; AWithBOM:
   end;
 
 var
-  All     : TBytes;
-  Bytes   : TBytes;
-  Preamble: TBytes;
-  Tmp     : string;
+  All: TBytes;
+  Tmp: string;
 begin
-  if AWithBOM then
-    Preamble:= AEnc.GetPreamble
-  else
-    Preamble:= nil;
-  Bytes:= AEnc.GetBytes(AContent);
-  if Length(Preamble) > 0 then
-  begin
-    SetLength(All, Length(Preamble) + Length(Bytes));
-    Move(Preamble[0], All[0], Length(Preamble));
-    Move(Bytes[0], All[Length(Preamble)], Length(Bytes));
-  end
-  else
-    All:= Bytes;
+  All:= EncodeForSave(AContent, AEnc, AWithBOM);
 
   Tmp:= AFileName + '.yadf-tmp';
   try

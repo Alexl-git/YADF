@@ -14,6 +14,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **Exit code 3 = declined.** When the content guard declines at least one file (left unchanged, or - with --o/--of/--batch/--stdout - the unchanged input written/emitted) and nothing failed, YADF now exits 3 instead of 0. A real failure still exits with the failure count. Scripts that treated any non-zero exit as failure should treat 3 as a decline.
 - **In-place writes keep file identity.** SaveFile now lives in YADF.Options (shared by the CLI and the IDE wizard) and replaces an existing file with ReplaceFileW, so the Hidden/ReadOnly attributes, ACL and alternate data streams survive a format.
+- **--stdout emits the exact bytes --o would write.** It used to ANSI-encode the text whatever the input was, so a UTF-8 or UTF-16 file piped through --stdout was mangled. Now the detected (or --encoding) encoding is used, with a BOM iff the file would carry one.
 - **--of refuses two inputs with the same file name** (exit 1, nothing written) instead of silently overwriting the first result; an input reached twice (named and by wildcard) is formatted once.
 
 ## [1.0.19.0] - 2026-10-14

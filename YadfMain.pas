@@ -219,6 +219,15 @@ begin
   WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), Bytes[0], Length(Bytes), Written, nil);
 end;
 
+procedure WriteStdoutBytes(const ABytes: TBytes);
+var
+  Written: DWORD;
+begin
+  if Length(ABytes) = 0 then
+    Exit;
+  WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), ABytes[0], Length(ABytes), Written, nil);
+end;
+
 procedure WriteStdoutLine(const S: string);
 begin
   WriteStdoutRaw(S + sLineBreak);
@@ -376,11 +385,14 @@ end;
 
 procedure FormatToStdout(const AFileName: string; const AOpts: TYadfOptions);
 var
-  Source  : string;
-  Declined: string;
+  Source  : string  ;
+  Declined: string  ;
+  WEnc    : TEncoding;
+  WBom    : Boolean ;
 begin
-  Source:= LoadFile(AFileName, AOpts);
-  WriteStdoutRaw(FormatSource(Source, AOpts, Declined));
+  Source:= LoadFile(AFileName, AOpts, WEnc, WBom);
+  // The exact bytes --o / in-place would write (detected or explicit encoding, BOM iff the file would carry one).
+  WriteStdoutBytes(EncodeForSave(FormatSource(Source, AOpts, Declined), WEnc, WBom));
   // stdout carries the (unchanged) source; the decline note goes to stderr so
   // pipelines still work while the user learns the file was left as-is.
   if Declined <> '' then
@@ -857,7 +869,7 @@ begin
   WriteStdoutLine('  <project>.dproj       format every .pas referenced in the .dproj XML'         );
   WriteStdoutLine(''                                                                               );
   WriteStdoutLine('Output (default = format in place):'                                            );
-  WriteStdoutLine('  --stdout              write formatted text to stdout (no files written)'      );
+  WriteStdoutLine('  --stdout              write formatted text to stdout as the exact bytes --o would write (input/--encoding encoding, BOM iff the file would have one)');
   WriteStdoutLine('  --o <file>            write the result to <file> (single input only)'         );
   WriteStdoutLine(Format('  --of <folder>         write each result to <folder>\<basename>          [%s]', [Quoted(AOpts.ResultDir)]));
   WriteStdoutLine('  --no-o                clear --of/--o; format in place'              );

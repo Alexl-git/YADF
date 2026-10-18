@@ -122,6 +122,29 @@ try {
   $b = [IO.File]::ReadAllBytes($f)
   MustBeFormatted $b 'ascii'
   if ($b[0] -eq 0xEF -or $b[0] -eq 0xFF -or $b[0] -eq 0xFE) { Fail 'ascii: BOM appeared' }
+
+  # ----- 6. --stdout emits EXACTLY the bytes --o would write (WP9): same
+  #       detected/explicit encoding, BOM iff the file would carry one. -----
+  $stdoutCases = @(
+    @{ n = 'so_utf8_nobom'; marker = [byte[]]($eAcute8 + $eAcute8); pre = [byte[]]@(); flags = @() },
+    @{ n = 'so_utf8_bom';   marker = $eAcute8;                       pre = $utf8Bom;    flags = @() },
+    @{ n = 'so_ansi';       marker = $eAcuteA;                       pre = [byte[]]@(); flags = @() },
+    @{ n = 'so_ansi_to_u8'; marker = $eAcuteA;                       pre = [byte[]]@(); flags = @('--encoding', 'utf8') }
+  )
+  foreach ($c in $stdoutCases) {
+    $f = WriteCase ($c.n + '.pas') $c.marker $c.pre
+    $oFile = Join-Path $tmpDir ($c.n + '_o.pas')
+    $sFile = Join-Path $tmpDir ($c.n + '.stdout')
+    & $exe --ini $ini @($c.flags) $f --o $oFile | Out-Null
+    $argl = @('--ini', $ini) + @($c.flags) + @($f, '--stdout')
+    Start-Process -FilePath $exe -ArgumentList $argl -RedirectStandardOutput $sFile -NoNewWindow -Wait
+    $ob = [IO.File]::ReadAllBytes($oFile)
+    $sb = [IO.File]::ReadAllBytes($sFile)
+    MustBeFormatted $ob ($c.n + ' (--o)')
+    if ($ob.Length -ne $sb.Length -or (Compare-Object $ob $sb -SyncWindow 0)) {
+      Fail "$($c.n): --stdout bytes differ from --o bytes (stdout $($sb.Length) vs o $($ob.Length))"
+    }
+  }
 }
 finally {
   Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
