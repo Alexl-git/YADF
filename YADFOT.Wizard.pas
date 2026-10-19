@@ -63,7 +63,9 @@ uses
   , DesignIntf            // ForceDemandLoadState / dlDisable live HERE, not ToolsAPI
   , YADF.Options
   , YADF.Layout
+  , YADF.FormatBridge
   , YADFOT.Options
+  , YADFOT.CodeFormatter
   ;
 
 // Named icon resource for the IDE splash-screen + About-box entry (compiled from
@@ -169,15 +171,10 @@ end; // procedure
 // default template there before loading -- so first-run formatting uses the
 // documented defaults, and the file is then editable from YADFSetup/the page.
 function ResolveOptions: TYadfOptions;
-var
-  IniPath: string;
 begin
-  Result := DefaultOptions;
-  IniPath:= ResolveProfileIniPath(LoadProfiles.F);
-  if IniPath = '' then
-    IniPath:= SharedAppDataIniPath;   // defensive: F is never '' (defaults to yadf.ini)
-  EnsureIniExists(IniPath);
-  LoadIniDefaults(Result, IniPath);
+  // Shared with the Delphi 13.2 IOTACodeFormatter adapter so both entry points
+  // resolve the F profile identically (YADF.FormatBridge.ResolveFProfileOptions).
+  Result:= ResolveFProfileOptions;
 end;
 
 // --- Buffer access ------------------------------------------------------
@@ -187,11 +184,8 @@ end;
 // Anything else (.dfm/.fmx form streams, .res, .txt scratch buffers,
 // project options pages...) is refused upstream.
 function IsCodeBufferExt(const AFileName: string): Boolean;
-var
-  Ext: string;
 begin
-  Ext:= LowerCase(ExtractFileExt(AFileName));
-  Result:= (Ext = '.pas') or (Ext = '.dpr') or (Ext = '.dpk') or (Ext = '.inc');
+  Result:= IsPascalSourceFile(AFileName);
 end;
 
 // Returns the IOTASourceEditor for the buffer that currently has focus,
@@ -632,6 +626,8 @@ begin
   // Strip the About-box entry + free the retained icon here too (primary hook,
   // before the code segment is dropped); the finalization below is a backstop.
   try UnregisterYadfotAbout;  except end;  // dl:ok empty-except@0e7a, try-except-swallowed@0e7a
+  // Hand the IDE code formatter back (Delphi 13.2+; a no-op elsewhere).
+  try UnregisterYadfCodeFormatter; except end;  // dl:ok empty-except@cf03, try-except-swallowed@cf03
 end;
 
 // --- IOTAKeyboardBinding (Ctrl+Shift+Alt+F) ----------------------------
@@ -771,6 +767,8 @@ begin
   // Add the IDE splash bitmap + the static About-box entry. Guarded so a
   // missing splash/about service never aborts the whole registration.
   try RegisterYadfotAbout; except end;  // dl:ok empty-except@0bdf, try-except-swallowed@0bdf
+  // Opt-in IDE code formatter (Delphi 13.2+ and [IDE] NativeFormatter=1; else a no-op).
+  try RegisterYadfCodeFormatter; except end;  // dl:ok empty-except@cf04, try-except-swallowed@cf04
 end;
 
 // Hand back the wizard slot and keyboard binding. Called from finalization;

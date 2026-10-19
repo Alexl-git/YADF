@@ -39,6 +39,8 @@ requires
 contains
   YADFOT.Wizard in 'YADFOT.Wizard.pas',
   YADFOT.Options in 'YADFOT.Options.pas',
+  YADFOT.CodeFormatter in 'YADFOT.CodeFormatter.pas',
+  YADF.FormatBridge in 'YADF.FormatBridge.pas',
   YADF.OptionsFrame in 'YADF.OptionsFrame.pas' {YadfOptionsFrame: TFrame},
   YADF.Tokens in 'YADF.Tokens.pas',
   YADF.Options in 'YADF.Options.pas',

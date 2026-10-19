@@ -59,7 +59,7 @@ function TextToUtf8(const AText: string): UTF8String;
 /// <remarks>Never raises. A decline or exception can therefore never hand the IDE partial or
 /// corrupt text: the original bytes come back and the reason is reported. Not thread-safe
 /// (the engine keeps unit-level state); call from the IDE main thread.</remarks>
-function FormatUtf8Content(const AContent: UTF8String; const AOpts: TYadfOptions; out AFormatted: UTF8String;
+function FormatUtf8Content(const AContent: UTF8String; const AOpts: TYadfOptions; out AFormatted: UTF8String;  // dl:ok unused-public-symbol@0851
   out ADeclined: string; AFormat: TYadfFormatFunc = nil): Boolean;
 
 /// <summary>Expands a byte range to the whole lines that contain it.</summary>
@@ -78,7 +78,7 @@ function ExpandToWholeLines(const AContent: UTF8String; AOffset, ALen: Integer; 
 /// <param name="AOffset">0-based byte offset of the selection start.</param>
 /// <param name="ALen">Selection length in bytes.</param>
 /// <returns>False for an invalid range, empty content or a partial selection.</returns>
-function SelectionCoversWholeContent(const AContent: UTF8String; AOffset, ALen: Integer): Boolean;
+function SelectionCoversWholeContent(const AContent: UTF8String; AOffset, ALen: Integer): Boolean;  // dl:ok unused-public-symbol@ce90
 
 /// <summary>Maps a caret byte offset from the original to the formatted text by (line, column).</summary>
 /// <param name="AOriginal">Content before formatting.</param>
@@ -88,7 +88,7 @@ function SelectionCoversWholeContent(const AContent: UTF8String; AOffset, ALen: 
 /// exists, never inside a multi-byte UTF-8 character; 0 for empty AFormatted.</returns>
 /// <remarks>Formatting can change line counts, so this is a best-effort caret restore, not offset
 /// remapping (the adapter reports SupportsOffsetRemapping = False).</remarks>
-function RemapCursorOffset(const AOriginal, AFormatted: UTF8String; AOffset: Integer): Integer;
+function RemapCursorOffset(const AOriginal, AFormatted: UTF8String; AOffset: Integer): Integer;  // dl:ok unused-public-symbol@8e93
 
 /// <summary>Options of the F profile, resolved exactly as the Ctrl+Shift+Alt+F command does.</summary>
 /// <returns>%APPDATA%\YADF\profiles.ini [Profiles]F (default yadf.ini), materialised with the
@@ -113,7 +113,7 @@ end;
 
 function Utf8ToText(const AContent: UTF8String): string;
 begin
-  if Length(AContent) = 0 then Exit('');
+  if AContent = '' then Exit('');
   Result:= TEncoding.UTF8.GetString(BytesOf(AContent));
 end;
 
@@ -185,7 +185,7 @@ function SelectionCoversWholeContent(const AContent: UTF8String; AOffset, ALen: 
 var
   S, E: Integer;
 begin
-  Result:= (Length(AContent) > 0) and ExpandToWholeLines(AContent, AOffset, ALen, S, E) and (S = 0) and (E = Length(AContent));
+  Result:= (AContent <> '') and ExpandToWholeLines(AContent, AOffset, ALen, S, E) and (S = 0) and (E = Length(AContent));
 end;
 
 function RemapCursorOffset(const AOriginal, AFormatted: UTF8String; AOffset: Integer): Integer;

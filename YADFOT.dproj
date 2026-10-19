@@ -128,6 +128,8 @@
         <DCCReference Include="designide.dcp"/>
         <DCCReference Include="YADFOT.Wizard.pas"/>
         <DCCReference Include="YADFOT.Options.pas"/>
+        <DCCReference Include="YADFOT.CodeFormatter.pas"/>
+        <DCCReference Include="YADF.FormatBridge.pas"/>
         <DCCReference Include="YADF.OptionsFrame.pas">
             <Form>YadfOptionsFrame</Form>
             <FormType>dfm</FormType>
