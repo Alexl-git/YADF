@@ -3,6 +3,10 @@
 # separator placement mirrors UsesCommaLast. Exit 0 = pass, 1 = fail.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
+# Per-run scratch dir: no fixed temp names, so concurrent runs cannot collide and a stale
+# file from an earlier run can never be scored.
+$tmpRoot = Join-Path $env:TEMP ('yadf_test_break_params_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmpRoot | Out-Null
 $exe = Get-YadfExe
 $ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
 Assert-ToolOrSkip 'break_params' $exe
@@ -13,7 +17,7 @@ MustMatch $help '--break-params'     'help lists --break-params'
 MustMatch $help '--no-break-params'  'help lists --no-break-params'
 
 # Generated default INI carries the key (table-driven template).
-$tmpIni = Join-Path $env:TEMP 'bparm.ini'
+$tmpIni = Join-Path $tmpRoot 'bparm.ini'
 Remove-Item $tmpIni -Force -ErrorAction SilentlyContinue
 & $exe --ini $tmpIni --help | Out-Null   # --ini <new path> materialises the template
 # This used to fall back to a --stdout run: the help branch ran before
@@ -26,7 +30,7 @@ Remove-Item $tmpIni -Force -ErrorAction SilentlyContinue
 
 # A --break-params run is ACCEPTED (no "unknown option") even before the pass
 # exists; behavior assertions arrive in later tasks.
-$probe = Join-Path $env:TEMP 'bparm_probe.pas'
+$probe = Join-Path $tmpRoot 'bparm_probe.pas'
 @'
 unit p; interface implementation
 procedure Go(const A: string; B: Integer); begin end;
@@ -50,8 +54,8 @@ function FmtDecl([string]$decl, [string]$flags, [string]$iniPath) {
     'implementation'
     'end.'
   ) -join "`r`n"
-  $src = Join-Path $env:TEMP 'bparm_in.pas'
-  $out = Join-Path $env:TEMP 'bparm_out.pas'
+  $src = Join-Path $tmpRoot 'bparm_in.pas'
+  $out = Join-Path $tmpRoot 'bparm_out.pas'
   Set-Content -Path $src -Value $u -Encoding ascii
   $argv = @($flags -split ' ' | Where-Object { $_ -ne '' })
   & $exe --ini $iniPath $src @argv --o $out | Out-Null
@@ -87,7 +91,7 @@ MustMatch $zero '(?m)procedure Reset;' 'threshold: no params untouched'
 # ----- Task 5: separator-last mirrors UsesCommaLast -----
 # UsesCommaLast has NO CLI flag (it is INI/UI only), so pin it through a copy of
 # the repo INI. Left in place on purpose: later sections reuse $iniLast.
-$iniLast = Join-Path $env:TEMP 'bparm_commalast.ini'
+$iniLast = Join-Path $tmpRoot 'bparm_commalast.ini'
 ((Get-Content $ini -Raw) -replace '(?m)^UsesCommaLast=.*$', 'UsesCommaLast=true') |
   Set-Content $iniLast -Encoding ascii -NoNewline
 
@@ -135,7 +139,7 @@ $call = FmtDecl 'procedure Uses1(A: Integer; B: Integer);' '--break-params'
 MustNotMatch $call '(?m)^\s+; Writeln' 'non-goal: call sites untouched'
 
 # ----- Task 6: idempotency + content-preserving round-trip -----
-$idemSrc = Join-Path $env:TEMP 'bparm_idem.pas'
+$idemSrc = Join-Path $tmpRoot 'bparm_idem.pas'
 @'
 unit probe;
 interface
@@ -174,7 +178,7 @@ end.
 foreach ($cfg in @(
     @{ Ini = $ini;     Label = 'separator-first' },
     @{ Ini = $iniLast; Label = 'separator-last'  })) {
-  $o1 = Join-Path $env:TEMP 'bparm_i1.pas'; $o2 = Join-Path $env:TEMP 'bparm_i2.pas'
+  $o1 = Join-Path $tmpRoot 'bparm_i1.pas'; $o2 = Join-Path $tmpRoot 'bparm_i2.pas'
   & $exe --ini $cfg.Ini $idemSrc --break-params --o $o1 | Out-Null
   & $exe --ini $cfg.Ini $o1      --break-params --o $o2 | Out-Null
   if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail ("idempotent: " + $cfg.Label) }
@@ -280,9 +284,9 @@ finally { [IO.Directory]::Delete($cdir2, $true) }
 # needs ONE balanced header line -- can no longer match it. Pass 1 breaks one
 # per line, pass 2 emits a greedy two-line wrap: format(format(x)) <> format(x).
 # Found on YADF's own YADF.Guard.pas (`ExtractContent`) at the repo MaxLen.
-$grpIn = Join-Path $env:TEMP 'bparam_group.pas'
-$g1    = Join-Path $env:TEMP 'bparam_g1.pas'
-$g2    = Join-Path $env:TEMP 'bparam_g2.pas'
+$grpIn = Join-Path $tmpRoot 'bparam_group.pas'
+$g1    = Join-Path $tmpRoot 'bparam_g1.pas'
+$g2    = Join-Path $tmpRoot 'bparam_g2.pas'
 @'
 unit probe;
 interface
@@ -302,4 +306,5 @@ $gchk = & $exe --ini $ini --check $g1 2>&1
 if ("$gchk" -notmatch 'PASS') { Fail 'roundtrip/guard: expanded group header' }
 Remove-Item $grpIn, $g1, $g2 -Force -ErrorAction SilentlyContinue
 
+[IO.Directory]::Delete($tmpRoot, $true)
 Finish 'break_params'
