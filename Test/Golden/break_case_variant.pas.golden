@@ -1,0 +1,24 @@
+unit break_case_variant;
+
+interface
+
+type
+  TVar = record
+    case Tag: Integer of
+    0, 1    : (A: Integer);
+    2       : (B: Byte)   ;
+  end;
+
+procedure Demo(K: Integer; var Flag: Boolean);
+
+implementation
+
+procedure Demo(K: Integer; var Flag: Boolean);
+begin
+  case K of
+    0, 1: Flag:= True;
+    2, 3: Inc(K)     ;
+  end;
+end;
+
+end.
