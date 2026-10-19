@@ -87,6 +87,26 @@ try {
 }
 finally { [IO.Directory]::Delete($tyDir, $true) }
 
+# ----- variant-record label line `0, 1: (A: Integer);` must NOT be split -----
+# Splitting it into `0: (A: Integer); 1: (A: Integer);` duplicates the field
+# and does not compile (E2004). A body that opens with `(` is never split.
+# The real case arms in the same fixture must still split. Compile-checked.
+$vaSrc = Join-Path $PSScriptRoot 'Cases\break_case_variant.pas'
+$vaDir = Join-Path $env:TEMP ('bcv_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $vaDir | Out-Null
+try {
+  $vaOut = Join-Path $vaDir 'break_case_variant.pas'
+  if (Invoke-Yadf $vaSrc $ini $vaOut @('--break-case')) {
+    $vo = Get-Content $vaOut -Raw
+    MustMatch    $vo '(?m)^\s*0, 1\s*: \(A: Integer\)'  'variant: label line kept combined'
+    MustMatch    $vo '(?m)^\s*0:\s*Flag'              'variant: real case arm 0 still split'
+    MustMatch    $vo '(?m)^\s*3:\s*Inc'               'variant: real case arm 3 still split'
+    $dcu = Join-Path $vaDir 'dcu'; New-Item -ItemType Directory -Path $dcu | Out-Null
+    if (-not (Test-DccCompiles $vaOut (Split-Path $vaSrc) $dcu)) { Fail 'variant: formatted output does not compile' }
+  }
+}
+finally { [IO.Directory]::Delete($vaDir, $true) }
+
 # ----- idempotency + byte-faithful round-trip for both modes -----
 foreach ($flag in @('--no-break-case','--break-case')) {
   $o1 = Join-Path $env:TEMP "bc1.pas"; $o2 = Join-Path $env:TEMP "bc2.pas"

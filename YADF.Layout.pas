@@ -1450,6 +1450,11 @@ begin
             if TypePartIsAnonymousStructured(TypePart) or TypePartIsEnum(Names, TypePart) then
               DoSplit:= False;
           end; // else
+          // A body opening with `(` is a variant-record field list
+          // (`0, 1: (A: Integer);`) or an enum: duplicating it per label
+          // redeclares the fields (E2004). A missed split is harmless.
+          if (TypePart <> '') and (TrimLeft(TypePart)[1] = '(') then
+            DoSplit:= False;
           // A block comment left OPEN at the end of the line continues on the
           // next line; it cannot be re-attached to a single split line, so
           // leave such lines alone.
