@@ -34,6 +34,30 @@ begin
     Write('[', T, ']');
   until N = 3;
   Writeln;
+  // single-statement loop bodies (no begin of their own): the declaration sits in a
+  // nested block that is still re-entered on every iteration.
+  for var K := 1 to 3 do
+    if K > 0 then
+    begin
+      var V: string;
+      if K = 2 then
+        V := 'v';
+      Write('[', V, ']');
+    end;
+  Writeln;
+  N := 0;
+  while N < 3 do
+    if N < 0 then
+      Inc(N)
+    else
+    begin
+      Inc(N);
+      var W: string;
+      if N = 2 then
+        W := 'w';
+      Write('[', W, ']');
+    end;
+  Writeln;
 end;
 procedure Straight;
 begin

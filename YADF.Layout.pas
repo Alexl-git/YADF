@@ -6145,21 +6145,24 @@ var
   end;
 
 // True when the `begin` at ABegin is the body of a `for` / `while` loop
-// (`... do begin`): scans back from the `do` to the statement that owns it.
+// (`... do begin`) or the block of a single-statement body that is not a begin of
+// its own (`for ... do if C then begin` / `... else begin`): scans back from the`r
+// `do` to the statement that owns it, passing through `then` / `else` / nested`r
+// `do` but stopping at `;` or any other block opener.
   function IsLoopBegin(ABegin, AFloor: Integer): Boolean;
   var
     j: Integer;
   begin
     Result:= False;
     j:= PrevSig(ABegin - 1);
-    if (j < 0) or (ATokens[j].Kind <> ptDo) then
+    if (j < 0) or not (ATokens[j].Kind in [ptDo, ptThen, ptElse]) then
       Exit;
     Dec(j);
     while j > AFloor do
     begin
       case ATokens[j].Kind of
         ptFor, ptWhile: Exit(True);
-        ptWith, ptOn, ptSemiColon, ptBegin, ptThen, ptElse, ptTry, ptFinally, ptExcept, ptRepeat, ptDo: Exit;
+        ptWith, ptOn, ptSemiColon, ptBegin, ptTry, ptFinally, ptExcept, ptRepeat: Exit;
       end;
       Dec(j);
     end;
