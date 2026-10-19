@@ -82,4 +82,19 @@ if (-not ((Get-Item -LiteralPath $f -Force).Attributes -band [IO.FileAttributes]
 $s = Get-Content -LiteralPath $f -Stream 'yadf.test' -ErrorAction SilentlyContinue
 if ($s -ne 'keepme') { Fail 'in-place format dropped the alternate data stream' }
 
+# 7. `--o <read-only target>`: a failed write is a FAILURE (exit 1, same as the
+#    in-place case), never an unhandled EOSError (exit 2). Target untouched, no
+#    .yadf-tmp left behind.
+$f = New-Case 'ro'
+$tgt = Join-Path (Split-Path $f) 'target.pas'
+[IO.File]::WriteAllText($tgt, 'KEEP', [Text.Encoding]::ASCII)
+(Get-Item -LiteralPath $tgt).IsReadOnly = $true
+$out = & $exe --ini $ini $f --o $tgt 2>&1 | Out-String
+$rc = $LASTEXITCODE
+(Get-Item -LiteralPath $tgt).IsReadOnly = $false
+if ($rc -ne 1) { Fail "--o read-only target: expected exit 1, got $rc -- $out" }
+MustMatch $out '(?m)^FAIL ' '--o read-only target reports a FAIL line'
+if ([IO.File]::ReadAllText($tgt) -ne 'KEEP') { Fail '--o read-only target: target was modified' }
+if (Test-Path -LiteralPath ($tgt + '.yadf-tmp')) { Fail '--o read-only target: .yadf-tmp left behind' }
+
 Finish 'cli_safety'

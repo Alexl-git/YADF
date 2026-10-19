@@ -426,11 +426,24 @@ begin
       ExitCode:= 1;
     Exit;
   end;
-  Source:= LoadFile(AInFile, AOpts, WEnc, WBom);
-  Dir:= TPath.GetDirectoryName(AOutFile);
-  if Dir <> '' then
-    TDirectory.CreateDirectory(Dir);
-  SaveFile(AOutFile, FormatSource(Source, AOpts, Declined), WEnc, WBom);
+  try
+    Source:= LoadFile(AInFile, AOpts, WEnc, WBom);
+    Dir:= TPath.GetDirectoryName(AOutFile);
+    if Dir <> '' then
+      TDirectory.CreateDirectory(Dir);
+    SaveFile(AOutFile, FormatSource(Source, AOpts, Declined), WEnc, WBom);
+  except
+    // Same contract as the in-place path (ProcessOneFile): a failed read or
+    // write (read-only target, locked file, bad path) is a reported FAILURE
+    // with exit 1, not an unhandled exception (exit 2).
+    on E: Exception do
+    begin
+      LogMsg('    FAIL ' + E.ClassName + ': ' + E.Message);
+      WriteStdoutLine(Format('FAIL  %s  (%s: %s)', [AInFile, E.ClassName, E.Message]));
+      ExitCode:= EXIT_FAILED;
+      Exit;
+    end;
+  end;
   if Declined <> '' then
   begin
     WriteStdoutLine('declined ' + AInFile + ' (content guard: ' + Declined + ') -- wrote the unchanged input');
