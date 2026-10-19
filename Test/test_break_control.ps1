@@ -4,6 +4,10 @@
 # governing flag is on; default output is unchanged. Exit 0 = pass, 1 = fail.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
+# Per-run scratch dir: no fixed temp names, so concurrent runs cannot collide and a stale
+# file from an earlier run can never be scored.
+$tmpRoot = Join-Path $env:TEMP ('yadf_test_break_control_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmpRoot | Out-Null
 $exe = Get-YadfExe
 $ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
 Assert-ToolOrSkip 'break_control' $exe
@@ -15,7 +19,7 @@ MustMatch $help '--break-with'  'help lists --break-with'
 MustMatch $help '--break-if'    'help lists --break-if'
 
 # Generated default INI carries the three keys (table-driven template).
-$tmpIni = Join-Path $env:TEMP 'bctl.ini'
+$tmpIni = Join-Path $tmpRoot 'bctl.ini'
 Remove-Item $tmpIni -Force -ErrorAction SilentlyContinue
 & $exe --ini $tmpIni --help | Out-Null   # --ini creates the template if absent
 if (-not (Test-Path $tmpIni)) { & $exe --ini $tmpIni --stdout 2>&1 | Out-Null }
@@ -27,7 +31,7 @@ Remove-Item $tmpIni -Force -ErrorAction SilentlyContinue
 
 # A --break-loop run is ACCEPTED (no "unknown option") even before the pass
 # exists; behavior assertions arrive in Task 2/3.
-$probe = Join-Path $env:TEMP 'bctl_probe.pas'
+$probe = Join-Path $tmpRoot 'bctl_probe.pas'
 @'
 unit p; interface implementation
 procedure Go; var k: Integer; begin k := 0; while k < 3 do Inc(k); end;
@@ -52,8 +56,8 @@ function FmtStr([string]$bodyLines, [string]$flags) {
     'end;'
     'end.'
   ) -join "`r`n"
-  $src = Join-Path $env:TEMP 'bctl_probe_in.pas'
-  $out = Join-Path $env:TEMP 'bctl_probe_out.pas'
+  $src = Join-Path $tmpRoot 'bctl_probe_in.pas'
+  $out = Join-Path $tmpRoot 'bctl_probe_out.pas'
   Set-Content -Path $src -Value $u -Encoding ascii
   $argv = @($flags -split ' ' | Where-Object { $_ -ne '' })
   & $exe --ini $ini $src @argv --o $out | Out-Null
@@ -100,7 +104,7 @@ $nestOff = FmtStr '  while a > 0 do while b > 0 do Dec(b);' '--no-break-loop'
 if ($nestOn -ne $nestOff) { Fail 'non-goal: nested-header loop must be untouched by --break-loop' }
 
 # idempotency + content-preserving round-trip for each single flag.
-$idemSrc = Join-Path $env:TEMP 'bctl_idem.pas'
+$idemSrc = Join-Path $tmpRoot 'bctl_idem.pas'
 @'
 unit probe;
 interface
@@ -117,7 +121,7 @@ end;
 end.
 '@ | Set-Content $idemSrc -Encoding ascii
 foreach ($f in @('--break-loop','--break-with')) {
-  $o1 = Join-Path $env:TEMP 'bctl_i1.pas'; $o2 = Join-Path $env:TEMP 'bctl_i2.pas'
+  $o1 = Join-Path $tmpRoot 'bctl_i1.pas'; $o2 = Join-Path $tmpRoot 'bctl_i2.pas'
   & $exe --ini $ini $idemSrc $f --o $o1 | Out-Null
   & $exe --ini $ini $o1      $f --o $o2 | Out-Null
   if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail "idempotent: $f" }
@@ -166,7 +170,7 @@ $cmtOff = FmtStr '  if k = 0 then Inc(k); // trailing note' '--no-break-if'
 if ($cmtOn -ne $cmtOff) { Fail 'non-goal: line with top-level // must be untouched' }
 
 # idempotency + content-preserving round-trip for --break-if.
-$ifIdem = Join-Path $env:TEMP 'bctl_if.pas'
+$ifIdem = Join-Path $tmpRoot 'bctl_if.pas'
 @'
 unit probe;
 interface
@@ -181,7 +185,7 @@ begin
 end;
 end.
 '@ | Set-Content $ifIdem -Encoding ascii
-$o1 = Join-Path $env:TEMP 'bctl_if1.pas'; $o2 = Join-Path $env:TEMP 'bctl_if2.pas'
+$o1 = Join-Path $tmpRoot 'bctl_if1.pas'; $o2 = Join-Path $tmpRoot 'bctl_if2.pas'
 & $exe --ini $ini $ifIdem --break-if --o $o1 | Out-Null
 & $exe --ini $ini $o1     --break-if --o $o2 | Out-Null
 if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail 'idempotent: --break-if' }
@@ -228,9 +232,13 @@ end;
 end.
 '@ | Set-Content $csrc -Encoding ascii
   # format IN PLACE with all three split flags, then compile the result.
-  & $exe $csrc --ini $ini --break-loop --break-with --break-if --o $csrc | Out-Null
-  & $dcc -Q "-NS$ns" "-N0$cdir" "-E$cdir" $csrc *> $null
-  if ($LASTEXITCODE -ne 0) { Fail 'compile: split output must compile with dcc64' }
+  $cfmt = Join-Path $cdir 'out'; New-Item -ItemType Directory -Path $cfmt | Out-Null   # same file name = same unit name
+  $cout = Join-Path $cfmt (Split-Path $csrc -Leaf)
+  # Invoke-Yadf FAILS the suite on a decline, so a guard decline cannot leave the compilable original behind.
+  if (Invoke-Yadf $csrc $ini $cout @('--break-loop', '--break-with', '--break-if')) {
+    & $dcc -Q "-NS$ns" "-N0$cfmt" "-E$cfmt" $cout *> $null
+    if ($LASTEXITCODE -ne 0) { Fail 'compile: split output must compile with dcc64' }
+  }
   Remove-Item $cdir -Recurse -Force -ErrorAction SilentlyContinue
 } else {
   Write-Output 'break_control: (dcc64 not found -- skipping compile check)'
@@ -284,4 +292,5 @@ MustNotMatch $wp '(?m)^\s+\{ keep \}\s*$'                                       
 if (-not (Test-Path (Get-Dcc64))) { Fail 'wp16: dcc64 missing -- cannot prove the output compiles' }
 elseif (-not (Test-DccCompiles $wpOut $wpSrcDir $wpSrcDir)) { Fail 'wp16: formatted output does not compile' }
 [IO.Directory]::Delete($wpSrcDir, $true)
+[IO.Directory]::Delete($tmpRoot, $true)
 Finish 'break_control'

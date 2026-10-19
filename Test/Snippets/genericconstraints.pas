@@ -2,6 +2,9 @@ unit genericconstraints;
 
 interface
 
+uses
+  Classes;
+
 type
   TFoo<T: TComponent> = class(TObject);                          // T inherits from TComponent
   TFoo<TComma1, TComma2> = class(TObject);                       // TComma1 and TComma2 have no constraints

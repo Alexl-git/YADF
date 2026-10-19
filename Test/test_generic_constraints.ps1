@@ -16,6 +16,11 @@
 #   * the unit-level routine declarations sit at column 0;
 #   * `implementation` and `end.` stay at column 0 (the stack is balanced).
 #
+# NOT compile-checked: the fixture is deliberately non-standalone. Besides using
+# TComponent without a uses clause, it carries a constraint form dcc64 rejects
+# (E2029 at the generic-method line), because it exists to exercise the indent
+# engine on keyword-like constraints, not to be valid Delphi. Checks are structural.
+#
 # Usage: pwsh Test\test_generic_constraints.ps1   (exit 0 = pass, 1 = fail)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')

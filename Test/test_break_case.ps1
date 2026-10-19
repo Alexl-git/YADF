@@ -4,13 +4,17 @@
 # regardless. Exit 0 = all pass, 1 = any fail.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
+# Per-run scratch dir: no fixed temp names, so concurrent runs cannot collide and a stale
+# file from an earlier run can never be scored.
+$tmpRoot = Join-Path $env:TEMP ('yadf_test_break_case_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmpRoot | Out-Null
 $exe = Get-YadfExe
 $ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
 Assert-ToolOrSkip 'break_case' $exe
 $src = Join-Path $PSScriptRoot 'Cases\case_labels.pas'
 
 function Fmt([string]$flag) {
-  $tmp = Join-Path $env:TEMP ("bc_" + ($flag -replace '\W','') + ".out")
+  $tmp = Join-Path $tmpRoot ("bc_" + ($flag -replace '\W','') + ".out")
   & $exe --ini $ini $src $flag --o $tmp | Out-Null
   $out = Get-Content $tmp -Raw
   Remove-Item $tmp -Force -ErrorAction SilentlyContinue
@@ -42,7 +46,7 @@ MustMatch    $on '(?m)^\s*A: Integer;'   'on: var A still split'
 # BreakCaseLabels duplicates the arm body per label; the content guard
 # tolerates exactly that duplication (2026-07-17 review: it used to veto the
 # whole file, leaving --break-case silently inert on any arm with a string).
-$strSrc = Join-Path $env:TEMP 'bc_str.pas'
+$strSrc = Join-Path $tmpRoot 'bc_str.pas'
 @'
 unit bcstr;
 interface
@@ -57,7 +61,7 @@ begin
 end;
 end.
 '@ | Set-Content $strSrc -Encoding ascii
-$strOut = Join-Path $env:TEMP 'bc_str_out.pas'
+$strOut = Join-Path $tmpRoot 'bc_str_out.pas'
 & $exe --ini $ini $strSrc --break-case --o $strOut | Out-Null
 $so = Get-Content $strOut -Raw
 MustMatch    $so "(?m)^\s*1: Writeln\('hello'\);" 'string-body: label 1 split with body'
@@ -109,7 +113,7 @@ finally { [IO.Directory]::Delete($vaDir, $true) }
 
 # ----- idempotency + byte-faithful round-trip for both modes -----
 foreach ($flag in @('--no-break-case','--break-case')) {
-  $o1 = Join-Path $env:TEMP "bc1.pas"; $o2 = Join-Path $env:TEMP "bc2.pas"
+  $o1 = Join-Path $tmpRoot "bc1.pas"; $o2 = Join-Path $tmpRoot "bc2.pas"
   & $exe --ini $ini $src $flag --o $o1 | Out-Null
   & $exe --ini $ini $o1  $flag --o $o2 | Out-Null
   if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail "idempotent: $flag" }
@@ -118,4 +122,5 @@ foreach ($flag in @('--no-break-case','--break-case')) {
   Remove-Item $o1,$o2 -Force -ErrorAction SilentlyContinue
 }
 
+[IO.Directory]::Delete($tmpRoot, $true)
 Finish 'break_case'

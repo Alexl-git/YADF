@@ -2,6 +2,10 @@
 # lines is collapsed onto ONE line (always-on, no flag). Exit 0 = pass, 1 = fail.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
+# Per-run scratch dir: no fixed temp names, so concurrent runs cannot collide and a stale
+# file from an earlier run can never be scored.
+$tmpRoot = Join-Path $env:TEMP ('yadf_test_join_headers_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmpRoot | Out-Null
 $exe = Get-YadfExe
 $ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
 Assert-ToolOrSkip 'join_headers' $exe
@@ -9,8 +13,8 @@ Assert-ToolOrSkip 'join_headers' $exe
 # Format a whole unit given as an array of source lines; return formatted text.
 function Fmt([string[]]$srcLines) {
   $u = $srcLines -join "`r`n"
-  $src = Join-Path $env:TEMP 'jh_in.pas'
-  $out = Join-Path $env:TEMP 'jh_out.pas'
+  $src = Join-Path $tmpRoot 'jh_in.pas'
+  $out = Join-Path $tmpRoot 'jh_out.pas'
   Set-Content -Path $src -Value $u -Encoding ascii
   & $exe --ini $ini $src --o $out | Out-Null
   $t = Get-Content $out -Raw
@@ -153,7 +157,7 @@ MustMatch $call '(?m)^\s+AlphaParameterNameIsQuiteLongIndeedYes, BetaParameterNa
 # Long-enough names push the anon header itself over MaxLen so Stage 2
 # leaves it genuinely split across 2 physical lines for JoinRoutineHeaders
 # to (correctly) leave alone.
-$acSrc = Join-Path $env:TEMP 'jh_anon_src.pas'
+$acSrc = Join-Path $tmpRoot 'jh_anon_src.pas'
 @'
 unit probe;
 interface
@@ -168,7 +172,7 @@ begin
 end;
 end.
 '@ | Set-Content $acSrc -Encoding ascii
-$acO1 = Join-Path $env:TEMP 'jh_anon1.pas'; $acO2 = Join-Path $env:TEMP 'jh_anon2.pas'
+$acO1 = Join-Path $tmpRoot 'jh_anon1.pas'; $acO2 = Join-Path $tmpRoot 'jh_anon2.pas'
 & $exe --ini $ini $acSrc --o $acO1 | Out-Null
 $ac = Get-Content $acO1 -Raw
 MustMatch $ac '(?m)^\s*DoStuffWithAVeryVeryVeryVeryVeryVeryLongNameThatWontFitOnOneLineAtAllNoMatterWhat\(procedure\(AlphaParameterNameIsQuiteLongIndeedYes: Integer;\s*$' 'anon-method guard: call + inline header opener left on its own line'
@@ -310,7 +314,7 @@ MustMatch $cmtWrap '(?m)\): Boolean; // keep this trailing note intact\s*$' 'ove
 # same reason JoinRoutineHeaders re-joins any split header), so it must
 # re-join and re-wrap to the BYTE-IDENTICAL shape (hash-equal) rather than
 # drift on a second pass.
-$wsrc = Join-Path $env:TEMP 'jh_wrap_idem.pas'
+$wsrc = Join-Path $tmpRoot 'jh_wrap_idem.pas'
 @'
 unit probe;
 interface
@@ -323,7 +327,7 @@ begin
 end;
 end.
 '@ | Set-Content $wsrc -Encoding ascii
-$wo1 = Join-Path $env:TEMP 'jh_w1.pas'; $wo2 = Join-Path $env:TEMP 'jh_w2.pas'
+$wo1 = Join-Path $tmpRoot 'jh_w1.pas'; $wo2 = Join-Path $tmpRoot 'jh_w2.pas'
 & $exe --ini $ini $wsrc --o $wo1 | Out-Null
 & $exe --ini $ini $wo1  --o $wo2 | Out-Null
 if ((Get-FileHash $wo1).Hash -ne (Get-FileHash $wo2).Hash) { Fail 'idempotent: wrapped header re-join/re-wrap' }
@@ -354,7 +358,7 @@ Remove-Item $wsrc,$wo1,$wo2 -Force -ErrorAction SilentlyContinue
 # twice in a row (still idempotent, but not for the reason the comment
 # claimed). This fixture folds in the same idempotency + Guard round-trip
 # coverage the old one provided, now over a genuine join+wrap.
-$cvSrc = Join-Path $env:TEMP 'jh_constvar_wrap.pas'
+$cvSrc = Join-Path $tmpRoot 'jh_constvar_wrap.pas'
 @'
 unit probe;
 interface
@@ -367,7 +371,7 @@ begin
 end;
 end.
 '@ | Set-Content $cvSrc -Encoding ascii
-$cvo1 = Join-Path $env:TEMP 'jh_cv1.pas'; $cvo2 = Join-Path $env:TEMP 'jh_cv2.pas'
+$cvo1 = Join-Path $tmpRoot 'jh_cv1.pas'; $cvo2 = Join-Path $tmpRoot 'jh_cv2.pas'
 & $exe --ini $ini $cvSrc --o $cvo1 | Out-Null
 $cv = Get-Content $cvo1 -Raw
 foreach ($ln in ($cv -split "`r`n" | Where-Object { $_ -match 'ParamNameQuiteLong' })) {
@@ -384,7 +388,7 @@ if ("$cvchk" -notmatch 'PASS') { Fail 'roundtrip/guard: const/var join + wrap' }
 Remove-Item $cvSrc,$cvo1,$cvo2 -Force -ErrorAction SilentlyContinue
 
 # ----- Idempotency + Guard round-trip over the mixed corpus -----
-$idem = Join-Path $env:TEMP 'jh_idem.pas'
+$idem = Join-Path $tmpRoot 'jh_idem.pas'
 @'
 unit probe;
 interface
@@ -400,7 +404,7 @@ begin
 end;
 end.
 '@ | Set-Content $idem -Encoding ascii
-$o1 = Join-Path $env:TEMP 'jh_i1.pas'; $o2 = Join-Path $env:TEMP 'jh_i2.pas'
+$o1 = Join-Path $tmpRoot 'jh_i1.pas'; $o2 = Join-Path $tmpRoot 'jh_i2.pas'
 & $exe --ini $ini $idem --o $o1 | Out-Null
 & $exe --ini $ini $o1   --o $o2 | Out-Null
 if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail 'idempotent: join headers' }
@@ -479,8 +483,8 @@ MustMatch $caseDef '(?m)^\s*OUT GammaParameterOutNameQuiteLong: TCommandRecordTy
 # source's uppercase FUNCTION/CONST/VAR/OUT must survive exactly as typed,
 # split across the SAME two physical lines as above (identical break
 # position -- casing does not change string length).
-$srcC = Join-Path $env:TEMP 'jh_case.pas'
-$outC = Join-Path $env:TEMP 'jh_case_out.pas'
+$srcC = Join-Path $tmpRoot 'jh_case.pas'
+$outC = Join-Path $tmpRoot 'jh_case_out.pas'
 $caseSrcLines -join "`r`n" | Set-Content $srcC -Encoding ascii
 & $exe --ini $ini $srcC --no-lowercase-keywords --o $outC | Out-Null
 $c = Get-Content $outC -Raw
@@ -530,9 +534,13 @@ end;
 end.
 '@ | Set-Content $csrc -Encoding ascii
   # format IN PLACE, then compile the joined/wrapped result.
-  & $exe $csrc --ini $ini --o $csrc | Out-Null
-  & $dcc -Q "-NS$ns" "-N0$cdir" "-E$cdir" $csrc *> $null
-  if ($LASTEXITCODE -ne 0) { Fail 'compile: joined/wrapped output must compile with dcc64' }
+  $cfmt = Join-Path $cdir 'out'; New-Item -ItemType Directory -Path $cfmt | Out-Null   # same file name = same unit name
+  $cout = Join-Path $cfmt (Split-Path $csrc -Leaf)
+  # Invoke-Yadf FAILS the suite on a decline, so a guard decline cannot leave the compilable original behind.
+  if (Invoke-Yadf $csrc $ini $cout) {
+    & $dcc -Q "-NS$ns" "-N0$cfmt" "-E$cfmt" $cout *> $null
+    if ($LASTEXITCODE -ne 0) { Fail 'compile: joined/wrapped output must compile with dcc64' }
+  }
   Remove-Item $cdir -Recurse -Force -ErrorAction SilentlyContinue
 } else {
   Write-Output 'join_headers: (dcc64 not found -- skipping compile check)'
@@ -575,7 +583,7 @@ end.
 # token content.
 
 # --- (a) { ... } block comment spanning the parameter list ---
-$mlbSrc = Join-Path $env:TEMP 'jh_mlbrace_src.pas'
+$mlbSrc = Join-Path $tmpRoot 'jh_mlbrace_src.pas'
 @'
 unit probe;
 interface
@@ -587,7 +595,7 @@ begin
 end;
 end.
 '@ | Set-Content $mlbSrc -Encoding ascii
-$mlbO1 = Join-Path $env:TEMP 'jh_mlbrace_o1.pas'; $mlbO2 = Join-Path $env:TEMP 'jh_mlbrace_o2.pas'
+$mlbO1 = Join-Path $tmpRoot 'jh_mlbrace_o1.pas'; $mlbO2 = Join-Path $tmpRoot 'jh_mlbrace_o2.pas'
 & $exe --ini $ini $mlbSrc --o $mlbO1 | Out-Null
 $mlb = Get-Content $mlbO1 -Raw
 MustMatch   $mlb '(?m)^\s*X:= 1;\s*$' 'brace-comment header: file still formatted (not Guard-declined)'
@@ -599,7 +607,7 @@ if ("$mlbchk" -notmatch 'PASS') { Fail 'roundtrip/guard: brace-comment header' }
 Remove-Item $mlbSrc,$mlbO1,$mlbO2 -Force -ErrorAction SilentlyContinue
 
 # --- (b) (* ... *) block comment spanning the parameter list ---
-$mlaSrc = Join-Path $env:TEMP 'jh_mlansi_src.pas'
+$mlaSrc = Join-Path $tmpRoot 'jh_mlansi_src.pas'
 @'
 unit probe;
 interface
@@ -611,7 +619,7 @@ begin
 end;
 end.
 '@ | Set-Content $mlaSrc -Encoding ascii
-$mlaO1 = Join-Path $env:TEMP 'jh_mlansi_o1.pas'; $mlaO2 = Join-Path $env:TEMP 'jh_mlansi_o2.pas'
+$mlaO1 = Join-Path $tmpRoot 'jh_mlansi_o1.pas'; $mlaO2 = Join-Path $tmpRoot 'jh_mlansi_o2.pas'
 & $exe --ini $ini $mlaSrc --o $mlaO1 | Out-Null
 $mla = Get-Content $mlaO1 -Raw
 MustMatch   $mla '(?m)^\s*X:= 1;\s*$' 'ansi-comment header: file still formatted (not Guard-declined)'
@@ -623,7 +631,7 @@ if ("$mlachk" -notmatch 'PASS') { Fail 'roundtrip/guard: ansi-comment header' }
 Remove-Item $mlaSrc,$mlaO1,$mlaO2 -Force -ErrorAction SilentlyContinue
 
 # --- (c) multi-line ('''...''') string literal as a parameter default ---
-$mlsSrc = Join-Path $env:TEMP 'jh_mlstr_src.pas'
+$mlsSrc = Join-Path $tmpRoot 'jh_mlstr_src.pas'
 @'
 unit probe;
 interface
@@ -637,7 +645,7 @@ begin
 end;
 end.
 '@ | Set-Content $mlsSrc -Encoding ascii
-$mlsO1 = Join-Path $env:TEMP 'jh_mlstr_o1.pas'; $mlsO2 = Join-Path $env:TEMP 'jh_mlstr_o2.pas'
+$mlsO1 = Join-Path $tmpRoot 'jh_mlstr_o1.pas'; $mlsO2 = Join-Path $tmpRoot 'jh_mlstr_o2.pas'
 & $exe --ini $ini $mlsSrc --o $mlsO1 | Out-Null
 $mls = Get-Content $mlsO1 -Raw
 MustMatch   $mls '(?m)^\s*X:= 1;\s*$' 'multi-line-string-default header: file still formatted (not Guard-declined)'
@@ -670,7 +678,7 @@ Remove-Item $mlsSrc,$mlsO1,$mlsO2 -Force -ErrorAction SilentlyContinue
 # list first, which is what makes JoinRoutineHeaders re-join the header and
 # reach WrapHeaderLine at all. --no-break-expr selects that greedy breaker.
 # RED (pre-fix): note moves to its own line at column 2, then to column 0.
-$tnSrc = Join-Path $env:TEMP 'jh_trailnote.pas'
+$tnSrc = Join-Path $tmpRoot 'jh_trailnote.pas'
 @'
 unit probe;
 interface
@@ -683,7 +691,7 @@ begin
 end;
 end.
 '@ | Set-Content $tnSrc -Encoding ascii
-$tno1 = Join-Path $env:TEMP 'jh_tn1.pas'; $tno2 = Join-Path $env:TEMP 'jh_tn2.pas'
+$tno1 = Join-Path $tmpRoot 'jh_tn1.pas'; $tno2 = Join-Path $tmpRoot 'jh_tn2.pas'
 & $exe --ini $ini $tnSrc --no-break-expr --o $tno1 | Out-Null
 & $exe --ini $ini $tno1  --no-break-expr --o $tno2 | Out-Null
 $tn = Get-Content $tno1 -Raw
@@ -732,9 +740,9 @@ $dirMulti = Fmt @(
 MustMatch $dirMulti '(?m)^procedure Baz\(A: Integer\); virtual; abstract;\s*$' 'multiple directive-only lines all joined onto the header'
 
 # Idempotency: re-running the already-joined output is a no-op.
-$dirSrc = Join-Path $env:TEMP 'jh_dir.pas'
-$dirO1  = Join-Path $env:TEMP 'jh_dir1.pas'
-$dirO2  = Join-Path $env:TEMP 'jh_dir2.pas'
+$dirSrc = Join-Path $tmpRoot 'jh_dir.pas'
+$dirO1  = Join-Path $tmpRoot 'jh_dir1.pas'
+$dirO2  = Join-Path $tmpRoot 'jh_dir2.pas'
 @'
 unit probe;
 interface
@@ -803,4 +811,5 @@ foreach ($callee in 'classify', 'recordCount', 'objective', 'interfaceOf') {
   MustMatch $oh "(?m)^\s*B:= A = $callee\(X\) and \(Y > 0\);" "open-type-head: '= $callee' is not a type head"
 }
 
+[IO.Directory]::Delete($tmpRoot, $true)
 Finish 'join_headers'

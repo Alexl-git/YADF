@@ -1,4 +1,4 @@
-unit UnaryCondAlign;
+unit unary_and_cond_align;
 
 interface
 

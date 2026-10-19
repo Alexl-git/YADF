@@ -8,6 +8,10 @@
 # post-pass semantics down. Exit 0 = pass, 1 = fail.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
+# Per-run scratch dir: no fixed temp names, so concurrent runs cannot collide and a stale
+# file from an earlier run can never be scored.
+$tmpRoot = Join-Path $env:TEMP ('yadf_test_block_labels_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmpRoot | Out-Null
 $exe = Get-YadfExe
 $ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
 Assert-ToolOrSkip 'block_labels' $exe
@@ -16,9 +20,9 @@ Assert-ToolOrSkip 'block_labels' $exe
 # fixed point that motivated the design.
 function Fmt([string]$text, [string[]]$flags) {
   $g   = [guid]::NewGuid().ToString('N')
-  $src = Join-Path $env:TEMP "lbl_${g}_in.pas"
-  $o1  = Join-Path $env:TEMP "lbl_${g}_1.pas"
-  $o2  = Join-Path $env:TEMP "lbl_${g}_2.pas"
+  $src = Join-Path $tmpRoot "lbl_${g}_in.pas"
+  $o1  = Join-Path $tmpRoot "lbl_${g}_1.pas"
+  $o2  = Join-Path $tmpRoot "lbl_${g}_2.pas"
   Set-Content -Path $src -Value $text -Encoding ascii
   & $exe --ini $ini $src $flags --o $o1 | Out-Null
   & $exe --ini $ini $o1  $flags --o $o2 | Out-Null
@@ -184,12 +188,13 @@ foreach ($c in $mlCases) {
 }
 
 # ----- Round-trip: --check still passes on output that lost a label -----
-$rt  = Join-Path $env:TEMP 'lbl_rt.pas'
-$rto = Join-Path $env:TEMP 'lbl_rt_out.pas'
+$rt  = Join-Path $tmpRoot 'lbl_rt.pas'
+$rto = Join-Path $tmpRoot 'lbl_rt_out.pas'
 Set-Content -Path $rt -Value (ShortProc ' // procedure') -Encoding ascii
 & $exe --ini $ini $rt --o $rto | Out-Null
 $chk = & $exe --ini $ini --check $rto 2>&1
 if ("$chk" -notmatch 'PASS') { Fail 'roundtrip: output that removed a label' }
 Remove-Item $rt, $rto -Force -ErrorAction SilentlyContinue
 
+[IO.Directory]::Delete($tmpRoot, $true)
 Finish 'block_labels'

@@ -43,6 +43,9 @@ $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRo
 # SameBytes comes from TestLib.ps1.
 $fail = 0
 $capFail = 0
+# Per-run scratch dir for the verify-mode outputs (no fixed temp names).
+$goldTmp = Join-Path $env:TEMP ('gold_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $goldTmp | Out-Null
 foreach ($f in $files) {
   $gold = Join-Path $goldDir ($f.Name + '.golden')
   if ($Capture) {
@@ -52,6 +55,7 @@ foreach ($f in $files) {
     $cdir = Join-Path $env:TEMP ("goldcap_" + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $cdir | Out-Null
     try {
+      if (-not (Test-UnitNameMatchesFile $f.FullName)) { $capFail++; continue }
       $ctmp = Join-Path $cdir $f.Name
       if (-not (Invoke-Yadf $f.FullName $testIni $ctmp)) { $capFail++; continue }
       $dcu = Join-Path $cdir 'dcu'; New-Item -ItemType Directory -Path $dcu | Out-Null
@@ -64,8 +68,8 @@ foreach ($f in $files) {
   }
   else {
     if (-not (Test-Path $gold)) { $script:fail++; Write-Output "FAIL [missing golden]: $($f.Name) (run -Capture)"; continue }
-    $tmp  = Join-Path $env:TEMP ("gold_" + $f.Name + ".out")
-    $tmp2 = Join-Path $env:TEMP ("gold_" + $f.Name + ".out2")
+    $tmp  = Join-Path $goldTmp ($f.Name + ".out")
+    $tmp2 = Join-Path $goldTmp ($f.Name + ".out2")
     if (-not (Invoke-Yadf $f.FullName $testIni $tmp)) { continue }
     if (-not (SameBytes $gold $tmp)) { $script:fail++; Write-Output "FAIL [changed]: $($f.Name)" }
     # Corpus-wide idempotency: formatting the formatted output must be a
@@ -77,6 +81,8 @@ foreach ($f in $files) {
     Remove-Item $tmp, $tmp2 -Force -ErrorAction SilentlyContinue
   }
 }
+
+[IO.Directory]::Delete($goldTmp, $true)
 
 # Orphaned goldens: a golden whose fixture was renamed/deleted silently stops
 # guarding anything -- flag it so the corpus stays honest.

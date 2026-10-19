@@ -4,6 +4,10 @@
 # header keyword's column. Exit 0 = pass, 1 = fail.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
+# Per-run scratch dir: no fixed temp names, so concurrent runs cannot collide and a stale
+# file from an earlier run can never be scored.
+$tmpRoot = Join-Path $env:TEMP ('yadf_test_break_expr_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmpRoot | Out-Null
 $exe = Get-YadfExe
 $ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
 Assert-ToolOrSkip 'break_expr' $exe
@@ -13,14 +17,14 @@ $help = & $exe --help 2>&1 | Out-String
 MustMatch $help '--break-expr'     'help lists --break-expr'
 MustMatch $help '--no-break-expr'  'help lists --no-break-expr'
 
-$tmpIni = Join-Path $env:TEMP 'bexpr.ini'
+$tmpIni = Join-Path $tmpRoot 'bexpr.ini'
 Remove-Item $tmpIni -Force -ErrorAction SilentlyContinue
 & $exe --ini $tmpIni --stdout 2>&1 | Out-Null
 $iniTxt = if (Test-Path $tmpIni) { Get-Content $tmpIni -Raw } else { '' }
 MustMatch $iniTxt 'BreakLongExpressions' 'ini template has BreakLongExpressions'
 Remove-Item $tmpIni -Force -ErrorAction SilentlyContinue
 
-$probe = Join-Path $env:TEMP 'bexpr_probe.pas'
+$probe = Join-Path $tmpRoot 'bexpr_probe.pas'
 @'
 unit p; interface implementation
 procedure Go; var A, B: Boolean; begin if A and B then Writeln(1); end;
@@ -46,8 +50,8 @@ function FmtBody([string]$bodyLines, [string]$flags, [int]$maxLen = 60) {
     'end;'
     'end.'
   ) -join "`r`n"
-  $src = Join-Path $env:TEMP 'bexpr_in.pas'
-  $out = Join-Path $env:TEMP 'bexpr_out.pas'
+  $src = Join-Path $tmpRoot 'bexpr_in.pas'
+  $out = Join-Path $tmpRoot 'bexpr_out.pas'
   Set-Content -Path $src -Value $u -Encoding ascii
   $argv = @($flags -split ' ' | Where-Object { $_ -ne '' })
   & $exe --ini $ini $src --max-len $maxLen @argv --o $out | Out-Null
@@ -162,7 +166,7 @@ $fitOut = FmtBody $fitHdr '--break-expr'
 MustMatch $fitOut '(?m)^\s+if Aa > 0 then\s*$' 'then: fitting header keeps its keyword'
 
 # ----- Task 4: idempotency + content-preserving round-trip -----
-$idemSrc = Join-Path $env:TEMP 'bexpr_idem.pas'
+$idemSrc = Join-Path $tmpRoot 'bexpr_idem.pas'
 @'
 unit probe;
 interface
@@ -184,7 +188,7 @@ end;
 end.
 '@ | Set-Content $idemSrc -Encoding ascii
 
-$o1 = Join-Path $env:TEMP 'bexpr_i1.pas'; $o2 = Join-Path $env:TEMP 'bexpr_i2.pas'
+$o1 = Join-Path $tmpRoot 'bexpr_i1.pas'; $o2 = Join-Path $tmpRoot 'bexpr_i2.pas'
 & $exe --ini $ini $idemSrc --break-expr --max-len 60 --o $o1 | Out-Null
 & $exe --ini $ini $o1      --break-expr --max-len 60 --o $o2 | Out-Null
 if ((Get-FileHash $o1).Hash -ne (Get-FileHash $o2).Hash) { Fail 'idempotent: --break-expr' }
@@ -198,7 +202,7 @@ if ("$chk" -notmatch 'PASS') { Fail 'roundtrip: --break-expr' }
 # silently re-indent the lone `then` line. Byte-compare all three flag sets --
 # the repo ini leaves those three ON, so the explicit --no- run is what actually
 # exercises the branch where that second ReindentByDepth does NOT fire.
-$o3 = Join-Path $env:TEMP 'bexpr_i3.pas'; $o4 = Join-Path $env:TEMP 'bexpr_i4.pas'
+$o3 = Join-Path $tmpRoot 'bexpr_i3.pas'; $o4 = Join-Path $tmpRoot 'bexpr_i4.pas'
 & $exe --ini $ini $idemSrc --break-expr --break-if --break-loop --break-with --max-len 60 --o $o3 | Out-Null
 & $exe --ini $ini $idemSrc --break-expr --no-break-if --no-break-loop --no-break-with --max-len 60 --o $o4 | Out-Null
 $a = Get-Content $o1 -Raw
@@ -273,10 +277,10 @@ $wideSrc = @(
 # deliberately shape-only and is NOT compile-gated. The compiling fixture is
 # the Task 4 block above; this one exists to pin LAYOUT across constructs.
 
-$wideIn  = Join-Path $env:TEMP 'bexpr_wide_in.pas'
-$wideOut = Join-Path $env:TEMP 'bexpr_wide_out.pas'
-$wideO2  = Join-Path $env:TEMP 'bexpr_wide_o2.pas'
-$wideGrd = Join-Path $env:TEMP 'bexpr_wide_greedy.pas'
+$wideIn  = Join-Path $tmpRoot 'bexpr_wide_in.pas'
+$wideOut = Join-Path $tmpRoot 'bexpr_wide_out.pas'
+$wideO2  = Join-Path $tmpRoot 'bexpr_wide_o2.pas'
+$wideGrd = Join-Path $tmpRoot 'bexpr_wide_greedy.pas'
 Set-Content -Path $wideIn -Value $wideSrc -Encoding ascii
 & $exe --ini $ini $wideIn --break-expr    --max-len 40 --o $wideOut | Out-Null
 & $exe --ini $ini $wideOut --break-expr   --max-len 40 --o $wideO2  | Out-Null
@@ -397,9 +401,9 @@ Remove-Item $wideIn, $wideOut, $wideO2, $wideGrd -Force -ErrorAction SilentlyCon
 # pass 2 left it whole: format(format(x)) <> format(x) under the DEFAULT
 # option set, on YADF's own YADF.Layout.pas.
 # RED (pre-fix): the two hashes differ; the code is split at ' + '.
-$tnIn  = Join-Path $env:TEMP 'be_trailnote.pas'
-$tnO1  = Join-Path $env:TEMP 'be_tn1.pas'
-$tnO2  = Join-Path $env:TEMP 'be_tn2.pas'
+$tnIn  = Join-Path $tmpRoot 'be_trailnote.pas'
+$tnO1  = Join-Path $tmpRoot 'be_tn1.pas'
+$tnO2  = Join-Path $tmpRoot 'be_tn2.pas'
 @'
 unit probe;
 interface
@@ -422,4 +426,5 @@ $tnchk = & $exe --ini $ini --check $tnO1 2>&1
 if ("$tnchk" -notmatch 'PASS') { Fail 'roundtrip/guard: trailing-note overflow' }
 Remove-Item $tnIn, $tnO1, $tnO2 -Force -ErrorAction SilentlyContinue
 
+[IO.Directory]::Delete($tmpRoot, $true)
 Finish 'break_expr'
