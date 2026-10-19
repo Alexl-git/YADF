@@ -6,12 +6,12 @@ re-indentation, capitalization, and column alignment.
 
 YADF ships in three flavours, built from the same engine:
 
-- **`YADF.exe`** — a stand-alone CLI for formatting files, folders, and
+- **`YADF.exe`** ??? a stand-alone CLI for formatting files, folders, and
   whole `.dpr`/`.dproj` projects (see [CLI quick start](#cli-quick-start)).
-- **`YADFSetup.exe`** — a visual settings editor / format playground
+- **`YADFSetup.exe`** ??? a visual settings editor / format playground
   (see [YADFSetup](#yadfsetup)).
-- **`YADFOT.bpl`** — a Delphi IDE design-time package ("YADF Open Tools")
-  that adds a `Help → Tools → YADFOT: Format Current Buffer` menu item
+- **`YADFOT.bpl`** ??? a Delphi IDE design-time package ("YADF Open Tools")
+  that adds a `Help ??? Tools ??? YADFOT: Format Current Buffer` menu item
   and a `Ctrl+Shift+Alt+F` shortcut to format the current source-editor
   buffer (see [YADFOT install](#yadfot-install)).
 
@@ -21,7 +21,7 @@ version stamp.
 
 ## YADFSetup
 
-`YADFSetup.exe` is a three-column GUI — **Settings | Source | Result**. Load any
+`YADFSetup.exe` is a three-column GUI ??? **Settings | Source | Result**. Load any
 `.pas` on the left, watch it reformat live on the right, and tune every option
 in between. It is the visual front-end for the whole family's configuration:
 what you change here is what `YADF.exe` and `YADFOT.bpl` use.
@@ -31,7 +31,7 @@ what you change here is what `YADF.exe` and `YADFOT.bpl` use.
 1. **Get the binary.** Download `YADFSetup.exe` from the release zip (alongside
    `YADF.exe` and `YADFOT.bpl`), or build it yourself
    (see [Building](#building)).
-2. **No installation required.** It is a standalone Win64 executable — just run
+2. **No installation required.** It is a standalone Win64 executable ??? just run
    it. The demo unit (`Demo\Sample.pas`) is built into it: on first launch it is
    written to `%APPDATA%\YADF\Sample.pas` and loaded, so you immediately see
    formatting at work. Edit that file to preview your own code; delete it to get
@@ -42,7 +42,7 @@ what you change here is what `YADF.exe` and `YADFOT.bpl` use.
 
 > **Heads-up:** every change you make autosaves to the shared `yadf.ini`, so it
 > immediately changes how the CLI and IDE wizard format from then on. Use
-> **Save As…** to snapshot a profile before experimenting, and **Reset** to
+> **Save As???** to snapshot a profile before experimenting, and **Reset** to
 > return to the shipped defaults.
 
 ### Where the INI lives
@@ -59,30 +59,30 @@ the same file `YADF.exe` and `YADFOT.bpl` read, so all three tools stay in sync
 active **F profile** and shows its path at the bottom of the Settings column.
 
 > **Since 1.0.8 you can also edit these settings without leaving the IDE:**
-> open **Tools ▸ Options ▸ Third Party ▸ YADF**. The page edits the same F
+> open **Tools ??? Options ??? Third Party ??? YADF**. The page edits the same F
 > profile as YADFSetup (with a live before/after preview), so a change you make
-> there takes effect on the very next **Ctrl+Shift+Alt+F** — no restart, no
+> there takes effect on the very next **Ctrl+Shift+Alt+F** ??? no restart, no
 > stale settings. See [Editing settings in the IDE](#edit-settings-in-ide).
 
-To keep alternative option sets, use **Save As…** to export a named `.ini`
-anywhere, and **Load Settings…** to bring one back later.
+To keep alternative option sets, use **Save As???** to export a named `.ini`
+anywhere, and **Load Settings???** to bring one back later.
 
 ### How to use it
 
 The window has three resizable columns (drag the splitters):
 
-1. **Settings** (left) — every formatting option, grouped (Line length,
+1. **Settings** (left) ??? every formatting option, grouped (Line length,
    Reflow & whitespace, Casing, Alignment, Uses, Declarations, Labels, File &
    CLI). Hover any control for a one-line explanation. Changing any option
    re-formats the Result pane instantly and saves to the shared `yadf.ini`.
-   - **Load Settings…** — import an option profile from any `.ini`.
-   - **Save As…** — export the current options to an `.ini` (does *not* touch
+   - **Load Settings???** ??? import an option profile from any `.ini`.
+   - **Save As???** ??? export the current options to an `.ini` (does *not* touch
      the shared file).
-   - **Reset** — restore the shipped defaults (this *does* overwrite the shared
+   - **Reset** ??? restore the shipped defaults (this *does* overwrite the shared
      `yadf.ini`; you'll be asked to confirm).
-2. **Source** (middle) — paste Pascal here, or click **Open File…** to load any
+2. **Source** (middle) ??? paste Pascal here, or click **Open File???** to load any
    `.pas` / `.dpr` / `.inc`. Edits re-format after a brief pause.
-3. **Result** (right) — the formatted output, read-only. **Copy** puts it on the
+3. **Result** (right) ??? the formatted output, read-only. **Copy** puts it on the
    clipboard.
 
 The status line under Settings shows the active INI path and a *(saved)* marker
@@ -92,16 +92,16 @@ on bad input).
 
 Options in the **File & CLI** group (Backup, BackupDir, ResultDir, Encoding,
 Logging) configure the CLI's file handling and have no effect on the live
-preview — they're saved for `YADF.exe` to use.
+preview ??? they're saved for `YADF.exe` to use.
 
 ## YADFOT install
 
 YADFOT is a design-time Delphi IDE package, built for **both Win32 and Win64**
 (since 1.0.11). Install the BPL that matches your IDE's architecture:
 
-- **RAD Studio 12+ / Delphi 13** — the IDE is a **64-bit** application, so use
+- **RAD Studio 12+ / Delphi 13** ??? the IDE is a **64-bit** application, so use
   **`YADFOT-Win64.bpl`** (from `Win64\Release\EXE\YADFOT.bpl`).
-- **Older 32-bit IDEs** — use **`YADFOT-Win32.bpl`**
+- **Older 32-bit IDEs** ??? use **`YADFOT-Win32.bpl`**
   (from `Win32\Release\EXE\YADFOT.bpl`).
 
 The release zip ships both, renamed `YADFOT-Win32.bpl` / `YADFOT-Win64.bpl`.
@@ -117,8 +117,8 @@ together with the two local fixes it needs.
 1. Open `YADFOT.dproj` in Delphi 13.
 2. Active platform: **Win64** (for the 64-bit IDE) or **Win32**; configuration
    **Release** (Debug works too).
-3. Project → Build YADFOT. The output is `<Platform>\Release\EXE\YADFOT.bpl`.
-4. Component → Install Packages → Add… → browse to that `YADFOT.bpl` → OK.
+3. Project ??? Build YADFOT. The output is `<Platform>\Release\EXE\YADFOT.bpl`.
+4. Component ??? Install Packages ??? Add??? ??? browse to that `YADFOT.bpl` ??? OK.
 
 The wizard registers itself on package load -- no IDE restart needed.
 
@@ -139,26 +139,26 @@ cmd.exe /c "call \"C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat
 
 Then install via the IDE (step 4 above).
 
-**CLI exit codes.** `0` = success; `1` = usage error; a count above 1 = that many files failed; `3` = the content guard declined at least one file and nothing failed (the file is left unchanged - safe to ignore, but not silently `0`).
+**CLI exit codes.** `0` = success; `1` = at least one file failed (a fixed code, not a count); `2` = usage error or unhandled exception; `3` = the content guard declined at least one file and nothing failed (a failure outranks it). `--stdout` writes the exact bytes `--o` would write for a single input; with several inputs each result follows a `--- <file> ---` line. (the file is left unchanged - safe to ignore, but not silently `0`).
 
 ### Using the wizard
 
 Two entry points appear in the IDE after install:
 
-1. **Menu** → `Help` → `Tools` → `YADFOT: Format Current Buffer`
+1. **Menu** ??? `Help` ??? `Tools` ??? `YADFOT: Format Current Buffer`
    (this is the standard location for IOTAMenuWizard items in the
-   Delphi IDE — installed wizards live under *Help → Tools*, not
+   Delphi IDE ??? installed wizards live under *Help ??? Tools*, not
    directly under *Tools*).
-2. **Keyboard shortcut** → `Ctrl + Shift + Alt + F`
+2. **Keyboard shortcut** ??? `Ctrl + Shift + Alt + F`
 
 A third entry point configures the formatter rather than running it:
 
-3. **Settings page** → `Tools → Options → Third Party → YADF`.
+3. **Settings page** ??? `Tools ??? Options ??? Third Party ??? YADF`.
    <a id="edit-settings-in-ide"></a>
 
-   **You no longer need to leave the IDE to change how YADF formats — or to
+   **You no longer need to leave the IDE to change how YADF formats ??? or to
    manage profiles.** This page lets you edit every formatting option (with a
-   live before/after preview) *and*, since 1.0.9, manage your **profiles** —
+   live before/after preview) *and*, since 1.0.9, manage your **profiles** ???
    the full `YADFSetup.exe` workflow, inside Delphi. Every control is generated
    from the same `OptionTable` that `YADFSetup.exe` and the CLI use, so the
    editors never drift.
@@ -171,24 +171,24 @@ A third entry point configures the formatter rather than running it:
      `%APPDATA%\YADF\yadf.ini`, so YADFSetup, the CLI, and the IDE all agree;
      editing **R** (or any other profile) leaves the F file untouched.
    - Profile actions (assign F/R, new, switch) save immediately; option-value
-     edits commit when you click **OK**, and — since 1.0.8 — **take effect
+     edits commit when you click **OK**, and ??? since 1.0.8 ??? **take effect
      immediately**: the very next **Ctrl+Shift+Alt+F** formats with your new
      settings. No IDE restart, and no stale-settings surprise from a stray
      project-local `yadf.ini` (those are no longer auto-detected).
    - The page is added when the package loads and removed when you uncheck
-     YADFOT in *Component → Install Packages*.
+     YADFOT in *Component ??? Install Packages*.
 
 Since 1.0.10, YADFOT also paints a **splash-screen entry** (the YADF icon +
 `YADFOT (MIT) <version>`) while the IDE starts up, and registers a **plugin
-entry in the About dialog**. To see the About entry, open *Help → About
+entry in the About dialog**. To see the About entry, open *Help ??? About
 Embarcadero RAD Studio* and scroll to the **YADFOT** entry in the installed-
-plugins list — it shows the icon, MIT licence, version, and a short
+plugins list ??? it shows the icon, MIT licence, version, and a short
 description. (It lives inside the IDE's own About dialog; there is intentionally
 no separate "About YADFOT" menu item.)
 
 The shortcut is registered as a Delphi keyboard binding named
 `YADFOT`. If the chord clashes with something on your machine you
-can rebind it under `Tools → Options → User Interface → Editor →
+can rebind it under `Tools ??? Options ??? User Interface ??? Editor ???
 Key Mappings` (look for the `YADFOT` entry), or change it in source
 at the call to `BindingServices.AddKeyBinding` in
 [YADFOT.Wizard.pas](YADFOT.Wizard.pas) and rebuild.
@@ -210,7 +210,7 @@ to format the FILE on disk instead (a form unit), it honours `Encoding`,
 `Backup` and `BackupDir` exactly like the CLI. `ResultDir` and `Logging`
 are CLI-only.
 
-**INI lookup — profile-based (since 1.0.8).**
+**INI lookup ??? profile-based (since 1.0.8).**
 
 `YADF.exe` and `YADFOT.bpl` resolve their config the same way YADFSetup and the
 IDE Options page do: through the per-user **profile map** at
@@ -230,11 +230,11 @@ R=yadf-D10-Test.ini     ; optional second profile (Ctrl+Shift+Alt+R in the IDE o
 Each value is an INI *name* resolved under `%APPDATA%\YADF\` (an absolute path
 passes through unchanged). Resolution:
 
-- **CLI (`YADF.exe`)** — with no `--ini`, uses the **F** profile. `--ini <path>`
+- **CLI (`YADF.exe`)** ??? with no `--ini`, uses the **F** profile. `--ini <path>`
   overrides it explicitly.
-- **YADFOT (IDE)** — **Ctrl+Shift+Alt+F** and the Tools-menu item use the **F**
+- **YADFOT (IDE)** ??? **Ctrl+Shift+Alt+F** and the Tools-menu item use the **F**
   profile; **Ctrl+Shift+Alt+R** uses the **R** profile (if assigned).
-- **YADFSetup / IDE Options page** — always *edit* the F profile, and mirror it
+- **YADFSetup / IDE Options page** ??? always *edit* the F profile, and mirror it
   onto `%APPDATA%\YADF\yadf.ini` so all three front-ends converge on one file.
 
 There is **no project-tree walk** and **no in-memory caching**: the file you edit
@@ -245,7 +245,7 @@ assign it as your F profile in YADFSetup or pass `--ini <path>` on the CLI.
 > / working directory looking for the nearest `yadf.ini`, which could silently
 > shadow your saved settings (a stray project-local `yadf.ini` would win over the
 > profile you edited). Project-local `yadf.ini` files are **no longer
-> auto-detected** — use `--ini` or the F profile instead.
+> auto-detected** ??? use `--ini` or the F profile instead.
 
 **First-run experience.** No INI ships in the release zip. The first time you run
 `YADF.exe` (or save a file with `YADFOT` registered), the F profile
@@ -268,7 +268,7 @@ CRLF line endings.
 
 ### Uninstall
 
-Component → Install Packages → select `YADFOT` → Remove.
+Component ??? Install Packages ??? select `YADFOT` ??? Remove.
 
 ## CLI quick start
 
@@ -276,7 +276,7 @@ Component → Install Packages → select `YADFOT` → Remove.
 yadf MyUnit.pas
 ```
 
-Format a single `.pas` file in place — the source is overwritten with the
+Format a single `.pas` file in place ??? the source is overwritten with the
 formatted output, no backup. This is the default; if you want a copy of the
 original kept, opt in:
 
@@ -305,7 +305,7 @@ yadf MyProject.dpr
 
 Format the `.dpr` and every local `.pas` named in its `uses` clause. `*.pas`
 wildcards (`yadf C:\src\*.pas`) and `.dproj` project files work the same way
-— `.dproj` is parsed for its `<DCCReference Include="...pas"/>` entries.
+??? `.dproj` is parsed for its `<DCCReference Include="...pas"/>` entries.
 
 ```cmd
 yadf -h
@@ -356,7 +356,7 @@ values pulled from `yadf.ini`.
 - Aligned columns are kept **tight**: an anchor's spacing rule wins
   (member-access `.` is glued on both sides, no space before `;`, `:=`
   spacing per `AssignNoSpaceBefore`/`AssignSpaceAfter`), and a column is
-  never pushed right by padding that every line in the run shares — a
+  never pushed right by padding that every line in the run shares ??? a
   space appears before an anchor only on the shorter lines that need it
   to reach the shared column
 
@@ -427,17 +427,17 @@ be reworked by hand. Inline-var hoisting still removes the most common blocker.
 ## Configuration
 
 YADF (CLI) and YADFOT (IDE wizard) share a unified, **profile-based** config
-documented in detail under [YADFOT install → INI lookup](#yadfot-install)
+documented in detail under [YADFOT install ??? INI lookup](#yadfot-install)
 above. Summary: the per-user `%APPDATA%\YADF\profiles.ini` names the active
 **F** profile (CLI default and Ctrl+Shift+Alt+F) and optional **R** profile
 (Ctrl+Shift+Alt+R); `--ini <path>` overrides on the CLI. There is no
-project-tree walk. No INI ships in the release zip — first run creates a
+project-tree walk. No INI ships in the release zip ??? first run creates a
 fully-commented `%APPDATA%\YADF\yadf.ini` and pins `F=yadf.ini`. Edit it from
-**YADFSetup** or in-IDE via **Tools ▸ Options ▸ Third Party ▸ YADF**. CLI
+**YADFSetup** or in-IDE via **Tools ??? Options ??? Third Party ??? YADF**. CLI
 flags override INI values; INI values override compiled-in defaults.
 
 YADFOT (IDE wizard) reads the same `[Format]` keys with a different search
-order — see [YADFOT install](#yadfot-install) above.
+order ??? see [YADFOT install](#yadfot-install) above.
 
 ## Building
 
