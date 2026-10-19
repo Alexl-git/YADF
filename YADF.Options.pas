@@ -370,7 +370,7 @@ procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
 
 // One "Ident - Hint" line per option, grouped -- for CLI --help / about text.
 // Not dead: its only caller is Test\OptionsTest.dpr (TestHelpCoversAll, asserts every option appears in
-// the help text); tests are outside the project index, hence the dl:ok on the declaration below.
+// the help text); tests are outside the project index, hence the review marker on the declaration below.
 /// <summary><!-- drag-lint:auto sum -->One "Ident - Hint" line per option, grouped -- for
 /// CLI --help / about text.</summary>
 /// <returns>Observed: SB.ToString.</returns>
