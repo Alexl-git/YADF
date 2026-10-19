@@ -1318,7 +1318,7 @@ begin
   Result:= (P > 0) and (T[1] = '[') and ((R = '') or (Copy(R, 1, 2) = '//'));
 end; // function
 
-function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@1056, cognitive-complexity@2859
+function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@ac49, cognitive-complexity@5501
 var
   Lines     : TStringList    ;
   OutVal      : TStringBuilder ;
@@ -6005,7 +6005,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@3b1d, cyclomatic-complexity@7f1e, cognitive-complexity@166b, method-too-long@d80d -- 286 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@eac8, cognitive-complexity@6806, method-too-long@4303 -- 309 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
