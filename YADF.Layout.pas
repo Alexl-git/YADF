@@ -121,9 +121,9 @@ function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 /// walker sees is not the one the reader gets.
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)</para>
-/// <para>Calls: AddIfWord, AddIfWordAtDepth, BreakComponents, BreakLineByOperators, CharInSet, CodeLen, CollectParensItems, ComputeBlockCommentLock, Copy, EmitText (+55 more)</para>
+/// <para>Calls: AddIfWord, AddIfWordAtDepth, BreakComponents, BreakLineByOperators, CharInSet, CodeLen, CollectParensItems, ComputeBlockCommentLock, Copy, EmitText (+56 more)</para>
 /// <para>Overload 2 of 2</para>
-/// <para>Complexity: 34 (cyclomatic, outer body), 816 lines (full implementation)</para>
+/// <para>Complexity: 33 (cyclomatic, outer body), 828 lines (full implementation)</para>
 /// <para>Mutates: ADeclineReason (out)</para>
 /// <para>Directives: overload</para>
 /// <seealso cref="YADF.Groups.ParseGroups"/>
@@ -2036,7 +2036,7 @@ begin
     Result:= Length(ALine);
 end; // function
 
-function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@af7b, cognitive-complexity@d356
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@f60b, cognitive-complexity@700f
 var
   AnyOver  : Boolean                ;
   ColCols  : TArray<Integer>        ;
