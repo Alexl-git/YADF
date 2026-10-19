@@ -59,6 +59,33 @@ if ($asmOut) {
   foreach ($l in $after) { if ($l -match '^\s+') { Fail "review_corruption: routine after asm bodies is indented: [$l]" } }
 }
 
+# ---- asm_same_line: an instruction on the `asm` line itself must be shielded
+#      too (it used to leave the file DECLINED); instructions stay verbatim ----
+$asl = Format-Case 'asm_same_line.pas'
+if ($asl) {
+  $txt = [IO.File]::ReadAllText($asl)
+  foreach ($s in 'asm mov eax,[rcx+8]', 'lea eax,[rcx+rdx]', 'add eax,1') {
+    if (-not $txt.Contains($s)) { Fail "review_corruption: asm_same_line lost/changed instruction: $s" }
+  }
+  if (Test-Path (Join-Path $bin 'dcc64.exe')) {
+    if (-not (Compiles 'dcc64' $asl)) { Fail 'review_corruption: formatted asm_same_line.pas does not compile with dcc64' }
+  }
+}
+
+# ---- dispid_negative: `function F: IUnknown; dispid -4;` -- the directive word
+#      follows the routine's own `;`, so the sign must stay unary (cosmetic
+#      `dispid - 4` otherwise; both sites that decide this must agree) ----
+$dpo = Format-Case 'dispid_negative.pas'
+if ($dpo) {
+  $txt = [IO.File]::ReadAllText($dpo)
+  foreach ($s in 'dispid -4;', 'dispid -2;') {
+    if (-not $txt.Contains($s)) { Fail "review_corruption: dispid_negative lost unary sign: $s" }
+  }
+  if (Test-Path (Join-Path $bin 'dcc64.exe')) {
+    if (-not (Compiles 'dcc64' $dpo)) { Fail 'review_corruption: formatted dispid_negative.pas does not compile with dcc64' }
+  }
+}
+
 # ---- ml_string_include ----
 $incSrc = Join-Path $cases 'ml_string_include.pas'
 $incOut = Format-Case 'ml_string_include.pas'

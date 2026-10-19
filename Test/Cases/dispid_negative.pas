@@ -1,0 +1,14 @@
+unit dispid_negative;
+
+interface
+
+type
+  IEnumLike = dispinterface
+    ['{00020400-0000-0000-C000-000000000046}']
+    function GetNewEnum: IUnknown; dispid -4;
+    procedure Reset; dispid -2;
+  end;
+
+implementation
+
+end.

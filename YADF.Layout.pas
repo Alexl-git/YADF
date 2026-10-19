@@ -371,17 +371,28 @@ var
 // (default -1, index -2 in a property declaration; dispid -4, message -1
 // in a routine/dispinterface declaration) and not an identifier that merely
 // shares the spelling (Index - 1 in an expression). Decided by scanning back
-// to the previous ;: the declaration keyword must be in that span.
+// to the previous ;: the declaration keyword must be in that span. message /
+// dispid usually FOLLOW the routine's own `;` (`procedure Foo; dispid -4;`), so
+// for those two the scan crosses one `;` (ComputeLineShape.IsSignedDirective,
+// which scans the whole line, agrees).
   function IsDirectiveWord(AIdx: Integer): Boolean;
   var
-    k: Integer;
+    k      : Integer;
+    Crossed: Boolean ;
   begin
     Result:= False;
     if (Outp[AIdx].Kind <> ptIdentifier) or not (Outp[AIdx].ExID in [ptDefault, ptIndex, ptMessage, ptDispId]) then
       Exit;
+    Crossed:= False;
     k:= AIdx - 1;
-    while (k >= 0) and (Outp[k].Kind <> ptSemiColon) do
+    while k >= 0 do
     begin
+      if Outp[k].Kind = ptSemiColon then
+      begin
+        if Crossed or not (Outp[AIdx].ExID in [ptMessage, ptDispId]) then
+          Break;
+        Crossed:= True;
+      end;
       if Outp[k].Kind = ptProperty then
         Exit(True);
       if (Outp[AIdx].ExID in [ptMessage, ptDispId]) and (Outp[k].Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) then
@@ -5912,6 +5923,10 @@ begin
       i:= j;
       Continue;
     end;
+    // An instruction on the `asm` line itself (`asm mov eax,[rcx+8]`) belongs
+    // to the body: start the shield right after `asm`, so the separating space
+    // is saved with the body and restores byte-exact.
+    First:= i + 1;
     Body:= TStringBuilder.Create;
     try
       for j:= First to Last do
