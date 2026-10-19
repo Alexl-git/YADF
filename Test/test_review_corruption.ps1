@@ -204,4 +204,21 @@ foreach ($fl in @(@(), @('--no-reflow'))) {
   }
 }
 
+# ---- asm body whose `end` shares the last instruction line (`ret end;`):
+#      the routine after it and the final `end.` must not be indented, the
+#      output must compile and a second pass must change nothing. ----
+$aeOut = Format-Case 'asm_end_same_line.pas'
+if ($aeOut) {
+  $txt = [IO.File]::ReadAllText($aeOut)
+  if ($txt -notmatch '(?m)^function AfterAsmEnd: Integer;') { Fail 'review_corruption: asm_end_same_line: routine after the asm body is indented' }
+  if ($txt -notmatch '(?m)^end\.') { Fail 'review_corruption: asm_end_same_line: final end. is indented' }
+  if ($txt -notmatch 'ret') { Fail 'review_corruption: asm_end_same_line: instruction ret lost' }
+  if (Test-Path (Join-Path $bin 'dcc64.exe')) {
+    if (-not (Compiles 'dcc64' $aeOut)) { Fail 'review_corruption: formatted asm_end_same_line.pas does not compile with dcc64' }
+  }
+  $ae2 = Join-Path (Split-Path $aeOut) 'pass2_asm_end_same_line.pas'
+  $null = & $exe --ini $ini $aeOut --o $ae2 2>&1
+  if (-not (Test-Path $ae2) -or -not (SameBytes $aeOut $ae2)) { Fail 'review_corruption: asm_end_same_line is not idempotent' }
+}
+
 Finish 'review_corruption'

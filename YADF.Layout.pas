@@ -5913,7 +5913,10 @@ end; // function
 // re-spelled. UnshieldAsmBodies restores each body byte-for-byte (dropping any
 // padding a pass put in front of the placeholder). A body that has no line
 // break before `end` (`asm ... end` on one line) is left alone; the guard's
-// asm-line check still protects it.
+// asm-line check still protects it. A body whose `end` shares its last
+// instruction line (`ret end;`) is shielded too and the line is broken before
+// `end`, so the line-comment placeholder cannot swallow it (it used to leave
+// every later routine one level too deep).
 function AsmSentinel(AIdx: Integer): string;
 begin
   Result:= '//' + ShieldPrefix + '_ASM_' + IntToStr(AIdx) + '__';
@@ -5925,6 +5928,10 @@ var
   j      : Integer;
   First  : Integer;
   Last   : Integer;
+  k      : Integer;
+  EndIdx : Integer;
+  LastLine: Integer;
+  NeedBreak: Boolean;
   Body   : TStringBuilder;
   T      : TToken ;
 begin
@@ -5947,6 +5954,7 @@ begin
       Inc(j);
     end;
     // j = the `end` (or past the list); Last = last non-blank token before it.
+    EndIdx:= j;
     Last:= j - 1;
     while (Last > i) and (ATokens[Last].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
       Dec(Last);
@@ -5967,14 +5975,39 @@ begin
     finally
       Body.Free;
     end;
+    // `end` on the last instruction line (`ret end;`): the sentinel is a line
+    // comment, so the `end` would be swallowed by it and the depth tracker
+    // would never close the block. Break the line before `end`.
+    NeedBreak:= (EndIdx < ATokens.Count);
+    for k:= Last + 1 to EndIdx - 1 do
+      if ATokens[k].Kind in [ptCRLF, ptCRLFCo] then
+        NeedBreak:= False;
     T:= ATokens[First];
     T.Kind:= ptSlashesComment;
     T.ExID:= ptUnknown;
     T.Pre := '';
     T.Text:= AsmSentinel(AMap.Count - 1);
     ATokens[First]:= T;
-    ATokens.DeleteRange(First + 1, Last - First);
-    i:= First + 1;
+    if NeedBreak then
+    begin
+      LastLine:= ATokens[Last].Line;
+      ATokens.DeleteRange(First + 1, EndIdx - First - 1);
+      T:= ATokens[First + 1];
+      T.Pre:= '';
+      T.Line:= LastLine + 1;
+      ATokens[First + 1]:= T;
+      T.Line:= LastLine;
+      T.Kind:= ptCRLF;
+      T.ExID:= ptUnknown;
+      T.Text:= #13#10;
+      ATokens.Insert(First + 1, T);
+      i:= First + 2;
+    end
+    else
+    begin
+      ATokens.DeleteRange(First + 1, Last - First);
+      i:= First + 1;
+    end;
   end; // while
 end; // procedure
 
