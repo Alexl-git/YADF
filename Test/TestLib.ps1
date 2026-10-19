@@ -91,6 +91,21 @@ function Test-DccCompiles([string]$pasFile, [string]$incDir, [string]$dcuDir) {
   return ($LASTEXITCODE -eq 0)
 }
 
+# A fixture whose `unit X;` header differs from its file name cannot compile
+# standalone (dcc64 E1038), so the compile gates would silently skip it and
+# the golden -Capture would bless its output uncompiled. Returns $false and
+# FAILS the suite for such a fixture (review 2026-10-18).
+function Test-UnitNameMatchesFile([string]$pasFile) {
+  $head = (Get-Content -LiteralPath $pasFile -TotalCount 40 -Encoding Latin1) -join "`n"
+  $m = [regex]::Match($head, '(?im)^\s*unit\s+([A-Za-z_][\w.]*)\s*;')
+  if (-not $m.Success) { return $true }   # program / library / fragment: not subject
+  $base = [IO.Path]::GetFileNameWithoutExtension($pasFile)
+  if ($m.Groups[1].Value -ine $base) {
+    Fail "unit name '$($m.Groups[1].Value)' != file name '$base': $(Split-Path $pasFile -Leaf)"
+    return $false
+  }
+  return $true
+}
 function Finish([string]$suite) {
   if ($script:fail -eq 0) { Write-Output "${suite}: PASS"; exit 0 }
   else { Write-Output "${suite}: $($script:fail) FAILED"; exit 1 }

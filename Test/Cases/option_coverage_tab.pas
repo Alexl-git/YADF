@@ -1,8 +1,18 @@
-unit TabW;
+unit option_coverage_tab;
 
 interface
 
 implementation
+
+const
+  Aaaaaaaaa = 'a';
+  Bbbbbbbbb = 'b';
+  Cccccccc = 'c';
+  Ddddddd = 'd';
+
+procedure Foo(const A, B, C, D: string);
+begin
+end;
 
 procedure Run;
 begin

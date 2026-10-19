@@ -1,4 +1,4 @@
-unit TypeHeads;
+unit type_head_merge;
 
 interface
 

@@ -1,4 +1,4 @@
-unit externalfunction;
+unit messagemethod;
 
 interface
 

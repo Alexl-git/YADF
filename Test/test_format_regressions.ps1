@@ -103,7 +103,7 @@ MustNotMatch $o '(?m-i)\bindex\s{2,}-2'         'wp14b: index -2 not padded by t
 MustMatch    $o '(?m-i)Result:= \w+ - 1;'      'wp14a: a variable named Index still gets a binary minus'
 $pduDir = Join-Path $env:TEMP ('pdu_' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $pduDir | Out-Null
-$pduFile = Join-Path $pduDir 'PropDefault.pas'
+$pduFile = Join-Path $pduDir 'property_default_unary.pas'
 Set-Content -Path $pduFile -Value $o -Encoding ascii -NoNewline
 if (-not (Test-Path (Get-Dcc64))) { Fail 'wp14a: dcc64 missing -- cannot prove the output compiles' }
 elseif (-not (Test-DccCompiles $pduFile $pduDir $pduDir)) { Fail 'wp14a: formatted property_default_unary.pas does not compile' }
@@ -120,7 +120,7 @@ MustMatch    $o '(?m-i)^\s*TOther = class sealed\(TBase\)\r?$'  'wp15: class sea
 MustMatch    $o '(?m-i)^\s*TIntfHelper = class helper for TBase\r?$' 'wp15: helper head alone'
 $thDir = Join-Path $env:TEMP ('th_' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $thDir | Out-Null
-$thFile = Join-Path $thDir 'TypeHeads.pas'
+$thFile = Join-Path $thDir 'type_head_merge.pas'
 Set-Content -Path $thFile -Value $o -Encoding ascii -NoNewline
 if (-not (Test-Path (Get-Dcc64))) { Fail 'wp15: dcc64 missing -- cannot prove the output compiles' }
 elseif (-not (Test-DccCompiles $thFile $thDir $thDir)) { Fail 'wp15: formatted type_head_merge.pas does not compile' }
@@ -137,7 +137,7 @@ MustNotMatch $o '(?m-i)\bwhile A\s{2,}='            'wp14b: while condition not 
 MustNotMatch $o '(?m-i)\bif \(A\s{2,}>'             'wp14b: if (cond) not padded'
 $ucDir = Join-Path $env:TEMP ('uca_' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $ucDir | Out-Null
-$ucFile = Join-Path $ucDir 'UnaryCondAlign.pas'
+$ucFile = Join-Path $ucDir 'unary_and_cond_align.pas'
 Set-Content -Path $ucFile -Value $o -Encoding ascii -NoNewline
 if (-not (Test-Path (Get-Dcc64))) { Fail 'wp14b: dcc64 missing -- cannot prove the output compiles' }
 elseif (-not (Test-DccCompiles $ucFile $ucDir $ucDir)) { Fail 'wp14b: formatted unary_and_cond_align.pas does not compile' }

@@ -52,6 +52,7 @@ foreach ($f in $files) {
     $cdir = Join-Path $env:TEMP ("goldcap_" + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $cdir | Out-Null
     try {
+      if (-not (Test-UnitNameMatchesFile $f.FullName)) { $capFail++; continue }
       $ctmp = Join-Path $cdir $f.Name
       if (-not (Invoke-Yadf $f.FullName $testIni $ctmp)) { $capFail++; continue }
       $dcu = Join-Path $cdir 'dcu'; New-Item -ItemType Directory -Path $dcu | Out-Null
