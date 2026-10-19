@@ -12,9 +12,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
-- **Exit code 3 = declined.** When the content guard declines at least one file (left unchanged, or - with --o/--of/--batch/--stdout - the unchanged input written/emitted) and nothing failed, YADF now exits 3 instead of 0. A real failure still exits with the failure count. Scripts that treated any non-zero exit as failure should treat 3 as a decline.
+- **Exit code 3 = declined.** When the content guard declines at least one file (left unchanged, or - with --o/--of/--batch/--stdout - the unchanged input written/emitted) and nothing failed, YADF now exits 3 instead of 0. A failure exits with the FIXED code 1 (it used to be the failed-file count, so exactly three failures collided with 3) and outranks a decline; 2 stays usage error / unhandled exception. Scripts that treated any non-zero exit as failure should treat 3 as a decline.
 - **In-place writes keep file identity.** SaveFile now lives in YADF.Options (shared by the CLI and the IDE wizard) and replaces an existing file with ReplaceFileW, so the Hidden/ReadOnly attributes, ACL and alternate data streams survive a format.
-- **--stdout emits the exact bytes --o would write.** It used to ANSI-encode the text whatever the input was, so a UTF-8 or UTF-16 file piped through --stdout was mangled. Now the detected (or --encoding) encoding is used, with a BOM iff the file would carry one.
+- **--stdout emits the exact bytes --o would write (single input).** With several inputs each result follows a `--- <file> ---` line. It used to ANSI-encode the text whatever the input was, so a UTF-8 or UTF-16 file piped through --stdout was mangled. Now the detected (or --encoding) encoding is used, with a BOM iff the file would carry one.
 - **--of refuses two inputs with the same file name** (exit 1, nothing written) instead of silently overwriting the first result; an input reached twice (named and by wildcard) is formatted once.
 
 ## [1.0.19.0] - 2026-10-14
@@ -212,7 +212,7 @@ compiles the formatted output, and the guard now checks what it missed.
 
 - **A long `for` header no longer strands its `to` / `downto` mid-line.** When
   an over-`MaxLen` `for I := A to B + C do` was broken, `to` was treated as
-  ordinary text, so the line split at the `+` — the tighter-binding operator —
+  ordinary text, so the line split at the `+` ??? the tighter-binding operator ???
   and left the loop keyword buried in the middle of the head line. `to` and
   `downto` join the two halves of a loop bound exactly as `and` joins two
   operands, so they are now break boundaries in their own right: every
@@ -234,7 +234,7 @@ compiles the formatted output, and the guard now checks what it missed.
   group repeats the modifier (`const A, B, C: T` becomes three items), so the
   header is *longer* after the split than before it. On a second format the
   header was re-joined, now crossed `MaxLen` where the original had fitted, and
-  was greedy-wrapped into two lines — which the one-per-line pass can no longer
+  was greedy-wrapped into two lines ??? which the one-per-line pass can no longer
   recognise. The result was one parameter per line on the first pass and a
   two-line greedy wrap on the second. A header that is about to be laid out one
   parameter per line is no longer wrapped first.
@@ -242,7 +242,7 @@ compiles the formatted output, and the guard now checks what it missed.
 - **Formatting is idempotent again on lines carrying a trailing `//` comment.**
   The overflow breakers measured the whole physical line, so a line whose CODE
   fitted `MaxLen` was still broken when its trailing note pushed it past the
-  budget — contradicting the documented `MaxLen` policy ("lines containing
+  budget ??? contradicting the documented `MaxLen` policy ("lines containing
   string literals or `//` line-comments may extend past this without being
   broken"). Worse, the break was not reproducible: formatting the result a
   second time moved the note somewhere else, so `format(format(x))` differed
@@ -256,14 +256,14 @@ compiles the formatted output, and the guard now checks what it missed.
     no boundary left in the re-joined line, emitted it whole.
 
   Both reproduced on YADF's own `YADF.Layout.pas`, the second one under the
-  default option set. Joining passes are unchanged — a pass that merges lines
+  default option set. Joining passes are unchanged ??? a pass that merges lines
   still budgets for the note it drags along.
 
 ### Added
 
-- **`BreakLongExpressions` — "Smart expression breakup" (default **true**;
+- **`BreakLongExpressions` ??? "Smart expression breakup" (default **true**;
   `--break-expr` / `--no-break-expr`).** When a line exceeds `MaxLen`, breaks it
-  at every top-level operator — one component per line, with the connecting
+  at every top-level operator ??? one component per line, with the connecting
   operator LEADING each line, matching the comma-first `uses` style. A
   parenthesised group is one component and stays whole; a component that still
   does not fit is broken the same way one bracket level in and one indent step
@@ -271,7 +271,7 @@ compiles the formatted output, and the guard now checks what it missed.
   to its own line at the column of the `if` / `while` / `for` / `with` that
   introduced it; `until` already leads its condition and keeps its position.
   Lines that already fit are untouched, and a construct with no top-level
-  operator — a `with` record list, for instance — is left whole rather than cut
+  operator ??? a `with` record list, for instance ??? is left whole rather than cut
   at an arbitrary column. Applies to arithmetic as well as boolean expressions.
   **This is now the default breaker**; `--no-break-expr` restores the previous
   greedy behaviour, which packs as much as fits onto each line and will split a
@@ -291,7 +291,7 @@ compiles the formatted output, and the guard now checks what it missed.
 
 - **`uses` clauses no longer have their dots aligned into columns.** The column
   aligner treated every `.` as an alignable anchor, so two comma-first entries
-  that happened to share a shape were padded to line their dots up —
+  that happened to share a shape were padded to line their dots up ???
   `, System.Win     .Registry`. Unit names are now excluded from alignment, and,
   just as importantly, padding already present in the input is actively tightened
   rather than merely collapsed to a single space, so a file that arrived with
@@ -311,11 +311,11 @@ compiles the formatted output, and the guard now checks what it missed.
 - **The self-documentation now covers the whole codebase, and it was generated by
   a tool, not written by hand.** 1.0.13.1 documented the engine units; this release
   extends the same treatment to `YADF.OptionsFrame` and to the YADFOT IDE wizard
-  (`YADFOT.Options`, `YADFOT.Wizard`) — 89 DocInsight (`///`) blocks in total.
+  (`YADFOT.Options`, `YADFOT.Wizard`) ??? 89 DocInsight (`///`) blocks in total.
 
-  The facts inside each `<!-- drag-lint:auto BEGIN/END -->` block — callers,
+  The facts inside each `<!-- drag-lint:auto BEGIN/END -->` block ??? callers,
   callees, fields read and written, out-parameter mutations, overload position,
-  cyclomatic complexity, and which tests cover the routine — are derived from an
+  cyclomatic complexity, and which tests cover the routine ??? are derived from an
   AST index by
   [**drag-lint**](https://github.com/Alexl-git/Delphi-RAG-Lint), a sister project
   of YADF's: a tree-sitter-based indexer and linter for Delphi that answers
@@ -325,12 +325,12 @@ compiles the formatted output, and the guard now checks what it missed.
   as the code changes without disturbing the hand-written prose around it.
 
   If you maintain a large Delphi codebase and have wanted this kind of
-  self-updating call-graph documentation, drag-lint is worth a look — it is alpha,
+  self-updating call-graph documentation, drag-lint is worth a look ??? it is alpha,
   actively developed, and its author is collecting feedback.
 
 - **The sources were reformatted by YADF itself** with if-body splitting enabled,
   alongside the end-labels, one-declaration-per-line var splitting, semicolon
-  alignment and comma-first `uses` layout from the previous pass — the formatter's
+  alignment and comma-first `uses` layout from the previous pass ??? the formatter's
   continuing dogfooding.
 
 ### Testing
@@ -1186,7 +1186,7 @@ consecutive ones into alignment runs.
 ### Changed
 
 - `%APPDATA%\YADFOT\yadf.ini` (the 1.0.1.x wizard-only location) is
-  now a **read-only legacy fallback** — YADFOT still reads it if
+  now a **read-only legacy fallback** ??? YADFOT still reads it if
   present so existing users don't lose their config, but writes go to
   `%APPDATA%\YADF\yadf.ini`. To migrate, copy the file once.
 - `YADF.exe`'s `DefaultIniPath` now walks up from cwd (project root)
@@ -1199,7 +1199,7 @@ The release zip contains:
 - `YADF.exe` (Win64 console)
 - `YADFOT.bpl` (Win32 IDE wizard for RAD Studio 37.0 / Delphi 13)
 - `README.md`, `CHANGELOG.md`, `LICENSE`
-- **No `yadf.ini`** — auto-created on first run.
+- **No `yadf.ini`** ??? auto-created on first run.
 
 ---
 

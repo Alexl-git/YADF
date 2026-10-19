@@ -198,6 +198,8 @@ uses
 const
   /// <summary>Process exit code: at least one file was declined by the content guard and left unchanged (no failures).</summary>
   EXIT_DECLINED = 3;
+  /// <summary>Process exit code: at least one file failed (read/format/write error). Fixed value, never the failure count, so it cannot collide with EXIT_DECLINED.</summary>
+  EXIT_FAILED = 1;
   /// <summary>Argument count of the --batch mode: --batch, a list file and an output directory.</summary>
   BATCH_ARG_COUNT = 3;
 
@@ -811,7 +813,7 @@ begin
   if Length(AFiles) > 1 then
     WriteStdoutLine(Format('--- %d ok, %d failed ---', [Pass, Fail]));
   if Fail > 0 then
-    ExitCode:= Fail;
+    ExitCode:= EXIT_FAILED;
 end; // procedure
 
 procedure DebugTree(const AFileName: string; const AOpts: TYadfOptions);
@@ -870,11 +872,11 @@ begin
   WriteStdoutLine('  <project>.dproj       format every .pas referenced in the .dproj XML'         );
   WriteStdoutLine(''                                                                               );
   WriteStdoutLine('Output (formats in place unless --stdout, --o or --of is given):'                 );
-  WriteStdoutLine('  --stdout              write formatted text to stdout as the exact bytes --o would write (input/--encoding encoding, BOM iff the file would have one)');
+  WriteStdoutLine('  --stdout              write formatted text to stdout; for a single input these are the exact bytes --o would write (input/--encoding encoding, BOM iff the file would have one); with several inputs each result follows a ''--- <file> ---'' line');
   WriteStdoutLine('  --o <file>            write the result to <file> (single input only)'         );
   WriteStdoutLine(Format('  --of <folder>         write each result to <folder>\<basename>          [%s]', [Quoted(AOpts.ResultDir)]));
   WriteStdoutLine('  --no-o                clear --of/--o; format in place'              );
-  WriteStdoutLine('Exit codes: 0 ok | 1 usage error | N>=1 failed file(s) | 3 = declined by the content guard (file left unchanged)');
+  WriteStdoutLine('Exit codes: 0 ok | 1 at least one file failed | 2 usage error / unhandled exception | 3 declined by the content guard (file left unchanged; a failure outranks it)');
   WriteStdoutLine(''                                                                     );
   WriteStdoutLine('Backup (opt-in; only when in-place; skipped when --o or --of is set):');
   WriteStdoutLine(Format('  --b                   backup; write <source>.BCKn next to source     [Backup=%s]', [OnOff (AOpts.Backup   )]));

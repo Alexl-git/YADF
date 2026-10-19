@@ -369,6 +369,8 @@ function ClampOptions(var AOpts: TYadfOptions): string;
 procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
 
 // One "Ident - Hint" line per option, grouped -- for CLI --help / about text.
+// Not dead: its only caller is Test\OptionsTest.dpr (TestHelpCoversAll, asserts every option appears in
+// the help text); tests are outside the project index, hence the review marker on the declaration below.
 /// <summary><!-- drag-lint:auto sum -->One "Ident - Hint" line per option, grouped -- for
 /// CLI --help / about text.</summary>
 /// <returns>Observed: SB.ToString.</returns>
@@ -528,6 +530,18 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 
 function ResolveProfileIniPath(const AFileName: string): string;
 
+type
+  /// <summary>Signature of the replace step SaveFile runs when the target already exists.</summary>
+  /// <param name="ATarget">The existing file to replace.</param>
+  /// <param name="ATmp">The fully written replacement.</param>
+  /// <returns>True on success; on False the Win32 last-error must describe the failure.</returns>
+  TSaveReplaceProc = function(const ATarget, ATmp: string): Boolean;
+
+var
+  /// <summary>Test seam: when assigned, SaveFile calls it instead of ReplaceFileW. Always nil in production.</summary>
+  /// <remarks>Lets OptionsTest simulate ERROR_UNABLE_TO_MOVE_REPLACEMENT (1176), where the target is gone and only the temp copy survives.</remarks>
+  gSaveReplaceHook: TSaveReplaceProc = nil;
+
 /// <summary>The exact bytes SaveFile writes for AContent: AEnc-encoded, with AEnc's preamble first only when AWithBOM.</summary>
 /// <param name="AContent">Text to encode.</param>
 /// <param name="AEnc">Target encoding; must not be nil.</param>
@@ -547,7 +561,7 @@ function EncodeForSave(const AContent: string; AEnc: TEncoding; AWithBOM: Boolea
 /// <param name="AContent">Text to encode.</param>
 /// <param name="AEnc">Encoding used to write the bytes.</param>
 /// <param name="AWithBOM">Prepend AEnc's preamble only when True (pass the pair DetectSourceEncoding found to preserve the input).</param>
-/// <exception cref="EOSError">Raised when the temp write or the replace fails; the temp file is removed.</exception>
+/// <exception cref="EOSError">Raised when the temp write or the replace fails. The temp file is removed only while the target still exists; if the replace destroyed the target (error 1176) the temp copy is moved into place, and if even that fails it is kept and named in the message.</exception>
 /// <remarks>
 /// Shared by the CLI and the wizard so both hosts write identical bytes. Not thread-safe per target file.
 /// <!-- drag-lint:auto BEGIN -->
@@ -1246,25 +1260,51 @@ procedure SaveFile(const AFileName, AContent: string; AEnc: TEncoding; AWithBOM:
 var
   All: TBytes;
   Tmp: string;
+  Err: DWORD;
+  Replaced: Boolean;
 begin
   All:= EncodeForSave(AContent, AEnc, AWithBOM);
 
   Tmp:= AFileName + '.yadf-tmp';
   try
     WriteAllBytesFlushed(Tmp, All);
-    if TFile.Exists(AFileName) then
-    begin
-      // ReplaceFileW keeps the target's attributes, ACL and alternate data streams.
-      if not ReplaceFileW(PWideChar(AFileName), PWideChar(Tmp), nil, 0, nil, nil) then
-        RaiseLastOSError;
-    end
-    else if not MoveFileExW(PWideChar(Tmp), PWideChar(AFileName), MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then
-      RaiseLastOSError;
   except  // dl:ok bare-except@98bb
+    // Nothing replaced yet: the target is untouched, so dropping the partial temp is safe.
     DeleteFileW(PWideChar(Tmp));
     raise;
   end;
-  BumpModifiedTime(AFileName);
+  if not TFile.Exists(AFileName) then
+  begin
+    if not MoveFileExW(PWideChar(Tmp), PWideChar(AFileName), MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then
+    begin
+      Err:= GetLastError;
+      DeleteFileW(PWideChar(Tmp));
+      RaiseLastOSError(Err);
+    end;
+  end
+  else
+  begin
+    // ReplaceFileW keeps the target's attributes, ACL and alternate data streams.
+    if Assigned(gSaveReplaceHook) then
+      Replaced:= gSaveReplaceHook(AFileName, Tmp)
+    else
+      Replaced:= ReplaceFileW(PWideChar(AFileName), PWideChar(Tmp), nil, 0, nil, nil);
+    if not Replaced then
+    begin
+      Err:= GetLastError;
+      if TFile.Exists(AFileName) then
+      begin
+        // Target intact: the temp copy is redundant.
+        DeleteFileW(PWideChar(Tmp));
+        RaiseLastOSError(Err);
+      end;
+      // ERROR_UNABLE_TO_MOVE_REPLACEMENT (1176): the target is gone and the temp copy is the
+      // ONLY copy of the formatted text. Never delete it; move it into place instead.
+      if not MoveFileExW(PWideChar(Tmp), PWideChar(AFileName), MOVEFILE_REPLACE_EXISTING or MOVEFILE_WRITE_THROUGH) then
+        raise EOSError.CreateFmt('Replacing %s failed (error %d) and the recovery move failed (error %d); the formatted text is preserved in %s',
+          [AFileName, Err, GetLastError, Tmp]);
+    end;
+  end;  BumpModifiedTime(AFileName);
   SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW, PWideChar(AFileName), nil);
 end;
 

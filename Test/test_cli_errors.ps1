@@ -130,7 +130,20 @@ try {
   & $exe --ini $ini $nulFile $good | Out-Null
   if ($LASTEXITCODE -ne 3) { Fail "decline + ok: expected exit 3, got $LASTEXITCODE" }
   & $exe --ini $ini $nulFile (Join-Path $dn 'missing.pas') | Out-Null
-  if ($LASTEXITCODE -eq 3 -or $LASTEXITCODE -eq 0) { Fail "decline + failure: expected the failure code, got $LASTEXITCODE" }
+  if ($LASTEXITCODE -ne 1) { Fail "decline + failure: expected exit 1 (failure outranks decline), got $LASTEXITCODE" }
+  & $exe --ini $ini (Join-Path $dn 'missing.pas') $nulFile | Out-Null
+  if ($LASTEXITCODE -ne 1) { Fail "failure + decline (reverse order): expected exit 1, got $LASTEXITCODE" }
+  # F2 (2026-10-18 review): failures are the FIXED code 1 whatever their count;
+  # exactly three failed files used to exit 3 == EXIT_DECLINED.
+  $m1 = Join-Path $dn 'm1.pas'; $m2 = Join-Path $dn 'm2.pas'; $m3 = Join-Path $dn 'm3.pas'
+  & $exe --ini $ini $m1 $m2 $m3 | Out-Null
+  if ($LASTEXITCODE -ne 1) { Fail "3 missing files: expected exit 1 (not the count, 3 = declined), got $LASTEXITCODE" }
+  & $exe --ini $ini $m1 $m2 | Out-Null
+  if ($LASTEXITCODE -ne 1) { Fail "2 missing files: expected exit 1, got $LASTEXITCODE" }
+  # --help must list every code and agree with README
+  $helpEx = (& $exe --ini $ini --help 2>&1 | Out-String)
+  MustMatch $helpEx '(?m)^Exit codes:.*0 .*1 .*2 .*3 ' '--help lists exit codes 0/1/2/3'
+  if ($helpEx -match 'N>=1') { Fail '--help still describes a failure-count exit code' }
   & $exe --ini $ini $good | Out-Null
   if ($LASTEXITCODE -ne 0) { Fail "clean format: expected exit 0, got $LASTEXITCODE" }
 }

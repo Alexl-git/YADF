@@ -8,6 +8,7 @@ uses
   System.IOUtils,
   System.IniFiles,
   System.Variants,
+  Winapi.Windows,
   YADF.Options in '..\YADF.Options.pas';
 
 var
@@ -219,6 +220,70 @@ begin
   Check('utf8: F5 lead rejected',           not LooksLikeUtf8(TBytes.Create($F5, $80, $80, $80)));
 end;
 
+// Hook that mimics ERROR_UNABLE_TO_MOVE_REPLACEMENT (1176): the target is
+// already gone and only the temp copy survives.
+function HookTargetGone(const ATarget, ATmp: string): Boolean;
+begin
+  TFile.Delete(ATarget);
+  Winapi.Windows.SetLastError(1176);
+  Result:= False;
+end;
+
+// Hook that fails before touching anything (target intact).
+function HookTargetIntact(const ATarget, ATmp: string): Boolean;
+begin
+  Winapi.Windows.SetLastError(5);
+  Result:= False;
+end;
+
+// F1 (2026-10-18 review): a failed ReplaceFileW must never leave BOTH copies
+// deleted. Target gone -> the temp copy is moved into place; target intact ->
+// original untouched, temp removed, error surfaced.
+procedure TestSaveFileReplaceFailure;
+var
+  Dir, F, Tmp: string;
+  Raised: Boolean;
+begin
+  Dir:= TPath.Combine(TPath.GetTempPath, 'yadf_savefile_' + IntToStr(Winapi.Windows.GetCurrentProcessId));
+  ForceDirectories(Dir);
+  F:= TPath.Combine(Dir, 'a.pas');
+  Tmp:= F + '.yadf-tmp';
+  try
+    // Case 1: replaced file vanished (1176) -> recovered, new content on disk
+    TFile.WriteAllText(F, 'OLD', TEncoding.ASCII);
+    gSaveReplaceHook:= HookTargetGone;
+    Raised:= False;
+    try
+      SaveFile(F, 'NEW', TEncoding.ASCII, False);
+    except
+      on E: Exception do Raised:= True;
+    end;
+    gSaveReplaceHook:= nil;
+    Check('savefile 1176: target exists afterwards', TFile.Exists(F));
+    Check('savefile 1176: target holds the NEW content', TFile.Exists(F) and (TFile.ReadAllText(F) = 'NEW'));
+    Check('savefile 1176: no stray temp file', not TFile.Exists(Tmp));
+    Check('savefile 1176: recovery is not reported as an error', not Raised);
+
+    // Case 2: replace fails, target intact -> original kept, error raised, temp removed
+    TFile.WriteAllText(F, 'OLD', TEncoding.ASCII);
+    gSaveReplaceHook:= HookTargetIntact;
+    Raised:= False;
+    try
+      SaveFile(F, 'NEW', TEncoding.ASCII, False);
+    except
+      on E: Exception do Raised:= True;
+    end;
+    gSaveReplaceHook:= nil;
+    Check('savefile intact-fail: error is raised', Raised);
+    Check('savefile intact-fail: original content kept', TFile.ReadAllText(F) = 'OLD');
+    Check('savefile intact-fail: temp removed', not TFile.Exists(Tmp));
+  finally
+    gSaveReplaceHook:= nil;
+    if TFile.Exists(F) then TFile.Delete(F);
+    if TFile.Exists(Tmp) then TFile.Delete(Tmp);
+    TDirectory.Delete(Dir);
+  end;
+end;
 begin
   try
     TestDescriptorCompleteness;
@@ -229,6 +294,7 @@ begin
     TestInlineCommentsOnAllKinds;
     TestIntRangeClamp;
     TestLooksLikeUtf8;
+    TestSaveFileReplaceFailure;
     Writeln('');
     if GFailures = 0 then
       Writeln('ALL PASS')
