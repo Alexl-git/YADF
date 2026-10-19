@@ -532,6 +532,22 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 
 function ResolveProfileIniPath(const AFileName: string): string;
 
+/// <summary>Reads the IDE-only switch that registers YADFOT as the IDE's native code
+/// formatter (Delphi 13.2+ IOTACodeFormatter) from AProfilesIni, key [IDE] NativeFormatter.</summary>
+/// <param name="AProfilesIni">Full path of profiles.ini (see ProfilesIniPath).</param>
+/// <returns>False when the file or key is missing or unparsable (default OFF: registering
+/// replaces the IDE's own Format Source, so it is opt-in); otherwise the stored value.</returns>
+/// <remarks>Accepts 1/0/true/false/yes/no/on/off like every other YADF boolean. The CLI and
+/// the formatting engine never read this key.</remarks>
+function LoadNativeFormatterFlag(const AProfilesIni: string): Boolean;
+
+/// <summary>Persists the [IDE] NativeFormatter switch into AProfilesIni (creates the folder
+/// and file as needed; other keys and sections are left untouched).</summary>
+/// <param name="AProfilesIni">Full path of profiles.ini (see ProfilesIniPath).</param>
+/// <param name="AValue">True to register YADFOT as the IDE code formatter at next package load.</param>
+/// <exception cref="EIniFileException">Raised when the file cannot be written.</exception>
+procedure SaveNativeFormatterFlag(const AProfilesIni: string; AValue: Boolean);
+
 type
   /// <summary>Signature of the replace step SaveFile runs when the target already exists.</summary>
   /// <param name="ATarget">The existing file to replace.</param>
@@ -1200,6 +1216,37 @@ begin
   try
     Ini.WriteString('Profiles', 'F', AProfiles.F);
     Ini.WriteString('Profiles', 'R', AProfiles.R);
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
+  end;
+end; // procedure
+
+function LoadNativeFormatterFlag(const AProfilesIni: string): Boolean;
+var
+  Ini: TIniFile;
+begin
+  Result:= False;
+  if not FileExists(AProfilesIni) then Exit;
+  Ini:= TIniFile.Create(AProfilesIni);
+  try
+    Result:= ReadBoolIni(Ini, 'IDE', 'NativeFormatter', False);
+  finally
+    Ini.Free;
+  end;
+end; // function
+
+procedure SaveNativeFormatterFlag(const AProfilesIni: string; AValue: Boolean);
+var
+  Ini    : TIniFile;
+  DirName: string  ;
+begin
+  DirName:= ExtractFilePath(AProfilesIni);
+  if (DirName <> '') and (not DirectoryExists(DirName)) then
+    ForceDirectories(DirName);
+  Ini:= TIniFile.Create(AProfilesIni);
+  try
+    Ini.WriteString('IDE', 'NativeFormatter', IfThen(AValue, '1', '0'));
     Ini.UpdateFile;
   finally
     Ini.Free;

@@ -99,6 +99,28 @@ begin
   TFile.Delete(Path);
 end;
 
+procedure TestNativeFormatterFlag;
+var
+  Path: string;
+  Profiles: TYadfProfiles;
+begin
+  Path := TPath.Combine(TPath.GetTempPath, 'yadf_nativefmt_profiles.ini');
+  if TFile.Exists(Path) then TFile.Delete(Path);
+  Check('native flag: missing file -> False (opt-in default)', not LoadNativeFormatterFlag(Path));
+  SaveNativeFormatterFlag(Path, True);
+  Check('native flag: saved True reads back True', LoadNativeFormatterFlag(Path));
+  SaveNativeFormatterFlag(Path, False);
+  Check('native flag: saved False reads back False', not LoadNativeFormatterFlag(Path));
+  TFile.WriteAllText(Path, '[IDE]' + sLineBreak + 'NativeFormatter=yes ; opt in' + sLineBreak, TEncoding.ANSI);
+  Check('native flag: textual yes with trailing comment -> True', LoadNativeFormatterFlag(Path));
+  TFile.WriteAllText(Path, '[IDE]' + sLineBreak + 'NativeFormatter=banana' + sLineBreak, TEncoding.ANSI);
+  Check('native flag: garbage -> False', not LoadNativeFormatterFlag(Path));
+  TFile.WriteAllText(Path, '[Profiles]' + sLineBreak + 'F=yadf.ini' + sLineBreak + 'R=mine.ini' + sLineBreak, TEncoding.ANSI);
+  SaveNativeFormatterFlag(Path, True);
+  Check('native flag: saving keeps the [Profiles] keys', TFile.ReadAllText(Path, TEncoding.ANSI).Contains('R=mine.ini'));
+  TFile.Delete(Path);
+end;
+
 procedure TestHelpCoversAll;
 var
   H: string;
@@ -290,6 +312,7 @@ begin
     TestRoundTrip;
     TestCommentPreservation;
     TestHelpCoversAll;
+    TestNativeFormatterFlag;
     TestLenientIntRead;
     TestInlineCommentsOnAllKinds;
     TestIntRangeClamp;

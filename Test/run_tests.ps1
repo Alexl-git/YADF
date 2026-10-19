@@ -47,7 +47,8 @@ if ($newer) {
 # unnoticed for a month. Missing OR stale is a FAILURE here, not a warning.
 foreach ($r in @(
     @{ Name = 'GuardTest';   Dpr = 'GuardTest.dpr'   },
-    @{ Name = 'OptionsTest'; Dpr = 'OptionsTest.dpr' })) {
+    @{ Name = 'OptionsTest'; Dpr = 'OptionsTest.dpr' },
+    @{ Name = 'FormatBridgeTest'; Dpr = 'FormatBridgeTest.dpr' })) {
   $rexe  = Join-Path $PSScriptRoot ('Win64\Debug\EXE\' + $r.Name + '.exe')
   $rdpr  = Join-Path $PSScriptRoot $r.Dpr
   $build = "  build first:  msbuild /t:Build /p:Config=Debug /p:Platform=Win64 Test\{0}.dproj" -f $r.Name
