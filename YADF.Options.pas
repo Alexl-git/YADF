@@ -368,6 +368,20 @@ function ClampOptions(var AOpts: TYadfOptions): string;
 /// </remarks>
 procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
 
+// One "Ident - Hint" line per option, grouped -- for CLI --help / about text.
+/// <summary><!-- drag-lint:auto sum -->One "Ident - Hint" line per option, grouped -- for
+/// CLI --help / about text.</summary>
+/// <returns>Observed: SB.ToString.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Calls: Format, YADF.Options.OptionHint, YADF.Options.OptionTable</para>
+/// <para>Returns: SB.ToString</para>
+/// <seealso cref="YADF.Options.OptionHint"/>
+/// <seealso cref="YADF.Options.OptionTable"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
+function OptionsHelpText: string;  // dl:ok unused-public-symbol@fb3f
+
 // Shared per-user fallback path used by YADF.exe, YADFOT.bpl, and YADFSetup.exe
 // when no project-local yadf.ini is found. Returns %APPDATA%\YADF\yadf.ini.
 /// <summary><!-- drag-lint:auto sum -->Shared per-user fallback path used by YADF.exe,
@@ -1082,6 +1096,33 @@ begin
     L.Free;
   end; // try
 end; // procedure
+
+function OptionsHelpText: string;
+var
+  T     : TArray<TOptInfo>;
+  i     : Integer         ;
+  CurGrp: string          ;
+  SB    : TStringBuilder  ;
+begin
+  T:= OptionTable;
+  SB:= TStringBuilder.Create;
+  try
+    CurGrp:= '';
+    for i:= 0 to High(T) do
+    begin
+      if T[i].Group <> CurGrp then
+      begin
+        CurGrp:= T[i].Group;
+        SB.AppendLine;
+        SB.AppendLine('  [' + CurGrp + ']');
+      end;
+      SB.AppendLine(Format('    %-22s %s', [T[i].Ident, OptionHint(T[i])]));
+    end;
+    Result:= SB.ToString;
+  finally
+    SB.Free;
+  end; // try
+end; // function
 
 function EnsureIniExists(const APath: string): Boolean;
 begin
