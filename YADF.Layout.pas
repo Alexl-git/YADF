@@ -6018,6 +6018,7 @@ type
     DeclLines: TArray<string>; // hoisted 'Name: Type;' lines (one per name)
     Names    : TArray<string>; // hoisted names (parallel to DeclLines)
     TypeStr  : string        ; // shared type of the hoisted names (collision check)
+    ReInit   : Boolean       ; // uninitialised var in a loop body: emit `Name:= Default(TypeStr);` where it was declared
     Comment  : string        ; // fallback: trailing '// TODO -oYADF ...' text  // dl:ok compiler-magic-comments@3327
   end; // record
 var
@@ -6030,6 +6031,8 @@ var
   RNames     : TDictionary<string, string>            ; // per-routine name -> hoisted type
   BlkAnon    : TList<Boolean>                         ; // open blocks in body; True = anon-method body
   BlkKind    : TList<TptTokenKind>                    ; // opener kinds, index-aligned to BlkAnon
+  BlkLoop    : TList<Boolean>                         ; // index-aligned to BlkAnon; True = `begin` body of a for/while loop
+  RepeatDepth: Integer                                ; // open repeat..until bodies in the current routine
   G          : TGroup                                 ;
   i          : Integer                                ;
   k          : Integer                                ;
@@ -6057,6 +6060,51 @@ var
     while (Result >= 0) and (ATokens[Result].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
       Dec(Result);
   end;
+
+// True when the `begin` at ABegin is the body of a `for` / `while` loop
+// (`... do begin`): scans back from the `do` to the statement that owns it.
+  function IsLoopBegin(ABegin, AFloor: Integer): Boolean;
+  var
+    j: Integer;
+  begin
+    Result:= False;
+    j:= PrevSig(ABegin - 1);
+    if (j < 0) or (ATokens[j].Kind <> ptDo) then
+      Exit;
+    Dec(j);
+    while j > AFloor do
+    begin
+      case ATokens[j].Kind of
+        ptFor, ptWhile: Exit(True);
+        ptWith, ptOn, ptSemiColon, ptBegin, ptThen, ptElse, ptTry, ptFinally, ptExcept, ptRepeat, ptDo: Exit;
+      end;
+      Dec(j);
+    end;
+  end; // function
+
+// True when ANY enclosing block of the current statement is a loop body, so the
+// statement can run more than once per call.
+  function InLoopBody: Boolean;
+  var
+    n: Integer;
+  begin
+    Result:= RepeatDepth > 0;
+    for n:= 0 to BlkLoop.Count - 1 do
+      if BlkLoop[n] then
+        Exit(True);
+  end; // function
+
+// A plain type identifier (`string`, `Integer`, `TFoo`, `System.TFoo`), the only
+// shape for which `Default(<type>)` is safe to synthesise from token text.
+  function IsPlainTypeName(const AType: string): Boolean;
+  var
+    n: Integer;
+  begin
+    Result:= (AType <> '') and not CharInSet(AType[1], ['0'..'9', '.']);
+    for n:= 1 to Length(AType) do
+      if not CharInSet(AType[n], ['A'..'Z', 'a'..'z', '0'..'9', '_', '.']) then
+        Exit(False);
+  end; // function
 
 // True when the statement ending at ASemi already carries a `// ... YADF ...`
 // marker -- i.e. we flagged it on a previous run. Keeps the pass idempotent and
@@ -6182,6 +6230,24 @@ var
     ARec.SemiIdx:= Semi;
     ARec.Sep:= -1;
     ARec.SepIsIn:= False;
+    ARec.ReInit:= False;
+    // Inside a loop body an inline var is re-initialised on every pass; the
+    // hoisted one is not, so a value from the previous pass would survive.
+    // Reset it where it was declared, or (type not expressible as Default(T))
+    // leave the declaration in place with a TODO.
+    if (ARec.Kind = ikExplicitNoInit) and InLoopBody then
+    begin
+      if IsPlainTypeName(Ty) then
+        ARec.ReInit:= True
+      else
+      begin
+        ARec.Kind:= ikFallbackTodo;
+        ARec.Comment:= ' // TODO -oYADF : uninitialised inline var in a loop body is not auto-hoisted for Delphi 10 (it must be reset on every pass) -- was: ' + Trim(InlineRenderRange(ATokens, AVar, Semi));
+        SetLength(ARec.DeclLines, 0);
+        SetLength(ARec.Names    , 0);
+        ARec.TypeStr:= '';
+      end;
+    end;
     Result:= True;
   end; // function
 
@@ -6539,6 +6605,7 @@ begin
   RNames:= TDictionary<string, string>.Create;
   BlkAnon:= TList<Boolean     >.Create;
   BlkKind:= TList<TptTokenKind>.Create;
+  BlkLoop:= TList<Boolean     >.Create;
   try
     // 1) Analyse. A routine body is a gkBlock opened by `begin` that is a direct
     //    child of Root (top-level proc/func/method bodies AND nested-routine
@@ -6553,6 +6620,8 @@ begin
       RNames.Clear; // names are scoped per routine
       BlkAnon.Clear;
       BlkKind.Clear;
+      BlkLoop.Clear;
+      RepeatDepth:= 0;
       AnonCount  := 0;
       CondDepth  := 0;
       PendingAnon:= False;
@@ -6603,6 +6672,7 @@ begin
           IsAnon:= PendingAnon and (Ki = ptBegin);
           BlkAnon.Add(IsAnon);
           BlkKind.Add(Ki    );
+          BlkLoop.Add((Ki = ptBegin) and IsLoopBegin(i, G.OpenIdx));
           if IsAnon then
             Inc(AnonCount);
           PendingAnon:= False;
@@ -6617,10 +6687,15 @@ begin
               Dec(AnonCount);
             BlkAnon.Delete(BlkAnon.Count - 1);
             BlkKind.Delete(BlkKind.Count - 1);
+            BlkLoop.Delete(BlkLoop.Count - 1);
           end;
           Inc(i);
           Continue;
         end;
+        if Ki = ptRepeat then
+          Inc(RepeatDepth)
+        else if (Ki = ptUntil) and (RepeatDepth > 0) then
+          Dec(RepeatDepth);
         if Ki = ptVar then
         begin
           // A `var` in an anon method's own decl section (seen before its begin)
@@ -6772,11 +6847,24 @@ begin
                 Outp.Add(ATokens[k]); // := Expr ;
               i:= Rec.SemiIdx + 1;
             end;
-            ikExplicitNoInit: // drop the whole line
+            ikExplicitNoInit: // drop the whole line (loop body: replaced by `Name:= Default(T);`)
             begin
-              i:= Rec.SemiIdx + 1;
-              if (i < ATokens.Count) and (ATokens[i].Kind in [ptCRLF, ptCRLFCo]) then
-                Inc(i);
+              if Rec.ReInit then
+              begin
+                for k:= 0 to High(Rec.Names) do
+                begin
+                  if k > 0 then
+                    Outp.Add(MakeTok(ptCRLF, CRLF));
+                  Outp.Add(MakeTok(ptIdentifier, Rec.Names[k] + (if AOpts.AssignNoSpaceBefore then '' else ' ') + ':= Default(' + Rec.TypeStr + ');'));
+                end;
+                i:= Rec.SemiIdx + 1;
+              end
+              else
+              begin
+                i:= Rec.SemiIdx + 1;
+                if (i < ATokens.Count) and (ATokens[i].Kind in [ptCRLF, ptCRLFCo]) then
+                  Inc(i);
+              end;
             end;
             ikForExplicit:
             begin
@@ -6813,6 +6901,7 @@ begin
     RNames.Free;
     BlkAnon.Free;
     BlkKind.Free;
+    BlkLoop.Free;
     Root.Free;
   end; // try
 end; // procedure
