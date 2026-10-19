@@ -783,4 +783,24 @@ if (-not (Test-Path (Get-Dcc64))) { Fail 'wp19: dcc64 missing -- cannot prove th
 elseif (-not (Test-DccCompiles $ifdFile $ifdDir $ifdDir)) { Fail 'wp19: formatted output does not compile' }
 [IO.Directory]::Delete($ifdDir, $true)
 
+# ----- IsOpenTypeHead is word-bounded: `A = classify(X) and` is NOT a type head
+# (`= class` is a prefix of `= classify`), so its continuation line still joins,
+# exactly like the same expression with a different callee name.
+foreach ($callee in 'classify', 'recordCount', 'objective', 'interfaceOf') {
+  $oh = Fmt @(
+    'unit probe;'
+    'interface'
+    'procedure P(A, X, Y: Integer);'
+    'implementation'
+    'procedure P(A, X, Y: Integer);'
+    'var B: Boolean;'
+    'begin'
+    "  B:= A = $callee(X) and"
+    '    (Y > 0);'
+    'end;'
+    'end.'
+  )
+  MustMatch $oh "(?m)^\s*B:= A = $callee\(X\) and \(Y > 0\);" "open-type-head: '= $callee' is not a type head"
+}
+
 Finish 'join_headers'

@@ -2431,8 +2431,10 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
   const
     HEAD_MARKS: array[0..6] of string = ('= class', '= record', '= packed record', '= object', '= interface', '= dispinterface', ' helper for ');
   var
-    L   : string;
-    Mark: string;
+    L   : string ;
+    Mark: string ;
+    P   : Integer;
+    Nxt : Integer;
   begin
     Result:= False;
     L:= TrimRight(LowerCase(ALine));
@@ -2440,9 +2442,18 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
       L:= StringReplace(L, '  ', ' ', [rfReplaceAll]);
     if (L = '') or (L[Length(L)] = ';') then
       Exit;
+    // Word-bounded: `= class` must not match the prefix of `= classify(X)`.
     for Mark in HEAD_MARKS do
-      if Pos(Mark, L) > 0 then
-        Exit(True);
+    begin
+      P:= Pos(Mark, L);
+      while P > 0 do
+      begin
+        Nxt:= P + Length(Mark);
+        if (Nxt > Length(L)) or not CharInSet(L[Nxt], ['a'..'z', '0'..'9', '_']) then
+          Exit(True);
+        P:= PosEx(Mark, L, P + 1);
+      end;
+    end;
   end; // function
 // True iff ALine starts with a control-statement keyword whose own body
 // would dangle if it were pulled onto a preceding `then`/`do` header --
