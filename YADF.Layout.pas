@@ -1302,7 +1302,7 @@ begin
   Result:= (T <> '') and (T[1] = '(') and (N <> '') and not CharInSet(N[1], ['0'..'9']);
 end; // function
 
-function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@1264, cognitive-complexity@7ead
+function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@1056, cognitive-complexity@2859
 var
   Lines     : TStringList    ;
   OutVal      : TStringBuilder ;
@@ -6818,7 +6818,7 @@ end; // procedure
 // Block-end labels are NOT decided here: they are a post-pass over the
 // final line-broken text (ApplyBlockEndLabels), because the line count
 // the walker sees is not the one the reader gets.
-function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@00e4
+function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@ddfd
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;

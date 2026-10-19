@@ -372,7 +372,9 @@ procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
 // Not dead: its only caller is Test\OptionsTest.dpr (TestHelpCoversAll, asserts every option appears in
 // the help text); tests are outside the project index, hence the review marker on the declaration below.
 /// <summary><!-- drag-lint:auto sum -->One "Ident - Hint" line per option, grouped -- for
-/// CLI --help / about text.</summary>
+/// CLI --help / about text. Not dead: its only caller is Test\OptionsTest.dpr
+/// (TestHelpCoversAll, asserts every option appears in the help text); tests are outside
+/// the project index, hence the review marker on the declaration below.</summary>
 /// <returns>Observed: SB.ToString.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
@@ -535,6 +537,11 @@ type
   /// <param name="ATarget">The existing file to replace.</param>
   /// <param name="ATmp">The fully written replacement.</param>
   /// <returns>True on success; on False the Win32 last-error must describe the failure.</returns>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// <para>Used by: declaration (YADF.Options.pas)</para>
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TSaveReplaceProc = function(const ATarget, ATmp: string): Boolean;
 
 var
@@ -566,7 +573,7 @@ function EncodeForSave(const AContent: string; AEnc: TEncoding; AWithBOM: Boolea
 /// Shared by the CLI and the wizard so both hosts write identical bytes. Not thread-safe per target file.
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)</para>
-/// <para>Calls: CloseHandle, CreateFileW, DeleteFileW, FlushFileBuffers, GetSystemTimeAsFileTime, MoveFileExW, PWideChar, ReplaceFileW, SetFileTime, SHChangeNotify, YADF.Options.EncodeForSave, YADF.Options.SaveFile.BumpModifiedTime, YADF.Options.SaveFile.WriteAllBytesFlushed</para>
+/// <para>Calls: CloseHandle, CreateFileW, DeleteFileW, FlushFileBuffers, GetSystemTimeAsFileTime, gSaveReplaceHook, MoveFileExW, PWideChar, RaiseLastOSError, ReplaceFileW, SetFileTime, SHChangeNotify, YADF.Options.EncodeForSave, YADF.Options.SaveFile.BumpModifiedTime, YADF.Options.SaveFile.WriteAllBytesFlushed</para>
 /// <para>Catches: Exception (re-raise)</para>
 /// <para>Touches: file system</para>
 /// <seealso cref="YADF.Options.EncodeForSave"/>
