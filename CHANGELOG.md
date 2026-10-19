@@ -50,14 +50,26 @@ fixed (0/1/2/3), and the content guard is stricter.
 
 ### Changed -- exit codes, saving and CLI
 
-- **Exit code 3 = declined.** When the content guard declines at least one file (left unchanged, or - with --o/--of/--batch/--stdout - the unchanged input written/emitted) and nothing failed, YADF now exits 3 instead of 0. A failure exits with the FIXED code 1 (it used to be the failed-file count, so exactly three failures collided with 3) and outranks a decline; 2 stays usage error / unhandled exception. Scripts that treated any non-zero exit as failure should treat 3 as a decline.
-- **In-place writes keep file identity.** SaveFile now lives in YADF.Options (shared by the CLI and the IDE wizard) and replaces an existing file with ReplaceFileW, so the Hidden/ReadOnly attributes, ACL and alternate data streams survive a format.
-- **--stdout emits the exact bytes --o would write (single input).** With several inputs each result follows a `--- <file> ---` line. It used to ANSI-encode the text whatever the input was, so a UTF-8 or UTF-16 file piped through --stdout was mangled. Now the detected (or --encoding) encoding is used, with a BOM iff the file would carry one.
-- **--of refuses two inputs with the same file name** (exit 1, nothing written) instead of silently overwriting the first result; an input reached twice (named and by wildcard) is formatted once.
+- **Exit codes are fixed: 0 ok, 1 failure, 2 usage error or unhandled exception, 3 declined.** Exit 3 means the content guard declined at least one file (left unchanged, or, with `--o`/`--of`/`--batch`/`--stdout`, the unchanged input was written or emitted) and nothing failed. A failure always exits 1 (it used to be the failed-file count, so exactly three failures collided with 3) and outranks a decline. Scripts that treated any non-zero exit as failure should treat 3 as a decline.
+- **In-place writes keep file identity.** `SaveFile` (in `YADF.Options`, shared by the CLI and the IDE wizard) replaces an existing file with `ReplaceFileW`, so Hidden/ReadOnly attributes, ACL and alternate data streams survive a format.
+- **`--stdout` emits the exact bytes `--o` would write** (single input; several inputs get a `--- <file> ---` line before each result). It used to ANSI-encode every result, mangling UTF-8 and UTF-16 files; the detected (or `--encoding`) encoding is now used, with a BOM iff the file would carry one.
+- **`--of` refuses two inputs with the same file name** (exit 1, nothing written) instead of silently overwriting the first result; an input reached twice (named and by wildcard) is formatted once.
+
+### Fixed -- late review batch (cosmetic and edge cases)
+
+- **An `asm` body whose `end` shares the last instruction line (`ret end;`)** no longer leaves every later routine and the final `end.` indented one level too deep; the line is broken before `end`.
+- **`--break-if` / `--break-loop` remainders** (`X:= 1;` on a deeper line, `Y:= 2;` on the body line) are no longer aligned against each other: an alignment run needs a common indent.
+- **Attributed field lines (`[weak] FX, FY: IInterface;`) are not alignment peers**, so spaces are never padded inside the attribute bracket or around its comma.
+- **A CR-only source** (bare CR line endings) now comes out CRLF everywhere, including inside block comments.
+- **`--d10`: the loop re-initialisation also covers a single-statement loop body** (`for ... do if C then begin var S: string; ... end`).
+
+### Known limitation
+
+- A `begin` repeated in each branch of a `{$IFDEF}`/`{$ELSE}` pair that shares one `end` (`{$IFDEF X} if A then begin {$ELSE} if B then begin {$ENDIF}`) still unbalances the indent depth. The indent tracker has no per-branch state; a fix would have to snapshot every parallel stack at each directive, which was judged too risky for the golden net. Keep a `begin` outside the conditional.
 
 ### Testing
 
-Test suite 37/37; golden baselines expanded (asm, dispid, variant-record fixtures, option coverage for 22 options); fixtures are compile-checked and a declined or no-op run now fails the compile legs; tests use unique per-run temp directories.
+Test suite 38/38; golden baselines expanded (asm, dispid, variant-record fixtures, option coverage for 22 options); fixtures are compile-checked and a declined or no-op run now fails the compile legs; tests use unique per-run temp directories.
 
 ## [1.0.19.0] - 2026-10-14
 
