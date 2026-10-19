@@ -2139,12 +2139,62 @@ var
     Result:= True;
   end;
 
+  // Width of the leading blank run of ALine (tabs count as one).
+  function LeadWidth(const ALine: string): Integer;
+  begin
+    Result:= 0;
+    while (Result < Length(ALine)) and CharInSet(ALine[Result + 1], [' ', #9]) do
+      Inc(Result);
+  end;
+
+  // [Attr] Name: Type; -- a field/var line carrying an attribute prefix. Its
+  // ] and , anchors must never be padded ([weak  ] FX): padding inside the
+  // brackets is ugly and the attribute is not a column. A [1, 2] row of an
+  // array constant is not matched (] is not followed by an identifier).
+  function IsAttributedDeclLine(const ALine: string): Boolean;
+  var
+    p    : Integer;
+    Depth: Integer;
+    InStr: Boolean;
+    L    : string ;
+  begin
+    Result:= False;
+    L:= TrimLeft(ALine);
+    if (L = '') or (L[1] <> '[') then
+      Exit;
+    Depth:= 0;
+    InStr:= False;
+    p    := 1;
+    while p <= Length(L) do
+    begin
+      if L[p] = '''' then
+        InStr:= not InStr
+      else if not InStr then
+        if L[p] = '[' then
+          Inc(Depth)
+        else if L[p] = ']' then
+        begin
+          Dec(Depth);
+          if Depth = 0 then
+          begin
+            Inc(p);
+            while (p <= Length(L)) and (L[p] = ' ') do
+              Inc(p);
+            Exit((p <= Length(L)) and CharInSet(L[p], ['A'..'Z', 'a'..'z', '_']));
+          end;
+        end;
+      Inc(p);
+    end; // while
+  end; // function
+
   function Eligible(AIdx: Integer): Boolean;
   var
     AInfo: TLineShape;
   begin
     // A uses clause never participates in column alignment (see MarkUsesLines).
     if InUses[AIdx] then
+      Exit(False);
+    if IsAttributedDeclLine(Lines[AIdx]) then
       Exit(False);
     AInfo:= Info[AIdx];
     Result:= AInfo.HasAssign or  // dl:ok boolean-expression-complexity@ef5c
@@ -2200,7 +2250,7 @@ begin
           Continue;
         end;
         j:= i + 1;
-        while (j < Lines.Count) and Eligible(j) and ShapesMatch(Info[i].Shape, Info[j].Shape) do
+        while (j < Lines.Count) and Eligible(j) and (LeadWidth(Lines[j]) = LeadWidth(Lines[i])) and ShapesMatch(Info[i].Shape, Info[j].Shape) do
           Inc(j);
         if (j - i >= 2) and (Length(Info[i].Shape) > 0) then
         begin

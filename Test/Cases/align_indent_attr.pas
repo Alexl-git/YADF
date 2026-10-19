@@ -1,0 +1,30 @@
+unit align_indent_attr;
+
+// Regression fixture (review 2026-10-19): SmartAlignAssignments must not
+// (1) align a `:=` line against a peer line at a different indent (the
+// remainder after --break-if / --break-loop splits `X:= 1;` onto a deeper line
+// than `Y:= 2;`), and (2) pad inside an attribute bracket
+// (spaces after the attribute name or around the comma and colon).
+
+interface
+
+type
+  TFoo = class
+  public
+    [weak] FX, FY: IInterface;
+    [MyAttr] A, B: Integer;
+    [Weak] FZ: IInterface;
+    FQ: Integer;
+  end;
+
+procedure P(A: Boolean; var X, Y: Integer);
+
+implementation
+
+procedure P(A: Boolean; var X, Y: Integer);
+begin
+  if A then X:= 1; Y:= 2;
+  while A do X:= 3; Y:= 4;
+end;
+
+end.
