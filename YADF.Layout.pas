@@ -1302,6 +1302,22 @@ begin
   Result:= (T <> '') and (T[1] = '(') and (N <> '') and not CharInSet(N[1], ['0'..'9']);
 end; // function
 
+// True when ALine is an attribute line (`[...]`, optionally followed by a `//`
+// comment): it decorates the declaration below it.
+function PrevLineEndsWithAttribute(const ALine: string): Boolean;
+var
+  P: Integer;
+  T: string;
+  R: string;
+begin
+  T:= Trim(ALine);
+  P:= LastDelimiter(']', T);
+  R:= '';
+  if P > 0 then
+    R:= Trim(Copy(T, P + 1, MaxInt));
+  Result:= (P > 0) and (T[1] = '[') and ((R = '') or (Copy(R, 1, 2) = '//'));
+end; // function
+
 function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@1056, cognitive-complexity@2859
 var
   Lines     : TStringList    ;
@@ -1476,6 +1492,11 @@ begin
           // names across the conditional boundary (J became conditional ->
           // E2003 when X is undefined). Leave such lines alone.
           if (Pos('{$', Tail) > 0) or (Pos('(*$', Tail) > 0) then
+            DoSplit:= False;
+          // An attribute on the previous line (`[weak]`, `[MyAttr] // note`)
+          // binds to EVERY name of this list; a split would leave it on the
+          // first name only (FY silently turns strong). Leave such lines alone.
+          if (i > 0) and PrevLineEndsWithAttribute(Lines[i - 1]) then
             DoSplit:= False;
           if HasComma and (TypePart <> '') and DoSplit then
           begin

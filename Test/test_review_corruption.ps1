@@ -188,4 +188,20 @@ if ([Convert]::ToBase64String($after) -ne [Convert]::ToBase64String($bytes)) {
   Fail "review_corruption: a file containing a NUL byte was rewritten ($($bytes.Length) -> $($after.Length) bytes) -- $msg"
 }
 
+# ---- attribute on its own line binds to EVERY name of `A, B: T;`; the
+#      default SplitMultiVarDecls must leave such lists whole (else FY of
+#      `[weak] FX, FY` silently turns strong). Default settings and --no-reflow. ----
+foreach ($fl in @(@(), @('--no-reflow'))) {
+  $amOut = Format-Case 'attr_multi_names.pas' $fl
+  if ($amOut) {
+    $txt = [IO.File]::ReadAllText($amOut)
+    foreach ($s in 'A, B\s*: Integer\s*;', 'C, D\s*: Integer\s*;', 'FX, FY\s*: IInterface\s*;') {
+      if ($txt -notmatch $s) { Fail "review_corruption: attr_multi_names ($($fl -join ' ')) split an attributed list, lost: $s" }
+    }
+    if (Test-Path (Join-Path $bin 'dcc64.exe')) {
+      if (-not (Compiles 'dcc64' $amOut)) { Fail 'review_corruption: formatted attr_multi_names.pas does not compile with dcc64' }
+    }
+  }
+}
+
 Finish 'review_corruption'
