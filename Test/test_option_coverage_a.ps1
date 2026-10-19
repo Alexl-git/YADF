@@ -89,12 +89,16 @@ MustMatch    $o '(?m)^  A = 1;'  'AlignConstEquals=false leaves "A = 1;"'
 MustNotMatch $o '(?m)^  A  +=' 'AlignConstEquals=false: no padding before ='
 
 # TabWidth: a tab inside an emitted comment counts TabWidth columns toward
-# MaxLen. At 60 cols: width 1 fits on one line, width 16 forces a call break.
+# MaxLen. At 60 cols the line fits through width 3 and breaks from width 4 (the
+# repo default), so the 3/4 pair brackets the threshold: a TabWidth that is ignored
+# (or hard-wired to 4) fails the width-3 leg.
 $src = Join-Path $PSScriptRoot 'Cases\option_coverage_tab.pas'
 Run-Case 'TabWidth=1' @{ TabWidth = 1 } @('--max-len', '60') $false; $o = $script:res
 MustMatch $o 'Foo\(Aaaaaaaaa, Bbbbbbbbb, Cccccccc, Ddddddd\);' 'TabWidth=1 keeps call on one line'
-Run-Case 'TabWidth=16' @{ TabWidth = 16 } @('--max-len', '60') $false; $o = $script:res
-MustMatch $o '(?m)Foo\(\r?\n\s+Aaaaaaaaa' 'TabWidth=16 breaks the call'
+Run-Case 'TabWidth=3' @{ TabWidth = 3 } @('--max-len', '60') $false; $o = $script:res
+MustMatch $o 'Foo\(Aaaaaaaaa, Bbbbbbbbb, Cccccccc, Ddddddd\);' 'TabWidth=3 still keeps the call on one line'
+Run-Case 'TabWidth=4' @{ TabWidth = 4 } @('--max-len', '60') $false; $o = $script:res
+MustMatch $o '(?m)Foo\(\r?\n\s+Aaaaaaaaa' 'TabWidth=4 breaks the call'
 
 foreach ($d in Get-ChildItem $work -Directory) { [IO.Directory]::Delete($d.FullName, $true) }
 [IO.Directory]::Delete($work, $true)
