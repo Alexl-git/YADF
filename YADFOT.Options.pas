@@ -59,6 +59,7 @@ uses
   , Vcl.Forms
   , ToolsAPI
   , YADF.OptionsFrame
+  , YADFOT.CodeFormatter
   ;
 
 type
@@ -157,6 +158,8 @@ begin
     FWatch.FreeNotification(FFrame);    // clear FFrame if the IDE frees it early
     FFrame.Policy:= IdePersistPolicy;   // commit-on-OK + F -> yadf.ini mirror
     FFrame.Load;
+    // IDE-only switch; shown solely where a code formatter can be registered (13.2+).
+    FFrame.ShowNativeFormatterOption(CodeFormatterAvailable);
   end;
 end;
 

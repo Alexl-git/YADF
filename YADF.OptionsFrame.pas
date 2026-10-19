@@ -127,6 +127,7 @@ type
       FCurrentIni  : string        ; // full path of the profile being edited
       FProfileList : TListBox      ; // the profiles list control
       FEditingLbl  : TLabel        ; // 'Editing: <file>'
+      FNativeFmtChk: TCheckBox     ; // IDE-only: register as the IDE code formatter (hidden by default)
       // --- live before/after preview ---
       FSource     : TMemo      ; // editable sample source (input)
       FResult     : TMemo      ; // formatted output (read-only)
@@ -639,6 +640,13 @@ type
       property Policy: TYadfOptionsPersistPolicy read FPolicy write FPolicy;
       /// <summary>Optional status-line sink; see TYadfIniStatusEvent.</summary>
       property OnIniStatus: TYadfIniStatusEvent read FOnIniStatus write FOnIniStatus;
+      /// <summary>Shows the IDE-only "use YADF as the IDE code formatter" check box
+      /// and loads its state from profiles.ini [IDE] NativeFormatter.</summary>
+      /// <param name="AVisible">True only when the host IDE has IOTACodeFormatter (Delphi 13.2+);
+      /// YADFSetup and older IDEs leave it False and the box stays hidden.</param>
+      /// <remarks>Commit persists the box; the setting takes effect at the next IDE start.
+      /// Call after Policy and before/with Load.</remarks>
+      procedure ShowNativeFormatterOption(AVisible: Boolean);
   end;
 
 const
@@ -651,6 +659,11 @@ const
   IdePersistPolicy: TYadfOptionsPersistPolicy = (AutoSave: False; MirrorF: True);
 
 implementation
+
+const
+  NativeFmtRowHeight = 20;   // height of the IDE-only check-box row
+  NativeFmtRowTop    = 44;   // below the button row + 'Editing:' line
+  NativeFmtWidth     = 340;  // fits the 360 px left host
 
 { Minimal .dfm resource: TCustomFrame.Create streams a per-class resource via
   InitInheritedComponent(Self, TFrame) and raises EResNotFound when none
@@ -899,6 +912,17 @@ begin
   FEditingLbl.Parent:= Bar;
   FEditingLbl.Left:= 4; FEditingLbl.Top:= 27;  // dl:ok large-magic-number@b7e5
   FEditingLbl.Caption:= 'Editing:';
+
+  // IDE-only switch (hidden until the host calls ShowNativeFormatterOption).
+  FNativeFmtChk:= TCheckBox.Create(Self);
+  FNativeFmtChk.Parent := Bar;
+  FNativeFmtChk.Left   := 4;
+  FNativeFmtChk.Top    := NativeFmtRowTop;
+  FNativeFmtChk.Width  := NativeFmtWidth;
+  FNativeFmtChk.Caption:= 'Use YADF as the IDE code formatter (restart IDE)';
+  FNativeFmtChk.Hint   := 'Registers YADF with the IDE (Delphi 13.2+) so Format Source and format-on-save use the F profile. Off = the IDE keeps its own formatter. Takes effect after an IDE restart.';
+  FNativeFmtChk.ShowHint:= True;
+  FNativeFmtChk.Visible := False;
 
   // The list fills the space between the label and the bottom strip.
   FProfileList:= TListBox.Create(Self);
@@ -1240,6 +1264,21 @@ begin
   end;
 end; // procedure
 
+procedure TYadfOptionsFrame.ShowNativeFormatterOption(AVisible: Boolean);
+var
+  Delta: Integer;
+begin
+  if AVisible = FNativeFmtChk.Visible then Exit;
+  FNativeFmtChk.Visible:= AVisible;
+  // Grow/shrink the profiles panel by one check-box row so YADFSetup keeps its layout.
+  Delta:= NativeFmtRowHeight;
+  if not AVisible then Delta:= -Delta;
+  FNativeFmtChk.Parent.Height       := FNativeFmtChk.Parent.Height        + Delta;
+  FNativeFmtChk.Parent.Parent.Height:= FNativeFmtChk.Parent.Parent.Height + Delta;
+  if AVisible then
+    FNativeFmtChk.Checked:= LoadNativeFormatterFlag(ProfilesIniPath);
+end; // procedure
+
 procedure TYadfOptionsFrame.Commit;
 begin
   // Read-modify-write the profile CURRENTLY being edited: re-read the record
@@ -1254,6 +1293,8 @@ begin
     ControlsToOptions;
     SaveOptionsToIni(FOpts, FCurrentIni);
     MirrorFProfile;
+    if FNativeFmtChk.Visible then
+      SaveNativeFormatterFlag(ProfilesIniPath, FNativeFmtChk.Checked);
     DoIniStatus('  (saved)');
   except
     on E: Exception do
