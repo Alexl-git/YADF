@@ -433,6 +433,21 @@ begin
   Check('D10 untyped for-var hoist with inferred type ok',
     CodeOk('procedure P; begin for var I:= 0 to 3 do Use(I); end;',
            'procedure P; var I: Integer; begin for I:= 0 to 3 do Use(I); end;', gcD10));
+  // The D10 pipeline checks in two stages (YADF.Layout.FormatSource): STRICT
+  // from the post-hoist token text to the pre-split text, then gcD10 from the
+  // source to the final text. The bag-of-tokens gcD10 alone cannot see a
+  // reorder; the strict stage is what rejects it.
+  Check('D10 bag check alone is blind to a reorder (why the strict stage exists)',
+    CodeOk('procedure P; begin X:= A - B; end;', 'procedure P; begin X:= B - A; end;', gcD10));
+  Check('D10 strict stage: reordered A - B rejected after the hoist',
+    not CodeOk('procedure P; var X: Integer; begin X:= 1; Y:= A - B; end;',
+               'procedure P;' + CRLF + 'var X: Integer;' + CRLF + 'begin' + CRLF + '  X:= 1;' + CRLF + '  Y:= B - A;' + CRLF + 'end;', gcStrict));
+  Check('D10 strict stage: legit hoist (post-hoist text vs reflowed output) passes',
+    CodeOk('procedure P; var X: Integer; begin X:= 1; Y:= A - B; end;',
+           'procedure P;' + CRLF + 'var X: Integer;' + CRLF + 'begin' + CRLF + '  X:= 1;' + CRLF + '  Y:= A - B;' + CRLF + 'end;', gcStrict));
+  Check('D10 final stage: source vs hoisted+reflowed output passes',
+    CodeOk('procedure P; begin var X: Integer:= 1; Y:= A - B; end;',
+           'procedure P;' + CRLF + 'var X: Integer;' + CRLF + 'begin' + CRLF + '  X:= 1;' + CRLF + '  Y:= A - B;' + CRLF + 'end;', gcD10));
   Check('D10 lost statement rejected',
     not CodeOk('procedure P; begin var X: Integer:= 1; Use(X); end;',
                'procedure P; var X: Integer; begin X:= 1; end;', gcD10));

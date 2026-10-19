@@ -5818,6 +5818,30 @@ begin
   end; // for
 end; // procedure
 
+// Renders the token list back to text for the Delphi10Compat hoist snapshot.
+// A token with no Pre-whitespace (the hoist synthesises some) gets one space so
+// neighbours can never fuse into a different token when the text is re-lexed;
+// a space between two tokens never changes the code-token stream.
+function RenderTokensForGuard(const ATokens: TTokenList): string;
+var
+  Sb: TStringBuilder;
+  i : Integer       ;
+begin
+  Sb:= TStringBuilder.Create;
+  try
+    for i:= 0 to ATokens.Count - 1 do
+    begin
+      Sb.Append(ATokens[i].Pre);
+      if (ATokens[i].Pre = '') and (i > 0) then
+        Sb.Append(' ');
+      Sb.Append(ATokens[i].Text);
+    end;
+    Result:= Sb.ToString;
+  finally
+    Sb.Free;
+  end;
+end; // function
+
 function UnshieldMultilineTokens(const S: string; const AMap: TStringList): string;
 var
   i: Integer;
@@ -6780,6 +6804,8 @@ var
   AsmMap      : TStringList   ; // asm bodies shielded before Stage 1 (ShieldAsmBodies)
   EffMaxBlanks: Integer       ; // hoisted from inline var in the pipeline (XE8/D10)
   PreSplit    : string        ; // Result just before the split stage (strict code-token check)
+  HoistSnap   : string        ; // Delphi10Compat only: token text right after the inline-var hoist
+  Reference   : string        ; // text the pre-split snapshot is compared against
   PreMode     : TGuardCodeMode; // code-token strictness for the pre-split snapshot
   CodeMode    : TGuardCodeMode; // code-token strictness for the final guard call
 
@@ -7408,7 +7434,10 @@ begin
     // Delphi 10 compatibility transform (opt-in): hoist inline vars. Runs before
     // ParseGroups so it can mutate the token list freely.
     if AOpts.Delphi10Compat then
+    begin
       DowngradeInlineVars(Tokens, AOpts);
+      HoistSnap:= UnshieldAsmBodies(RenderTokensForGuard(Tokens), AsmMap);
+    end;
     // Shield multi-line string-literal tokens before structure/emission so
     // every later pass sees a one-line atom; restored verbatim at Stage 5.
     ShieldMultilineTokens(Tokens, MLMap);
@@ -7506,8 +7535,7 @@ begin
         // Snapshot for the strict code-token check (Stage 6): every pass before
         // this point may only re-space, re-case and re-flow code, never rewrite it.
         // (Unshielded copy: the streams are compared against the raw ASource.)
-        if not AOpts.Delphi10Compat then
-          PreSplit:= UnshieldAsmBodies(UnshieldMultilineTokens(Result, MLMap), AsmMap);
+        PreSplit:= UnshieldAsmBodies(UnshieldMultilineTokens(Result, MLMap), AsmMap);
         if AOpts.SplitMultiVarDecls or AOpts.BreakCaseLabels then
           Result:= SplitMultiVarDeclarations(Result, AOpts.SplitMultiVarDecls, AOpts.BreakCaseLabels);
         if AOpts.AlignTypeColon or AOpts.AlignConstEquals or AOpts.AlignSmartAssign then
@@ -7569,7 +7597,15 @@ begin
           PreMode:= gcSplit
         else
           PreMode:= gcStrict;
-        if (not AOpts.Delphi10Compat) and not FormatPreservesContent(ASource, PreSplit, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, PreMode, ADeclineReason) then
+        // Under Delphi10Compat the strict snapshot check compares against the
+        // token text right AFTER the hoist (the hoist is the only legitimate
+        // reorder); the bag-of-tokens gcD10 then only sees the bounded
+        // split/alignment tail plus the hoist itself.
+        if AOpts.Delphi10Compat then
+          Reference:= HoistSnap
+        else
+          Reference:= ASource;
+        if not FormatPreservesContent(Reference, PreSplit, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, PreMode, ADeclineReason) then
           Result:= ASource
         else if not FormatPreservesContent(ASource, Result, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, CodeMode, ADeclineReason) then
           Result:= ASource;
