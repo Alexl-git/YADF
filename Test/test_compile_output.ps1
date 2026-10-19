@@ -40,12 +40,15 @@ function CompilesOK([string]$pasFile, [string]$incDir) {
 $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRoot 'Snippets') -Filter *.pas -Recurse
 $compiled = 0
 $skipped  = 0
+$changed  = 0   # outputs that differ from their input (a copy-only stub changes none)
 
 try {
   foreach ($f in $files) {
+    if (-not (Test-UnitNameMatchesFile $f.FullName)) { continue }   # E1038 mismatch = FAIL, not skip
     if (-not (CompilesOK $f.FullName $f.DirectoryName)) { $skipped++; continue }   # fragment / edge snippet
     $out = Join-Path $tmpDir $f.Name    # keep the file name: unit name must match
     if (-not (Invoke-Yadf $f.FullName $ini $out)) { continue }   # exit!=0 / decline / no output = FAIL
+    if (-not (SameBytes $f.FullName $out)) { $changed++ }
     if (CompilesOK $out $f.DirectoryName) { $compiled++ }
     else { $fail++; Write-Output "FAIL [formatted output does not compile]: $($f.Name)" }
     Remove-Item $out -Force -ErrorAction SilentlyContinue
@@ -59,6 +62,12 @@ finally {
 # toolchain), the gate would 'pass' vacuously. Current corpus: 58.
 $floor = 50
 if ($compiled -lt $floor) { $fail++; Write-Output "FAIL [floor]: only $compiled fixtures compiled standalone (< $floor)" }
+
+Write-Output "compile_output: $changed output(s) differ from input"
+# Positive control: the gates above stay green for a copy-only stub formatter. A real run changes
+# 59 of ~100 fixtures; require a floor well under that so a no-op formatter FAILS.
+$changedFloor = 45
+if ($changed -lt $changedFloor) { Fail "only $changed outputs differ from input (< $changedFloor): formatter looks like a no-op" }
 
 if ($fail -eq 0) {
   Write-Output "compile_output: PASS ($compiled compiled, $skipped skipped as non-standalone)"

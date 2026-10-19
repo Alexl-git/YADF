@@ -27,6 +27,10 @@ $o1 = Join-Path $odir 'generic_angle_align.pas'   # unit name must match the fil
 if (Invoke-Yadf $src $ini $o1) {
   $text = Get-Content $o1 -Raw
   MustNotMatch $text '<[^>\r\n]*\s{2,}[^>\r\n]*>' 'no padding inside <...>'
+  # Positive control: a copy-only (no-op) formatter must fail. The aligner pads the = column
+  # OUTSIDE the <...> (TSolo<T: class> = ... gets 2+ spaces before =).
+  MustMatch    $text '(?m)^\s+TSolo<T: class>\s{2,}= class end;' 'type heads aligned outside <...> (formatter ran)'
+  if (SameBytes $src $o1) { Fail 'output identical to input: formatter did nothing' }
   MustContain  $text 'procedure Q<A: class; B: record>;' 'generic procedure keeps ; hugging >'
   MustContain  $text 'IWide<T: IInterface; U: class>' 'interface type parameters untouched'
   MustContain  $text 'TSolo<T: class>' 'single-parameter list untouched'

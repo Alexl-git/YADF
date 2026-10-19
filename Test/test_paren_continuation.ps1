@@ -24,6 +24,10 @@ if (Invoke-Yadf $src $ini $o1) {
   MustMatch $text '(?m)^\s+\(Gamma\.Delta \+ 2\), // b\r?$' 'call-argument line not padded inside parens'
   MustMatch $text '(?m)^\s+\(Eta\.Th \+ 4000\), // c\r?$' 'call-argument line not padded around dot'
   MustNotMatch $text '\(\w+\s{2,}\.' 'no padding before a dot inside parens'
+  # Positive control: a copy-only (no-op) formatter must fail. The multi-var decl is split and
+  # its colons aligned (Eta  : TPart  ;).
+  MustMatch    $text '(?m)^\s+Eta\s+: TPart\s*;' 'multi-var decl split + colon aligned (formatter ran)'
+  if (SameBytes $src $o1) { Fail 'output identical to input: formatter did nothing' }
   if (-not (Test-DccCompiles $o1 $inc $dcu)) { Fail 'formatted output does not compile' }
   $o2 = New-TempOut
   if (Invoke-Yadf $o1 $ini $o2) { if (-not (SameBytes $o1 $o2)) { Fail 'second pass not byte-identical' } }
