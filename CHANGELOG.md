@@ -8,14 +8,56 @@ predate the scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.0.20.0] - 2026-10-19
 
-### Changed
+This release closes the backlog from the 2026-10-14 software review: more ways
+the formatter could change code, a data-loss path in the in-place save, and a
+batch of indentation and alignment fixes. Exit codes are now documented and
+fixed (0/1/2/3), and the content guard is stricter.
+
+### Fixed -- safety of the original file
+
+- **SaveFile never deletes the only copy.** If `ReplaceFileW` fails (error 1176) the original is kept and the failure is reported.
+- **`--o` to an unwritable target exits 1**, the same as the in-place path.
+
+### Fixed -- output that no longer compiled or changed meaning
+
+- **`--break-case` no longer splits enum/array declarations or a variant-record label line** (`0, 1: (A: Integer);`), and never splits a `(`-led case body.
+- **A multi-name declaration following an attribute line is not split.**
+- **`--d10`: an uninitialised inline `var` declared in a loop body is re-initialised** each iteration, as the original inline form did.
+- **An instruction on the `asm` line is shielded** (it used to make the guard decline the whole file); the sign after a routine's `dispid`/`message`/`default`/`index` directive stays unary.
+- **`IsOpenTypeHead` is word-bounded**, so `= classify(X)` is no longer taken for a class head.
+- **Shield sentinel prefix is chosen per source**, so author text can never collide with it; LF sources get CRLF inside shielded strings, comments and asm too.
+- **Type heads with modifiers (`class sealed`, `helper for`, `record`) are never merged onto their first member.**
+- **A `// note:` ending in a colon is never read as a case label** by `JoinShortCaseAlts`; block-end labels skip an `end` line that carries a multi-line comment or directive tail.
+- **`BreakControlBodies` splits `X:= 1; Y:= 2;` at the first top-level `;`**, so `Y` is no longer shown as conditional.
+- **Generic `<...>` depth is tracked on request**, so a colon or semicolon inside `T<A: B; C: D>` is not top level.
+- **Routine headers sharing a tail across `{$IFDEF}`/`{$ELSE}` no longer unbalance the indent.**
+
+### Fixed -- indentation and alignment
+
+- A member routine after `var`/`class var` in a class closes the section instead of indenting under the fields.
+- A continuation line after a trailing binary operator indents deeper.
+- Routine header lines no longer join the declaration-semicolon alignment run; `class function` ends an alignment run; call rows are not paren continuations.
+- `(`-led continuation lines without a colon are not alignment peers, so `SmartAlignAssignments` no longer pads inside parentheses; unary `+`/`-` is no alignment anchor and `if`/`while` conditions are not aligned.
+
+### Changed -- content guard, CLI and IDE
+
+- **The content guard compares a strict code-token stream** with bounded split and `--d10` modes; the `--d10` guard checks strictly from the post-hoist snapshot.
+- **Input is CRLF-normalised;** `Eol=preserve` and LF buffers in the IDE are documented as declined by design.
+- **`--help` shows the live `[x=on/off]` values** and lists INI-only keys; help and README list exit codes 0/1/2/3.
+- **YADFOT keeps caret and scroll position across a buffer format.** Cancelling inside a profile switch is by design.
+
+### Changed -- exit codes, saving and CLI
 
 - **Exit code 3 = declined.** When the content guard declines at least one file (left unchanged, or - with --o/--of/--batch/--stdout - the unchanged input written/emitted) and nothing failed, YADF now exits 3 instead of 0. A failure exits with the FIXED code 1 (it used to be the failed-file count, so exactly three failures collided with 3) and outranks a decline; 2 stays usage error / unhandled exception. Scripts that treated any non-zero exit as failure should treat 3 as a decline.
 - **In-place writes keep file identity.** SaveFile now lives in YADF.Options (shared by the CLI and the IDE wizard) and replaces an existing file with ReplaceFileW, so the Hidden/ReadOnly attributes, ACL and alternate data streams survive a format.
 - **--stdout emits the exact bytes --o would write (single input).** With several inputs each result follows a `--- <file> ---` line. It used to ANSI-encode the text whatever the input was, so a UTF-8 or UTF-16 file piped through --stdout was mangled. Now the detected (or --encoding) encoding is used, with a BOM iff the file would carry one.
 - **--of refuses two inputs with the same file name** (exit 1, nothing written) instead of silently overwriting the first result; an input reached twice (named and by wildcard) is formatted once.
+
+### Testing
+
+Test suite 37/37; golden baselines expanded (asm, dispid, variant-record fixtures, option coverage for 22 options); fixtures are compile-checked and a declined or no-op run now fails the compile legs; tests use unique per-run temp directories.
 
 ## [1.0.19.0] - 2026-10-14
 
