@@ -302,4 +302,21 @@ $gchk = & $exe --ini $ini --check $g1 2>&1
 if ("$gchk" -notmatch 'PASS') { Fail 'roundtrip/guard: expanded group header' }
 Remove-Item $grpIn, $g1, $g2 -Force -ErrorAction SilentlyContinue
 
+# ----- A directive tail INSIDE the parameter list must be idempotent -----
+# (2026-10-18 review reported run 2 re-indenting `    );` -> `);`; not
+# reproducible on this tree, so this pins the stable form for several shapes.)
+$dirForms = @{
+  'oneline' = 'procedure R(A: Integer; B: Integer {$IFDEF FOO}; C: Integer {$ENDIF});'
+  'split'   = "procedure R(A: Integer;`r`n  B: Integer`r`n{`$IFDEF FOO}`r`n; C: Integer`r`n{`$ENDIF}`r`n);"
+  'method'  = 'procedure R(A: Integer; B: Integer {$IFDEF FOO}; C: Integer {$ENDIF}); stdcall;'
+}
+foreach ($k in $dirForms.Keys) {
+  $d0 = New-TempOut; $d1 = New-TempOut; $d2 = New-TempOut
+  [IO.File]::WriteAllText($d0, "unit u;`r`ninterface`r`n$($dirForms[$k])`r`nimplementation`r`nend.`r`n", [Text.Encoding]::ASCII)
+  & $exe --ini $ini $d0 --break-params --o $d1 | Out-Null
+  & $exe --ini $ini $d1 --break-params --o $d2 | Out-Null
+  if (-not (SameBytes $d1 $d2)) { Fail "idempotent: directive tail inside parameter list ($k)" }
+  Remove-Item $d0, $d1, $d2 -Force -ErrorAction SilentlyContinue
+}
+
 Finish 'break_params'
