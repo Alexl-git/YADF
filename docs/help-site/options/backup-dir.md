@@ -1,7 +1,7 @@
 ---
 id: backup-dir
 title: Backup directory
-summary: Directory for backups (used when Backup=true). Empty = next to original file.
+summary: Directory for backups (used when backup is on). Empty = next to the original file.
 group: file-cli-no-preview-effect
 order: 20
 default: ""

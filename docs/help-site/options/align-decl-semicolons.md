@@ -1,7 +1,7 @@
 ---
 id: align-decl-semicolons
 title: Align decl semicolons
-summary: After AlignTypeColon, align the trailing ; on consecutive declaration lines.
+summary: Align the trailing ; of consecutive declaration lines (after "Align type :").
 group: declarations
 order: 20
 default: "true"

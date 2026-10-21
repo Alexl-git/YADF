@@ -1,7 +1,7 @@
 ---
 id: uses-comma-last
 title: Comma-last uses layout
-summary: Style of the broken (multi-line) uses clause. False (default) is comma-FIRST (leading comma, semicolon on its own line) -- the diff-friendly layout. True is comma-LAST (trailing comma per unit, semicolon on the last unit's line: "System.Classes;"). Only affects the multi-line form; the inline single-line form is unchanged.
+summary: Broken uses clause style: off = comma-first (diff-friendly), on = comma-last.
 group: uses-clauses
 order: 20
 default: "false"

@@ -920,8 +920,9 @@ begin
   FNativeFmtChk.Top    := NativeFmtRowTop;
   FNativeFmtChk.Width  := NativeFmtWidth;
   FNativeFmtChk.Caption:= 'Use YADF as the IDE code formatter (restart IDE)';
-  FNativeFmtChk.Hint   := 'Registers YADF with the IDE (Delphi 13.2+) so Format Source and format-on-save use the F profile. Off = the IDE keeps its own formatter. Takes effect after an IDE restart.';
+  FNativeFmtChk.Hint   := 'Use YADF for Format Source and format-on-save (Delphi 13.2+, F profile). Needs an IDE restart.';
   FNativeFmtChk.ShowHint:= True;
+  FNativeFmtChk.HelpKeyword:= HelpIdIdeCodeFormatter;
   FNativeFmtChk.Visible := False;
 
   // The list fills the space between the label and the bottom strip.
@@ -931,6 +932,7 @@ begin
   FProfileList.AlignWithMargins:= True;
   FProfileList.Margins.SetBounds(4, 18, 4, 2);  // dl:ok large-magic-number@d259
   FProfileList.OnClick  := ProfileListClick;
+  FProfileList.HelpKeyword:= HelpIdProfiles;
   FProfileList.OnKeyDown:= ProfileListKeyDown;
 end; // begin
 
@@ -981,6 +983,7 @@ begin
         Cb.Left:= 10; Cb.Top:= YIn; Cb.Width:= Gb.Width - 20;
         Cb.Caption:= T[i].Caption;
         Cb.Hint:= OptionHint(T[i]); Cb.ShowHint:= True;
+        Cb.HelpKeyword:= OptionHelpId(T[i]);
         Cb.Tag    := i;
         Cb.OnClick:= OptionChanged;
         FControls[i]:= Cb;
@@ -995,6 +998,7 @@ begin
         Se.Parent:= Parent; Se.Left:= 240; Se.Top:= YIn; Se.Width:= 80;  // dl:ok large-magic-number@f1d9
         Se.MinValue:= 0; Se.MaxValue:= 100000;  // dl:ok large-magic-number@8d21
         Se.Hint:= OptionHint(T[i]); Se.ShowHint:= True;
+        Se.HelpKeyword:= OptionHelpId(T[i]);
         Se.Tag     := i;
         Se.OnChange:= OptionChanged;
         FControls[i]:= Se;
@@ -1009,6 +1013,7 @@ begin
         Ed.Parent:= Parent; Ed.Left:= 240; Ed.Top:= YIn; Ed.Width:= Gb.Width - 250;  // dl:ok large-magic-number@2eb3
         Ed.Anchors:= [akLeft, akTop, akRight];
         Ed.Hint:= OptionHint(T[i]); Ed.ShowHint:= True;
+        Ed.HelpKeyword:= OptionHelpId(T[i]);
         Ed.Tag     := i;
         Ed.OnChange:= OptionChanged;
         FControls[i]:= Ed;
@@ -1025,6 +1030,7 @@ begin
         for var V in T[i].EnumValues do // value list lives in the descriptor
           Cmb.Items.Add(V);
         Cmb.Hint:= OptionHint(T[i]); Cmb.ShowHint:= True;
+        Cmb.HelpKeyword:= OptionHelpId(T[i]);
         Cmb.Tag     := i;
         Cmb.OnChange:= OptionChanged;
         FControls[i]:= Cmb;

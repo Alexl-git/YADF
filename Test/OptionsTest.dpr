@@ -261,6 +261,38 @@ end;
 // F1 (2026-10-18 review): a failed ReplaceFileW must never leave BOTH copies
 // deleted. Target gone -> the temp copy is moved into place; target intact ->
 // original untouched, temp removed, error surfaced.
+// Help ids are URL slugs compiled into the binary: kebab-case of the INI key,
+// unique, a-z 0-9 hyphen only, max 60 chars (docs\help-site contract).
+procedure TestHelpIds;
+var
+  T: TArray<TOptInfo>;
+  Seen: TStringList;
+  i, j: Integer;
+  Id: string;
+  Ok: Boolean;
+begin
+  T:= OptionTable;
+  Check('help id MaxLen', OptionHelpId(T[0]) = 'max-len');
+  Seen:= TStringList.Create;
+  try
+    Seen.Sorted:= True;
+    Seen.Duplicates:= dupError;
+    Ok:= True;
+    for i:= 0 to High(T) do
+    begin
+      Id:= OptionHelpId(T[i]);
+      if (Id = '') or (Length(Id) > 60) then Ok:= False;
+      for j:= 1 to Length(Id) do
+        if not CharInSet(Id[j], ['a'..'z', '0'..'9', '-']) then Ok:= False;
+      if Seen.IndexOf(Id) >= 0 then Ok:= False;
+      Seen.Add(Id);
+    end;
+    Check('help ids unique, slug-safe, <= 60 chars', Ok);
+  finally
+    Seen.Free;
+  end;
+end;
+
 procedure TestSaveFileReplaceFailure;
 var
   Dir, F, Tmp: string;
@@ -318,6 +350,7 @@ begin
     TestIntRangeClamp;
     TestLooksLikeUtf8;
     TestSaveFileReplaceFailure;
+    TestHelpIds;
     Writeln('');
     if GFailures = 0 then
       Writeln('ALL PASS')

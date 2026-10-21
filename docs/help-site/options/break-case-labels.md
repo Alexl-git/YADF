@@ -1,7 +1,7 @@
 ---
 id: break-case-labels
 title: Break case labels
-summary: Break a multi-label case arm ("a, b, c: Stmt;") into one label per line, duplicating the statement. Off by default -- multi-label case arms are kept on one line (only genuine variable/field declarations are split, per SplitMultiVarDecls).
+summary: Break a multi-label case arm ("a, b, c: Stmt;") into one label per line. Off by default.
 group: declarations
 order: 30
 default: "false"

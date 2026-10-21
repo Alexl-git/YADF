@@ -1,7 +1,7 @@
 ---
 id: space-around-operators
 title: Space around operators
-summary: Put one space around binary operators (A+B -> A + B): + - * / = <= >= <>. Unary +/- and generic brackets (<, >) are left intact.
+summary: One space around binary operators (A+B -> A + B). Unary signs and generic brackets are left alone.
 group: spacing
 order: 10
 default: "true"

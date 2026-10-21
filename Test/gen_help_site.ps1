@@ -108,7 +108,11 @@ foreach ($f in Get-ChildItem $optDir -Filter '*.md') {
 }
 $items = $items | Sort-Object { $groupsSeen[$_.group].order }, order, id
 $groups = $groupsSeen.Values | Sort-Object order, id
-$idx = [ordered]@{ product = 'yadf'; groups = @($groups); options = @($items) }
-Write-Ascii (Join-Path $out 'index.json') (($idx | ConvertTo-Json -Depth 5) + "`n")
+# Hand-rolled JSON: ConvertTo-Json formats differently in Windows PowerShell 5 and pwsh 7.
+function J([object]$v) { if ($v -is [int]) { "$v" } else { '"' + (([string]$v) -replace '\\', '\\' -replace '"', '\"') + '"' } }
+function JObj($o) { '{' + (($o.PSObject.Properties | ForEach-Object { (J $_.Name) + ': ' + (J $_.Value) }) -join ', ') + '}' }
+$json = "{`n  `"product`": `"yadf`",`n  `"groups`": [`n    " + (($groups | ForEach-Object { JObj $_ }) -join ",`n    ") +
+        "`n  ],`n  `"options`": [`n    " + (($items | ForEach-Object { JObj $_ }) -join ",`n    ") + "`n  ]`n}`n"
+Write-Ascii (Join-Path $out 'index.json') $json
 [IO.Directory]::Delete($tmp, $true)
 Write-Host "help-site: $($opts.Count) table options, $($items.Count) leaves indexed"

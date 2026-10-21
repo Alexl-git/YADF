@@ -1,7 +1,7 @@
 ---
 id: align-smart-assign
 title: Smart-align
-summary: Master switch for the shape-aware alignment pass: aligns := runs and (when "Align matching shapes" is on) any matching structural shapes across consecutive lines.
+summary: Master switch for shape-aware alignment of := runs and, with "Align matching shapes", other matching shapes.
 group: assignment-alignment
 order: 50
 default: "true"

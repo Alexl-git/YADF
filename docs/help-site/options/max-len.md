@@ -1,7 +1,7 @@
 ---
 id: max-len
 title: Max line length
-summary: Maximum line length in columns. Long lines are reflowed when ReflowLines is true.
+summary: Maximum line length in columns. Long lines are reflowed when "Reflow long lines" is on.
 group: line-layout
 order: 10
 default: "180"

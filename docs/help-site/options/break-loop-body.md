@@ -1,7 +1,7 @@
 ---
 id: break-loop-body
 title: Break loop body onto its own line
-summary: Force the body of a single-line for/while loop onto its own indented line ("while X do Dec(k);" -> "while X do" + newline + "  Dec(k);"). A begin block, a nested control header, or a body with a trailing comment is left alone. Off by default.
+summary: Put the body of a single-line for/while loop on its own indented line. Off by default.
 group: reflow-whitespace
 order: 90
 default: "false"

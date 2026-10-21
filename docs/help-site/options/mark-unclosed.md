@@ -1,7 +1,7 @@
 ---
 id: mark-unclosed
 title: Mark unclosed blocks
-summary: When an opening begin/record/... has no matching end, add "// TODO -oYADF : 'begin' on line N has no matching 'end'".
+summary: Add a "// TODO -oYADF" marker where a begin/record/... has no matching end.
 group: labels-markers
 order: 30
 default: "false"

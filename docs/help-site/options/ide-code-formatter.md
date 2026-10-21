@@ -1,7 +1,7 @@
 ---
 id: ide-code-formatter
 title: Use YADF as the IDE code formatter
-summary: Registers YADF with the IDE (Delphi 13.2+) so Format Source and format-on-save use the F profile. Off = the IDE keeps its own formatter. Takes effect after an IDE restart.
+summary: Use YADF for Format Source and format-on-save (Delphi 13.2+, F profile). Needs an IDE restart.
 group: ide-and-profiles
 groupTitle: Profiles & IDE integration
 order: 20

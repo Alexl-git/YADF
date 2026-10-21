@@ -1,7 +1,7 @@
 ---
 id: break-with-body
 title: Break with body onto its own line
-summary: Force the body of a single-line with..do statement onto its own indented line. Same guard rails as BreakLoopBody (begin/nested-header/comment bodies left alone). Off by default.
+summary: Put the body of a single-line with..do on its own indented line. Off by default.
 group: reflow-whitespace
 order: 100
 default: "false"

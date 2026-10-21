@@ -1,7 +1,7 @@
 ---
 id: label-long-blocks
 title: Label long blocks
-summary: After a block longer than LabelMinLines, mark its end with the block keyword: "end; // while", "end; // procedure".
+summary: Mark the end of long blocks with the block keyword: "end; // while".
 group: labels-markers
 order: 10
 default: "true"

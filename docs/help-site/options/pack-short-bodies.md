@@ -1,7 +1,7 @@
 ---
 id: pack-short-bodies
 title: Pack short bodies & case arms
-summary: When reflowing, pull a SHORT body onto one line: a loop/if header keeps its simple statement ("for I := 0 to N do Inc(X);", "if X then DoIt;") and a case arm collapses onto its label ("0: DoZero;"). Off by default -- every body/arm stays on its own line. A nested control header (if/case/begin...) is never half-merged onto a do/then/label either way.
+summary: Pull a short loop/if body or case arm onto one line when reflowing. Off by default.
 group: reflow-whitespace
 order: 70
 default: "false"

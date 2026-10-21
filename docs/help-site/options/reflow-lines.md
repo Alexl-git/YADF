@@ -1,7 +1,7 @@
 ---
 id: reflow-lines
 title: Reflow long lines
-summary: Reflow lines that exceed MaxLen. When false, long lines are left as-is.
+summary: Reflow lines that exceed the max line length. Off = long lines are left as-is.
 group: reflow-whitespace
 order: 10
 default: "true"

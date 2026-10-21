@@ -1,7 +1,7 @@
 ---
 id: label-min-lines
 title: Label min lines
-summary: Minimum lines a block must span before LabelLongBlocks adds the marker.
+summary: Minimum block length in lines before a long block gets an end label.
 group: labels-markers
 order: 20
 default: "15"

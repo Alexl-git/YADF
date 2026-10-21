@@ -286,6 +286,19 @@ function ReadIntIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: In
 /// </remarks>
 function OptionHint(const AInfo: TOptInfo): string;
 
+const
+  /// <summary>Help id of the Profiles panel (leaf options/profiles.md in docs\help-site).</summary>
+  HelpIdProfiles = 'profiles';
+  /// <summary>Help id of the IDE-only "use YADF as the IDE code formatter" switch.</summary>
+  HelpIdIdeCodeFormatter = 'ide-code-formatter';
+
+/// <summary>Stable help id of an option: the kebab-case of its INI key ("MaxLen" -> "max-len").</summary>
+/// <returns>Lowercase a-z 0-9 and hyphen; equals the leaf file name in docs\help-site\options and the
+/// URL slug on the web help. Ids are permanent once published -- never rename an option's Ident
+/// without keeping a redirect. Stored in TControl.HelpKeyword by the options frame.</returns>
+/// <remarks>Must stay identical to Get-Kebab in Test\gen_help_site.ps1 (test_help_site + OptionsTest guard it).</remarks>
+function OptionHelpId(const AInfo: TOptInfo): string;
+
 // True when ABytes are valid UTF-8 AND contain at least one multi-byte
 // sequence. Used by the CLI and the wizard to promote BOM-less files from the
 // blind ANSI fallback to UTF-8 on load (a file that validates as multi-byte
@@ -848,13 +861,13 @@ function OptionTable: TArray<TOptInfo>;
 begin
   if Length(GOptTable) > 0 then Exit(GOptTable);
   GOptTable:= [
-    MakeOpt('MaxLen', 'Line length & indentation', 'Max line length', 'Maximum line length in columns. Long lines are reflowed when ReflowLines is true.', okInt, True,
+    MakeOpt('MaxLen', 'Line length & indentation', 'Max line length', 'Maximum line length in columns. Long lines are reflowed when "Reflow long lines" is on.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.MaxLen end, procedure(var O: TYadfOptions; const V: Variant) begin O.MaxLen:= V end),
     MakeOpt('Indent', 'Line length & indentation', 'Indent step', 'Indentation step in spaces (each nesting level adds this many).', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.Indent end, procedure(var O: TYadfOptions; const V: Variant) begin O.Indent:= V end),
     MakeOpt('TabWidth', 'Line length & indentation', 'Tab width', 'Width assumed for an existing tab on input. YADF always emits spaces.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.TabWidth end, procedure(var O: TYadfOptions; const V: Variant) begin O.TabWidth:= V end),
-    MakeOpt('ReflowLines', 'Reflow & whitespace', 'Reflow long lines', 'Reflow lines that exceed MaxLen. When false, long lines are left as-is.', okBool, True,
+    MakeOpt('ReflowLines', 'Reflow & whitespace', 'Reflow long lines', 'Reflow lines that exceed the max line length. Off = long lines are left as-is.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.ReflowLines end, procedure(var O: TYadfOptions; const V: Variant) begin O.ReflowLines:= V end),
     MakeOpt('TrimTrailing', 'Reflow & whitespace', 'Trim trailing spaces', 'Trim trailing whitespace from every output line.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.TrimTrailing end, procedure(var O: TYadfOptions; const V: Variant) begin O.TrimTrailing:= V end),
@@ -882,9 +895,7 @@ begin
       function(const O: TYadfOptions): Variant begin Result:= O.AlignConstEquals end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignConstEquals:= V end),
     MakeOpt('AlignTypeColon', 'Assignment & alignment', 'Align type :', 'Vertical-align : in type / var / parameter blocks.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.AlignTypeColon end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignTypeColon:= V end),
-    MakeOpt('AlignSmartAssign', 'Assignment & alignment', 'Smart-align', 'Master switch for the shape-aware alignment pass: aligns := runs and '
-      + '(when "Align matching shapes" is on) any matching structural shapes '
-      + 'across consecutive lines.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.AlignSmartAssign end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignSmartAssign:= V end),
+    MakeOpt('AlignSmartAssign', 'Assignment & alignment', 'Smart-align', 'Master switch for shape-aware alignment of := runs and, with "Align matching shapes", other matching shapes.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.AlignSmartAssign end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignSmartAssign:= V end),
     MakeOpt('AlignMaxColumn', 'Assignment & alignment', 'Align max column', 'Maximum column an alignment may push to. Past this, alignment is skipped.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.AlignMaxColumn end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignMaxColumn:= V end),
     MakeOpt('AlignMatchingShapes', 'Assignment & alignment', 'Align matching shapes', 'Align matching "shapes" (record-init lines, repeated field declarations).', okBool, True,
@@ -893,64 +904,44 @@ begin
       function(const O: TYadfOptions): Variant begin Result:= O.AlignShapeMinAnchors end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignShapeMinAnchors:= V end),
     MakeOpt('AlignCommentMaxShift', 'Assignment & alignment', 'Comment max shift', 'Maximum columns a trailing comment may shift when aligning to a shape.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.AlignCommentMaxShift end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignCommentMaxShift:= V end),
-    MakeOpt('SpaceAroundOperators', 'Spacing', 'Space around operators', 'Put one space around binary operators (A+B -> A + B): + - * / = <= >= <>. '
-      + 'Unary +/- and generic brackets (<, >) are left intact.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.SpaceAroundOperators end, procedure(var O: TYadfOptions; const V: Variant) begin O.SpaceAroundOperators:= V end),  // dl:ok duplicate-code@b669
+    MakeOpt('SpaceAroundOperators', 'Spacing', 'Space around operators', 'One space around binary operators (A+B -> A + B). Unary signs and generic brackets are left alone.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.SpaceAroundOperators end, procedure(var O: TYadfOptions; const V: Variant) begin O.SpaceAroundOperators:= V end),  // dl:ok duplicate-code@b669
     MakeOpt('UsesAlwaysBreak', 'Uses clauses', 'Break uses one-per-line', 'Always break uses clauses one unit per line.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.UsesAlwaysBreak end, procedure(var O: TYadfOptions; const V: Variant) begin O.UsesAlwaysBreak:= V end),
-    MakeOpt('UsesCommaLast', 'Uses clauses', 'Comma-last uses layout', 'Style of the broken (multi-line) uses clause. False (default) is comma-FIRST '
-      + '(leading comma, semicolon on its own line) -- the diff-friendly layout. True is ' + 'comma-LAST (trailing comma per unit, semicolon on the last unit''s line: '
-      + '"System.Classes;"). Only affects the multi-line form; the inline single-line '
-      + 'form is unchanged.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.UsesCommaLast end, procedure(var O: TYadfOptions; const V: Variant) begin O.UsesCommaLast:= V end),
+    MakeOpt('UsesCommaLast', 'Uses clauses', 'Comma-last uses layout', 'Broken uses clause style: off = comma-first (diff-friendly), on = comma-last.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.UsesCommaLast end, procedure(var O: TYadfOptions; const V: Variant) begin O.UsesCommaLast:= V end),
     MakeOpt('SplitMultiVarDecls', 'Declarations', 'Split multi-var decls', 'Split "I, J: integer;" into one line per name so the type colons align.', okBool, True,  // dl:ok duplicate-code@5bae
       function(const O: TYadfOptions): Variant begin Result:= O.SplitMultiVarDecls end, procedure(var O: TYadfOptions; const V: Variant) begin O.SplitMultiVarDecls:= V end),
-    MakeOpt('AlignDeclSemicolons', 'Declarations', 'Align decl semicolons', 'After AlignTypeColon, align the trailing ; on consecutive declaration lines.', okBool, True,
+    MakeOpt('AlignDeclSemicolons', 'Declarations', 'Align decl semicolons', 'Align the trailing ; of consecutive declaration lines (after "Align type :").', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.AlignDeclSemicolons end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignDeclSemicolons:= V end),
-    MakeOpt('BreakCaseLabels', 'Declarations', 'Break case labels', 'Break a multi-label case arm ("a, b, c: Stmt;") into one label per line, '
-      + 'duplicating the statement. Off by default -- multi-label case arms are kept ' + 'on one line (only genuine variable/field declarations are split, per '
-      + 'SplitMultiVarDecls).', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakCaseLabels end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakCaseLabels:= V end),
-    MakeOpt('BreakParamsOnePerLine', 'Declarations', 'Break parameters one per line', 'Lay out a routine declaration with one parameter per line ("procedure Go(const A: string; B: Integer);" -> one parameter per line). '
-      + 'Fires on named routine declarations with 2 or more parameters; a grouped declaration ("const A, B: string") is split into one name per line, repeating the modifier. '
-      + 'Separator placement follows UsesCommaLast. A group carrying an attribute, an interior comment, or an "=" default value is kept whole. '
-      + 'Call-site argument lists are never touched. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakParamsOnePerLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakParamsOnePerLine:= V end),
-    MakeOpt('IndentComments', 'Comments', 'Indent comments', 'Re-indent comment-only lines to the surrounding code depth. When off, every '
-      + 'comment keeps the indentation the author gave it. A comment line that starts ' + 'with "//." always keeps its authored indentation even when this is on (an '
-      + 'explicit "pin this comment" marker).', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.IndentComments end, procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments:= V end),  // dl:ok duplicate-code@f6a5
-    MakeOpt('PackShortBodies', 'Reflow & whitespace', 'Pack short bodies & case arms', 'When reflowing, pull a SHORT body onto one line: a loop/if header keeps its '
-      + 'simple statement ("for I := 0 to N do Inc(X);", "if X then DoIt;") and a case ' + 'arm collapses onto its label ("0: DoZero;"). Off by default -- every body/arm '
-      + 'stays on its own line. A nested control header (if/case/begin...) is never '
-      + 'half-merged onto a do/then/label either way.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackShortBodies end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies:= V end),
-    MakeOpt('CollapseShortBlocks', 'Reflow & whitespace', 'Collapse short begin..end blocks', 'Fold a short control-statement begin..end body onto one line when it fits '
-      + 'MaxLen: an if/for/while/with/else header whose block holds only simple ' + 'one-statement-per-line code becomes "if X then begin A := 1; B := 2; end;". '
-      + 'Only pure simple-statement bodies fold -- a nested block, a multi-line ' + 'statement, or any comment leaves the block expanded; routine bodies are '
-      + 'never folded. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CollapseShortBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks:= V end),  // dl:ok duplicate-code@884e
-    MakeOpt('BreakLoopBody', 'Reflow & whitespace', 'Break loop body onto its own line', 'Force the body of a single-line for/while loop onto its own indented line '
-      + '("while X do Dec(k);" -> "while X do" + newline + "  Dec(k);"). A begin block, '
-      + 'a nested control header, or a body with a trailing comment is left alone. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
-    MakeOpt('BreakWithBody', 'Reflow & whitespace', 'Break with body onto its own line', 'Force the body of a single-line with..do statement onto its own indented line. '
-      + 'Same guard rails as BreakLoopBody (begin/nested-header/comment bodies left alone). Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),
-    MakeOpt('BreakIfBody', 'Reflow & whitespace', 'Break if/then/else body onto its own line', 'Force the then/else body of a single-line if statement onto its own indented line '  // dl:ok duplicate-code@0d05
-      + '("if X then A else B;" -> "if X then" / "  A" / "else" / "  B;"). "else if" chains stay '
-      + 'glued; a begin/nested-header/comment body is left alone. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakIfBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakIfBody:= V end),
-    MakeOpt('BreakLongExpressions', 'Reflow & whitespace', 'Smart expression breakup', 'ON (default): when a line exceeds MaxLen, break it at every top-level operator -- one component per line, with the connecting operator LEADING each line ("and X" / "or Y"). '
-      + 'A parenthesised group is one component and stays whole; a component that still does not fit is broken the same way, one indent step deeper. '
-      + 'A trailing "then" or "do" moves to its own line at the column of the "if" / "while" that introduced it. '
-      + 'Lines that already fit are never touched. OFF reverts to the greedy breaker, which packs as many components per line as fit.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLongExpressions end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLongExpressions:= V end),
+    MakeOpt('BreakCaseLabels', 'Declarations', 'Break case labels', 'Break a multi-label case arm ("a, b, c: Stmt;") into one label per line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakCaseLabels end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakCaseLabels:= V end),
+    MakeOpt('BreakParamsOnePerLine', 'Declarations', 'Break parameters one per line', 'Lay out routine declarations with 2+ parameters one parameter per line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakParamsOnePerLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakParamsOnePerLine:= V end),
+    MakeOpt('IndentComments', 'Comments', 'Indent comments', 'Re-indent comment-only lines to the surrounding code depth. A "//." comment keeps its indentation.'  //." always keeps its authored indentation even when this is on (an '
+      , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.IndentComments end, procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments:= V end),  // dl:ok duplicate-code@f6a5
+    MakeOpt('PackShortBodies', 'Reflow & whitespace', 'Pack short bodies & case arms', 'Pull a short loop/if body or case arm onto one line when reflowing. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackShortBodies end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies:= V end),
+    MakeOpt('CollapseShortBlocks', 'Reflow & whitespace', 'Collapse short begin..end blocks', 'Fold a short begin..end body of if/for/while/with onto one line when it fits. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CollapseShortBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks:= V end),  // dl:ok duplicate-code@884e
+    MakeOpt('BreakLoopBody', 'Reflow & whitespace', 'Break loop body onto its own line', 'Put the body of a single-line for/while loop on its own indented line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
+    MakeOpt('BreakWithBody', 'Reflow & whitespace', 'Break with body onto its own line', 'Put the body of a single-line with..do on its own indented line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),
+    MakeOpt('BreakIfBody', 'Reflow & whitespace', 'Break if/then/else body onto its own line', 'Put the then/else body of a single-line if on its own indented line. Off by default.'  // dl:ok duplicate-code@0d05
+      , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakIfBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakIfBody:= V end),
+    MakeOpt('BreakLongExpressions', 'Reflow & whitespace', 'Smart expression breakup', 'When a line exceeds the max length, break it at every top-level operator, one component per line. Off = greedy packing.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLongExpressions end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLongExpressions:= V end),
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Downgrade inline vars',
-      'Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest get a // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.Delphi10Compat end, procedure(var O: TYadfOptions; const V: Variant) begin O.Delphi10Compat:= V end),
-    MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label long blocks', 'After a block longer than LabelMinLines, mark its end with the block keyword: "end; // while", "end; // procedure".', okBool, True,
+      'Hoist inline var declarations into a var block so the code builds on Delphi 10.2.3. Best-effort.'  // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.'
+      , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.Delphi10Compat end, procedure(var O: TYadfOptions; const V: Variant) begin O.Delphi10Compat:= V end),
+    MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label long blocks', 'Mark the end of long blocks with the block keyword: "end; // while".'  // while", "end; // procedure".'
+      , okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.LabelLongBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelLongBlocks:= V end),
-    MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines', 'Minimum lines a block must span before LabelLongBlocks adds the marker.', okInt, True,  // dl:ok duplicate-code@2f84
+    MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines', 'Minimum block length in lines before a long block gets an end label.', okInt, True,  // dl:ok duplicate-code@2f84
       function(const O: TYadfOptions): Variant begin Result:= O.LabelMinLines end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelMinLines:= V end),
-    MakeOpt('MarkUnclosed', 'Labels & markers', 'Mark unclosed blocks', 'When an opening begin/record/... has no matching end, add "// TODO -oYADF : ''begin'' on line N has no matching ''end''".', okBool, True,
+    MakeOpt('MarkUnclosed', 'Labels & markers', 'Mark unclosed blocks', 'Add a "// TODO -oYADF" marker where a begin/record/... has no matching end.'  // TODO -oYADF : ''begin'' on line N has no matching ''end''".'
+      , okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.MarkUnclosed end, procedure(var O: TYadfOptions; const V: Variant) begin O.MarkUnclosed:= V end),
     MakeOpt('Backup', 'File & CLI (no preview effect)', 'Backup before overwrite', 'Create a backup of every file before overwriting it.', okBool, False,
       function(const O: TYadfOptions): Variant begin Result:= O.Backup end, procedure(var O: TYadfOptions; const V: Variant) begin O.Backup:= V end),
-    MakeOpt('BackupDir', 'File & CLI (no preview effect)', 'Backup directory', 'Directory for backups (used when Backup=true). Empty = next to original file.', okString, False,
+    MakeOpt('BackupDir', 'File & CLI (no preview effect)', 'Backup directory', 'Directory for backups (used when backup is on). Empty = next to the original file.', okString, False,
       function(const O: TYadfOptions): Variant begin Result:= O.BackupDir end, procedure(var O: TYadfOptions; const V: Variant) begin O.BackupDir:= VarToStr(V) end),
     MakeOpt('ResultDir', 'File & CLI (no preview effect)', 'Result directory', 'Directory for formatted output. Empty = format in place.', okString, False,
       function(const O: TYadfOptions): Variant begin Result:= O.ResultDir end, procedure(var O: TYadfOptions; const V: Variant) begin O.ResultDir:= VarToStr(V) end),
     MakeOpt('Encoding', 'File & CLI (no preview effect)', 'Output encoding',
-      'ANSI keeps each file''s own encoding (BOM or detected UTF-8 preserved); UTF-8/UTF-16 convert the output (with BOM).', okEnum, False, function(const O: TYadfOptions): Variant begin Result:= EncodingToStr(O.Encoding) end, procedure(var O: TYadfOptions; const V: Variant) begin O.Encoding:= ParseEncoding(VarToStr(V),
+      'ANSI keeps each file''s own encoding; UTF-8/UTF-16 convert the output (with BOM).', okEnum, False, function(const O: TYadfOptions): Variant begin Result:= EncodingToStr(O.Encoding) end, procedure(var O: TYadfOptions; const V: Variant) begin O.Encoding:= ParseEncoding(VarToStr(V),
           encANSI) end, ['ANSI', 'UTF-8', 'UTF-16']),
     MakeOpt('Logging', 'File & CLI (no preview effect)', 'Logging', 'Write a log file with details of every option resolved and file processed.', okBool, False,
       function(const O: TYadfOptions): Variant begin Result:= O.Logging end, procedure(var O: TYadfOptions; const V: Variant) begin O.Logging:= V end)];
@@ -1093,6 +1084,21 @@ begin
   D:= DefaultValueStr(AInfo);
   if D = '' then D:= 'empty';
   Result:= AInfo.Hint + ' Default: ' + D;
+end;
+
+function OptionHelpId(const AInfo: TOptInfo): string;
+var
+  i: Integer;
+  C: Char;
+begin
+  Result:= '';
+  for i:= 1 to Length(AInfo.Ident) do
+  begin
+    C:= AInfo.Ident[i];
+    if (i > 1) and CharInSet(C, ['A'..'Z']) and CharInSet(AInfo.Ident[i - 1], ['a'..'z', '0'..'9']) then
+      Result:= Result + '-';
+    Result:= Result + LowerCase(C);
+  end;
 end;
 
 procedure WriteDefaultIniTemplate(const APath: string);

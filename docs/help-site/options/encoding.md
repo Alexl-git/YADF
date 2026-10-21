@@ -1,7 +1,7 @@
 ---
 id: encoding
 title: Output encoding
-summary: ANSI keeps each file's own encoding (BOM or detected UTF-8 preserved); UTF-8/UTF-16 convert the output (with BOM).
+summary: ANSI keeps each file's own encoding; UTF-8/UTF-16 convert the output (with BOM).
 group: file-cli-no-preview-effect
 order: 40
 default: "ANSI"

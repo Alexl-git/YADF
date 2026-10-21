@@ -1,7 +1,7 @@
 ---
 id: break-if-body
 title: Break if/then/else body onto its own line
-summary: Force the then/else body of a single-line if statement onto its own indented line ("if X then A else B;" -> "if X then" / "  A" / "else" / "  B;"). "else if" chains stay glued; a begin/nested-header/comment body is left alone. Off by default.
+summary: Put the then/else body of a single-line if on its own indented line. Off by default.
 group: reflow-whitespace
 order: 110
 default: "false"
