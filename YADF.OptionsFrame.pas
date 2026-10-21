@@ -971,7 +971,7 @@ begin
       Gb.Top   := y;
       Gb.Width:= FScroll.ClientWidth - 28;  // dl:ok large-magic-number@ffcb
       Gb.Anchors:= [akLeft, akTop, akRight];
-      Gb.Caption:= CurGrp;
+      Gb.Caption:= StringReplace(CurGrp, '&', '&&', [rfReplaceAll]);  // & would be read as an accelerator marker
       Parent:= Gb;
       YIn   := 18;  // dl:ok large-magic-number@dce8
     end; // if
