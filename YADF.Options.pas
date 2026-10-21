@@ -299,6 +299,14 @@ const
 /// <remarks>Must stay identical to Get-Kebab in Test\gen_help_site.ps1 (test_help_site + OptionsTest guard it).</remarks>
 function OptionHelpId(const AInfo: TOptInfo): string;
 
+var
+  /// <summary>Folder URL that holds one help page per help id (published 2026-10-21). Kept in a
+  /// variable so an offline help set (file:// ...) can replace it later without touching the UI.</summary>
+  YadfHelpBaseUrl: string = 'https://www.delphi-rag-lint.com/help/yadf/options/';
+
+/// <summary>Full URL of the help page for a help id ("max-len" -> base + "max-len/").</summary>
+function OptionHelpUrl(const AHelpId: string): string;
+
 // True when ABytes are valid UTF-8 AND contain at least one multi-byte
 // sequence. Used by the CLI and the wizard to promote BOM-less files from the
 // blind ANSI fallback to UTF-8 on load (a file that validates as multi-byte
@@ -1099,6 +1107,11 @@ begin
       Result:= Result + '-';
     Result:= Result + LowerCase(C);
   end;
+end;
+
+function OptionHelpUrl(const AHelpId: string): string;
+begin
+  Result:= YadfHelpBaseUrl + AHelpId + '/';
 end;
 
 procedure WriteDefaultIniTemplate(const APath: string);

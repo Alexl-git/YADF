@@ -128,7 +128,7 @@ type
       FProfileList : TListBox      ; // the profiles list control
       FEditingLbl  : TLabel        ; // 'Editing: <file>'
       FNativeFmtChk: TCheckBox     ; // IDE-only: register as the IDE code formatter (hidden by default)
-      // --- live before/after preview ---
+      FNativeHelpBtn: TControl     ; // its "?" help button; visible together with FNativeFmtChk      // --- live before/after preview ---
       FSource     : TMemo      ; // editable sample source (input)
       FResult     : TMemo      ; // formatted output (read-only)
       FSourceName : TLabel     ; // 'file: <name>' for the loaded sample
@@ -186,6 +186,7 @@ type
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildProfilePanel"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
+      procedure GroupResize(Sender: TObject);
       procedure BuildControls;
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
@@ -660,6 +661,76 @@ const
 
 implementation
 
+uses
+  Winapi.ShellAPI;
+
+type
+  /// <summary>Exposes the protected OnResize of TGroupBox to this unit.</summary>
+  TGroupBoxCracker = class(TGroupBox);
+
+  /// <summary>Small blue circle with a white "?" placed next to an option; a click opens that
+  /// option's page of the online help in the default browser.</summary>
+  TYadfHelpButton = class(TGraphicControl)
+  strict private
+    FHelpId: string;
+  protected
+    procedure Paint; override;
+    procedure Click; override;
+  public
+    constructor Create(AOwner: TComponent); override;
+    /// <summary>Help id (see OptionHelpId) whose page this button opens.</summary>
+    property HelpId: string read FHelpId write FHelpId;
+  end;
+
+const
+  HelpButtonSize = 16;
+  HelpButtonColumn = 288;   // left edge of the "?" column inside a group box (the 360 px host)
+  HelpButtonBlue = TColor($00CC6600);   // RGB(0, 102, 204)
+
+constructor TYadfHelpButton.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  SetBounds(0, 0, HelpButtonSize, HelpButtonSize);
+  Cursor  := crHandPoint;
+  Hint    := 'Open the help page for this option';
+  ShowHint:= True;
+end;
+
+procedure TYadfHelpButton.Paint;
+var
+  Tw, Th: Integer;
+begin
+  Canvas.Brush.Color:= HelpButtonBlue;
+  Canvas.Pen.Color  := HelpButtonBlue;
+  Canvas.Ellipse(0, 0, Width, Height);
+  Canvas.Brush.Style:= bsClear;
+  Canvas.Font.Name  := 'Segoe UI';
+  Canvas.Font.Size  := 8;
+  Canvas.Font.Style := [fsBold];
+  Canvas.Font.Color := clWhite;
+  Tw:= Canvas.TextWidth('?');
+  Th:= Canvas.TextHeight('?');
+  Canvas.TextOut((Width - Tw) div 2, (Height - Th) div 2, '?');
+end;
+
+procedure TYadfHelpButton.Click;
+begin
+  inherited Click;
+  if FHelpId <> '' then
+    ShellExecute(0, 'open', PChar(OptionHelpUrl(FHelpId)), nil, nil, SW_SHOWNORMAL);
+end;
+
+// Creates the "?" button at (ALeft, ATop) inside AParent.
+function AddHelpButton(AOwner: TComponent; AParent: TWinControl; const AHelpId: string;
+  ALeft, ATop: Integer): TYadfHelpButton;
+begin
+  Result:= TYadfHelpButton.Create(AOwner);
+  Result.Parent := AParent;
+  Result.Left   := ALeft;
+  Result.Top    := ATop;
+  Result.HelpId := AHelpId;
+end;
+
 const
   NativeFmtRowHeight = 20;   // height of the IDE-only check-box row
   NativeFmtRowTop    = 44;   // below the button row + 'Editing:' line
@@ -896,7 +967,7 @@ begin
   Lbl.Parent:= Panel;
   Lbl.Left:= 4; Lbl.Top:= 2;
   Lbl.Caption:= 'Profiles (F = Ctrl+Shift+Alt+F, R = Ctrl+Shift+Alt+R)';
-
+  AddHelpButton(Self, Panel, HelpIdProfiles, Lbl.Left + Lbl.Width + 6, 1);
   // Bottom strip: button row + the 'Editing:' line under it.
   Bar:= TPanel.Create(Self);
   Bar.Parent    := Panel;
@@ -924,7 +995,8 @@ begin
   FNativeFmtChk.ShowHint:= True;
   FNativeFmtChk.HelpKeyword:= HelpIdIdeCodeFormatter;
   FNativeFmtChk.Visible := False;
-
+  FNativeHelpBtn:= AddHelpButton(Self, Bar, HelpIdIdeCodeFormatter, NativeFmtWidth + 6, NativeFmtRowTop + 2);
+  FNativeHelpBtn.Visible:= False;
   // The list fills the space between the label and the bottom strip.
   FProfileList:= TListBox.Create(Self);
   FProfileList.Parent          := Panel;
@@ -971,6 +1043,7 @@ begin
       Gb.Top   := y;
       Gb.Width:= FScroll.ClientWidth - 28;  // dl:ok large-magic-number@ffcb
       Gb.Anchors:= [akLeft, akTop, akRight];
+      TGroupBoxCracker(Gb).OnResize:= GroupResize;
       Gb.Caption:= StringReplace(CurGrp, '&', '&&', [rfReplaceAll]);  // & would be read as an accelerator marker
       Parent:= Gb;
       YIn   := 18;  // dl:ok large-magic-number@dce8
@@ -980,10 +1053,11 @@ begin
       begin
         Cb:= TCheckBox.Create(Self);
         Cb.Parent:= Parent;
-        Cb.Left:= 10; Cb.Top:= YIn; Cb.Width:= Gb.Width - 20;
+        Cb.Left:= 10; Cb.Top:= YIn; Cb.Width:= HelpButtonColumn - 14;
         Cb.Caption:= T[i].Caption;
         Cb.Hint:= OptionHint(T[i]); Cb.ShowHint:= True;
         Cb.HelpKeyword:= OptionHelpId(T[i]);
+        AddHelpButton(Self, Parent, OptionHelpId(T[i]), HelpButtonColumn, YIn + 2);
         Cb.Tag    := i;
         Cb.OnClick:= OptionChanged;
         FControls[i]:= Cb;
@@ -995,10 +1069,11 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
         Se:= TSpinEdit.Create(Self);
-        Se.Parent:= Parent; Se.Left:= 240; Se.Top:= YIn; Se.Width:= 80;  // dl:ok large-magic-number@f1d9
+        Se.Parent:= Parent; Se.Left:= 200; Se.Top:= YIn; Se.Width:= 80;  // dl:ok large-magic-number@f1d9
         Se.MinValue:= 0; Se.MaxValue:= 100000;  // dl:ok large-magic-number@8d21
         Se.Hint:= OptionHint(T[i]); Se.ShowHint:= True;
         Se.HelpKeyword:= OptionHelpId(T[i]);
+        AddHelpButton(Self, Parent, OptionHelpId(T[i]), HelpButtonColumn, YIn + 2);
         Se.Tag     := i;
         Se.OnChange:= OptionChanged;
         FControls[i]:= Se;
@@ -1010,10 +1085,10 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
         Ed:= TEdit.Create(Self);
-        Ed.Parent:= Parent; Ed.Left:= 240; Ed.Top:= YIn; Ed.Width:= Gb.Width - 250;  // dl:ok large-magic-number@2eb3
-        Ed.Anchors:= [akLeft, akTop, akRight];
+        Ed.Parent:= Parent; Ed.Left:= 130; Ed.Top:= YIn; Ed.Width:= HelpButtonColumn - 4 - 130;  // dl:ok large-magic-number@2eb3
         Ed.Hint:= OptionHint(T[i]); Ed.ShowHint:= True;
         Ed.HelpKeyword:= OptionHelpId(T[i]);
+        AddHelpButton(Self, Parent, OptionHelpId(T[i]), HelpButtonColumn, YIn + 2);
         Ed.Tag     := i;
         Ed.OnChange:= OptionChanged;
         FControls[i]:= Ed;
@@ -1025,12 +1100,13 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
         Cmb:= TComboBox.Create(Self);
-        Cmb.Parent:= Parent; Cmb.Left:= 240; Cmb.Top:= YIn; Cmb.Width:= 110;  // dl:ok large-magic-number@292a
+        Cmb.Parent:= Parent; Cmb.Left:= 200; Cmb.Top:= YIn; Cmb.Width:= 80;  // dl:ok large-magic-number@292a
         Cmb.Style:= csDropDownList;
         for var V in T[i].EnumValues do // value list lives in the descriptor
           Cmb.Items.Add(V);
         Cmb.Hint:= OptionHint(T[i]); Cmb.ShowHint:= True;
         Cmb.HelpKeyword:= OptionHelpId(T[i]);
+        AddHelpButton(Self, Parent, OptionHelpId(T[i]), HelpButtonColumn, YIn + 2);
         Cmb.Tag     := i;
         Cmb.OnChange:= OptionChanged;
         FControls[i]:= Cmb;
@@ -1270,12 +1346,25 @@ begin
   end;
 end; // procedure
 
+// Keeps each group's "?" buttons at its right edge whatever width the group ends up with.
+procedure TYadfOptionsFrame.GroupResize(Sender: TObject);
+var
+  i : Integer;
+  Gb: TWinControl;
+begin
+  Gb:= Sender as TWinControl;
+  for i:= 0 to Gb.ControlCount - 1 do
+    if Gb.Controls[i] is TYadfHelpButton then
+      Gb.Controls[i].Left:= HelpButtonColumn;
+end;
+
 procedure TYadfOptionsFrame.ShowNativeFormatterOption(AVisible: Boolean);
 var
   Delta: Integer;
 begin
   if AVisible = FNativeFmtChk.Visible then Exit;
   FNativeFmtChk.Visible:= AVisible;
+  FNativeHelpBtn.Visible:= AVisible;
   // Grow/shrink the profiles panel by one check-box row so YADFSetup keeps its layout.
   Delta:= NativeFmtRowHeight;
   if not AVisible then Delta:= -Delta;
