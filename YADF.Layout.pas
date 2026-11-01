@@ -4014,7 +4014,8 @@ begin
 end; // function
 
 /// <summary>Lays out named routine declarations with one parameter per line
-/// when AOpts.BreakParamsOnePerLine is on and the list has 2+ parameters.
+/// when AOpts.BreakParamsOnePerLine is on (or AOpts.JoinRoutineHeaders is off,
+/// which implies it) and the list has 2+ parameters.
 /// Separator placement follows AOpts.UsesCommaLast.</summary>
 /// <param name="S">Source text; every routine header already on ONE line.</param>
 /// <param name="AOpts">Active options.</param>
@@ -4037,7 +4038,8 @@ var
   OutVal: TStringBuilder;
   Tail  : string        ;
 begin
-  if not AOpts.BreakParamsOnePerLine then
+  // JoinRoutineHeaders OFF implies one parameter per line (owner 2026-11-01).
+  if not (AOpts.BreakParamsOnePerLine or not AOpts.JoinRoutineHeaders) then
     Exit(S);
   Lines := TStringList.Create;
   OutVal:= TStringBuilder.Create;
@@ -4111,8 +4113,9 @@ end; // function
 /// The overflow test itself is CodeLen, not Length: a header whose CODE fits
 /// and overflows only because of that trailing note is not wrapped at all.
 /// Idempotent (including the wrap: a re-joined, re-scanned wrapped header
-/// re-wraps to the same shape). Always-on standard behavior; runs regardless
-/// of ReflowLines.</summary>
+/// re-wraps to the same shape). Always runs, regardless of ReflowLines and of
+/// AOpts.JoinRoutineHeaders: OFF of that option adds the one-parameter-per-line
+/// layout (BreakRoutineParams) on top, it does not skip this normalising join.</summary>
 function JoinRoutineHeaders(const S: string; const AOpts: TYadfOptions): string;
 var
   Lines  : TStringList   ;
@@ -8819,7 +8822,7 @@ begin
           Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
         end;
         // Join routine headers the source split across lines back onto one line.
-        // Always-on standard behavior (no option). Runs after BreakControlBodies (acts
+        // Always runs (JoinRoutineHeaders OFF only adds the one-per-line layout below). Runs after BreakControlBodies (acts
         // on the settled line shape) and before Stage-4 alignment. Content-neutral, so
         // no re-indent is needed: the header keeps the start line's (already-correct)
         // indent and its own continuation indent.
@@ -8828,7 +8831,9 @@ begin
         // JoinRoutineHeaders (which is unconditional and would rejoin the
         // split) and precede Stage-4 alignment, so the split lines take part
         // in AlignTypeColon. Emits its own indentation; no re-indent needed.
-        if AOpts.BreakParamsOnePerLine then
+        // JoinRoutineHeaders OFF implies BreakParamsOnePerLine ON (owner 2026-11-01): the
+        // split lines are first normalised by the join above, then laid out one per line.
+        if AOpts.BreakParamsOnePerLine or not AOpts.JoinRoutineHeaders then
           Result:= BreakRoutineParams(Result, AOpts);
         EffMaxBlanks:= AOpts.MaxBlankLines;
         if AOpts.BlanksBeforeSection > EffMaxBlanks then

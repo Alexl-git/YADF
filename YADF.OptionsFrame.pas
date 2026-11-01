@@ -1273,24 +1273,39 @@ var
   i          : Integer         ;
   PackIdx    : Integer         ;
   ArmIdx     : Integer         ;
+  JoinIdx    : Integer         ;
+  ParamsIdx  : Integer         ;
   WasUpdating: Boolean         ;
 begin
-  T      := OptionTable;
-  PackIdx:= -1;
-  ArmIdx := -1;
+  T        := OptionTable;
+  PackIdx  := -1;
+  ArmIdx   := -1;
+  JoinIdx  := -1;
+  ParamsIdx:= -1;
   for i:= 0 to High(T) do
     if T[i].Ident = 'PackShortBodies' then
       PackIdx:= i
     else if T[i].Ident = 'CaseArmOnLabelLine' then
-      ArmIdx:= i;
-  if (PackIdx < 0) or (ArmIdx < 0) or (ArmIdx > High(FControls)) or (FControls[ArmIdx] is not TCheckBox) then
-    Exit;
+      ArmIdx:= i
+    else if T[i].Ident = 'JoinRoutineHeaders' then
+      JoinIdx:= i
+    else if T[i].Ident = 'BreakParamsOnePerLine' then
+      ParamsIdx:= i;
   // Writing Checked fires OptionChanged; keep it a display-only update.
   WasUpdating:= FUpdating;
   FUpdating  := True;
   try
-    TCheckBox(FControls[ArmIdx]).Enabled:= not FOpts.PackShortBodies;
-    TCheckBox(FControls[ArmIdx]).Checked:= FOpts.PackShortBodies or FOpts.CaseArmOnLabelLine;
+    if (PackIdx >= 0) and (ArmIdx >= 0) and (ArmIdx <= High(FControls)) and (FControls[ArmIdx] is TCheckBox) then
+    begin
+      TCheckBox(FControls[ArmIdx]).Enabled:= not FOpts.PackShortBodies;
+      TCheckBox(FControls[ArmIdx]).Checked:= FOpts.PackShortBodies or FOpts.CaseArmOnLabelLine;
+    end;
+    // JoinRoutineHeaders unchecked implies one parameter per line.
+    if (JoinIdx >= 0) and (ParamsIdx >= 0) and (ParamsIdx <= High(FControls)) and (FControls[ParamsIdx] is TCheckBox) then
+    begin
+      TCheckBox(FControls[ParamsIdx]).Enabled:= FOpts.JoinRoutineHeaders;
+      TCheckBox(FControls[ParamsIdx]).Checked:= (not FOpts.JoinRoutineHeaders) or FOpts.BreakParamsOnePerLine;
+    end;
   finally
     FUpdating:= WasUpdating;
   end; // try

@@ -926,6 +926,8 @@ begin
   WriteStdoutLine(Format('  --no-break-if         keep the if/then/else body inline                [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine(Format('  --break-params        break routine parameters one per line              [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
   WriteStdoutLine(Format('  --no-break-params     keep the parameter list inline                   [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
+  WriteStdoutLine(Format('  --join-headers        join split routine headers                       [join=%s]', [OnOff(AOpts.JoinRoutineHeaders)]));
+  WriteStdoutLine(Format('  --no-join-headers     one parameter per line (implies --break-params)  [join=%s]', [OnOff(AOpts.JoinRoutineHeaders)]));
   WriteStdoutLine(Format('  --break-expr          break a long line one component per line             [expr=%s]', [OnOff(AOpts.BreakLongExpressions)]));
   WriteStdoutLine('  --no-break-expr       use the greedy line breaker');
   WriteStdoutLine(Format('  --[no-]trim-trailing  trim / keep trailing whitespace                  [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
@@ -1378,6 +1380,16 @@ begin
       else if AArgs[i] = '--no-break-params' then
       begin
         AOpts.BreakParamsOnePerLine:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--join-headers' then
+      begin
+        AOpts.JoinRoutineHeaders:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-join-headers' then
+      begin
+        AOpts.JoinRoutineHeaders:= False;
         Inc(i);
       end
       else if AArgs[i] = '--break-expr' then

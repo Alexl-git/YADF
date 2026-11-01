@@ -152,6 +152,25 @@ $cases = @(
   @{ Id = 'BreakLongExpressions ON: long condition one component per line'; Fix = 'polarity_breakexpr'; Set = @{ BreakLongExpressions = $T }
      In = 'if (V[0] > 100) and ... and (V[10] > 1100) then  (one line, > 180)'; Want = 'one "and" per line, then on its own line'
      Must = @('(?m)^\s+and \(V\[1\] > 200\)\r?$', '(?m)^\s+and \(V\[10\] > 1100\)\r?\n\s*then\r?$')
+  # JoinRoutineHeaders (default true, owner decision 2026-11-01): ON = a routine
+  # header the author split is joined (wrapped at MaxLen); OFF is COUPLED to
+  # BreakParamsOnePerLine: OFF implies one parameter per line (2+ parameters).
+  @{ Id = 'JoinRoutineHeaders ON: split header joined, long header wrapped at MaxLen'; Fix = 'polarity_joinhdr'; Set = @{ JoinRoutineHeaders = $T; MaxLen = 80 }
+     In = 'procedure JhSplit(<NL>const PA: string;<NL>PB: Integer); / JhLong broken once (105 chars joined)'; Want = 'JhSplit on one line, JhLong re-wrapped, no line > 80'
+     Must = @('(?m)^procedure JhSplit\(const PA: string; PB: Integer\);\r?$', '(?m)^procedure JhOne\(const PA: string\);\r?$',
+              '(?m)^procedure JhLong\(const PrefixOne: string; PrefixTwo: Integer;\r?\n\s+const PrefixThree: string; PrefixFour: Boolean\);\r?$')
+     Not = @('(?m)^[^\r\n]{81,}', '(?m)^\s*const PA: string;?\s*$') }
+  @{ Id = 'JoinRoutineHeaders OFF: one parameter per line (implies BreakParamsOnePerLine)'; Fix = 'polarity_joinhdr'; Set = @{ JoinRoutineHeaders = $F; BreakParamsOnePerLine = $F }
+     In = 'JhSplit/JhLong split, BreakParamsOnePerLine = false'; Want = 'one parameter per line'
+     Must = @('(?m)^\s*const PA: string\r?$', '(?m)^\s*;?\s*PB: Integer\r?$', '(?m)^\s*const PrefixOne: string\r?$', '(?m)^\s*;?\s*PrefixFour: Boolean\r?$', '(?m)^procedure JhOne\(const PA: string\);\r?$')
+     Not = @('(?m)^[^\r\n]*PA: string[^\r\n]*PB: Integer', '(?m)^[^\r\n]*PrefixOne: string[^\r\n]*PrefixTwo') }
+  @{ Id = 'JoinRoutineHeaders OFF + BreakParamsOnePerLine ON: same one-per-line layout'; Fix = 'polarity_joinhdr'; Set = @{ JoinRoutineHeaders = $F; BreakParamsOnePerLine = $T }
+     In = 'JhSplit/JhLong split'; Want = 'one parameter per line'
+     Must = @('(?m)^\s*const PA: string\r?$', '(?m)^\s*;?\s*PB: Integer\r?$', '(?m)^\s*;?\s*PrefixTwo: Integer\r?$') }
+  @{ Id = 'JoinRoutineHeaders ON + BreakParamsOnePerLine ON: BreakParams alone still works'; Fix = 'polarity_joinhdr'; Set = @{ JoinRoutineHeaders = $T; BreakParamsOnePerLine = $T }
+     In = 'JhSplit split'; Want = 'one parameter per line'
+     Must = @('(?m)^\s*const PA: string\r?$', '(?m)^\s*;?\s*PB: Integer\r?$') }
+
      Not = @('(?m)^[^\r\n]*\band \(V[^\r\n]*\band \(V') }
   @{ Id = 'BreakLongExpressions ON: lines that already fit are not touched'; Fix = 'polarity_breakexpr'; Set = @{ BreakLongExpressions = $T }
      In = 'the W condition already one component per line'; Want = 'still one per line'
