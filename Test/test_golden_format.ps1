@@ -34,11 +34,13 @@ $testIni = Join-Path $PSScriptRoot '..\yadf.ini'
 # lock in a bug. (Empty now -- the procedural-indent quirk that kept
 # anon_proc_split.pas out is fixed, so it is a normal byte-golden again.)
 $exclude = @()
+# Cases\polarity\ fixtures are spec-driven (test_option_polarity.ps1) and must
+# never be blessed by a byte-golden of YADF's own output.
 
 if (-not (Test-Path $exe)) { Write-Output "golden_format: SKIP (no exe at $exe -- build YADF.dproj Debug Win64)"; exit 2 }
 if (-not (Test-Path $goldDir)) { New-Item -ItemType Directory -Path $goldDir | Out-Null }
 $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRoot 'Snippets') -Filter *.pas -Recurse |
-         Where-Object { $exclude -notcontains $_.Name }
+         Where-Object { ($exclude -notcontains $_.Name) -and ($_.Directory.Name -ne 'polarity') }
 
 # SameBytes comes from TestLib.ps1.
 $fail = 0
