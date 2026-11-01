@@ -4326,6 +4326,438 @@ begin
   end; // try
 end; // function
 
+// ===== Expand one-line control blocks (CollapseShortBlocks = false) =====
+
+type
+  TXTokKind = (xkWord, xkSemi, xkOpen, xkClose, xkOther);
+
+  /// <summary>One code token of a single source line, as seen by ExpandShortBlocks.</summary>
+  TXTok = record
+    Kind: TXTokKind;
+    W   : string ; // lower-cased word ('' for an &-escaped identifier)
+    P   : Integer; // 1-based start column
+    E   : Integer; // 1-based column just past the token
+  end;
+
+/// <summary>Splits one line into code tokens for ExpandShortBlocks. String
+/// literals, numbers and other punctuation become xkOther; comments are skipped
+/// and reported through AHasCmt.</summary>
+/// <param name="L">The line (no line break).</param>
+/// <param name="ATok">Receives the code tokens in source order.</param>
+/// <param name="AHasCmt">True when the line holds any comment.</param>
+/// <returns>False when the line ends inside a string or a block comment, or
+/// holds a compiler directive -- such a line is never touched.</returns>
+function ScanExpandLine(const L: string; out ATok: TArray<TXTok>; out AHasCmt: Boolean): Boolean;  // dl:ok cognitive-complexity@e7c1
+var
+  p  : Integer;
+  n  : Integer;
+  q  : Integer;
+  Cnt: Integer;
+
+  procedure Add(AKind: TXTokKind; const AW: string; AP, AE: Integer);
+  begin
+    if Cnt = Length(ATok) then
+      SetLength(ATok, Cnt * GrowMul + GrowAdd);
+    ATok[Cnt].Kind:= AKind;
+    ATok[Cnt].W   := AW;
+    ATok[Cnt].P   := AP;
+    ATok[Cnt].E   := AE;
+    Inc(Cnt);
+  end;
+
+begin
+  Result := False;
+  AHasCmt:= False;
+  Cnt    := 0;
+  SetLength(ATok, 0);
+  n:= Length(L);
+  p:= 1;
+  while p <= n do
+  begin
+    if L[p] = '''' then
+    begin
+      q:= p + 1;
+      while True do
+      begin
+        if q > n then
+          Exit; // unterminated string
+        if L[q] = '''' then
+        begin
+          if (q < n) and (L[q + 1] = '''') then
+            Inc(q, 2)
+          else
+          begin
+            Inc(q);
+            Break;
+          end;
+        end
+        else
+          Inc(q);
+      end; // while
+      Add(xkOther, '', p, q);
+      p:= q;
+    end // if
+    else if L[p] = '{' then
+    begin
+      if (p < n) and (L[p + 1] = '$') then
+        Exit; // directive
+      AHasCmt:= True;
+      q:= Pos('}', L, p + 1);
+      if q = 0 then
+        Exit;
+      p:= q + 1;
+    end
+    else if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then
+    begin
+      if (p + 2 <= n) and (L[p + 2] = '$') then
+        Exit; // directive
+      AHasCmt:= True;
+      q:= Pos('*)', L, p + 2);
+      if q = 0 then
+        Exit;
+      p:= q + 2;
+    end
+    else if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then
+    begin
+      AHasCmt:= True;
+      Break;
+    end
+    else if CharInSet(L[p], ['(', '[']) then
+    begin
+      Add(xkOpen, '', p, p + 1);
+      Inc(p);
+    end
+    else if CharInSet(L[p], [')', ']']) then
+    begin
+      Add(xkClose, '', p, p + 1);
+      Inc(p);
+    end
+    else if L[p] = ';' then
+    begin
+      Add(xkSemi, '', p, p + 1);
+      Inc(p);
+    end
+    else if CharInSet(L[p], ['a'..'z', 'A'..'Z', '_', '0'..'9', '&']) then
+    begin
+      q:= p + 1;
+      while (q <= n) and CharInSet(L[q], ['a'..'z', 'A'..'Z', '_', '0'..'9']) do
+        Inc(q);
+      if L[p] = '&' then
+        Add(xkWord, '', p, q)
+      else
+        Add(xkWord, LowerCase(Copy(L, p, q - p)), p, q);
+      p:= q;
+    end
+    else if CharInSet(L[p], [' ', #9]) then
+      Inc(p)
+    else
+    begin
+      Add(xkOther, '', p, p + 1);
+      Inc(p);
+    end;
+  end; // while
+  SetLength(ATok, Cnt);
+  Result:= True;
+end; // function
+
+/// <summary>Inverse of CollapseShortBlocks, run when that option is OFF: a
+/// control-statement begin..end block (after then/do/else, or a `begin` line
+/// that follows such a header line) written on one line -- or half-broken
+/// across lines -- is expanded: `begin` stays where the author put it, every
+/// statement goes on its own line, `end` starts its own line.</summary>
+/// <param name="S">CRLF text after Stage-2 emission (indent is not final).</param>
+/// <returns>The text with those blocks expanded. Inserts only CRLF + indent,
+/// so it is content-neutral; ReindentByDepth (run next) sets the depths.</returns>
+/// <remarks>Leaves a block alone whenever the split is not provably safe: any
+/// comment or {$...} directive on a line it would split, a line inside a block
+/// comment, a shielded multi-line string / asm placeholder, and any line holding
+/// asm/case/try/repeat/record/an anonymous routine. A nested one-line block is
+/// expanded under the same rules. Repeats until nothing changes (bounded), which
+/// makes it idempotent by construction.</remarks>
+function ExpandShortBlocks(const S: string): string;
+const
+  CBodyIndent = '  ';
+  CMaxRounds  = 8;
+var
+  Lines : TStringList           ;
+  Lock  : TArray<Boolean>       ;
+  Repl  : TArray<TArray<string>>;
+  OutL  : TStringList           ;
+  i     : Integer               ;
+  Round : Integer               ;
+  Prev  : string                ;
+
+  function IsDisqWord(const W: string): Boolean;
+  begin
+    Result:= MatchStr(W, ['asm', 'case', 'try', 'repeat', 'until', 'record', 'procedure', 'function', 'class', 'object', 'finally', 'except']);
+  end;
+
+  function HasDisq(const T: TArray<TXTok>; AFrom, ATo: Integer): Boolean;
+  var
+    k: Integer;
+  begin
+    for k:= AFrom to ATo - 1 do
+      if (T[k].Kind = xkWord) and IsDisqWord(T[k].W) then
+        Exit(True);
+    Result:= False;
+  end;
+
+  function IsHdrWord(const T: TXTok): Boolean;
+  begin
+    Result:= (T.Kind = xkWord) and ((T.W = 'then') or (T.W = 'do') or (T.W = 'else'));
+  end;
+
+  function LeadWS(const L: string): string;
+  var
+    p: Integer;
+  begin
+    p:= 1;
+    while (p <= Length(L)) and CharInSet(L[p], [' ', #9]) do
+      Inc(p);
+    Result:= Copy(L, 1, p - 1);
+  end;
+
+  function EndsWithHeader(const L: string): Boolean;
+  var
+    T: TArray<TXTok>;
+    C: Boolean     ;
+  begin
+    Result:= ScanExpandLine(L, T, C) and (Length(T) > 0) and IsHdrWord(T[High(T)]);
+  end;
+
+  // Index of the line's control-block `begin` (the FIRST begin, and only when it
+  // follows then/do/else or opens a line after a header line, with code after
+  // it on the same line); -1 otherwise.
+  function FindBegin(const T: TArray<TXTok>; APrevHdr: Boolean): Integer;
+  var
+    k: Integer;
+  begin
+    for k:= 0 to High(T) do
+      if (T[k].Kind = xkWord) and (T[k].W = 'begin') then
+      begin
+        if (k < High(T)) and (((k > 0) and IsHdrWord(T[k - 1])) or ((k = 0) and APrevHdr)) then
+          Exit(k);
+        Exit(-1);
+      end;
+    Result:= -1;
+  end;
+
+  // Index of the `end` matching the begin at ABegin on the same line; -1 if none.
+  function MatchEnd(const T: TArray<TXTok>; ABegin: Integer): Integer;
+  var
+    k: Integer;
+    D: Integer;
+  begin
+    D:= 0;
+    for k:= ABegin to High(T) do
+      if T[k].Kind = xkWord then
+      begin
+        if T[k].W = 'begin' then
+          Inc(D)
+        else if T[k].W = 'end' then
+        begin
+          Dec(D);
+          if D = 0 then
+            Exit(k);
+        end;
+      end;
+    Result:= -1;
+  end;
+
+  procedure Expand(const L: string; AOut: TStringList; APrevHdr: Boolean); forward;
+
+  // Emits tokens [AFrom, ATo) of L one statement per line (split at `;` outside
+  // parentheses and nested begin..end), each expanded recursively.
+  procedure EmitStatements(AOut: TStringList; const L: string; const T: TArray<TXTok>; AFrom, ATo: Integer; const AIndent: string);
+  var
+    k   : Integer;
+    PD  : Integer;
+    BD  : Integer;
+    Seg : Integer;
+  begin
+    PD := 0;
+    BD := 0;
+    Seg:= -1;
+    for k:= AFrom to ATo - 1 do
+    begin
+      if Seg < 0 then
+        Seg:= T[k].P;
+      case T[k].Kind of
+        xkOpen : Inc(PD);
+        xkClose: Dec(PD);
+        xkWord :
+          if T[k].W = 'begin' then
+            Inc(BD)
+          else if T[k].W = 'end' then
+            BD:= if BD > 0 then BD - 1 else 0;
+        xkSemi:
+          if (PD <= 0) and (BD = 0) then
+          begin
+            Expand(AIndent + Trim(Copy(L, Seg, T[k].E - Seg)), AOut, False);
+            Seg:= -1;
+          end;
+      end; // case
+    end; // for
+    if Seg >= 0 then
+      Expand(AIndent + Trim(Copy(L, Seg, T[ATo - 1].E - Seg)), AOut, False);
+  end; // procedure
+
+  procedure Expand(const L: string; AOut: TStringList; APrevHdr: Boolean);
+  var
+    T  : TArray<TXTok>;
+    C  : Boolean      ;
+    b  : Integer      ;
+    e  : Integer      ;
+    Ind: string       ;
+  begin
+    if L.Contains(ShieldPrefix) or not ScanExpandLine(L, T, C) or C or HasDisq(T, 0, Length(T)) then
+    begin
+      AOut.Add(L);
+      Exit;
+    end;
+    b:= FindBegin(T, APrevHdr);
+    e:= if b < 0 then -1 else MatchEnd(T, b);
+    if e < 0 then
+    begin
+      AOut.Add(L);
+      Exit;
+    end;
+    Ind:= LeadWS(L);
+    AOut.Add(TrimRight(Copy(L, 1, T[b].E - 1)));
+    EmitStatements(AOut, L, T, b + 1, e, Ind + CBodyIndent);
+    Expand(Ind + Trim(Copy(L, T[e].P, MaxInt)), AOut, False);
+  end; // procedure
+
+  // From line AFrom on, finds the `end` that brings the open-block depth ADepth
+  // to zero: AJ = its line, AHit = its token index, AT/ACmt = that line's scan.
+  // False on EOF, a block-comment line, a shield placeholder, a directive or asm.
+  function FindClose(AFrom, ADepth: Integer; out AJ, AHit: Integer; out AT: TArray<TXTok>; out ACmt: Boolean): Boolean;
+  var
+    k: Integer;
+  begin
+    Result:= False;
+    AHit  := -1;
+    ACmt  := False;
+    AJ    := AFrom;
+    AT    := nil;
+    while AJ < Lines.Count do
+    begin
+      if Lock[AJ] or Lines[AJ].Contains(ShieldPrefix) or not ScanExpandLine(Lines[AJ], AT, ACmt) then
+        Exit;
+      for k:= 0 to High(AT) do
+        if AT[k].Kind = xkWord then
+        begin
+          if AT[k].W = 'asm' then
+            Exit;
+          if MatchStr(AT[k].W, ['begin', 'case', 'try', 'record']) then
+            Inc(ADepth)
+          else if AT[k].W = 'end' then
+          begin
+            Dec(ADepth);
+            if ADepth = 0 then
+            begin
+              AHit:= k;
+              Exit(True);
+            end;
+          end;
+        end;
+      Inc(AJ);
+    end; // while
+  end; // function
+
+  // Half-broken block: line AIdx opens a control begin whose `end` is on a
+  // later line. Splits the opening line after `begin` (and its statements) and
+  // queues the split of the closing line in Repl. False = leave both alone.
+  function TryPartial(AIdx: Integer; APrevHdr: Boolean): Boolean;
+  var
+    T  : TArray<TXTok>;
+    T2 : TArray<TXTok>;
+    C  : Boolean      ;
+    C2 : Boolean      ;
+    b  : Integer      ;
+    j  : Integer      ;
+    k  : Integer      ;
+    D  : Integer      ;
+    Hit: Integer      ;
+    Ind: string       ;
+    Tmp: TStringList  ;
+  begin
+    Result:= False;
+    if Lines[AIdx].Contains(ShieldPrefix) or not ScanExpandLine(Lines[AIdx], T, C) or C or HasDisq(T, 0, Length(T)) then
+      Exit;
+    b:= FindBegin(T, APrevHdr);
+    if (b < 0) or (MatchEnd(T, b) >= 0) then
+      Exit;
+    D:= 0;
+    for k:= b to High(T) do
+      if T[k].Kind = xkWord then
+        if T[k].W = 'begin' then
+          Inc(D)
+        else if T[k].W = 'end' then
+          Dec(D);
+    if not FindClose(AIdx + 1, D, j, Hit, T2, C2) then
+      Exit;
+    // Closing line: split only when code precedes the `end`.
+    if Hit > 0 then
+    begin
+      if C2 or HasDisq(T2, 0, Hit) or (Repl[j] <> nil) then
+        Exit;
+      Tmp:= TStringList.Create;
+      try
+        Ind:= LeadWS(Lines[j]);
+        EmitStatements(Tmp, Lines[j], T2, 0, Hit, Ind + CBodyIndent);
+        Expand(Ind + Trim(Copy(Lines[j], T2[Hit].P, MaxInt)), Tmp, False);
+        Repl[j]:= Tmp.ToStringArray;
+      finally
+        Tmp.Free;
+      end;
+    end;
+    Ind:= LeadWS(Lines[AIdx]);
+    OutL.Add(TrimRight(Copy(Lines[AIdx], 1, T[b].E - 1)));
+    EmitStatements(OutL, Lines[AIdx], T, b + 1, Length(T), Ind + CBodyIndent);
+    Result:= True;
+  end; // function
+
+begin
+  Result:= S;
+  for Round:= 1 to CMaxRounds do
+  begin
+    Prev:= Result;
+    Lines:= TStringList.Create;
+    OutL := TStringList.Create;
+    try
+      Lines.LineBreak:= CRLF;
+      OutL.LineBreak := CRLF;
+      Lines.Text     := Prev;
+      Lock:= ComputeBlockCommentLock(Lines);
+      Repl:= nil; // SetLength keeps old entries -- every round starts empty
+      SetLength(Repl, Lines.Count);
+      for i:= 0 to Lines.Count - 1 do
+      begin
+        if Repl[i] <> nil then
+        begin
+          OutL.AddStrings(Repl[i]);
+          Continue;
+        end;
+        if Lock[i] then
+        begin
+          OutL.Add(Lines[i]);
+          Continue;
+        end;
+        var PrevHdr:= (i > 0) and (not Lock[i - 1]) and EndsWithHeader(Lines[i - 1]);
+        if not TryPartial(i, PrevHdr) then
+          Expand(Lines[i], OutL, PrevHdr);
+      end; // for
+      Result:= OutL.Text;
+    finally
+      OutL.Free;
+      Lines.Free;
+    end; // try
+    if Result = Prev then
+      Break;
+  end; // for
+end; // function
+
 // ===== Blank-line policy =====
 // Enforces minimum blank-line counts before structurally important
 // lines. Three independent settings:
@@ -7014,7 +7446,7 @@ end; // procedure
 // Block-end labels are NOT decided here: they are a post-pass over the
 // final line-broken text (ApplyBlockEndLabels), because the line count
 // the walker sees is not the one the reader gets.
-function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@ddfd
+function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@00e4
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -7690,6 +8122,11 @@ begin
         if AOpts.TrimTrailing then
           Result:= TrimTrailingWhitespace(Result);
         Result:= DetabLeadingWhitespace(Result, AOpts.TabWidth);
+        // CollapseShortBlocks OFF means "keep begin..end blocks expanded": split
+        // a control block the source wrote on one line (or half-broken) before
+        // the re-indent, so every later pass sees the expanded shape.
+        if not AOpts.CollapseShortBlocks then
+          Result:= ExpandShortBlocks(Result);
         Result:= ReindentByDepth (Result, AOpts.Indent, AOpts.IndentComments);
         Result:= EnforceBlankLines(Result, AOpts);
         // BreakLongExpressions defers overflow handling until AFTER the reflow

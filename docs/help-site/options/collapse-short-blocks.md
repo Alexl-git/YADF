@@ -12,7 +12,7 @@ status: "stable"
 
 # Collapse short begin..end blocks
 
-Fold a short control-statement begin..end body onto one line when it fits MaxLen: an if/for/while/with/else header whose block holds only simple one-statement-per-line code becomes "if X then begin A := 1; B := 2; end;". Only pure simple-statement bodies fold -- a nested block, a multi-line statement, or any comment leaves the block expanded; routine bodies are never folded. Off by default.
+Fold a short control-statement begin..end body onto one line when it fits MaxLen: an if/for/while/with/else header whose block holds only simple one-statement-per-line code becomes "if X then begin A := 1; B := 2; end;". Only pure simple-statement bodies fold -- a nested block, a multi-line statement, or any comment leaves the block expanded; routine bodies are never folded. Off by default: OFF actively EXPANDS such blocks -- a control block written on one line (or half-broken) gets one statement per line and `end` on its own line, `begin` staying where it was written; a block holding a comment, a {$...} directive, asm or a multi-line string is left as written.
 
 ## Related
 
