@@ -79,7 +79,6 @@ type
     BreakWithBody        : Boolean      ;
     BreakIfBody          : Boolean      ;
     BreakParamsOnePerLine: Boolean      ;
-    CaseArmOnLabelLine   : Boolean      ;
     BreakLongExpressions : Boolean      ;
     Delphi10Compat       : Boolean      ;
     Backup               : Boolean      ;
@@ -669,7 +668,6 @@ begin
   Result.BreakWithBody        := False;
   Result.BreakIfBody          := False;
   Result.BreakParamsOnePerLine:= False;
-  Result.CaseArmOnLabelLine   := True;
   Result.BreakLongExpressions := True;
   Result.Delphi10Compat       := False;
   Result.Backup               := False;
@@ -924,7 +922,6 @@ begin
       function(const O: TYadfOptions): Variant begin Result:= O.AlignDeclSemicolons end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignDeclSemicolons:= V end),
     MakeOpt('BreakCaseLabels', 'Declarations', 'Break case labels', 'Break a multi-label case arm ("a, b, c: Stmt;") into one label per line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakCaseLabels end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakCaseLabels:= V end),
     MakeOpt('BreakParamsOnePerLine', 'Declarations', 'Break parameters one per line', 'Lay out routine declarations with 2+ parameters one parameter per line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakParamsOnePerLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakParamsOnePerLine:= V end),
-    MakeOpt('CaseArmOnLabelLine', 'Declarations', 'Case arm on label line', 'Pull a short case arm statement onto its label line when it fits MaxLen. On by default; implicit when Pack short bodies is on.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CaseArmOnLabelLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.CaseArmOnLabelLine:= V end),
     MakeOpt('IndentComments', 'Comments', 'Indent comments', 'Re-indent comment-only lines to the surrounding code depth. A "//." comment keeps its indentation.'  //." always keeps its authored indentation even when this is on (an '
       , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.IndentComments end, procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments:= V end),  // dl:ok duplicate-code@f6a5
     MakeOpt('PackShortBodies', 'Reflow & whitespace', 'Pack short bodies & case arms', 'Pull a short loop/if body or case arm onto one line when reflowing. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackShortBodies end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies:= V end),
