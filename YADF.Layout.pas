@@ -869,6 +869,572 @@ begin
   end; // try
 end; // begin
 
+// ===== Case-arm layout (CaseArmOnLabelLine; BreakCaseLabels OFF joining) =====
+// Token-based: a small lexer turns the text into word/symbol tokens (strings
+// and comments skipped), a block-structure walk finds the arms of every case
+// STATEMENT (inside begin/try/repeat code -- never a record variant part, never
+// a declaration), and the appliers only move line breaks and leading blanks
+// between those tokens, so the pass is content-neutral by construction.
+
+const
+  CASE_ARM_GROW = 16; // dynamic-array growth step of the case-arm scanner
+
+type
+  /// <summary>What LayoutCaseArms does with an arm's statement.</summary>
+  TCaseArmBodies = (cabKeep, cabJoin, cabSplit);
+
+  TArmTok = record
+    Line  : Integer; // 0-based line index
+    Col   : Integer; // 1-based first column
+    Depth : Integer; // ( [ nesting outside the token
+    Text  : string ; // lower-cased word, or the literal / symbol text
+    IsWord: Boolean;
+  end;
+
+  TCaseArm = record
+    LabelStart: Integer; // token indexes into TCaseArmScan.Toks
+    Colon     : Integer;
+    BodyStart : Integer;
+    BodyEnd   : Integer; // last body token (the terminating `;` when present)
+  end;
+
+  TCaseArmScan = record
+    Toks     : TArray<TArmTok> ;
+    Arms     : TArray<TCaseArm>;
+    HasCmt   : TArray<Boolean> ; // line holds (part of) a { } / (* *) comment or directive
+    LineCmt  : TArray<Integer> ; // column of a `//` comment, 0 = none
+    LineFirst: TArray<Integer> ; // first token on the line, -1 = none
+    LineLast : TArray<Integer> ; // last token on the line, -1 = none
+  end;
+
+// Lexes ALines into AScan.Toks plus the per-line comment / first / last tables.
+procedure LexCaseArmLines(ALines: TStringList; var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@26aa, cognitive-complexity@e249 -- one flat hand lexer
+var
+  n      : Integer;
+  i      : Integer;
+  L      : Integer;
+  P      : Integer;
+  Depth  : Integer;
+  Start  : Integer;
+  Count  : Integer;
+  Line   : string ;
+  C      : Char   ;
+  InBrace: Boolean;
+  InPStar: Boolean;
+
+  procedure Add(const AText: string; AIsWord: Boolean; ACol: Integer);
+  begin
+    if Count = Length(AScan.Toks) then
+      SetLength(AScan.Toks, Count * 2 + CASE_ARM_GROW);
+    AScan.Toks[Count].Line  := n;
+    AScan.Toks[Count].Col   := ACol;
+    AScan.Toks[Count].Depth := Depth;
+    AScan.Toks[Count].Text  := AText;
+    AScan.Toks[Count].IsWord:= AIsWord;
+    if AScan.LineFirst[n] < 0 then
+      AScan.LineFirst[n]:= Count;
+    AScan.LineLast[n]:= Count;
+    Inc(Count);
+  end;
+
+begin
+  SetLength(AScan.HasCmt, ALines.Count);
+  SetLength(AScan.LineCmt, ALines.Count);
+  SetLength(AScan.LineFirst, ALines.Count);
+  SetLength(AScan.LineLast, ALines.Count);
+  SetLength(AScan.Toks, 0);
+  Count  := 0;
+  Depth  := 0;
+  InBrace:= False;
+  InPStar:= False;
+  for n:= 0 to ALines.Count - 1 do
+  begin
+    Line:= ALines[n];
+    L   := Length(Line);
+    i   := 1;
+    AScan.HasCmt[n]   := False;
+    AScan.LineCmt[n]  := 0;
+    AScan.LineFirst[n]:= -1;
+    AScan.LineLast[n] := -1;
+    while i <= L do
+    begin
+      if InBrace or InPStar then
+      begin
+        AScan.HasCmt[n]:= True;
+        P:= if InBrace then Pos('}', Line, i) else Pos('*)', Line, i);
+        if P = 0 then
+          i:= L + 1
+        else
+        begin
+          i:= if InBrace then P + 1 else P + 2;
+          InBrace:= False;
+          InPStar:= False;
+        end;
+        Continue;
+      end;
+      C:= Line[i];
+      if CharInSet(C, [' ', #9]) then
+        Inc(i)
+      else if C = '{' then
+      begin
+        InBrace:= True;
+        Inc(i);
+      end
+      else if (C = '(') and (i < L) and (Line[i + 1] = '*') then
+      begin
+        InPStar:= True;
+        Inc(i, 2);
+      end
+      else if (C = '/') and (i < L) and (Line[i + 1] = '/') then
+      begin
+        AScan.LineCmt[n]:= i;
+        i:= L + 1;
+      end
+      else if C = '''' then
+      begin
+        Start:= i;
+        Inc(i);
+        while i <= L do
+          if Line[i] <> '''' then
+            Inc(i)
+          else if (i < L) and (Line[i + 1] = '''') then
+            Inc(i, 2)
+          else
+          begin
+            Inc(i);
+            Break;
+          end;
+        Add(Copy(Line, Start, i - Start), False, Start);
+      end
+      else if CharInSet(C, ['A'..'Z', 'a'..'z', '_', '&']) then
+      begin
+        Start:= i;
+        Inc(i);
+        while (i <= L) and CharInSet(Line[i], ['A'..'Z', 'a'..'z', '0'..'9', '_']) do
+          Inc(i);
+        Add(LowerCase(Copy(Line, Start, i - Start)), True, Start);
+      end
+      else if CharInSet(C, ['0'..'9', '$', '#']) then
+      begin
+        Start:= i;
+        Inc(i);
+        while (i <= L) and (CharInSet(Line[i], ['0'..'9', 'A'..'Z', 'a'..'z', '_', '$', '#']) or ((Line[i] = '.') and (i < L) and CharInSet(Line[i + 1], ['0'..'9']))) do
+          Inc(i);
+        Add(Copy(Line, Start, i - Start), False, Start);
+      end
+      else
+      begin
+        Start:= i;
+        if (i < L) and (((C = ':') and (Line[i + 1] = '=')) or ((C = '.') and (Line[i + 1] = '.'))) then
+          Inc(i, 2)
+        else
+          Inc(i);
+        if CharInSet(C, [')', ']']) and (Depth > 0) then
+          Dec(Depth);
+        Add(Copy(Line, Start, i - Start), False, Start);
+        if CharInSet(C, ['(', '[']) then
+          Inc(Depth);
+      end;
+    end; // while
+  end; // for
+  SetLength(AScan.Toks, Count);
+end; // procedure
+
+// Walks AScan.Toks with a block stack and records every arm of every case
+// statement in AScan.Arms. A `case` whose enclosing block is a record (or
+// that sits outside any block) is a variant part and is skipped.
+procedure ParseCaseArms(var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@53dd, cognitive-complexity@c259 -- one flat structure walk
+type
+  TFrameKind = (fkCode, fkCase, fkRecord, fkRepeat);
+  TCaseState = (csHeader, csLabel, csBody, csElse);
+  TFrame = record
+    Kind   : TFrameKind;
+    State  : TCaseState;
+    Depth  : Integer   ;
+    IfCount: Integer   ;
+    Arm    : TCaseArm  ;
+  end;
+var
+  Stack : TArray<TFrame>;
+  Sp    : Integer;
+  F     : Integer;
+  k     : Integer;
+  NArms : Integer;
+  W     : string ;
+  Wd    : Boolean;
+  InInit: Boolean;
+
+  procedure Push(AKind: TFrameKind; ADepth: Integer);
+  begin
+    if Sp = Length(Stack) then
+      SetLength(Stack, Sp * 2 + CASE_ARM_GROW);
+    Stack[Sp]:= Default(TFrame);
+    Stack[Sp].Kind := AKind;
+    Stack[Sp].Depth:= ADepth;
+    Inc(Sp);
+  end;
+
+  procedure Pop;
+  begin
+    if Sp > 0 then
+      Dec(Sp);
+  end;
+
+  function SymAt(AIdx: Integer; const AText: string): Boolean;
+  begin
+    Result:= (AIdx >= 0) and (AIdx < Length(AScan.Toks)) and not AScan.Toks[AIdx].IsWord and (AScan.Toks[AIdx].Text = AText);
+  end;
+
+  function WordAt(AIdx: Integer; const AText: string): Boolean;
+  begin
+    Result:= (AIdx >= 0) and (AIdx < Length(AScan.Toks)) and AScan.Toks[AIdx].IsWord and (AScan.Toks[AIdx].Text = AText);
+  end;
+
+  // `= class ...` / `= packed record` / `= interface ...` opens a body that an
+  // `end` closes -- unless it is a forward (`class;`), a metaclass (`class of`)
+  // or an empty-bodied descendant (`class(TBase);`).
+  function OpensTypeBody(AIdx: Integer): Boolean;
+  var
+    j: Integer;
+    D: Integer;
+  begin
+    Result:= SymAt(AIdx - 1, '=') or (WordAt(AIdx - 1, 'packed') and SymAt(AIdx - 2, '='));
+    if not Result then
+      Exit;
+    if WordAt(AIdx + 1, 'of') or SymAt(AIdx + 1, ';') then
+      Exit(False);
+    if SymAt(AIdx + 1, '(') then
+    begin
+      j:= AIdx + 1;
+      D:= 0;
+      while j < Length(AScan.Toks) do
+      begin
+        if SymAt(j, '(') then
+          Inc(D)
+        else if SymAt(j, ')') then
+        begin
+          Dec(D);
+          if D = 0 then
+            Break;
+        end;
+        Inc(j);
+      end;
+      Result:= not SymAt(j + 1, ';');
+    end;
+  end;
+
+  procedure AddArm(AFrame, ABodyEnd: Integer);
+  begin
+    Stack[AFrame].Arm.BodyEnd:= ABodyEnd;
+    if (Stack[AFrame].Arm.LabelStart < 0) or (Stack[AFrame].Arm.BodyStart < 0) or (ABodyEnd < Stack[AFrame].Arm.BodyStart) then
+      Exit;
+    if NArms = Length(AScan.Arms) then
+      SetLength(AScan.Arms, NArms * 2 + CASE_ARM_GROW);
+    AScan.Arms[NArms]:= Stack[AFrame].Arm;
+    Inc(NArms);
+  end;
+
+begin
+  SetLength(AScan.Arms, 0);
+  Sp    := 0;
+  NArms := 0;
+  InInit:= False;
+  k     := 0;
+  while k < Length(AScan.Toks) do
+  begin
+    W := AScan.Toks[k].Text;
+    Wd:= AScan.Toks[k].IsWord;
+    F := Sp - 1;
+    if (F >= 0) and (Stack[F].Kind = fkCase) then
+    begin
+      case Stack[F].State of
+        csHeader:
+          if Wd and (W = 'of') and (AScan.Toks[k].Depth = Stack[F].Depth) then
+          begin
+            Stack[F].State         := csLabel;
+            Stack[F].Arm.LabelStart:= -1;
+            Inc(k);
+            Continue;
+          end;
+        csLabel:
+        begin
+          if Wd and (W = 'end') then
+            Pop
+          else if Wd and ((W = 'else') or (W = 'otherwise')) then
+            Stack[F].State:= csElse
+          else
+          begin
+            if Stack[F].Arm.LabelStart < 0 then
+              Stack[F].Arm.LabelStart:= k;
+            if not Wd and (W = ':') and (AScan.Toks[k].Depth = Stack[F].Depth) then
+            begin
+              Stack[F].Arm.Colon    := k;
+              Stack[F].Arm.BodyStart:= -1;
+              Stack[F].IfCount      := 0;
+              Stack[F].State        := csBody;
+            end;
+          end;
+          Inc(k);
+          Continue;
+        end;
+        csBody:
+        begin
+          if Stack[F].Arm.BodyStart < 0 then
+            Stack[F].Arm.BodyStart:= k;
+          if not Wd and (W = ';') and (AScan.Toks[k].Depth = Stack[F].Depth) then
+          begin
+            AddArm(F, k);
+            Stack[F].State         := csLabel;
+            Stack[F].Arm.LabelStart:= -1;
+            Inc(k);
+            Continue;
+          end;
+          if Wd and (W = 'end') then
+          begin
+            AddArm(F, k - 1);
+            Pop;
+            Inc(k);
+            Continue;
+          end;
+          if Wd and (W = 'else') then
+          begin
+            if Stack[F].IfCount > 0 then
+              Dec(Stack[F].IfCount)
+            else
+            begin
+              AddArm(F, k - 1);
+              Stack[F].State:= csElse;
+            end;
+            Inc(k);
+            Continue;
+          end;
+          if Wd and (W = 'if') then
+            Inc(Stack[F].IfCount);
+        end;
+        csElse:
+          if Wd and (W = 'end') then
+          begin
+            Pop;
+            Inc(k);
+            Continue;
+          end;
+      end; // case
+    end; // if
+    if Wd then
+    begin
+      if (W = 'begin') or (W = 'try') or (W = 'asm') then
+        Push(fkCode, AScan.Toks[k].Depth)
+      else if W = 'repeat' then
+        Push(fkRepeat, AScan.Toks[k].Depth)
+      else if W = 'until' then
+      begin
+        if (Sp > 0) and (Stack[Sp - 1].Kind = fkRepeat) then
+          Pop;
+      end
+      else if W = 'case' then
+      begin
+        if ((Sp > 0) and (Stack[Sp - 1].Kind <> fkRecord)) or ((Sp = 0) and InInit) then
+        begin
+          Push(fkCase, AScan.Toks[k].Depth);
+          Stack[Sp - 1].State:= csHeader;
+        end;
+      end
+      else if W = 'record' then
+      begin
+        // `T: record` in a generic constraint list has no body.
+        if not (SymAt(k + 1, '>') or SymAt(k + 1, ',')) then
+          Push(fkRecord, AScan.Toks[k].Depth);
+      end
+      else if (W = 'class') or (W = 'object') or (W = 'interface') or (W = 'dispinterface') then
+      begin
+        if OpensTypeBody(k) then
+          Push(fkRecord, AScan.Toks[k].Depth);
+      end
+      else if W = 'end' then
+        Pop
+      else if (W = 'initialization') or (W = 'finalization') then
+      begin
+        Sp    := 0;
+        InInit:= True;
+      end
+      else if W = 'implementation' then
+      begin
+        Sp    := 0;
+        InInit:= False;
+      end;
+    end; // if
+    Inc(k);
+  end; // while
+  SetLength(AScan.Arms, NArms);
+end; // procedure
+
+// True when an arm's statement is a structured block that keeps its own
+// layout: begin..end, a nested case, try, asm, repeat..until. A statement that
+// opens with a symbol (an empty `;`, a `(`-led expression) is left alone too.
+function CaseArmBodyIsBlock(const AScan: TCaseArmScan; const AArm: TCaseArm): Boolean;
+var
+  W: string;
+begin
+  W:= AScan.Toks[AArm.BodyStart].Text;
+  Result:= not AScan.Toks[AArm.BodyStart].IsWord or MatchText(W, ['begin', 'case', 'try', 'asm', 'repeat']);
+end;
+
+/// <summary>Lays out the arms of every case statement in S: joins a
+/// hand-broken multi-label list onto its colon line (owner decision Q5), and
+/// joins (cabJoin) or splits (cabSplit) a one-statement arm against its
+/// label line (CaseArmOnLabelLine).</summary>
+/// <param name="S">CRLF text, multi-line atoms shielded.</param>
+/// <param name="AJoinLabels">Join `7,` / `8: X;` into `7, 8: X;` when it fits AMaxLen.</param>
+/// <param name="ABodies">cabJoin pulls a one-line statement onto its `label:`
+/// line when it fits AMaxLen; cabSplit moves the statement of a `label: X;`
+/// arm onto its own line, AIndent deeper than the label; cabKeep leaves it.</param>
+/// <param name="AIndent">Indent width in spaces.</param>
+/// <param name="AMaxLen">Maximum line length for a join.</param>
+/// <returns>S with only line breaks and leading blanks between tokens changed.</returns>
+/// <remarks>Content-neutral. Never touches a record variant part, the case
+/// else part, a declaration, or an arm whose statement is begin/case/try/asm/
+/// repeat. A span holding any comment is left alone, except a trailing `//`
+/// comment on the statement line, which rides along. Idempotent.</remarks>
+function LayoutCaseArms(const S: string; AJoinLabels: Boolean; ABodies: TCaseArmBodies; AIndent, AMaxLen: Integer): string;  // dl:ok deep-nesting@a3f5, cyclomatic-complexity@780f, cognitive-complexity@cfc8 -- plan pass + emit pass over one line table
+var
+  Lines    : TStringList   ;
+  Scan     : TCaseArmScan  ;
+  JoinNext : TArray<Boolean>;
+  SplitCol : TArray<Integer>;
+  Shift    : TArray<Boolean>;
+  OutVal   : TStringBuilder;
+  Cur      : string        ;
+  Nxt      : string        ;
+  Ind      : string        ;
+  a        : Integer       ;
+  n        : Integer       ;
+  Ls       : Integer       ;
+  Lc       : Integer       ;
+  Lb       : Integer       ;
+  Le       : Integer       ;
+  Ok        : Boolean       ;
+  LabelAlone: Boolean       ;
+  BodyAlone : Boolean       ;
+  Pass     : Integer       ;
+  Arm      : TCaseArm      ;
+
+  function JoinPair(const ALeft, ARight: string): string;
+  var
+    R: string;
+  begin
+    R:= Trim(ARight);
+    // A comma-first continuation (', 8:') hugs the previous label.
+    Result:= TrimRight(ALeft) + (if (R <> '') and (R[1] = ',') then '' else ' ') + R;
+  end;
+
+begin
+  Result:= S;
+  for Pass:= 0 to 1 do
+  begin
+    if (Pass = 0) and not AJoinLabels then
+      Continue;
+    if (Pass = 1) and (ABodies = cabKeep) then
+      Continue;
+    Lines:= TStringList.Create;
+    try
+      Lines.LineBreak:= CRLF;
+      Lines.Text     := Result;
+      LexCaseArmLines(Lines, Scan);
+      ParseCaseArms(Scan);
+      if Length(Scan.Arms) = 0 then
+        Continue;
+      SetLength(JoinNext, Lines.Count);
+      SetLength(SplitCol, Lines.Count);
+      SetLength(Shift, Lines.Count);
+      for n:= 0 to Lines.Count - 1 do
+      begin
+        JoinNext[n]:= False;
+        SplitCol[n]:= 0;
+        Shift[n]   := False;
+      end;
+      for a:= 0 to High(Scan.Arms) do
+      begin
+        Arm:= Scan.Arms[a];
+        Ls := Scan.Toks[Arm.LabelStart].Line;
+        Lc := Scan.Toks[Arm.Colon].Line;
+        Lb := Scan.Toks[Arm.BodyStart].Line;
+        Le := Scan.Toks[Arm.BodyEnd].Line;
+        if Pass = 0 then
+        begin
+          // Q5: a label list broken across lines, label lines holding nothing else.
+          if (Ls = Lc) or (Scan.LineFirst[Ls] <> Arm.LabelStart) then
+            Continue;
+          Ok := True;
+          Cur:= Lines[Ls];
+          for n:= Ls to Lc do
+          begin
+            if Scan.HasCmt[n] or (Scan.LineFirst[n] < 0) or ((n < Lc) and (Scan.LineCmt[n] > 0)) then
+              Ok:= False;
+            if n > Ls then
+              Cur:= JoinPair(Cur, Lines[n]);
+          end;
+          if Ok and (Length(Cur) <= AMaxLen) then
+            for n:= Ls to Lc - 1 do
+              JoinNext[n]:= True;
+        end
+        else if CaseArmBodyIsBlock(Scan, Arm) or (Ls <> Lc) or (Scan.LineFirst[Lc] <> Arm.LabelStart) or Scan.HasCmt[Lc] then
+          Continue
+        else if ABodies = cabJoin then
+        begin
+          // `label:` alone on its line, the whole statement alone on the next.
+          LabelAlone:= (Scan.LineLast[Lc] = Arm.Colon) and (Scan.LineCmt[Lc] = 0);
+          BodyAlone := (Lb = Lc + 1) and (Le = Lb) and (Scan.LineFirst[Lb] = Arm.BodyStart) and (Scan.LineLast[Lb] = Arm.BodyEnd) and not Scan.HasCmt[Lb];
+          if LabelAlone and BodyAlone and (Length(JoinPair(Lines[Lc], Lines[Lb])) <= AMaxLen) then
+            JoinNext[Lc]:= True;
+        end
+        else if (Lb = Lc) and (Scan.LineLast[Le] = Arm.BodyEnd) then
+        begin
+          // cabSplit: `label: X;` -> `label:` / X; continuation lines shift with it.
+          Ok:= True;
+          for n:= Lc + 1 to Le do
+            if Scan.HasCmt[n] then
+              Ok:= False;
+          if Ok then
+          begin
+            SplitCol[Lc]:= Scan.Toks[Arm.BodyStart].Col;
+            for n:= Lc + 1 to Le do
+              Shift[n]:= True;
+          end;
+        end;
+      end; // for
+      OutVal:= TStringBuilder.Create;
+      try
+        Ind:= StringOfChar(' ', AIndent);
+        n  := 0;
+        while n < Lines.Count do
+        begin
+          Cur:= Lines[n];
+          if Shift[n] and (Trim(Cur) <> '') then
+            Cur:= Ind + Cur;
+          if SplitCol[n] > 0 then
+          begin
+            Nxt:= Copy(Cur, SplitCol[n], MaxInt);
+            Cur:= TrimRight(Copy(Cur, 1, SplitCol[n] - 1));
+            OutVal.Append(Cur).Append(CRLF);
+            Cur:= Copy(Lines[n], 1, Length(Lines[n]) - Length(TrimLeft(Lines[n]))) + Ind + Nxt;
+          end;
+          while JoinNext[n] and (n + 1 < Lines.Count) do
+          begin
+            Inc(n);
+            Cur:= JoinPair(Cur, Lines[n]);
+          end;
+          OutVal.Append(Cur).Append(CRLF);
+          Inc(n);
+        end; // while
+        Result:= OutVal.ToString;
+      finally
+        OutVal.Free;
+      end; // try
+    finally
+      Lines.Free;
+    end; // try
+  end; // for
+end; // function
 // ===== Pass-2 column alignment =====
 // These run AFTER the structural rendering and re-indentation. They
 // operate purely on the string output, scanning each line for an
@@ -8272,6 +8838,11 @@ begin
         if AOpts.BlanksBeforeType > EffMaxBlanks then
           EffMaxBlanks:= AOpts.BlanksBeforeType;
         Result:= CollapseBlankLines(Result, EffMaxBlanks);
+        // Case arms (CaseArmOnLabelLine, owner decisions Q2/Q5): join a hand-broken
+        // label list, and pull a one-statement arm onto its label line when the option
+        // is on (PackShortBodies implies it). Before the split stage so BreakCaseLabels
+        // sees whole arms; runs on BOTH reflow paths. Content-neutral.
+        Result:= LayoutCaseArms(Result, True, if AOpts.CaseArmOnLabelLine or AOpts.PackShortBodies then cabJoin else cabKeep, AOpts.Indent, AOpts.MaxLen);
 
         // Stage 4: column alignment (Pass 2). CollapseInteriorSpaces
         // normalises spacing so anchor columns are predictable.
@@ -8283,6 +8854,11 @@ begin
         PreSplit:= UnshieldAsmBodies(UnshieldMultilineTokens(Result, MLMap), AsmMap);
         if AOpts.SplitMultiVarDecls or AOpts.BreakCaseLabels then
           Result:= SplitMultiVarDeclarations(Result, AOpts.SplitMultiVarDecls, AOpts.BreakCaseLabels);
+        // CaseArmOnLabelLine OFF: the statement goes under its label. After the split
+        // stage so the one-label arms BreakCaseLabels made are moved too; emits its own
+        // indentation (label + Indent), so no re-indent is needed.
+        if not (AOpts.CaseArmOnLabelLine or AOpts.PackShortBodies) then
+          Result:= LayoutCaseArms(Result, False, cabSplit, AOpts.Indent, AOpts.MaxLen);
         if AOpts.AlignTypeColon or AOpts.AlignConstEquals or AOpts.AlignSmartAssign then
           Result:= CollapseInteriorSpaces(Result);
         if AOpts.AlignTypeColon then

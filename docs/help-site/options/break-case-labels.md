@@ -14,6 +14,8 @@ status: "stable"
 
 Break a multi-label case arm ("a, b, c: Stmt;") into one label per line, duplicating the statement. Off by default -- multi-label case arms are kept on one line (only genuine variable/field declarations are split, per SplitMultiVarDecls).
 
+Off also joins a multi-label arm the author broke across lines (`7,` / `8: X;` -> `7, 8: X;`) when it fits the max line length; the colons of consecutive arms stay aligned. Where the statement goes (label line or under it) follows [Case arm on its label line](case-arm-on-label-line.md).
+
 ## Related
 
 - [Split multi-var decls](split-multi-var-decls.md) - Split "I, J: integer;" into one line per name so the type colons align.

@@ -227,6 +227,11 @@ type
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure ControlsToOptions;
+      /// <summary>Shows the option couplings on the page: while "Pack short bodies"
+      /// is checked, the "Case arm on its label line" box is shown checked and is
+      /// disabled (Pack implies it). Display only: FOpts keeps the user's own value,
+      /// and ControlsToOptions skips a disabled check box.</summary>
+      procedure SyncDependentControls;
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected (YADF.OptionsFrame.pas)
@@ -1240,6 +1245,7 @@ begin
         okEnum  : TComboBox(FControls[i]).ItemIndex:= TComboBox(FControls[i]).Items.IndexOf(VarToStr(V));
       end;
     end;
+    SyncDependentControls;
   finally
     FUpdating:= False;
   end; // try
@@ -1253,13 +1259,42 @@ begin
   T:= OptionTable;
   for i:= 0 to High(T) do
   case T[i].Kind of
-    okBool  : T[i].SetVal(FOpts, TCheckBox(FControls[i]).Checked);
+    // A disabled box only DISPLAYS an implied value (SyncDependentControls).
+    okBool  : if TCheckBox(FControls[i]).Enabled then T[i].SetVal(FOpts, TCheckBox(FControls[i]).Checked);
     okInt   : T[i].SetVal(FOpts, TSpinEdit(FControls[i]).Value)  ;
     okString: T[i].SetVal(FOpts, TEdit(FControls[i]).Text)       ;
     okEnum  : T[i].SetVal(FOpts, TComboBox(FControls[i]).Text)   ;
   end;
 end;
 
+procedure TYadfOptionsFrame.SyncDependentControls;
+var
+  T          : TArray<TOptInfo>;
+  i          : Integer         ;
+  PackIdx    : Integer         ;
+  ArmIdx     : Integer         ;
+  WasUpdating: Boolean         ;
+begin
+  T      := OptionTable;
+  PackIdx:= -1;
+  ArmIdx := -1;
+  for i:= 0 to High(T) do
+    if T[i].Ident = 'PackShortBodies' then
+      PackIdx:= i
+    else if T[i].Ident = 'CaseArmOnLabelLine' then
+      ArmIdx:= i;
+  if (PackIdx < 0) or (ArmIdx < 0) or (ArmIdx > High(FControls)) or (FControls[ArmIdx] is not TCheckBox) then
+    Exit;
+  // Writing Checked fires OptionChanged; keep it a display-only update.
+  WasUpdating:= FUpdating;
+  FUpdating  := True;
+  try
+    TCheckBox(FControls[ArmIdx]).Enabled:= not FOpts.PackShortBodies;
+    TCheckBox(FControls[ArmIdx]).Checked:= FOpts.PackShortBodies or FOpts.CaseArmOnLabelLine;
+  finally
+    FUpdating:= WasUpdating;
+  end; // try
+end; // procedure
 { ==================== persistence ==================== }
 
 procedure TYadfOptionsFrame.DoIniStatus(const ASuffix: string);
@@ -1333,6 +1368,7 @@ begin
   if FUpdating then
     Exit;
   ControlsToOptions;
+  SyncDependentControls;
   if FPolicy.AutoSave then
     FPendingSave:= True;
   T             := OptionTable;

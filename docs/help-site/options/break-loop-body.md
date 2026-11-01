@@ -3,7 +3,7 @@ id: break-loop-body
 title: Break loop body onto its own line
 summary: Put the body of a single-line for/while loop on its own indented line. Off by default.
 group: reflow-whitespace
-order: 90
+order: 100
 default: "false"
 ini: BreakLoopBody
 since: "1.0.0.0"

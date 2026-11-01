@@ -937,6 +937,9 @@ begin
   WriteStdoutLine('Case statements:'                                             );
   WriteStdoutLine(Format('  --break-case          split multi-label case arms one per line          [break=%s]', [OnOff(AOpts.BreakCaseLabels)]));
   WriteStdoutLine(Format('  --no-break-case       keep multi-label case arms on one line           [break=%s]', [OnOff(AOpts.BreakCaseLabels)]));
+  WriteStdoutLine(Format('  --case-arm-on-label   short case arm statement on its label line        [arm=%s]', [OnOff(AOpts.CaseArmOnLabelLine)]));
+  WriteStdoutLine(Format('  --no-case-arm-on-label  arm statement on its own line under the label  [arm=%s]', [OnOff(AOpts.CaseArmOnLabelLine)]));
+  WriteStdoutLine('                          (always on while PackShortBodies is on)');
   WriteStdoutLine(''                                                                        );
   WriteStdoutLine('Comments:'                                                               );
   WriteStdoutLine(Format('  --indent-comments     re-indent comments to code depth                   [indent=%s]', [OnOff(AOpts.IndentComments)]));
@@ -1295,6 +1298,16 @@ begin
       else if AArgs[i] = '--no-break-case' then
       begin
         AOpts.BreakCaseLabels:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--case-arm-on-label' then
+      begin
+        AOpts.CaseArmOnLabelLine:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-case-arm-on-label' then
+      begin
+        AOpts.CaseArmOnLabelLine:= False;
         Inc(i);
       end
       else if AArgs[i] = '--indent-comments' then

@@ -3,7 +3,7 @@ id: break-with-body
 title: Break with body onto its own line
 summary: Put the body of a single-line with..do on its own indented line. Off by default.
 group: reflow-whitespace
-order: 100
+order: 110
 default: "false"
 ini: BreakWithBody
 since: "1.0.0.0"

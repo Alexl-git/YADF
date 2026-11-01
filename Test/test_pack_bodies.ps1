@@ -16,7 +16,9 @@ function Fmt([string[]]$flags) {
 }
 
 # ----- DEFAULT (off): structural -----
-$off = Fmt @('--no-pack-bodies')
+# Q1/Q2 (SPEC-2026-11-01): Pack OFF only means "don't pack"; case arms follow
+# CaseArmOnLabelLine (default on), so pin it off to see the arms expanded.
+$off = Fmt @('--no-pack-bodies', '--no-case-arm-on-label')
 MustMatch    $off '(?m)^    Inc\(N\);'      'off: for body on own line'
 MustMatch    $off '(?m)^    DoIt;'          'off: if body on own line'
 MustMatch    $off '(?m)^    Step;'          'off: while body on own line'
@@ -41,7 +43,7 @@ MustMatch    $on '1: if Flag then DoOne;'        'on: case arm if fully packed (
 MustMatch    $on 'else DoDefault;'               'on: case-else body packed'
 
 # idempotency + round-trip, both modes (CheckStable from TestLib)
-CheckStable 'off' @('--no-pack-bodies')
+CheckStable 'off' @('--no-pack-bodies', '--no-case-arm-on-label')
 CheckStable 'on'  @('--pack-bodies')
 
 # ----- WP13: an arm label whose line ends in a `//` note ending in ':' is not a bare label -----

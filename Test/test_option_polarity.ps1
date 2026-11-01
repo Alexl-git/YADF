@@ -75,9 +75,15 @@ $cases = @(
   @{ Id = 'PackShortBodies ON: case arm packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T }
      In = '0:<NL>Inc(PkC);'; Want = '0: Inc(PkC);'
      Must = @('(?m)^\s*0: Inc\(PkC\);\r?$') }
-  @{ Id = 'PackShortBodies OFF: bodies on their own line stay there'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $F }
+  # Owner decision Q1 (SPEC-2026-11-01): OFF means "don't pack" only. It never
+  # un-packs; Break*Body decides for if/loop/with bodies, CaseArmOnLabelLine for
+  # case arms (hence CaseArmOnLabelLine = false here to keep the arm broken).
+  @{ Id = 'PackShortBodies OFF: bodies on their own line stay there'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $F; CaseArmOnLabelLine = $F }
      In = 'for/if/case-arm with the body on its own line'; Want = 'unchanged'
      Must = @('(?m)^\s*for I:= 0 to N do\r?\n\s+Inc\(PkA\);\r?$', '(?m)^\s*if PkA > 0 then\r?\n\s+Dec\(PkB\);\r?$', '(?m)^\s*0:\r?\n\s+Inc\(PkC\);\r?$') }
+  @{ Id = 'PackShortBodies OFF: a body already on the header line is not un-packed (Q1)'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $F }
+     In = 'for I:= 0 to N do Inc(PkD); / if PkD > 0 then Dec(PkE);'; Want = 'unchanged'
+     Must = @('(?m)^\s*for I:= 0 to N do Inc\(PkD\);\r?$', '(?m)^\s*if PkD > 0 then Dec\(PkE\);\r?$') }
 
   # CollapseShortBlocks (default false): ON folds a short control begin..end
   # onto one line when it fits MaxLen; OFF EXPANDS a one-line block.
@@ -165,6 +171,46 @@ $cases = @(
   @{ Id = 'BreakCaseLabels OFF: multi-label arm kept, single arms not merged'; Fix = 'polarity_caselabels'; Set = @{ BreakCaseLabels = $F }
      In = '1, 2, 3: Inc(CsA); 5: Inc(CsB); 6: Inc(CsB);'; Want = 'unchanged'
      Must = @('(?m)^\s*1, 2, 3: Inc\(CsA\);\r?$', '(?m)^\s*5\s*: Inc\(CsB\);\r?$', '(?m)^\s*6\s*: Inc\(CsB\);\r?$') }
+  @{ Id = 'BreakCaseLabels ON: hand-broken multi-label arm split too'; Fix = 'polarity_caselabels'; Set = @{ BreakCaseLabels = $T }
+     In = '7,<NL>8: Inc(CsC);'; Want = '7: Inc(CsC); / 8: Inc(CsC);'
+     Must = @('(?m)^\s*7\s*: Inc\(CsC\);\r?\n\s*8\s*: Inc\(CsC\);\r?$') }
+  # Owner decision Q5 (SPEC-2026-11-01): OFF always joins a multi-label arm,
+  # even when hand-broken, and keeps the colon alignment with its neighbours.
+  @{ Id = 'BreakCaseLabels OFF: hand-broken multi-label arm joined, colons aligned (Q5)'; Fix = 'polarity_caselabels'; Set = @{ BreakCaseLabels = $F }
+     In = '7,<NL>8: Inc(CsC); / 9, 10: Inc(CsD);'; Want = '7, 8 : Inc(CsC); / 9, 10: Inc(CsD);'
+     Must = @('(?m)^(?<i>[ ]*)7, 8 (?<p>[ ]*): Inc\(CsC\);\r?\n\k<i>9, 10\k<p>: Inc\(CsD\);\r?$') }
+  @{ Id = 'BreakCaseLabels OFF + ReflowLines OFF: hand-broken multi-label arm still joined (Q5)'; Fix = 'polarity_caselabels'; Set = @{ BreakCaseLabels = $F; ReflowLines = $F }
+     In = '7,<NL>8: Inc(CsC);'; Want = '7, 8 : Inc(CsC);'
+     Must = @('(?m)^(?<i>[ ]*)7, 8 (?<p>[ ]*): Inc\(CsC\);\r?\n\k<i>9, 10\k<p>: Inc\(CsD\);\r?$') }
+
+  # CaseArmOnLabelLine (default true, owner decision Q2): ON = a case arm whose
+  # body is one short simple statement sits on the label line (joined when it
+  # fits MaxLen); OFF = the statement goes on its own line under the label.
+  # PackShortBodies ON implies ON. begin/case/try arms, the case else part, a
+  # record variant part and "name: type;" declarations are never touched.
+  @{ Id = 'CaseArmOnLabelLine ON: arm under its label is joined, inline arms kept'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T }
+     In = '0:<NL>Inc(CaA); / 1: Inc(CaB); / 3: Inc(CaD); // keep'; Want = '0: Inc(CaA); and the rest unchanged'
+     Must = @('(?m)^\s*0: Inc\(CaA\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$', '(?m)^\s*3: Inc\(CaD\); // keep\r?$', '(?m)^\s*else\r?\n\s+CaA:= 1;\r?$',
+              '(?m)^\s*0\s*: \(IntVal: Integer\);\r?$', '(?m)^\s*4:\r?\n\s+case CaB of\r?$', '(?m)^\s*0: Inc\(CaB\);\r?$', '(?m)^\s*5: if CaA > 0 then Inc\(CaA\) else Dec\(CaA\);\r?$')
+     Not = @('(?m)^[ ]*2:[ ]*begin', '(?m)^[ ]*4:[ ]*case') }
+  @{ Id = 'CaseArmOnLabelLine OFF: arm statements go under their label'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F }
+     In = '1: Inc(CaB); / 3: Inc(CaD); // keep / 5: if ..'; Want = '1: / Inc(CaB); and 3: / Inc(CaD); // keep'
+     Must = @('(?m)^\s*0:\r?\n\s+Inc\(CaA\);\r?$', '(?m)^\s*1:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*3:\r?\n\s+Inc\(CaD\); // keep\r?$', '(?m)^\s*else\r?\n\s+CaA:= 1;\r?$',
+              '(?m)^\s*0:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*5:\r?\n\s+if CaA > 0 then Inc\(CaA\) else Dec\(CaA\);\r?$',
+              '(?m)^\s*0\s*: \(IntVal: Integer\);\r?$', '(?m)^\s*case Kind: Integer of\r?$', '(?m)^\s*CaA\s*: Integer;\r?$', '(?m)^procedure RunCaseArm\(N: Integer\);\r?$')
+     Not = @('(?m)^[ ]*[0-5]:[ ]*(Inc|Dec|begin|case|if)') }
+  @{ Id = 'CaseArmOnLabelLine OFF + PackShortBodies ON: Pack implies ON'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; PackShortBodies = $T }
+     In = '0:<NL>Inc(CaA); / 1: Inc(CaB);'; Want = 'both on the label line'
+     Must = @('(?m)^\s*0: Inc\(CaA\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$') }
+  @{ Id = 'CaseArmOnLabelLine ON + ReflowLines OFF: arm still joined'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T; ReflowLines = $F }
+     In = '0:<NL>Inc(CaA);'; Want = '0: Inc(CaA);'
+     Must = @('(?m)^\s*0: Inc\(CaA\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$') }
+  @{ Id = 'CaseArmOnLabelLine OFF + ReflowLines OFF: arm still broken'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; ReflowLines = $F }
+     In = '1: Inc(CaB);'; Want = '1: / Inc(CaB);'
+     Must = @('(?m)^\s*0:\r?\n\s+Inc\(CaA\);\r?$', '(?m)^\s*1:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*0\s*: \(IntVal: Integer\);\r?$') }
+  @{ Id = 'CaseArmOnLabelLine OFF + BreakCaseLabels ON: one label per arm, statement under it'; Fix = 'polarity_caselabels'; Set = @{ CaseArmOnLabelLine = $F; BreakCaseLabels = $T }
+     In = '1, 2, 3: Inc(CsA);'; Want = '1: / Inc(CsA); / 2: / ...'
+     Must = @('(?m)^\s*1:\r?\n\s+Inc\(CsA\);\r?\n\s*2:\r?\n\s+Inc\(CsA\);\r?\n\s*3:\r?\n\s+Inc\(CsA\);\r?$') }
 
   # SplitMultiVarDecls (default true).
   @{ Id = 'SplitMultiVarDecls ON: grouped decl split'; Fix = 'polarity_splitvars'; Set = @{ SplitMultiVarDecls = $T }
@@ -203,17 +249,18 @@ $cases = @(
      In = 'var DcA: Integer:= 3;  (inline)'; Want = 'unchanged'
      Must = @('(?m)^\s*var DcA: Integer:= 3;\r?$') }
 
-  # Interactions with no defined precedence in the spec: only exit 0,
-  # idempotence and compilability are asserted (see QUESTION list).
-  @{ Id = 'PackShortBodies + BreakIfBody + BreakLoopBody all ON (bodies fixture)'; Fix = 'polarity_breakbody'; Set = @{ PackShortBodies = $T; BreakIfBody = $T; BreakLoopBody = $T } }
-  @{ Id = 'PackShortBodies + BreakIfBody + BreakLoopBody all ON (pack fixture)'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T; BreakIfBody = $T; BreakLoopBody = $T } }
+  # Owner decision Q2 (SPEC-2026-11-01): an explicit Break*Body option wins for
+  # its own construct; Pack affects only what no Break option covers (case arms).
+  @{ Id = 'PackShortBodies + BreakIfBody + BreakLoopBody all ON (bodies fixture): Break wins'; Fix = 'polarity_breakbody'; Set = @{ PackShortBodies = $T; BreakIfBody = $T; BreakLoopBody = $T }
+     In = 'while LpA > 0 do Dec(LpA); / if C then IfA:= 1 else IfA:= 2;'; Want = 'bodies broken'
+     Must = @('(?m)^\s*while LpA > 0 do\r?\n\s+Dec\(LpA\);\r?$', '(?m)^\s*if C then\r?\n\s+IfA:= 1\r?\n\s*else\r?\n\s+IfA:= 2;\r?$') }
+  @{ Id = 'PackShortBodies + BreakIfBody + BreakLoopBody all ON (pack fixture): Break wins, arms packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T; BreakIfBody = $T; BreakLoopBody = $T }
+     In = 'for/if bodies + case arms'; Want = 'for/if bodies broken, 0: Inc(PkC); and 1: Inc(PkF); packed'
+     Must = @('(?m)^\s*for I:= 0 to N do\r?\n\s+Inc\(PkA\);\r?$', '(?m)^\s*if PkA > 0 then\r?\n\s+Dec\(PkB\);\r?$', '(?m)^\s*0: Inc\(PkC\);\r?$', '(?m)^\s*1: Inc\(PkF\);\r?$') }
 )
 
 $questions = @(
-  'PackShortBodies OFF + a body already on the header line ("for I:= 0 to N do Inc(PkD);"): the spec says "every body/arm stays on its own line" -- does OFF actively break it, or only not pack? Observed: kept inline.'
-  'PackShortBodies ON + BreakIfBody/BreakLoopBody ON: no precedence is specified. Observed: Break* wins for if/loop bodies; case arms are packed.'
   'PackShortBodies ON also packs a "with R do" body (observed with the bodies fixture) -- the spec only names loop/if bodies and case arms.'
-  'BreakCaseLabels OFF + a multi-label arm hand-broken across lines ("7,<NL>8: X;"): "kept on one line" -- re-joined or preserved? Not asserted.'
 )
 
 # --- run --------------------------------------------------------------------

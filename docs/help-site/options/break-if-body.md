@@ -3,7 +3,7 @@ id: break-if-body
 title: Break if/then/else body onto its own line
 summary: Put the then/else body of a single-line if on its own indented line. Off by default.
 group: reflow-whitespace
-order: 110
+order: 120
 default: "false"
 ini: BreakIfBody
 since: "1.0.0.0"

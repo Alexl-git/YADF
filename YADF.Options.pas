@@ -74,6 +74,7 @@ type
     BreakCaseLabels      : Boolean      ;
     IndentComments       : Boolean      ;
     PackShortBodies      : Boolean      ;
+    CaseArmOnLabelLine   : Boolean      ;
     CollapseShortBlocks  : Boolean      ;
     BreakLoopBody        : Boolean      ;
     BreakWithBody        : Boolean      ;
@@ -663,6 +664,7 @@ begin
   Result.BreakCaseLabels      := False;
   Result.IndentComments       := True;
   Result.PackShortBodies      := False;
+  Result.CaseArmOnLabelLine   := True;
   Result.CollapseShortBlocks  := False;
   Result.BreakLoopBody        := False;
   Result.BreakWithBody        := False;
@@ -924,7 +926,8 @@ begin
     MakeOpt('BreakParamsOnePerLine', 'Declarations', 'Break parameters one per line', 'Lay out routine declarations with 2+ parameters one parameter per line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakParamsOnePerLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakParamsOnePerLine:= V end),
     MakeOpt('IndentComments', 'Comments', 'Indent comments', 'Re-indent comment-only lines to the surrounding code depth. A "//." comment keeps its indentation.'  //." always keeps its authored indentation even when this is on (an '
       , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.IndentComments end, procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments:= V end),  // dl:ok duplicate-code@f6a5
-    MakeOpt('PackShortBodies', 'Reflow & whitespace', 'Pack short bodies & case arms', 'Pull a short loop/if body or case arm onto one line when reflowing. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackShortBodies end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies:= V end),
+    MakeOpt('PackShortBodies', 'Reflow & whitespace', 'Pack short bodies & case arms', 'Pull a short loop/if body or case arm onto one line when reflowing; implies "Case arm on its label line". Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackShortBodies end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies:= V end),
+    MakeOpt('CaseArmOnLabelLine', 'Reflow & whitespace', 'Case arm on its label line', 'Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"); off = the statement goes on its own line under the label. Always on while "Pack short bodies" is on.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CaseArmOnLabelLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.CaseArmOnLabelLine:= V end),
     MakeOpt('CollapseShortBlocks', 'Reflow & whitespace', 'Collapse short begin..end blocks', 'Fold a short begin..end body of if/for/while/with onto one line when it fits. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CollapseShortBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks:= V end),  // dl:ok duplicate-code@884e
     MakeOpt('BreakLoopBody', 'Reflow & whitespace', 'Break loop body onto its own line', 'Put the body of a single-line for/while loop on its own indented line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
     MakeOpt('BreakWithBody', 'Reflow & whitespace', 'Break with body onto its own line', 'Put the body of a single-line with..do on its own indented line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),

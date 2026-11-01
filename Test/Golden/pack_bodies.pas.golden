@@ -20,8 +20,7 @@ end;
 procedure Q(K: Integer; Flag: Boolean);
 begin
   case K of
-    0:
-      DoZero;
+    0: DoZero;
     1:
       if Flag then
         DoOne;
