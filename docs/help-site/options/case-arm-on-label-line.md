@@ -6,7 +6,7 @@ group: reflow-whitespace
 order: 80
 default: "true"
 ini: CaseArmOnLabelLine
-since: "1.0.0.0"
+since: "1.0.21.0"
 status: "stable"
 ---
 
