@@ -166,6 +166,18 @@ $cases = @(
      In = '1, 2, 3: Inc(CsA); 5: Inc(CsB); 6: Inc(CsB);'; Want = 'unchanged'
      Must = @('(?m)^\s*1, 2, 3: Inc\(CsA\);\r?$', '(?m)^\s*5\s*: Inc\(CsB\);\r?$', '(?m)^\s*6\s*: Inc\(CsB\);\r?$') }
 
+  # CaseArmOnLabelLine (default true): ON joins a short case arm statement
+  # onto its label line; OFF keeps statement on its own line.
+  @{ Id = 'CaseArmOnLabelLine ON: short arm joined to label'; Fix = 'polarity_pack'; Set = @{ CaseArmOnLabelLine = $T }
+     In = '0:<NL>Inc(PkC);'; Want = '0: Inc(PkC);'
+     Must = @('(?m)^\s*0: Inc\(PkC\);\r?$') }
+  @{ Id = 'CaseArmOnLabelLine OFF: arm statement on its own line'; Fix = 'polarity_pack'; Set = @{ CaseArmOnLabelLine = $F }
+     In = '0: Inc(PkC); (inline)'; Want = '0: / Inc(PkC);'
+     Must = @('(?m)^\s*0:\r?\n\s+Inc\(PkC\);\r?$') }
+  @{ Id = 'CaseArmOnLabelLine ON: already-inline arm stays inline'; Fix = 'polarity_pack'; Set = @{ CaseArmOnLabelLine = $T }
+     In = '1: Inc(PkF); (inline)'; Want = 'unchanged'
+     Must = @('(?m)^\s*1: Inc\(PkF\);\r?$') }
+
   # SplitMultiVarDecls (default true).
   @{ Id = 'SplitMultiVarDecls ON: grouped decl split'; Fix = 'polarity_splitvars'; Set = @{ SplitMultiVarDecls = $T }
      In = 'SvA, SvB: Integer;'; Want = 'SvA: Integer; / SvB: Integer;'

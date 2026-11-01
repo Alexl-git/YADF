@@ -793,6 +793,83 @@ end;
 // handles this in a more general way). Refuses to join when the
 // candidate body begins a structured construct (begin/case/try/asm/
 // record) so we don't end up with `Foo: begin ... end` collapsed.
+
+/// <summary>Break a case arm's statement onto its own line when CaseArmOnLabelLine
+/// is OFF. Opposite of JoinShortCaseAlts: splits `0: Inc(X);` into
+/// `0:` / `  Inc(X);`. Runs after reflow so short arms written inline are
+/// expanded to the breaking rule. Idempotent.</summary>
+function BreakShortCaseAlts(const S: string): string;
+var
+  Lines   : TStringList;
+  OutVal  : TStringBuilder;
+  i       : Integer;
+  j       : Integer;
+  Cur     : string;
+  CurTrimmed: string;
+  ColonPos: Integer;
+  LabelPart: string;
+  BodyPart: string;
+  Indent  : string;
+  LeadSpaces: Integer;
+begin
+  Lines:= TStringList.Create;
+  try
+    Lines.LineBreak:= CRLF;
+    Lines.Text     := S;
+    OutVal:= TStringBuilder.Create;
+    try
+      i:= 0;
+      while i < Lines.Count do
+      begin
+        Cur:= Lines[i];
+        CurTrimmed:= Trim(Cur);
+        // Look for a case label ending in a colon with a statement on the same line.
+        // Do not split if there is a line comment (it must stay at end of line).
+        if (CurTrimmed <> '') and (TopLevelLineCommentCol(CurTrimmed) = 0) then
+        begin
+          ColonPos:= Pos(':', CurTrimmed);
+          if (ColonPos > 0) and (ColonPos < Length(CurTrimmed)) then
+          begin
+            // Check if this looks like a case label (no := before colon)
+            LabelPart:= Copy(CurTrimmed, 1, ColonPos - 1);
+            if Pos(':=', LabelPart) = 0 then
+            begin
+              BodyPart:= Trim(Copy(CurTrimmed, ColonPos + 1));
+              // Only break if body ends with ; and is not empty
+              if (BodyPart <> '') and (BodyPart[Length(BodyPart)] = ';') then
+              begin
+                // Calculate the label indent
+                LeadSpaces:= 0;
+                for j:= 1 to Length(Cur) do
+                  if Cur[j] = ' ' then Inc(LeadSpaces)
+                  else Break;
+                Indent:= StringOfChar(' ', LeadSpaces);
+                // Emit the label on its own line
+                OutVal.Append(Indent + LabelPart + ':');
+                OutVal.Append(CRLF);
+                // Emit the body with increased indent
+                OutVal.Append(Indent + StringOfChar(' ', 2) + BodyPart);
+                OutVal.Append(CRLF);
+                Inc(i);
+                Continue;
+              end;
+            end;
+          end;
+        end;
+        // No split: emit as-is
+        OutVal.Append(Cur);
+        OutVal.Append(CRLF);
+        Inc(i);
+      end; // while
+      Result:= OutVal.ToString;
+    finally
+      OutVal.Free;
+    end; // try
+  finally
+    Lines.Free;
+  end; // try
+end; // function
+
 function JoinShortCaseAlts(const S: string; AMaxLen: Integer): string;  // dl:ok deep-nesting@642a
 var
   Cur        : string        ;
@@ -8225,14 +8302,27 @@ begin
         begin
           Result:= ReflowLineBreaks(Result, AOpts.MaxLen, AOpts.PackShortBodies, AOpts.BreakLongExpressions);
           Result:= ReindentByDepth (Result, AOpts.Indent, AOpts.IndentComments );
+          // Case-arm joining after reflow: pull a short arm onto its `label:` line when
+          // CaseArmOnLabelLine is on (default) or PackShortBodies is on.
+          if AOpts.PackShortBodies or AOpts.CaseArmOnLabelLine then
+          begin
+            Result:= JoinShortCaseAlts(Result, AOpts.MaxLen);
+            Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
+          end
+          else if not AOpts.CaseArmOnLabelLine then
+          begin
+            Result:= BreakShortCaseAlts(Result);
+            Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
+          end;
         end
         else
         begin
-          // Case-arm joining is part of body-packing: only pull a short arm
-          // onto its `label:` line when PackShortBodies is on. Default leaves
-          // each arm body on its own line.
-          if AOpts.PackShortBodies then
-            Result:= JoinShortCaseAlts(Result, AOpts.MaxLen);
+          // Case-arm joining when reflow is OFF: same logic as above but runs
+          // in the non-reflow branch.
+          if AOpts.PackShortBodies or AOpts.CaseArmOnLabelLine then
+            Result:= JoinShortCaseAlts(Result, AOpts.MaxLen)
+          else if not AOpts.CaseArmOnLabelLine then
+            Result:= BreakShortCaseAlts(Result);
           // JoinShortCaseAlts may pull a `label:` onto its body line; re-indent
           // so the merged line's body depth is recomputed for the new shape
           // (otherwise a case arm whose body is a nested `if` keeps the depth

@@ -926,6 +926,8 @@ begin
   WriteStdoutLine(Format('  --no-break-if         keep the if/then/else body inline                [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine(Format('  --break-params        break routine parameters one per line              [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
   WriteStdoutLine(Format('  --no-break-params     keep the parameter list inline                   [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
+  WriteStdoutLine(Format('  --case-arm-on-label   pull a short case arm statement onto its label   [arm=%s]', [OnOff(AOpts.CaseArmOnLabelLine)]));
+  WriteStdoutLine(Format('  --no-case-arm-on-label  keep case arm statement on its own line        [arm=%s]', [OnOff(AOpts.CaseArmOnLabelLine)]));
   WriteStdoutLine(Format('  --break-expr          break a long line one component per line             [expr=%s]', [OnOff(AOpts.BreakLongExpressions)]));
   WriteStdoutLine('  --no-break-expr       use the greedy line breaker');
   WriteStdoutLine(Format('  --[no-]trim-trailing  trim / keep trailing whitespace                  [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
@@ -963,7 +965,7 @@ begin
   WriteStdoutLine(Format('  AssignNoSpaceBefore=%s  AssignSpaceAfter=%s  SpaceAroundOperators=%s', [OnOff(AOpts.AssignNoSpaceBefore), OnOff(AOpts.AssignSpaceAfter), OnOff(AOpts.SpaceAroundOperators)]));
   WriteStdoutLine(Format('  AlignConstEquals=%s  AlignTypeColon=%s  AlignSmartAssign=%s  AlignDeclSemicolons=%s', [OnOff(AOpts.AlignConstEquals), OnOff(AOpts.AlignTypeColon), OnOff(AOpts.AlignSmartAssign), OnOff(AOpts.AlignDeclSemicolons)]));
   WriteStdoutLine(Format('  AlignMatchingShapes=%s  AlignShapeMinAnchors=%d  AlignCommentMaxShift=%d  AlignMaxColumn=%d', [OnOff(AOpts.AlignMatchingShapes), AOpts.AlignShapeMinAnchors, AOpts.AlignCommentMaxShift, AOpts.AlignMaxColumn]));
-  WriteStdoutLine(Format('  UsesCommaLast=%s  SplitMultiVarDecls=%s', [OnOff(AOpts.UsesCommaLast), OnOff(AOpts.SplitMultiVarDecls)]));
+  WriteStdoutLine(Format('  UsesCommaLast=%s  SplitMultiVarDecls=%s  CaseArmOnLabelLine=%s', [OnOff(AOpts.UsesCommaLast), OnOff(AOpts.SplitMultiVarDecls), OnOff(AOpts.CaseArmOnLabelLine)]));
   WriteStdoutLine(''                                                          );
   WriteStdoutLine('Precedence: CLI flags > INI values > compiled-in defaults.');
 end; // begin
@@ -1365,6 +1367,16 @@ begin
       else if AArgs[i] = '--no-break-params' then
       begin
         AOpts.BreakParamsOnePerLine:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--case-arm-on-label' then
+      begin
+        AOpts.CaseArmOnLabelLine:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-case-arm-on-label' then
+      begin
+        AOpts.CaseArmOnLabelLine:= False;
         Inc(i);
       end
       else if AArgs[i] = '--break-expr' then
