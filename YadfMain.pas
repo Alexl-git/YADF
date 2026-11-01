@@ -1325,7 +1325,7 @@ begin
       else if AArgs[i] = '--pack-bodies' then
       begin
         AOpts.PackShortBodies:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
+        Inc(i);
       end
       else if AArgs[i] = '--no-pack-bodies' then
       begin
@@ -1345,7 +1345,7 @@ begin
       else if AArgs[i] = '--break-loop' then
       begin
         AOpts.BreakLoopBody:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
+        Inc(i);
       end
       else if AArgs[i] = '--no-break-loop' then
       begin
@@ -1365,7 +1365,7 @@ begin
       else if AArgs[i] = '--break-if' then
       begin
         AOpts.BreakIfBody:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
+        Inc(i);
       end
       else if AArgs[i] = '--no-break-if' then
       begin

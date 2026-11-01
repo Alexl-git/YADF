@@ -1301,11 +1301,12 @@ var
   Scan     : TCaseArmScan  ;
   JoinNext : TArray<Boolean>;
   SplitCol : TArray<Integer>;
-  Shift    : TArray<Boolean>;
+  Shift    : TArray<Integer>;
   OutVal   : TStringBuilder;
   Cur      : string        ;
   Nxt      : string        ;
   Ind      : string        ;
+  Delta    : Integer       ;
   a        : Integer       ;
   n        : Integer       ;
   Ls       : Integer       ;
@@ -1350,7 +1351,7 @@ begin
       begin
         JoinNext[n]:= False;
         SplitCol[n]:= 0;
-        Shift[n]   := False;
+        Shift[n]   := 0;
       end;
       for a:= 0 to High(Scan.Arms) do
       begin
@@ -1397,8 +1398,12 @@ begin
           if Ok then
           begin
             SplitCol[Lc]:= Scan.Toks[Arm.BodyStart].Col;
+            // The statement moves from column SplitCol to (label indent + AIndent);
+            // its continuation lines move by the same amount, so they keep their
+            // offset from the statement start.
+            Delta:= Length(Lines[Lc]) - Length(TrimLeft(Lines[Lc])) + AIndent - (SplitCol[Lc] - 1);
             for n:= Lc + 1 to Le do
-              Shift[n]:= True;
+              Shift[n]:= Delta;
           end;
         end;
       end; // for
@@ -1409,8 +1414,9 @@ begin
         while n < Lines.Count do
         begin
           Cur:= Lines[n];
-          if Shift[n] and (Trim(Cur) <> '') then
-            Cur:= Ind + Cur;
+          if (Shift[n] <> 0) and (Trim(Cur) <> '') then
+            Cur:= if Shift[n] > 0 then StringOfChar(' ', Shift[n]) + Cur
+                  else Copy(Cur, Min(-Shift[n], Length(Cur) - Length(TrimLeft(Cur))) + 1, MaxInt);
           if SplitCol[n] > 0 then
           begin
             Nxt:= Copy(Cur, SplitCol[n], MaxInt);
@@ -3035,7 +3041,6 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     St: TLineScanState;
     i : Integer       ;
   begin
-    Result:= False;
     St.Reset;
     i:= 1;
     while True do

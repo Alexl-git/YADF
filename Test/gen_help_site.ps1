@@ -5,13 +5,17 @@
 # created with a body built from the yadf.ini comment. Leaves with
 # "manual: true" in their front matter are never touched, only indexed.
 # index.json is rebuilt from the front matter of every options\*.md leaf.
-param([string]$OutDir)
+param([string]$OutDir, [string]$Since)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $out  = if ($OutDir) { $OutDir } else { Join-Path $root 'docs\help-site' }
 $optDir = Join-Path $out 'options'
 New-Item -ItemType Directory -Force $optDir | Out-Null
 $enc = New-Object System.Text.UTF8Encoding($false)
+# `since` of a NEW leaf = the current family version (YADF.Version.inc) unless -Since is
+# given (e.g. the next, unreleased version). Existing leaves keep the value they carry.
+if (-not $Since) { $Since = [regex]::Match([IO.File]::ReadAllText((Join-Path $root 'YADF.Version.inc')), "YADF_VERSION\s*=\s*'([\d.]+)'").Groups[1].Value }
+if (-not $Since) { throw 'cannot read YADF_VERSION from YADF.Version.inc' }
 
 function Write-Ascii([string]$p, [string]$text) {
   if ($text -match '[^\x00-\x7F]') { throw "non-ASCII text for $p" }
@@ -75,14 +79,14 @@ foreach ($o in $opts) {
   $d = if ($def.ContainsKey($o.Ident)) { $def[$o.Ident] } else { '' }
   $fm = "---`nid: $($o.id)`ntitle: $($o.Caption)`nsummary: $($o.Hint)`ngroup: $($o.gid)`norder: $order`n" +
         "default: `"$d`"`nini: $($o.Ident)`n" + $(if ($o.cli) { "cli: $($o.cli)`n" } else { '' }) +
-        "since: `"1.0.0.0`"`nstatus: `"stable`"`n---`n"
+        "since: `"$Since`"`nstatus: `"stable`"`n---`n"
   $p = Join-Path $optDir ($o.id + '.md')
   $body = $null
   if (Test-Path $p) {
     $old = [IO.File]::ReadAllText($p)
     if ($old -match '(?m)^manual: true') { continue }
     $sinceKeep = [regex]::Match($old, '(?m)^since: ("[^"]*")').Groups[1].Value
-    if ($sinceKeep) { $fm = $fm -replace 'since: "1.0.0.0"', "since: $sinceKeep" }
+    if ($sinceKeep) { $fm = $fm -replace ('since: "' + [regex]::Escape($Since) + '"'), "since: $sinceKeep" }
     $body = $old.Substring($old.IndexOf("`n---`n", 4) + 5)
   } else {
     $long = if ($desc.ContainsKey($o.Ident)) { $desc[$o.Ident] } else { $o.Hint }

@@ -48,6 +48,11 @@ $cases = @(
   @{ Id = 'ReflowLines ON: mid-expression hand break is joined'; Fix = 'polarity_reflow'; Set = @{ ReflowLines = $T }
      In = 'Alpha:= Sum3(1,<NL>2, 3);'; Want = 'Alpha:= Sum3(1, 2, 3);'
      Must = @('(?m)^\s*Alpha:= Sum3\(1, 2, 3\);\r?$') }
+  # SPEC task 2c: a trailing blank after an opening paren must not survive the join.
+  @{ Id = 'ReflowLines ON: a hand break after "(" with a trailing blank joins without a stray space'; Fix = 'polarity_reflow'; Set = @{ ReflowLines = $T }
+     In = 'Epsilon:= Sum3( <NL>1, 2, 3);'; Want = 'Epsilon:= Sum3(1, 2, 3);'
+     Must = @('(?m)^\s*Epsilon:= Sum3\(1, 2, 3\);\r?$')
+     Not = @('Sum3\( ') }
   @{ Id = 'ReflowLines ON: a break between statements is kept'; Fix = 'polarity_reflow'; Set = @{ ReflowLines = $T }
      In = 'Beta:= Alpha;<NL>Gamma:= Beta;'; Want = 'two lines'
      Must = @('(?m)^\s*Beta\s*:= Alpha;\r?\n\s*Gamma:= Beta;\r?$') }
@@ -147,11 +152,6 @@ $cases = @(
      Must = @('(?m)^procedure ParamsSpread\(const PE: string; PF: Integer\);\r?$')
      Not = @('ParamsSpread\(\s+const', '(?m)^\s*const PE: string;\s*$') }
 
-  # BreakLongExpressions (default true): ON = one top-level component per line,
-  # operator leading, then on its own line; OFF = greedy packing.
-  @{ Id = 'BreakLongExpressions ON: long condition one component per line'; Fix = 'polarity_breakexpr'; Set = @{ BreakLongExpressions = $T }
-     In = 'if (V[0] > 100) and ... and (V[10] > 1100) then  (one line, > 180)'; Want = 'one "and" per line, then on its own line'
-     Must = @('(?m)^\s+and \(V\[1\] > 200\)\r?$', '(?m)^\s+and \(V\[10\] > 1100\)\r?\n\s*then\r?$')
   # JoinRoutineHeaders (default true, owner decision 2026-11-01): ON = a routine
   # header the author split is joined (wrapped at MaxLen); OFF is COUPLED to
   # BreakParamsOnePerLine: OFF implies one parameter per line (2+ parameters).
@@ -171,6 +171,11 @@ $cases = @(
      In = 'JhSplit split'; Want = 'one parameter per line'
      Must = @('(?m)^\s*const PA: string\r?$', '(?m)^\s*;?\s*PB: Integer\r?$') }
 
+  # BreakLongExpressions (default true): ON = one top-level component per line,
+  # operator leading, then on its own line; OFF = greedy packing.
+  @{ Id = 'BreakLongExpressions ON: long condition one component per line'; Fix = 'polarity_breakexpr'; Set = @{ BreakLongExpressions = $T }
+     In = 'if (V[0] > 100) and ... and (V[10] > 1100) then  (one line, > 180)'; Want = 'one "and" per line, then on its own line'
+     Must = @('(?m)^\s+and \(V\[1\] > 200\)\r?$', '(?m)^\s+and \(V\[10\] > 1100\)\r?\n\s*then\r?$')
      Not = @('(?m)^[^\r\n]*\band \(V[^\r\n]*\band \(V') }
   @{ Id = 'BreakLongExpressions ON: lines that already fit are not touched'; Fix = 'polarity_breakexpr'; Set = @{ BreakLongExpressions = $T }
      In = 'the W condition already one component per line'; Want = 'still one per line'
@@ -218,6 +223,14 @@ $cases = @(
               '(?m)^\s*0:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*5:\r?\n\s+if CaA > 0 then Inc\(CaA\) else Dec\(CaA\);\r?$',
               '(?m)^\s*0\s*: \(IntVal: Integer\);\r?$', '(?m)^\s*case Kind: Integer of\r?$', '(?m)^\s*CaA\s*: Integer;\r?$', '(?m)^procedure RunCaseArm\(N: Integer\);\r?$')
      Not = @('(?m)^[ ]*[0-5]:[ ]*(Inc|Dec|begin|case|if)') }
+  # SPEC task 2c: moving the statement under its label shifts the continuation
+  # lines by the SAME amount (they keep their offset from the statement start).
+  @{ Id = 'CaseArmOnLabelLine OFF: continuation lines keep their offset to the statement'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F }
+     In = '6: CaB:= CaA<NL>         + CaC;'; Want = '6: / CaB:= CaA / (statement + 2) + CaC;'
+     Must = @('(?m)^(?<i> *)6:\r?\n\k<i>  CaB:= CaA\r?\n\k<i>    \+ CaC;\r?$') }
+  @{ Id = 'CaseArmOnLabelLine ON: a broken statement on the label line is left as written'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T }
+     In = '6: CaB:= CaA<NL>         + CaC;'; Want = 'unchanged'
+     Must = @('(?m)^(?<i> *)6: CaB:= CaA\r?\n\k<i>     \+ CaC;\r?$') }
   @{ Id = 'CaseArmOnLabelLine OFF + PackShortBodies ON: Pack implies ON'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; PackShortBodies = $T }
      In = '0:<NL>Inc(CaA); / 1: Inc(CaB);'; Want = 'both on the label line'
      Must = @('(?m)^\s*0: Inc\(CaA\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$') }
