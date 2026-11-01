@@ -5,7 +5,7 @@ interface
 type
   TVariantRecord = record
     case byte of
-    1:( Value: Double; [Example] ValueWithAttribute: Integer; );
+    1:(Value: Double; [Example] ValueWithAttribute: Integer;);
   end;
 
 implementation

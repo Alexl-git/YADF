@@ -56,15 +56,13 @@ $cases = @(
      Not = @('(?m)^[^\r\n]{181,}') }
   @{ Id = 'ReflowLines OFF: mid-expression hand break is preserved'; Fix = 'polarity_reflow'; Set = @{ ReflowLines = $F }
      In = 'Alpha:= Sum3(1,<NL>2, 3);'; Want = 'break kept'; Show = 'Alpha:= Sum3'
-     Must = @('(?m)^\s*Alpha:= Sum3\(1,\r?\n\s*2, 3\);\r?$')
-     Gap = 'wrong output: OFF still joins the hand-broken statement' }
+     Must = @('(?m)^\s*Alpha:= Sum3\(1,\r?\n\s*2, 3\);\r?$') }
   @{ Id = 'ReflowLines OFF: a break between statements is kept'; Fix = 'polarity_reflow'; Set = @{ ReflowLines = $F }
      In = 'Beta:= Alpha;<NL>Gamma:= Beta;'; Want = 'two lines'
      Must = @('(?m)^\s*Beta\s*:= Alpha;\r?\n\s*Gamma:= Beta;\r?$') }
   @{ Id = 'ReflowLines OFF: a line over MaxLen is left as-is'; Fix = 'polarity_reflow'; Set = @{ ReflowLines = $F }
      In = 'Delta:= <195-char sum on one line>'; Want = 'line unchanged'; Show = '^\s*(Alpha,|Beta,?|\);)\s*$|^\s*Delta:='
-     Must = @('(?m)^\s*Delta:= Sum3\(Alpha, Beta, Gamma\) \+ [^\r\n]* \+ Sum3\(Alpha, Beta, Beta\);\r?$')
-     Gap = 'wrong output: OFF still wraps the long line (and then one argument per line)' }
+     Must = @('(?m)^\s*Delta:= Sum3\(Alpha, Beta, Gamma\) \+ [^\r\n]* \+ Sum3\(Alpha, Beta, Beta\);\r?$') }
 
   # PackShortBodies (default false): ON pulls a short loop/if body or case arm
   # onto its header line.
@@ -85,8 +83,7 @@ $cases = @(
   # onto one line when it fits MaxLen; OFF EXPANDS a one-line block.
   @{ Id = 'CollapseShortBlocks ON: "then begin" block folds'; Fix = 'polarity_collapse'; Set = @{ CollapseShortBlocks = $T }
      In = 'if C then begin<NL>CbA:= 1;<NL>CbB:= 2;<NL>end;'; Want = 'if C then begin CbA:= 1; CbB:= 2; end;'; Show = '(if C then begin|CbA:= 1|CbB:= 2)'
-     Must = @('(?m)^\s*if C then begin CbA:= 1; CbB:= 2; end;\r?$')
-     Gap = 'not applied: a block whose begin sits on the header line (the spec''s own example shape) is never folded; begin-on-its-own-line folds' }
+     Must = @('(?m)^\s*if C then begin CbA:= 1; CbB:= 2; end;\r?$') }
   @{ Id = 'CollapseShortBlocks ON: begin-on-own-line block folds'; Fix = 'polarity_collapse'; Set = @{ CollapseShortBlocks = $T }
      In = 'if not C then<NL>begin<NL>CbE:= 1;<NL>CbF:= 2;<NL>end;'; Want = 'one line'
      Must = @('(?m)^\s*if not C then begin CbE:= 1; CbF:= 2; end;\r?$') }
@@ -137,10 +134,12 @@ $cases = @(
   @{ Id = 'BreakParamsOnePerLine OFF: inline lists stay inline'; Fix = 'polarity_params'; Set = @{ BreakParamsOnePerLine = $F }
      In = 'ParamsInline / ParamsGrouped on one line'; Want = 'unchanged'
      Must = @('(?m)^procedure ParamsInline\(const PA: string; PB: Integer\);\r?$', '(?m)^procedure ParamsGrouped\(const PC, PD: string\);\r?$') }
-  @{ Id = 'BreakParamsOnePerLine OFF: a spread list re-joined by reflow keeps clean spacing'; Fix = 'polarity_params'; Set = @{ BreakParamsOnePerLine = $F }
-     In = 'procedure ParamsSpread(<NL>const PE: string;<NL>PF: Integer);'; Want = 'no space after "(" if joined'; Show = 'ParamsSpread'
-     Not = @('ParamsSpread\(\s+const')
-     Gap = 'wrong output (cosmetic): the joined list reads "ParamsSpread( const PE: string; PF: Integer);"' }
+  # Owner decision Q4 (SPEC-2026-11-01): OFF joins a list written one per line
+  # when it fits MaxLen, with no space after "(".
+  @{ Id = 'BreakParamsOnePerLine OFF: a list written one per line is joined, no space after "("'; Fix = 'polarity_params'; Set = @{ BreakParamsOnePerLine = $F }
+     In = 'procedure ParamsSpread(<NL>const PE: string;<NL>PF: Integer);'; Want = 'procedure ParamsSpread(const PE: string; PF: Integer);'
+     Must = @('(?m)^procedure ParamsSpread\(const PE: string; PF: Integer\);\r?$')
+     Not = @('ParamsSpread\(\s+const', '(?m)^\s*const PE: string;\s*$') }
 
   # BreakLongExpressions (default true): ON = one top-level component per line,
   # operator leading, then on its own line; OFF = greedy packing.
@@ -214,7 +213,6 @@ $questions = @(
   'PackShortBodies OFF + a body already on the header line ("for I:= 0 to N do Inc(PkD);"): the spec says "every body/arm stays on its own line" -- does OFF actively break it, or only not pack? Observed: kept inline.'
   'PackShortBodies ON + BreakIfBody/BreakLoopBody ON: no precedence is specified. Observed: Break* wins for if/loop bodies; case arms are packed.'
   'PackShortBodies ON also packs a "with R do" body (observed with the bodies fixture) -- the spec only names loop/if bodies and case arms.'
-  'BreakParamsOnePerLine OFF + a list already one parameter per line: the spec is silent; ReflowLines suggests a join. Observed: joined (see the KNOWN-GAP on its spacing).'
   'BreakCaseLabels OFF + a multi-label arm hand-broken across lines ("7,<NL>8: X;"): "kept on one line" -- re-joined or preserved? Not asserted.'
 )
 

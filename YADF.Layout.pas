@@ -2383,6 +2383,25 @@ begin
   end; // try
 end; // function
 
+/// <summary>The separator a line-join pass puts between two code fragments it
+/// glues onto one line.</summary>
+/// <param name="ALeft">The text that ends up left of the join (trailing
+/// whitespace already trimmed).</param>
+/// <param name="ARight">The text that ends up right of the join (trimmed).</param>
+/// <returns>'' when ALeft ends with an opening bracket or ARight starts with a
+/// closing bracket, ',', ';' or '.'; otherwise one space.</returns>
+/// <remarks>Shared by ReflowLineBreaks and JoinRoutineHeaders so a statement
+/// and a routine header written across lines join with the same spacing
+/// (no `Go( const A` / `B )`). Pure; whitespace only, so guard-safe.</remarks>
+function JoinSep(const ALeft, ARight: string): string;
+begin
+  Result:= ' ';
+  if (ALeft <> '') and CharInSet(ALeft[Length(ALeft)], ['(', '[']) then
+    Result:= '';
+  if (ARight <> '') and CharInSet(ARight[1], [')', ']', ',', ';', '.']) then
+    Result:= '';
+end;
+
 // ===== Reflow =====
 // Reflow is the most invasive string pass: it deletes user-supplied
 // line breaks where they aren't structurally required, and merges
@@ -2779,11 +2798,7 @@ begin
           end;
           CurR := TrimRight(Cur   );
           NextT:= Trim     (NextLn);
-          Sep:= ' ';
-          if (CurR <> '') and CharInSet(CurR[Length(CurR)], ['(', '[']) then
-            Sep:= '';
-          if (NextT <> '') and CharInSet(NextT[1], [')', ']', ',', ';', '.']) then
-            Sep:= '';
+          Sep:= JoinSep(CurR, NextT);
           Joined:= CurR + Sep + NextT;
           if Length(Joined) > AMaxLen then
             Break;
@@ -2814,9 +2829,10 @@ end; // begin
 //     B := 2;
 //   end;
 // Conservative and string-safe by design:
-//   * fires ONLY when the line before `begin` is a control header ending in
-//     then/do/else (a routine body -- `procedure Foo;` / `begin..end;` -- is
-//     deliberately left alone),
+//   * fires ONLY when `begin` follows a control header ending in then/do/else,
+//     either on its own line or at the end of the header line itself
+//     (`if X then begin`); a routine body -- `procedure Foo;` / `begin..end;`
+//     -- is deliberately left alone,
 //   * every body line must be a single complete `;`-terminated statement with
 //     no comment characters and not inside a block comment; anything else
 //     (a multi-line statement, a nested expanded block, a comment) bails the
@@ -4020,8 +4036,11 @@ begin
               CmtBail:= True;
               Break;
             end;
+            // Same separator rule as ReflowLineBreaks: no space after an
+            // opening bracket or before a closing one / a separator, so a
+            // list written one per line joins as `Go(const A: T; B: U);`.
             if Trim(Lines[j]) <> '' then
-              Joined:= Joined + ' ' + Trim(Lines[j]);
+              Joined:= Joined + JoinSep(Joined, Trim(Lines[j])) + Trim(Lines[j]);
             if St.Depth = 0 then Break; // closing line reached (inclusive)
             Inc(j);
           end;
@@ -4101,6 +4120,7 @@ var
   Indent: string         ;
   Joined: string         ;
   Ok    : Boolean        ;
+  Hdr   : string         ; // control header text before `begin`
 
   function StartsWordCI(const L, W: string): Boolean;
   var
@@ -4254,6 +4274,37 @@ var
     Result:= Copy(L, 1, p - 1);
   end;
 
+// True when line AIdx opens a foldable control block. Two shapes:
+//   `if X then` / `begin`      -> AHdr = line AIdx,        ABodyIdx = AIdx + 2
+//   `if X then begin`          -> AHdr = text before begin, ABodyIdx = AIdx + 1
+// In the second shape the header part must not itself hold a begin/end word:
+// `if A then begin X; end else begin` (a line this pass produced) would
+// otherwise fold its else block on the next run (a non-idempotency).
+  function HeaderStartsBlock(AIdx: Integer; out AHdr: string; out ABodyIdx: Integer): Boolean;
+  var
+    T: string;
+  begin
+    Result  := False;
+    AHdr    := '';
+    ABodyIdx:= -1;
+    if Lock[AIdx] or HasCommentChars(Lines[AIdx]) or Lines[AIdx].Contains(MlShieldMark) then
+      Exit;
+    T:= TrimRight(Lines[AIdx]);
+    if IsHeaderEnd(T) and (AIdx + 1 < Lines.Count) and (not Lock[AIdx + 1]) and SameText(Trim(Lines[AIdx + 1]), 'begin') then
+    begin
+      AHdr    := T;
+      ABodyIdx:= AIdx + 2;
+      Exit(True);
+    end;
+    if not EndsWordCI(T, 'begin') then
+      Exit;
+    AHdr:= TrimRight(Copy(T, 1, Length(T) - Length('begin')));
+    if (Trim(AHdr) = '') or (not IsHeaderEnd(AHdr)) or ContainsWordCI(AHdr, 'begin') or ContainsWordCI(AHdr, 'end') then
+      Exit;
+    ABodyIdx:= AIdx + 1;
+    Result  := True;
+  end; // function
+
 begin
   Lines:= TStringList.Create;
   try
@@ -4267,11 +4318,10 @@ begin
       i:= 0;
       while i < Lines.Count do
       begin
-        // trigger: control header, then a `begin`-only line
-        if (not Lock[i]) and IsHeaderEnd(Lines[i]) and (not HasCommentChars(Lines[i])) and (Pos(MlShieldMark, Lines[i]) = 0)  // dl:ok boolean-expression-complexity@e4ba
-          and (i + 1 < Lines.Count) and (not Lock[i + 1]) and SameText(Trim(Lines[i + 1]), 'begin') then
+        // trigger: control header, then a `begin`-only line (body from i + 2),
+        // or a header line that itself ends in `begin` (body from i + 1)
+        if HeaderStartsBlock(i, Hdr, j) then
         begin
-          j:= i + 2;
           Ok  := True;
           Body:= '';
           while True do
@@ -4303,7 +4353,7 @@ begin
           begin
             EndLn := Trim     (Lines[j]);
             Indent:= LeadingWS(Lines[i]);
-            Joined:= Indent + Squeeze(Trim(Lines[i]) + ' begin' + Body + ' ' + EndLn);
+            Joined:= Indent + Squeeze(Trim(Hdr) + ' begin' + Body + ' ' + EndLn);
             if Length(Joined) <= AMaxLen then
             begin
               OutVal.Append(Joined);
@@ -5911,31 +5961,47 @@ end; // function
 
 // Concatenates tokens [AFrom..ATo] onto a single line, collapsing any
 // internal whitespace/CRLF runs to a single space. Pre-whitespace
-// before each token is normalised to either '' (when next to opening
-// punctuation) or ' ' (otherwise). The result has NO leading or
-// trailing whitespace; callers add indentation as needed.
+// before each token is kept as one space (or none, as written), except
+// that whitespace holding a source LINE BREAK right after `(`/`[` or
+// right before `)`/`]` becomes '' (same rule as JoinSep). The result has
+// NO leading whitespace; callers add indentation as needed.
 function InlineRenderRange(const ATokens: TTokenList; AFrom, ATo: Integer): string;
 var
   HasContent: Boolean       ;
+  NeedSpace : Boolean       ; // whitespace seen since the last code token
+  SawBreak  : Boolean       ; // ... and it held a source line break
   i         : Integer       ;
   Sb        : TStringBuilder;
 begin
   Sb:= TStringBuilder.Create;
   try
     HasContent:= False;
+    NeedSpace := False;
+    SawBreak  := False;
     for i:= AFrom to ATo do
     begin
+      if (ATokens[i].Kind in [ptCRLF, ptCRLFCo]) or ATokens[i].Pre.Contains(LF) then
+        SawBreak:= True;
       if ATokens[i].Kind in [ptSpace, ptCRLF, ptCRLFCo] then
       begin
-        if HasContent and (Sb.Length > 0) and (Sb.Chars[Sb.Length - 1] <> ' ') then
-          Sb.Append(' ');
+        NeedSpace:= NeedSpace or HasContent;
         Continue;
       end;
-      if HasContent and (ATokens[i].Pre <> '') and (Sb.Length > 0) and (Sb.Chars[Sb.Length - 1] <> ' ') then
+      if HasContent and (ATokens[i].Pre <> '') then
+        NeedSpace:= True;
+      // A source line break just inside a bracket joins with no space, the
+      // JoinSep rule of ReflowLineBreaks: Go(<NL>A,<NL>B<NL>) -> Go(A, B).
+      if NeedSpace and SawBreak and (CharInSet(Sb.Chars[Sb.Length - 1], ['(', '[']) or (ATokens[i].Text = ')') or (ATokens[i].Text = ']')) then
+        NeedSpace:= False;
+      if NeedSpace and (Sb.Chars[Sb.Length - 1] <> ' ') then
         Sb.Append(' ');
       Sb.Append(ATokens[i].Text);
       HasContent:= True;
+      NeedSpace := False;
+      SawBreak  := False;
     end; // for
+    if NeedSpace and (Sb.Length > 0) and (Sb.Chars[Sb.Length - 1] <> ' ') then
+      Sb.Append(' ');
     Result:= Sb.ToString;
   finally
     Sb.Free;
@@ -5971,6 +6037,20 @@ var
 begin
   for i:= AFrom to ATo do if ATokens[i].Kind = ptSlashesComment then
     Exit(True);
+  Result:= False;
+end;
+
+// True iff the token range [AFrom..ATo] spans a source line break: a CRLF
+// token, or a token whose leading whitespace holds one. Multi-line tokens
+// are shielded to one-line atoms before the walker runs, so they never count.
+// ReflowLines OFF keeps such a range verbatim (the author's breaks).
+function RangeHasLineBreak(const ATokens: TTokenList; AFrom, ATo: Integer): Boolean;
+var
+  i: Integer;
+begin
+  for i:= AFrom to ATo do
+    if (ATokens[i].Kind in [ptCRLF, ptCRLFCo]) or ATokens[i].Pre.Contains(LF) or ATokens[i].Pre.Contains(CR) then
+      Exit(True);
   Result:= False;
 end;
 
@@ -7446,7 +7526,7 @@ end; // procedure
 // Block-end labels are NOT decided here: they are a post-pass over the
 // final line-broken text (ApplyBlockEndLabels), because the line count
 // the walker sees is not the one the reader gets.
-function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@00e4
+function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@ee5f
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -7644,6 +7724,11 @@ var
         // which emits the group's tokens verbatim and keeps the
         // developer's own line breaks (reflow is already comment-safe).
         if RangeHasLineComment(Tokens, Child.OpenIdx, Child.CloseIdx) or RangeHasConditionalDirective(Tokens, Child.OpenIdx, Child.CloseIdx) then
+          WalkGroup(Child)
+        // ReflowLines OFF preserves the author's line breaks and never wraps:
+        // a group written across lines, or one that does not fit, is emitted
+        // verbatim (only re-indented later) instead of flattened or broken.
+        else if (not AOpts.ReflowLines) and (RangeHasLineBreak(Tokens, Child.OpenIdx, Child.CloseIdx) or (CurCol + InlineW > AOpts.MaxLen)) then
           WalkGroup(Child)
         else if (CurCol + InlineW > AOpts.MaxLen) and (Length(CollectParensItems(Tokens, Child.OpenIdx, Child.CloseIdx)) > 1) then
         begin
@@ -8132,8 +8217,9 @@ begin
         // BreakLongExpressions defers overflow handling until AFTER the reflow
         // block: ReflowLineBreaks re-packs lines to fill MaxLen and would undo
         // one-component-per-line. The greedy breaker keeps its historic slot so
-        // the option-off path is byte-identical.
-        if not AOpts.BreakLongExpressions then
+        // the option-off path is byte-identical. ReflowLines OFF means "long
+        // lines are left as-is", so neither breaker runs then.
+        if AOpts.ReflowLines and not AOpts.BreakLongExpressions then
           Result:= BreakLongLines(Result);
         if AOpts.ReflowLines then
         begin
@@ -8154,7 +8240,7 @@ begin
           // reflow path, which already re-indents after ReflowLineBreaks.
           Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
         end; // else
-        if AOpts.BreakLongExpressions then
+        if AOpts.ReflowLines and AOpts.BreakLongExpressions then
           Result:= BreakLongLines(Result);
         // Break single-line control-statement bodies onto their own line when
         // any Break* flag is on. Runs after the reflow/pack block (so it acts on

@@ -9,7 +9,7 @@ type
   end;
 
 const
-  cConstant: set of TClass.TInnerEnum = [ TClass.TInnerEnum.eOne, TClass.TInnerEnum.eTwo, TClass.TInnerEnum.wThree ];
+  cConstant: set of TClass.TInnerEnum = [TClass.TInnerEnum.eOne, TClass.TInnerEnum.eTwo, TClass.TInnerEnum.wThree];
 
 implementation
 
