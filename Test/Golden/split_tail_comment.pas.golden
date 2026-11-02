@@ -15,7 +15,12 @@ var
   E: Integer; // line tail
   F: Integer;
 begin
-  A:= 0; B:= A; C:= B; D:= C; E:= D; F:= E;
+  A:= 0;
+  B:= A;
+  C:= B;
+  D:= C;
+  E:= D;
+  F:= E;
 end;
 
 end.

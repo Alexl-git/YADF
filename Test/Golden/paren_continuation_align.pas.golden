@@ -23,7 +23,9 @@ var
   Eta  : TPart  ;
   R    : Integer;
 begin
-  Alpha.Beta:= 1; Gamma.Delta:= 2; Eta.Th:= 3;
+  Alpha.Beta := 1;
+  Gamma.Delta:= 2;
+  Eta  .Th   := 3;
   // Continuation lines that START with ( inside a call are not alignment peers.
   R:= Sum4(Alpha.Beta, // a
     (Gamma.Delta + 2), // b

@@ -3,7 +3,7 @@ id: break-with-body
 title: Break with body onto its own line
 summary: On: the body of a with..do goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.
 group: reflow-whitespace
-order: 110
+order: 120
 default: "true"
 ini: BreakWithBody
 since: "1.0.0.0"

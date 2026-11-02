@@ -387,6 +387,45 @@ $cases = @(
   @{ Id = 'PackShortBodies + BreakIfBody + BreakLoopBody all ON (pack fixture): Break wins, arms packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T; BreakIfBody = $T; BreakLoopBody = $T }
      In = 'for/if bodies + case arms'; Want = 'for/if bodies broken, 0: Inc(PkC); and 1: Inc(PkF); packed'
      Must = @('(?m)^\s*for I:= 0 to N do\r?\n\s+Inc\(PkA\);\r?$', '(?m)^\s*if PkA > 0 then\r?\n\s+Dec\(PkB\);\r?$', '(?m)^\s*0: Inc\(PkC\);\r?$', '(?m)^\s*1: Inc\(PkF\);\r?$') }
+
+  # PackStatements (SPEC-2026-11-01 task 2d-3, owner decision Q4), two-way like
+  # Break*Body: OFF (default) = one statement per line, ON = adjacent plain
+  # statements packed onto one line while the line fits MaxLen.
+  @{ Id = 'PackStatements OFF: statements written on one line are split one per line'; Fix = 'polarity_stmts'; Set = @{ PackStatements = $F }
+     In = 'StA:= 1; StB:= 2; StC:= 3;'; Want = 'three lines'; Show = 'StA:=|StB:=|StC:='
+     Must = @('(?m)^\s*StA:= 1;\r?\n\s*StB:= 2;\r?\n\s*StC:= 3;\r?\n\s*StD:= 4;\r?\n\s*StE:= 5;\r?$') }
+  @{ Id = 'PackStatements ON: adjacent plain statements are packed onto one line'; Fix = 'polarity_stmts'; Set = @{ PackStatements = $T }
+     In = 'StA:= 1; StB:= 2; StC:= 3; / StD:= 4; / StE:= 5;'; Want = 'one line'; Show = 'StA:=|StD:=|StE:='
+     Must = @('(?m)^\s*StA:= 1; StB:= 2; StC:= 3; StD:= 4; StE:= 5;\r?$', '(?m)^\s*GStA:= 1; GStB:= ''a'';\r?$') }
+  @{ Id = 'PackStatements ON + MaxLen 40 (the minimum): packing stops at MaxLen'; Fix = 'polarity_stmts'; Set = @{ PackStatements = $T; MaxLen = '40' }
+     In = 'five statements'; Want = 'StA..StD (37 chars) / StE'; Show = 'StA:=|StD:=|StE:='
+     Must = @('(?m)^\s*StA:= 1; StB:= 2; StC:= 3; StD:= 4;\r?\n\s*StE:= 5;\r?$') }
+  @{ Id = 'PackStatements ON: a block keyword is never packed (repeat / try / case lines, the if block)'; Fix = 'polarity_stmts'; Set = @{ PackStatements = $T }
+     In = 'StE:= 5; / repeat ...'; Want = 'repeat starts its line'
+     Must = @('(?m)^\s*repeat\r?$', '(?m)^\s*StE:= 6;\r?$')
+     Not = @('StE:= 5;[ \t]*repeat', ';[ \t]*if N > 0') }
+  # Fixed rule (always on): block keywords start a line, a block body never stays on
+  # the header line; only CollapseShortBlocks may fold a short begin..end.
+  foreach ($pk in @($F, $T)) {
+    @{ Id = "Rule (PackStatements=$pk): repeat / try / case written on one line are expanded"; Fix = 'polarity_stmts'; Set = @{ PackStatements = $pk }
+       In = 'repeat Dec(StA); until ...; try ... end; case N of ... end;'; Want = 'one keyword per line'; Show = 'repeat|until|try|finally|case|StD:= [12]|^\s*end;'
+       Must = @('(?m)^\s*repeat\r?\n\s+Dec\(StA\);\r?\n\s*until StA <= 0;\r?$', '(?m)^\s*try\r?\n\s+StB:= N;\r?\n\s*finally\r?\n\s+StC:= 0;\r?\n\s*end;\r?$', '(?m)^\s*case N of\r?\n\s+0: StD:= 1;\r?\n\s+1: StD:= 2;\r?\n\s*end;\r?$') }
+    @{ Id = "Rule (PackStatements=$pk): a one-line routine body is expanded (begin starts a line)"; Fix = 'polarity_stmts'; Set = @{ PackStatements = $pk }
+       In = 'procedure OneLine; begin GStA:= 1; GStB:= ''a''; end;'; Want = 'header / begin / body / end'; Show = 'OneLine|GStA:= 1|GStB:= ''a'''
+       Must = @('(?m)^procedure OneLine;\r?\nbegin\r?\n\s+GStA:= 1;' + $(if ($pk -eq $F) { '\r?\n\s+' } else { ' ' }) + 'GStB:= ''a'';\r?\nend;\r?$') }
+    @{ Id = "Rule (PackStatements=$pk): a one-line record / class is expanded, one member per line (Q7)"; Fix = 'polarity_stmts'; Set = @{ PackStatements = $pk }
+       In = 'TStRec = record RA: Integer; RB: Integer; end; / TStObj = class(TObject) private ...'; Want = 'one member per line'; Show = 'TStRec|TStObj|RA|RB|FX|private|public|procedure P;|^\s*end;'
+       Must = @('(?m)^\s*TStRec\s*= record\r?\n\s+RA\s*: Integer;\r?\n\s+RB\s*: Integer;\r?\n\s*end;\r?$', '(?m)^\s*TStObj\s*= class\(TObject\)\r?\n\s*private\r?\n\s+FX\s*: Integer;\r?\n\s*public\r?\n\s+procedure P;\r?\n\s*end;\r?$') }
+    @{ Id = "Rule (PackStatements=$pk): two var declarations on one line are split (Q7)"; Fix = 'polarity_stmts'; Set = @{ PackStatements = $pk }
+       In = 'GStA: Integer; GStB: string;'; Want = 'two lines'; Show = 'GStA\s*:|GStB\s*:'
+       Must = @('(?m)^\s*GStA\s*: Integer;\r?\n\s*GStB\s*: string\s*;\r?$') }
+  }
+  @{ Id = 'Rule + ReflowLines OFF: block keywords still start a line, statements one per line'; Fix = 'polarity_stmts'; Set = @{ ReflowLines = $F }
+     In = 'repeat ... / StA:= 1; StB:= 2; StC:= 3;'; Want = 'expanded'; Show = 'repeat|StA:=|StB:='
+     Must = @('(?m)^\s*repeat\r?\n\s+Dec\(StA\);\r?$', '(?m)^\s*StA:= 1;\r?\n\s*StB:= 2;\r?$') }
+  @{ Id = 'Rule exception: CollapseShortBlocks ON still folds the short if block'; Fix = 'polarity_stmts'; Set = @{ CollapseShortBlocks = $T; PackStatements = $T }
+     In = 'if N > 0 then / begin / StE:= 6; / end;'; Want = 'if N > 0 then begin StE:= 6; end;'; Show = 'if N > 0|StE:= 6'
+     Must = @('(?m)^\s*if N > 0 then begin StE:= 6; end;\r?$', '(?m)^\s*repeat\r?$') }
 )
 
 $questions = @()

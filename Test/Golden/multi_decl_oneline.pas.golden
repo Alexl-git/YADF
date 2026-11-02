@@ -11,7 +11,9 @@ implementation
 // 2026-06-14.
 procedure Demo;
 var
-  Cols, SelList: string; Q: TQuery;
+  Cols   : string;
+  SelList: string;
+  Q      : TQuery;
 begin
   Cols   := '';
   SelList:= '';

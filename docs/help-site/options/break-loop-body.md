@@ -3,7 +3,7 @@ id: break-loop-body
 title: Break loop body onto its own line
 summary: On: the body of a for/while loop goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.
 group: reflow-whitespace
-order: 100
+order: 110
 default: "true"
 ini: BreakLoopBody
 since: "1.0.0.0"

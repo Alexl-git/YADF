@@ -14,6 +14,8 @@ status: "stable"
 
 Fold a short control-statement begin..end body onto one line when it fits MaxLen: an if/for/while/with/else header, a case arm label (`9: begin`) or the case else, whose block holds only simple one-statement-per-line code becomes "if X then begin A := 1; B := 2; end;" (since 1.0.21.0 case arms and the case else are folded and expanded like any other block). Only pure simple-statement bodies fold -- a nested block, a multi-line statement, or any comment leaves the block expanded; routine bodies are never folded. Off by default: OFF actively EXPANDS such blocks -- a control block written on one line (or half-broken) gets one statement per line and `end` on its own line, `begin` placed per "Put begin on the same line as then / do / else"; a block holding a comment, a {$...} directive, asm or a multi-line string is left as written.
 
+This is the only exception to the fixed rule that block keywords start a line (see "Pack several statements on one line"): a routine body, repeat, try, case and record / class bodies are always expanded.
+
 ## Related
 
 - [Put begin on the same line as then / do / else](begin-on-header-line.md) - Places begin in a block this option leaves expanded.

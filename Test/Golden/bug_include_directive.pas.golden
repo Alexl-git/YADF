@@ -16,7 +16,9 @@ procedure P;
 implementation
 
 {$IFDEF SOMESYM}
-procedure P; begin end;
+procedure P;
+begin
+end;
 {$ENDIF}
 
 end.

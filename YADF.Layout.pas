@@ -5813,6 +5813,483 @@ begin
   end; // for
 end; // function
 
+// ===== One statement per line, block keywords start a line (task 2d-3) =====
+
+/// <summary>True when AW (lower-cased) is a routine directive or another word
+/// that continues a declaration after its `;` (`overload;`, `default;`).</summary>
+function IsDeclTailWord(const AW: string): Boolean;
+begin
+  Result:= MatchStr(AW, ['overload', 'reintroduce', 'static', 'virtual', 'dynamic', 'override', 'abstract', 'final', 'inline', 'cdecl', 'pascal', 'register',
+    'safecall', 'stdcall', 'winapi', 'export', 'external', 'forward', 'varargs', 'local', 'message', 'dispid', 'deprecated', 'platform', 'experimental',
+    'library', 'unsafe', 'default', 'nodefault', 'readonly', 'writeonly', 'assembler', 'delayed', 'noreturn', 'far', 'near', 'resident']);
+end;
+
+/// <summary>True when token K of T (scanned from line L) is a `:` that is not part of `:=`.</summary>
+function IsBareColon(const L: string; const T: TArray<TXTok>; K: Integer): Boolean;
+begin
+  Result:= (T[K].Kind = xkOther) and (L[T[K].P] = ':') and ((T[K].P = Length(L)) or (L[T[K].P + 1] <> '='));
+end;
+
+/// <summary>True when the last code token of line L is then / do / else or a
+/// bare `:` (a case-arm label): the next line is that header's body.</summary>
+function EndsWithBodyHeader(const L: string): Boolean;
+var
+  T: TArray<TXTok>;
+  C: Boolean      ;
+begin
+  Result:= ScanExpandLine(L, T, C) and (Length(T) > 0) and (MatchStr(T[High(T)].W, ['then', 'do', 'else']) or IsBareColon(L, T, High(T)));
+end;
+
+/// <summary>True when AW (lower-cased) is a class visibility word (not `strict`).</summary>
+function IsVisibilityWord(const AW: string): Boolean;
+begin
+  Result:= MatchStr(AW, ['private', 'protected', 'public', 'published', 'automated']);
+end;
+
+/// <summary>Fixed rule (owner decision Q4) and the split half of
+/// PackStatements: one statement per line, every block keyword starts a line.
+/// A line break goes before a token that follows a `;` (unless the token is a
+/// directive such as `overload` or `default`), before end / until / finally /
+/// except, after begin / repeat / try / finally / except / initialization /
+/// finalization and after the `of` of a case, after a record / class header,
+/// after a visibility word and after the else of a case. Two declarations
+/// written on one line (`A: T; B: T;`, owner decision Q7) are split the same
+/// way.</summary>
+/// <param name="S">CRLF text (indent need not be final; ReindentByDepth runs next).</param>
+/// <param name="AKeepControlBlocks">True when CollapseShortBlocks is on: a
+/// begin..end after then / do / else or a case label, written on one line and
+/// holding no nested block, is left whole -- CollapseShortBlocks owns it.</param>
+/// <returns>The text with the breaks inserted (S itself when nothing is split).
+/// Inserts only CRLF + indent, so it is content-neutral.</returns>
+/// <remarks>Never splits inside () / [] (depth carried across lines) or a
+/// generic &lt;...&gt; list, and never touches a line that holds a comment (a
+/// comment pins its line, as for every join/split pass), a {$...} directive, a
+/// shielded multi-line token, asm or an interface / object type. An anonymous
+/// routine, a procedural type and an anonymous record type
+/// (`R: record X: Integer; end;`) are kept whole, as are an empty record / class
+/// body (`TFoo = class end;`) and a visibility word with its nested type /
+/// const / var section (`public type`). Idempotent: no output line has a split
+/// point left.</remarks>
+function SplitStatementLines(const S: string; AKeepControlBlocks: Boolean): string;
+var
+  Lines  : TStringList    ;
+  Lock   : TArray<Boolean>;
+  OutL   : TStringList    ;
+  i      : Integer        ;
+  T      : TArray<TXTok>  ;
+  Cmt    : Boolean        ;
+  Cut    : TArray<Boolean>;
+  PD     : Integer        ; // () / [] depth, carried across lines
+  AD     : Integer        ; // generic <> depth, per line
+  CaseOf : Boolean        ; // a case was seen, its `of` is pending
+  OfIdx  : Integer        ; // index of the `of` of a case
+  Skip   : Integer        ; // tokens up to this index belong to a kept block
+  HdrEnd : Integer        ; // index of the last token of a record / class header
+  PrevHdr: Boolean        ;
+  Changed: Boolean        ;
+
+  function W(AIdx: Integer): string;
+  begin
+    Result:= if InRange(AIdx, 0, High(T)) then T[AIdx].W else '';
+  end;
+
+  function IsSym(AIdx: Integer; ACh: Char): Boolean;
+  begin
+    Result:= InRange(AIdx, 0, High(T)) and (T[AIdx].Kind <> xkWord) and (Lines[i][T[AIdx].P] = ACh);
+  end;
+
+  // A line this pass never splits (it still carries the paren depth).
+  function Untouchable: Boolean;
+  var
+    m: Integer;
+  begin
+    Result:= Cmt;
+    for m:= 0 to High(T) do
+      if (T[m].W = 'asm') or (MatchStr(T[m].W, ['interface', 'dispinterface', 'object']) and IsSym(m - 1, '=')) then
+        Exit(True);
+  end;
+
+  // True when the routine word at AIdx starts an anonymous routine or a
+  // procedural type (not a declaration after `;`, `)`, `]`, a visibility word,
+  // `class` / `record` or a record / class / helper header).
+  function IsAnonRoutine(AIdx: Integer): Boolean;
+  var
+    Decl: Boolean;
+  begin
+    if not MatchStr(T[AIdx].W, ['procedure', 'function', 'constructor', 'destructor', 'operator']) or (AIdx = 0) then
+      Exit(False);
+    Decl:= IsSym(AIdx - 1, ';') or IsSym(AIdx - 1, ')') or IsSym(AIdx - 1, ']');
+    Decl:= Decl or IsVisibilityWord(W(AIdx - 1)) or MatchStr(W(AIdx - 1), ['class', 'record']) or (AIdx - 1 = HdrEnd);
+    Result:= not Decl;
+  end;
+
+  // Index of the `end` that closes the block opened just before AFrom (ADepth
+  // open levels, counting the words in AOpen); High(T) when it runs past the line.
+  function BlockEndFrom(AFrom, ADepth: Integer; const AOpen: array of string): Integer;
+  var
+    m: Integer;
+    D: Integer;
+  begin
+    D:= ADepth;
+    for m:= AFrom to High(T) do
+      if MatchStr(T[m].W, AOpen) then
+        Inc(D)
+      else if (T[m].W = 'end') and (D > 0) then
+      begin
+        Dec(D);
+        if D = 0 then
+          Exit(m);
+      end;
+    Result:= High(T);
+  end;
+
+  // Skips the extended type of `helper for X.Y` starting after `helper` at AM; False = malformed.
+  function SkipHelperFor(var AM: Integer): Boolean;
+  begin
+    Inc(AM, 2);
+    Result:= (W(AM) = 'for') and (AM + 1 <= High(T)) and (T[AM + 1].Kind = xkWord);
+    if not Result then
+      Exit;
+    Inc(AM); // the extended type
+    while IsSym(AM + 1, '.') and (AM + 2 <= High(T)) and (T[AM + 2].Kind = xkWord) do
+      Inc(AM, 2);
+  end;
+
+  // Last token index of a record / class header starting at word AIdx; -1 = none.
+  function HeaderEndAt(AIdx: Integer): Integer;
+  var
+    m: Integer;
+    D: Integer;
+  begin
+    Result:= -1;
+    m     := AIdx;
+    if not (IsSym(AIdx - 1, '=') or (W(AIdx - 1) = 'packed')) then
+      Exit;
+    if (T[AIdx].W = 'class') and MatchStr(W(m + 1), ['abstract', 'sealed']) then
+      Inc(m);
+    if (W(m + 1) = 'helper') and not SkipHelperFor(m) then
+      Exit;
+    if IsSym(m + 1, '(') then
+    begin
+      D:= 0;
+      repeat
+        Inc(m);
+        if T[m].Kind = xkOpen then
+          Inc(D)
+        else if T[m].Kind = xkClose then
+          Dec(D);
+      until (D = 0) or (m = High(T));
+      if D <> 0 then
+        Exit;
+    end;
+    if (m < High(T)) and not IsSym(m + 1, ';') and (W(m + 1) <> 'of') then
+      Result:= m;
+  end;
+
+  // Index of the `end` closing a kept control block opened by the begin at AIdx; -1 = not kept.
+  function KeptBlockEnd(AIdx: Integer): Integer;
+  var
+    m      : Integer;
+    Headed : Boolean;
+  begin
+    Headed:= MatchStr(W(AIdx - 1), ['then', 'do', 'else']) or ((AIdx > 0) and IsBareColon(Lines[i], T, AIdx - 1)) or ((AIdx = 0) and PrevHdr);
+    if not Headed then
+      Exit(-1);
+    for m:= AIdx + 1 to High(T) do
+      if MatchStr(T[m].W, ['repeat', 'try', 'case', 'asm', 'begin']) then
+        Exit(-1); // a nested block: not a short block, the rule applies
+    Result:= BlockEndFrom(AIdx + 1, 1, []);
+    if T[Result].W <> 'end' then
+      Result:= -1;
+  end;
+
+  // Whether a line break goes before token AK (AK > 0, outside parens and kept blocks).
+  function CutBefore(AK: Integer): Boolean;
+  var
+    PrevW: string ;
+    Opens: Boolean; // AK follows a block opener: the body leaves its header line
+  begin
+    PrevW:= T[AK - 1].W;
+    if (AK - 1 = HdrEnd) and (T[AK].W = 'end') then
+      Exit(False); // an empty body (`TFoo = class end;`) has nothing to lay out
+    if IsVisibilityWord(PrevW) and MatchStr(T[AK].W, ['type', 'const', 'var', 'threadvar']) then
+      Exit(False); // `public type` / `private const` open a nested section together
+    if T[AK - 1].Kind = xkSemi then
+      Exit(not IsDeclTailWord(T[AK].W));
+    Opens:= MatchStr(PrevW, ['begin', 'repeat', 'try', 'finally', 'except', 'initialization', 'finalization']) or (AK - 1 = OfIdx) or (AK - 1 = HdrEnd);
+    if Opens or MatchStr(T[AK].W, ['end', 'until', 'finally', 'except']) then
+      Exit(True);
+    if IsVisibilityWord(PrevW) then // only a visibility word that starts its line
+      Exit((AK = 1) or Cut[AK - 1] or ((W(AK - 2) = 'strict') and ((AK = 2) or Cut[AK - 2])));
+    Result:= (PrevW = 'else') and Cut[AK - 1] and (T[AK - 2].Kind = xkSemi); // the else of a case (an if never has `;` before else)
+  end;
+
+  // Updates the per-line state after token AK.
+  procedure NoteToken(AK: Integer);
+  begin
+    case T[AK].Kind of
+      xkOpen : Inc(PD);
+      xkClose: PD:= Max(PD - 1, 0);
+      xkOther:
+        if IsSym(AK, '<') and (AK > 0) and (T[AK - 1].Kind = xkWord) and (T[AK - 1].E = T[AK].P) then
+          Inc(AD)
+        else if IsSym(AK, '>') and (AD > 0) then
+          Dec(AD);
+      xkWord:
+        if T[AK].W = 'case' then
+          CaseOf:= True
+        else if (T[AK].W = 'of') and CaseOf then
+        begin
+          OfIdx := AK;
+          CaseOf:= False;
+        end
+        else if AK > Skip then
+        begin
+          if IsAnonRoutine(AK) then
+            Skip:= BlockEndFrom(AK + 1, 0, ['begin', 'case', 'try', 'asm'])
+          else if (T[AK].W = 'record') and IsSym(AK - 1, ':') then
+            Skip:= BlockEndFrom(AK + 1, 1, ['record']) // an anonymous record type is kept whole
+          else if (T[AK].W = 'begin') and AKeepControlBlocks then
+            Skip:= Max(Skip, KeptBlockEnd(AK))
+          else if MatchStr(T[AK].W, ['record', 'class']) and (PD = 0) and (AD = 0) then
+            HdrEnd:= Max(HdrEnd, HeaderEndAt(AK));
+        end;
+    end; // case
+  end;
+
+  // Emits line L cut before every token marked in Cut.
+  procedure EmitPieces(const L: string);
+  var
+    m  : Integer;
+    Seg: Integer;
+    Ind: string ;
+  begin
+    Ind:= Copy(L, 1, Length(L) - Length(TrimLeft(L)));
+    Seg:= 1;
+    for m:= 1 to High(T) do
+      if Cut[m] then
+      begin
+        Changed:= True;
+        if Seg = 1 then
+          OutL.Add(TrimRight(Copy(L, 1, T[m].P - 1)))
+        else
+          OutL.Add(Ind + Trim(Copy(L, Seg, T[m].P - Seg)));
+        Seg:= T[m].P;
+      end;
+    if Seg = 1 then
+      OutL.Add(L)
+    else
+      OutL.Add(Ind + Trim(Copy(L, Seg, MaxInt)));
+  end;
+
+  procedure SplitLine;
+  var
+    k    : Integer;
+    Touch: Boolean;
+    Gap  : Boolean;
+  begin
+    Cut:= nil;
+    SetLength(Cut, Length(T));
+    AD    := 0;
+    CaseOf:= False;
+    OfIdx := -1;
+    Skip  := -1;
+    HdrEnd:= -1;
+    Touch := not Untouchable;
+    for k:= 0 to High(T) do
+    begin
+      Gap:= (k > 0) and (Trim(Copy(Lines[i], T[k - 1].E, T[k].P - T[k - 1].E)) = '');
+      if Touch and Gap and (k > Skip) and (PD = 0) and (AD = 0) then
+        Cut[k]:= CutBefore(k);
+      NoteToken(k);
+    end;
+    EmitPieces(Lines[i]);
+  end;
+
+begin
+  Result := S;
+  Changed:= False;
+  Lines  := TStringList.Create;
+  OutL   := TStringList.Create;
+  try
+    Lines.LineBreak:= CRLF;
+    OutL.LineBreak := CRLF;
+    Lines.Text     := S;
+    Lock   := ComputeBlockCommentLock(Lines);
+    PD     := 0;
+    PrevHdr:= False;
+    for i:= 0 to Lines.Count - 1 do
+    begin
+      if Lock[i] or Lines[i].Contains(ShieldPrefix) or not ScanExpandLine(Lines[i], T, Cmt) or (Length(T) = 0) then
+        OutL.Add(Lines[i])
+      else
+      begin
+        SplitLine;
+        PrevHdr:= EndsWithBodyHeader(Lines[i]);
+      end;
+    end; // for
+    if Changed then
+    begin
+      Result:= OutL.Text;
+      if not S.EndsWith(CRLF) and Result.EndsWith(CRLF) then
+        SetLength(Result, Length(Result) - Length(CRLF));
+    end;
+  finally
+    OutL.Free;
+    Lines.Free;
+  end; // try
+end; // function
+
+/// <summary>The join half of PackStatements (ON): adjacent plain statements
+/// -- consecutive lines at the same indent inside a code block, each one
+/// simple statement ending in `;` (no block or control keyword, no label, no
+/// comment) -- are packed onto one line while the line fits AMaxLen.</summary>
+/// <param name="S">CRLF text after the re-indent (indent is final).</param>
+/// <param name="AMaxLen">Maximum line length.</param>
+/// <returns>The text with the runs packed (S itself when nothing is packed);
+/// content-neutral -- only a line break between two statements becomes one space.</returns>
+/// <remarks>Greedy from the first line of a run. A run starts only on a line
+/// after one that ends with `;`, else or a block opener -- never on the body
+/// line of then / do or a case label, never on a continuation line.
+/// SplitStatementLines splits every packed line first, so the result does not
+/// depend on how the input was packed (idempotent).</remarks>
+function PackStatementLines(const S: string; AMaxLen: Integer): string;
+var
+  Lines : TStringList    ;
+  Lock  : TArray<Boolean>;
+  Plain : TArray<Boolean>;
+  Fresh : TArray<Boolean>; // the line starts a new statement
+  OutL  : TStringList    ;
+  Stack : TStringBuilder ; // 'C' = code block, 'D' = declaration block
+  i     : Integer        ;
+  T     : TArray<TXTok>  ;
+  Cmt   : Boolean        ;
+  Last  : string         ; // last code token of the previous code line
+  Cur   : string         ;
+
+  function LeadWS(const L: string): string;
+  begin
+    Result:= Copy(L, 1, Length(L) - Length(TrimLeft(L)));
+  end;
+
+  function Top: Char;
+  begin
+    Result:= if Stack.Length > 0 then Stack.Chars[Stack.Length - 1] else ' ';
+  end;
+
+  // A word of a line that is never a plain statement.
+  function IsNonPlainWord(const AW: string): Boolean;
+  begin
+    Result:= MatchStr(AW, ['begin', 'end', 'if', 'then', 'else', 'for', 'while', 'do', 'with', 'case', 'of', 'repeat', 'until', 'try', 'finally', 'except',
+      'asm', 'var', 'const', 'type', 'label', 'procedure', 'function', 'constructor', 'destructor', 'operator', 'property', 'class', 'record', 'object',
+      'interface', 'uses', 'exports', 'private', 'protected', 'public', 'published', 'strict', 'automated', 'threadvar', 'resourcestring', 'initialization',
+      'finalization', 'implementation', 'on']);
+  end;
+
+  function IsPlain(const L: string): Boolean;
+  var
+    m   : Integer;
+    Semi: Integer;
+  begin
+    if (Length(T) < 2) or Cmt or (T[0].Kind <> xkWord) or (T[High(T)].Kind <> xkSemi) or IsDeclTailWord(T[0].W) then
+      Exit(False);
+    Semi:= 0;
+    for m:= 0 to High(T) do
+    begin
+      if T[m].Kind = xkSemi then
+        Inc(Semi);
+      if IsNonPlainWord(T[m].W) or IsBareColon(L, T, m) then
+        Exit(False); // a block / control word, a declaration or a label
+    end;
+    // `X = 1;` is a declaration
+    Result:= (Semi = 1) and not ((T[1].Kind = xkOther) and (L[T[1].P] = '='));
+  end;
+
+  // True when the class / interface / object word at AK opens a declaration block
+  // (not `TFoo = class;`, `class of`, `TFoo = class(TBase);`).
+  function OpensTypeBlock(const L: string; AK: Integer): Boolean;
+  var
+    AfterEq : Boolean;
+    Forward : Boolean;
+    ShortDef: Boolean;
+  begin
+    AfterEq := (AK > 0) and (T[AK - 1].Kind = xkOther) and (L[T[AK - 1].P] = '=');
+    Forward := (AK < High(T)) and ((T[AK + 1].Kind = xkSemi) or (T[AK + 1].W = 'of'));
+    ShortDef:= (AK < High(T)) and (T[AK + 1].Kind = xkOpen) and (T[High(T)].Kind = xkSemi) and (T[High(T) - 1].Kind = xkClose);
+    Result  := AfterEq and not Forward and not ShortDef;
+  end;
+
+  // Tracks the code / declaration block nesting through the words of line L.
+  procedure NoteBlocks(const L: string);
+  var
+    m: Integer;
+  begin
+    for m:= 0 to High(T) do
+      if MatchStr(T[m].W, ['begin', 'try', 'repeat', 'asm', 'initialization']) or ((T[m].W = 'case') and (Top = 'C')) then
+        Stack.Append('C')
+      else if (T[m].W = 'record') and (m > 0) and ((T[m - 1].Kind <> xkWord) or (T[m - 1].W = 'packed')) then
+        Stack.Append('D')
+      else if MatchStr(T[m].W, ['class', 'interface', 'dispinterface', 'object']) and OpensTypeBlock(L, m) then
+        Stack.Append('D')
+      else if MatchStr(T[m].W, ['end', 'until']) and (Stack.Length > 0) then
+        Stack.Length:= Stack.Length - 1;
+  end;
+
+  // Packs the run that starts at line i (advances i past the joined lines).
+  procedure PackRun;
+  begin
+    while (i + 1 < Lines.Count) and Plain[i + 1] and (LeadWS(Lines[i + 1]) = LeadWS(Cur)) and (Length(Cur) + 1 + Length(Trim(Lines[i + 1])) <= AMaxLen) do
+    begin
+      Cur:= Cur + ' ' + Trim(Lines[i + 1]);
+      Inc(i);
+    end;
+  end;
+
+begin
+  Result:= S;
+  Lines := TStringList.Create;
+  OutL  := TStringList.Create;
+  Stack := TStringBuilder.Create;
+  try
+    Lines.LineBreak:= CRLF;
+    OutL.LineBreak := CRLF;
+    Lines.Text     := S;
+    Lock := ComputeBlockCommentLock(Lines);
+    SetLength(Plain, Lines.Count);
+    SetLength(Fresh, Lines.Count);
+    Last := ';';
+    for i:= 0 to Lines.Count - 1 do
+      if Lock[i] or Lines[i].Contains(ShieldPrefix) or not ScanExpandLine(Lines[i], T, Cmt) then
+        Last:= ''
+      else if Length(T) > 0 then // not a blank or comment-only line
+      begin
+        Fresh[i]:= MatchStr(Last, [';', 'else', 'begin', 'repeat', 'try', 'finally', 'except', 'initialization']);
+        Plain[i]:= (Top = 'C') and IsPlain(Lines[i]);
+        NoteBlocks(Lines[i]);
+        Last:= if T[High(T)].Kind = xkSemi then ';' else T[High(T)].W;
+      end;
+    i:= 0;
+    while i < Lines.Count do
+    begin
+      Cur:= Lines[i];
+      if Plain[i] and Fresh[i] then
+        PackRun;
+      OutL.Add(Cur);
+      Inc(i);
+    end; // while
+    if OutL.Count <> Lines.Count then
+    begin
+      Result:= OutL.Text;
+      if not S.EndsWith(CRLF) and Result.EndsWith(CRLF) then
+        SetLength(Result, Length(Result) - Length(CRLF));
+    end;
+  finally
+    Stack.Free;
+    OutL.Free;
+    Lines.Free;
+  end; // try
+end; // function
+
 // ===== Blank-line policy =====
 // Enforces minimum blank-line counts before structurally important
 // lines. Three independent settings:
@@ -9255,6 +9732,10 @@ begin
         // the re-indent, so every later pass sees the expanded shape.
         if not AOpts.CollapseShortBlocks then
           Result:= ExpandShortBlocks(Result);
+        // Fixed rule (owner decision Q4, task 2d-3): one statement per line, block keywords
+        // start a line, two declarations on one line are split (Q7). Both reflow paths;
+        // PackStatements ON packs plain statements again after the re-indent below.
+        Result:= SplitStatementLines(Result, AOpts.CollapseShortBlocks);
         Result:= ReindentByDepth (Result, AOpts.Indent, AOpts.IndentComments);
         Result:= EnforceBlankLines(Result, AOpts);
         // BreakLongExpressions defers overflow handling until AFTER the reflow
@@ -9325,6 +9806,10 @@ begin
         // its label line when the option is on. Before the split stage so
         // BreakCaseLabels sees whole arms; runs on BOTH reflow paths. Content-neutral.
         Result:= LayoutCaseArms(Result, True, if AOpts.CaseArmOnLabelLine then cabJoin else cabKeep, AOpts.Indent, AOpts.MaxLen);
+        // PackStatements ON (owner decision Q4): pack adjacent plain statements onto one line
+        // while it fits MaxLen. On the settled, re-indented line shape; content-neutral.
+        if AOpts.PackStatements then
+          Result:= PackStatementLines(Result, AOpts.MaxLen);
 
         // Stage 4: column alignment (Pass 2). CollapseInteriorSpaces
         // normalises spacing so anchor columns are predictable.

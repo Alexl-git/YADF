@@ -10,7 +10,9 @@ var
   B: Integer;
   C: Integer;
 begin
-  A:= 0; B:= 0; C:= 0;
+  A:= 0;
+  B:= 0;
+  C:= 0;
   case K of
     0, 1, 2: Flag:= True;
     3, 4   : DoThing(K);

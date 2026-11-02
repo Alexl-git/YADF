@@ -924,6 +924,8 @@ begin
   WriteStdoutLine(Format('  --no-break-if         one-line if when it fits (if C then A else B;)  [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine(Format('  --begin-on-header     begin on the then/do/else/label line (then begin) [begin=%s]', [OnOff(AOpts.BeginOnHeaderLine)]));
   WriteStdoutLine(Format('  --no-begin-on-header  begin on its own line; end / else / begin apart [begin=%s]', [OnOff(AOpts.BeginOnHeaderLine)]));
+  WriteStdoutLine(Format('  --pack-statements     pack adjacent plain statements on one line     [pack=%s]', [OnOff(AOpts.PackStatements)]));
+  WriteStdoutLine(Format('  --no-pack-statements  one statement per line                          [pack=%s]', [OnOff(AOpts.PackStatements)]));
   WriteStdoutLine(Format('  --break-params        break routine parameters one per line              [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
   WriteStdoutLine(Format('  --no-break-params     keep the parameter list inline                   [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
   WriteStdoutLine(Format('  --join-headers        join split routine headers                       [join=%s]', [OnOff(AOpts.JoinRoutineHeaders)]));
@@ -1320,6 +1322,16 @@ begin
       else if AArgs[i] = '--no-begin-on-header' then
       begin
         AOpts.BeginOnHeaderLine:= False;
+        Inc(i);
+      end
+      else if AArgs[i] = '--pack-statements' then
+      begin
+        AOpts.PackStatements:= True;
+        Inc(i);
+      end
+      else if AArgs[i] = '--no-pack-statements' then
+      begin
+        AOpts.PackStatements:= False;
         Inc(i);
       end
       else if AArgs[i] = '--indent-comments' then

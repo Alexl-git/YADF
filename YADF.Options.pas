@@ -76,6 +76,7 @@ type
     CaseArmOnLabelLine   : Boolean      ;
     BeginOnHeaderLine    : Boolean      ;
     CollapseShortBlocks  : Boolean      ;
+    PackStatements       : Boolean      ;
     BreakLoopBody        : Boolean      ;
     BreakWithBody        : Boolean      ;
     BreakIfBody          : Boolean      ;
@@ -681,6 +682,7 @@ begin
   Result.CaseArmOnLabelLine   := True;
   Result.BeginOnHeaderLine    := False;
   Result.CollapseShortBlocks  := False;
+  Result.PackStatements       := False;
   Result.BreakLoopBody        := True;
   Result.BreakWithBody        := True;
   Result.BreakIfBody          := True;
@@ -946,6 +948,7 @@ begin
     MakeOpt('CaseArmOnLabelLine', 'Reflow & whitespace', 'Case arm on its label line', 'Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"), the case else part included ("else DoOther;"); off = the statement goes on its own line under the label.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CaseArmOnLabelLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.CaseArmOnLabelLine:= V end),
     MakeOpt('BeginOnHeaderLine', 'Reflow & whitespace', 'Put begin on the same line as then / do / else', 'On: begin joins the line of its then / do / else, case label or case else ("if C then begin", "end else begin", "9: begin"). Off: begin goes on its own line, and "end" / "else" / "begin" on three lines. A block that "Collapse short begin..end blocks" folds onto one line is not affected. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BeginOnHeaderLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.BeginOnHeaderLine:= V end),
     MakeOpt('CollapseShortBlocks', 'Reflow & whitespace', 'Collapse short begin..end blocks', 'Fold a short begin..end body of if/for/while/with, a case arm or the case else onto one line when it fits; off = expand such one-line blocks. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CollapseShortBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks:= V end),
+    MakeOpt('PackStatements', 'Reflow & whitespace', 'Pack several statements on one line', 'On: adjacent plain statements ("A:= 1; B:= 2;") are packed onto one line while it fits the max length. Off: one statement per line. Block keywords (begin, repeat, try, case, record, class) always start a line either way. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackStatements end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackStatements:= V end),
     MakeOpt('BreakLoopBody', 'Reflow & whitespace', 'Break loop body onto its own line', 'On: the body of a for/while loop goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
     MakeOpt('BreakWithBody', 'Reflow & whitespace', 'Break with body onto its own line', 'On: the body of a with..do goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),
     MakeOpt('BreakIfBody', 'Reflow & whitespace', 'Break if/then/else body onto its own line', 'On: the then/else bodies of an if go on their own indented lines. Off: the whole if ("if C then A else B;") goes on one line when it fits the max length, else every body on its own line.'
