@@ -80,8 +80,10 @@ $fOn = FmtStr '  for i := 0 to 9 do Sum := Sum + i;' '--break-loop'
 MustMatch $fOn '(?m)^\s+Sum:= Sum \+ i;' 'loop on: for body on its own line'
 
 # with: splits under --break-with; NOT under --break-loop (cross-flag isolation).
+# The other Break*Body flags default ON since task 2d-1, so each cross run turns
+# the construct's own flag OFF explicitly.
 $withW    = FmtStr '  with Rec do a := 1;' '--break-with'
-$withLoop = FmtStr '  with Rec do a := 1;' '--break-loop'
+$withLoop = FmtStr '  with Rec do a := 1;' '--break-loop --no-break-with'
 $withOff  = FmtStr '  with Rec do a := 1;' '--no-break-with --no-break-loop'
 # NOTE: regex has no space before `:=` -- YADF's default assignment-operator
 # spacing (unrelated to this pass) always normalizes `X := Y` to `X:= Y`.
@@ -89,7 +91,7 @@ MustMatch $withW '(?m)^\s+a:= 1;' 'with on: with body on its own line'
 if ($withLoop -ne $withOff) { Fail 'cross: --break-loop must NOT split a with-body' }
 
 # --break-with must NOT split a while-body (cross-flag isolation).
-$whileWith = FmtStr '  while k > 0 do Dec(k);' '--break-with'
+$whileWith = FmtStr '  while k > 0 do Dec(k);' '--break-with --no-break-loop'
 $whileOff  = FmtStr '  while k > 0 do Dec(k);' '--no-break-loop --no-break-with'
 if ($whileWith -ne $whileOff) { Fail 'cross: --break-with must NOT split a while-body' }
 
@@ -155,7 +157,7 @@ MustMatch    $chain '(?m)^\s+Dec\(a\);'            'chain: final body split'
 MustNotMatch $chain '(?m)then Inc\(a\) '           'chain: no body left on the first then line'
 
 # cross-flag isolation: --break-if must NOT split a loop body.
-$loopUnderIf = FmtStr '  while k > 0 do Dec(k);' '--break-if'
+$loopUnderIf = FmtStr '  while k > 0 do Dec(k);' '--break-if --no-break-loop'
 $loopOff2    = FmtStr '  while k > 0 do Dec(k);' '--no-break-loop --no-break-if'
 if ($loopUnderIf -ne $loopOff2) { Fail 'cross: --break-if must NOT split a loop body' }
 

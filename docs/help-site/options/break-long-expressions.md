@@ -3,7 +3,7 @@ id: break-long-expressions
 title: Smart expression breakup
 summary: When a line exceeds the max length, break it at every top-level operator, one component per line. Off = greedy packing.
 group: reflow-whitespace
-order: 130
+order: 120
 default: "true"
 ini: BreakLongExpressions
 since: "1.0.0.0"

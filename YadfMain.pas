@@ -914,16 +914,14 @@ begin
   WriteStdoutLine(Format('  --tab-width N         a leading tab = N spaces                         [%d]', [AOpts.TabWidth     ]));
   WriteStdoutLine(Format('  --max-blank-lines N   cap consecutive blank lines                      [%d]', [AOpts.MaxBlankLines]));
   WriteStdoutLine(Format('  --reflow|--no-reflow  reflow long lines / preserve source line breaks  [reflow=%s]', [OnOff(AOpts.ReflowLines)]));
-  WriteStdoutLine(Format('  --pack-bodies         pack short loop/if bodies + case arms onto one line [pack=%s]', [OnOff(AOpts.PackShortBodies)]));
-  WriteStdoutLine(Format('  --no-pack-bodies      keep each body / case arm on its own line       [pack=%s]', [OnOff(AOpts.PackShortBodies)]));
   WriteStdoutLine(Format('  --collapse-blocks     fold a short if/for/while begin..end body onto one line [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
   WriteStdoutLine(Format('  --no-collapse-blocks  keep begin..end blocks expanded                  [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
   WriteStdoutLine(Format('  --break-loop          break for/while body onto its own line             [loop=%s]', [OnOff(AOpts.BreakLoopBody)]));
-  WriteStdoutLine(Format('  --no-break-loop       keep the loop body inline                        [loop=%s]', [OnOff(AOpts.BreakLoopBody)]));
+  WriteStdoutLine(Format('  --no-break-loop       join a short loop body onto the do line         [loop=%s]', [OnOff(AOpts.BreakLoopBody)]));
   WriteStdoutLine(Format('  --break-with          break with..do body onto its own line              [with=%s]', [OnOff(AOpts.BreakWithBody)]));
-  WriteStdoutLine(Format('  --no-break-with       keep the with body inline                        [with=%s]', [OnOff(AOpts.BreakWithBody)]));
+  WriteStdoutLine(Format('  --no-break-with       join a short with body onto the do line         [with=%s]', [OnOff(AOpts.BreakWithBody)]));
   WriteStdoutLine(Format('  --break-if            break if then/else body onto its own line          [if=%s]', [OnOff(AOpts.BreakIfBody)]));
-  WriteStdoutLine(Format('  --no-break-if         keep the if/then/else body inline                [if=%s]', [OnOff(AOpts.BreakIfBody)]));
+  WriteStdoutLine(Format('  --no-break-if         one-line if when it fits (if C then A else B;)  [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine(Format('  --break-params        break routine parameters one per line              [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
   WriteStdoutLine(Format('  --no-break-params     keep the parameter list inline                   [params=%s]', [OnOff(AOpts.BreakParamsOnePerLine)]));
   WriteStdoutLine(Format('  --join-headers        join split routine headers                       [join=%s]', [OnOff(AOpts.JoinRoutineHeaders)]));
@@ -941,7 +939,7 @@ begin
   WriteStdoutLine(Format('  --no-break-case       keep multi-label case arms on one line           [break=%s]', [OnOff(AOpts.BreakCaseLabels)]));
   WriteStdoutLine(Format('  --case-arm-on-label   short case arm statement on its label line        [arm=%s]', [OnOff(AOpts.CaseArmOnLabelLine)]));
   WriteStdoutLine(Format('  --no-case-arm-on-label  arm statement on its own line under the label  [arm=%s]', [OnOff(AOpts.CaseArmOnLabelLine)]));
-  WriteStdoutLine('                          (always on while PackShortBodies is on)');
+  WriteStdoutLine('                          (also the case else part: else X;)');
   WriteStdoutLine(''                                                                        );
   WriteStdoutLine('Comments:'                                                               );
   WriteStdoutLine(Format('  --indent-comments     re-indent comments to code depth                   [indent=%s]', [OnOff(AOpts.IndentComments)]));
@@ -1324,18 +1322,17 @@ begin
       end
       else if AArgs[i] = '--pack-bodies' then
       begin
-        AOpts.PackShortBodies:= True;
+        ApplyPackShortBodiesAlias(AOpts); // retired option, kept as an alias
         Inc(i);
       end
       else if AArgs[i] = '--no-pack-bodies' then
       begin
-        AOpts.PackShortBodies:= False;
-        Inc(i);
+        Inc(i); // retired option: accepted, changes nothing
       end
       else if AArgs[i] = '--collapse-blocks' then
       begin
         AOpts.CollapseShortBlocks:= True;
-        Inc(i);
+        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
       end
       else if AArgs[i] = '--no-collapse-blocks' then
       begin

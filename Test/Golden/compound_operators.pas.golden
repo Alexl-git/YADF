@@ -14,9 +14,12 @@ implementation
 
 procedure Demo(AID: Integer; const A, B, I, N, X, Y: Integer);
 begin
-  if Length(AID) <= 0 then Exit;
-  if I >= N then Break;
-  if A <> B then DoSomething;
+  if Length(AID) <= 0 then
+    Exit;
+  if I >= N then
+    Break;
+  if A <> B then
+    DoSomething;
   X:= Y + 1;
 end;
 

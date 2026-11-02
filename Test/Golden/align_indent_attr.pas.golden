@@ -23,8 +23,12 @@ implementation
 
 procedure P(A: Boolean; var X, Y: Integer);
 begin
-  if A then X:= 1; Y:= 2;
-  while A do X:= 3; Y:= 4;
+  if A then
+    X:= 1;
+  Y:= 2;
+  while A do
+    X:= 3;
+  Y:= 4;
 end;
 
 end.

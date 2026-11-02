@@ -783,91 +783,6 @@ begin
     GShieldPrefix:= '__YADF' + IntToStr(n);
   end;
 end;
-// Joins a `case` alternative label and a short body that fit within
-// AMaxLen onto a single line:
-//
-//     SomeValue:                              SomeValue: DoIt(x);
-//       DoIt(x);                ==>
-//
-// Only kicks in when ReflowLines is OFF (otherwise the reflow pass
-// handles this in a more general way). Refuses to join when the
-// candidate body begins a structured construct (begin/case/try/asm/
-// record) so we don't end up with `Foo: begin ... end` collapsed.
-function JoinShortCaseAlts(const S: string; AMaxLen: Integer): string;  // dl:ok deep-nesting@642a
-var
-  Cur        : string        ;
-  CurTrimmedR: string        ;
-  i          : Integer       ;
-  Joined     : string        ;
-  Lines      : TStringList   ;
-  Next       : string        ;
-  NextTrim   : string        ;
-  OutVal       : TStringBuilder;
-
-  function LeadingSpaces(const ALine: string): Integer;
-  var
-    k: Integer;
-  begin
-    Result:= 0;
-    for k:= 1 to Length(ALine) do if ALine[k] = ' ' then Inc(Result)
-    else
-      Break;
-  end;
-
-  function EndsWithColon: Boolean;
-  begin
-    // A trailing // note: ends in a colon that is comment text, not a label colon.
-    Result:= (CurTrimmedR <> '') and (CurTrimmedR[Length(CurTrimmedR)] = ':') and (TopLevelLineCommentCol(CurTrimmedR) = 0);
-  end;
-
-  function NextStartsCompound(const ATrimmed: string): Boolean;
-  var
-    L: string;
-  begin
-    L:= LowerCase(ATrimmed);
-    Result:= L.StartsWith('begin') or L.StartsWith('case') or L.StartsWith('try') or L.StartsWith('asm') or L.StartsWith('record');
-  end;
-
-begin
-  Lines:= TStringList.Create;
-  try
-    Lines.LineBreak:= CRLF;
-    Lines.Text     := S;
-    OutVal:= TStringBuilder.Create;
-    try
-      i:= 0;
-      while i < Lines.Count do
-      begin
-        Cur:= Lines[i];
-        CurTrimmedR:= TrimRight(Cur);
-        if (i + 1 < Lines.Count) and EndsWithColon then
-        begin
-          Next:= Lines[i + 1];
-          NextTrim:= Trim(Next);
-          if (NextTrim <> '') and (LeadingSpaces(Next) > LeadingSpaces(Cur)) and not NextStartsCompound(NextTrim) then
-          begin
-            Joined:= CurTrimmedR + ' ' + NextTrim;
-            if Length(Joined) <= AMaxLen then
-            begin
-              OutVal.Append(Joined);
-              OutVal.Append(CRLF  );
-              Inc(i, 2);
-              Continue;
-            end;
-          end;
-        end; // if
-        OutVal.Append(Cur );
-        OutVal.Append(CRLF);
-        Inc(i);
-      end; // while
-      Result:= OutVal.ToString;
-    finally
-      OutVal.Free;
-    end; // try
-  finally
-    Lines.Free;
-  end; // try
-end; // begin
 
 // ===== Case-arm layout (CaseArmOnLabelLine; BreakCaseLabels OFF joining) =====
 // Token-based: a small lexer turns the text into word/symbol tokens (strings
@@ -900,7 +815,8 @@ type
 
   TCaseArmScan = record
     Toks     : TArray<TArmTok> ;
-    Arms     : TArray<TCaseArm>;
+    Arms     : TArray<TCaseArm>; // labelled arms + one-statement else parts (LabelStart = Colon = `else`)
+    Elses    : TArray<Integer> ; // token index of EVERY case-statement `else` / `otherwise`
     HasCmt   : TArray<Boolean> ; // line holds (part of) a { } / (* *) comment or directive
     LineCmt  : TArray<Integer> ; // column of a `//` comment, 0 = none
     LineFirst: TArray<Integer> ; // first token on the line, -1 = none
@@ -1043,16 +959,18 @@ end; // procedure
 // Walks AScan.Toks with a block stack and records every arm of every case
 // statement in AScan.Arms. A `case` whose enclosing block is a record (or
 // that sits outside any block) is a variant part and is skipped.
-procedure ParseCaseArms(var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@53dd, cognitive-complexity@c259 -- one flat structure walk
+procedure ParseCaseArms(var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@9bd6, cognitive-complexity@6869 -- one flat structure walk
 type
   TFrameKind = (fkCode, fkCase, fkRecord, fkRepeat);
   TCaseState = (csHeader, csLabel, csBody, csElse);
   TFrame = record
-    Kind   : TFrameKind;
-    State  : TCaseState;
-    Depth  : Integer   ;
-    IfCount: Integer   ;
-    Arm    : TCaseArm  ;
+    Kind    : TFrameKind;
+    State   : TCaseState;
+    Depth   : Integer   ;
+    IfCount : Integer   ;
+    Semis   : Integer   ; // csElse: top-level `;` seen in the else part
+    LastSemi: Integer   ; // csElse: token index of the last of them
+    Arm     : TCaseArm  ;
   end;
 var
   Stack : TArray<TFrame>;
@@ -1060,6 +978,7 @@ var
   F     : Integer;
   k     : Integer;
   NArms : Integer;
+  NElses: Integer;
   W     : string ;
   Wd    : Boolean;
   InInit: Boolean;
@@ -1134,10 +1053,35 @@ var
     Inc(NArms);
   end;
 
+  // Enters the else part of the case in frame AFrame at token AElse.
+  procedure EnterElse(AFrame, AElse: Integer);
+  begin
+    if NElses = Length(AScan.Elses) then
+      SetLength(AScan.Elses, NElses * 2 + CASE_ARM_GROW);
+    AScan.Elses[NElses]:= AElse;
+    Inc(NElses);
+    Stack[AFrame].State         := csElse;
+    Stack[AFrame].Arm.LabelStart:= AElse;
+    Stack[AFrame].Arm.Colon     := AElse;
+    Stack[AFrame].Arm.BodyStart := -1;
+    Stack[AFrame].Semis         := 0;
+    Stack[AFrame].LastSemi      := -1;
+  end;
+
+  // Leaves the else part at its closing `end` (token AEnd): an else part that is
+  // ONE statement (no `;` inside it, or only the one ending it) becomes an arm too.
+  procedure LeaveElse(AFrame, AEnd: Integer);
+  begin
+    if (Stack[AFrame].Semis = 0) or ((Stack[AFrame].Semis = 1) and (Stack[AFrame].LastSemi = AEnd - 1)) then
+      AddArm(AFrame, AEnd - 1);
+  end;
+
 begin
   SetLength(AScan.Arms, 0);
+  SetLength(AScan.Elses, 0);
   Sp    := 0;
   NArms := 0;
+  NElses:= 0;
   InInit:= False;
   k     := 0;
   while k < Length(AScan.Toks) do
@@ -1161,7 +1105,7 @@ begin
           if Wd and (W = 'end') then
             Pop
           else if Wd and ((W = 'else') or (W = 'otherwise')) then
-            Stack[F].State:= csElse
+            EnterElse(F, k)
           else
           begin
             if Stack[F].Arm.LabelStart < 0 then
@@ -1203,7 +1147,7 @@ begin
             else
             begin
               AddArm(F, k - 1);
-              Stack[F].State:= csElse;
+              EnterElse(F, k);
             end;
             Inc(k);
             Continue;
@@ -1212,12 +1156,22 @@ begin
             Inc(Stack[F].IfCount);
         end;
         csElse:
+        begin
           if Wd and (W = 'end') then
           begin
+            LeaveElse(F, k);
             Pop;
             Inc(k);
             Continue;
           end;
+          if Stack[F].Arm.BodyStart < 0 then
+            Stack[F].Arm.BodyStart:= k;
+          if not Wd and (W = ';') and (AScan.Toks[k].Depth = Stack[F].Depth) then
+          begin
+            Inc(Stack[F].Semis);
+            Stack[F].LastSemi:= k;
+          end;
+        end;
       end; // case
     end; // if
     if Wd then
@@ -1266,6 +1220,41 @@ begin
     Inc(k);
   end; // while
   SetLength(AScan.Arms, NArms);
+  SetLength(AScan.Elses, NElses);
+end; // procedure
+
+/// <summary>Marks the lines of S that a case STATEMENT owns as arm lines: the
+/// line of every arm's `label:` colon and every line that starts with the case
+/// `else` / `otherwise`.</summary>
+/// <param name="ALines">The text, one entry per line.</param>
+/// <param name="AArmLines">Out: True for a line holding an arm's colon.</param>
+/// <param name="AElseLines">Out: True for a line whose first token is a case `else`.</param>
+/// <remarks>Same scanner as LayoutCaseArms, so a record variant part, an `if`
+/// else inside an arm and a declaration are never marked. Pure.</remarks>
+procedure MarkCaseArmLines(ALines: TStringList; out AArmLines, AElseLines: TArray<Boolean>);
+var
+  Scan: TCaseArmScan;
+  a   : Integer     ;
+  L   : Integer     ;
+begin
+  SetLength(AArmLines , ALines.Count);
+  SetLength(AElseLines, ALines.Count);
+  for L:= 0 to ALines.Count - 1 do
+  begin
+    AArmLines [L]:= False;
+    AElseLines[L]:= False;
+  end;
+  LexCaseArmLines(ALines, Scan);
+  ParseCaseArms(Scan);
+  for a:= 0 to High(Scan.Arms) do
+    AArmLines[Scan.Toks[Scan.Arms[a].Colon].Line]:= True;
+  for a:= 0 to High(Scan.Elses) do
+  begin
+    L:= Scan.Toks[Scan.Elses[a]].Line;
+    AArmLines[L]:= False;
+    if Scan.LineFirst[L] = Scan.Elses[a] then
+      AElseLines[L]:= True;
+  end;
 end; // procedure
 
 // True when an arm's statement is a structured block that keeps its own
@@ -1291,8 +1280,9 @@ end;
 /// <param name="AIndent">Indent width in spaces.</param>
 /// <param name="AMaxLen">Maximum line length for a join.</param>
 /// <returns>S with only line breaks and leading blanks between tokens changed.</returns>
-/// <remarks>Content-neutral. Never touches a record variant part, the case
-/// else part, a declaration, or an arm whose statement is begin/case/try/asm/
+/// <remarks>Content-neutral. The case else part is laid out like an arm when it
+/// is one statement (`else X;`, owner decision Q11). Never touches a record
+/// variant part, a declaration, or an arm whose statement is begin/case/try/asm/
 /// repeat. A span holding any comment is left alone, except a trailing `//`
 /// comment on the statement line, which rides along. Idempotent.</remarks>
 function LayoutCaseArms(const S: string; AJoinLabels: Boolean; ABodies: TCaseArmBodies; AIndent, AMaxLen: Integer): string;  // dl:ok deep-nesting@a3f5, cyclomatic-complexity@780f, cognitive-complexity@cfc8 -- plan pass + emit pass over one line table
@@ -2132,6 +2122,8 @@ var
   k       : Integer        ;
   Pad     : Integer        ;
   Line    : string         ;
+  ArmLine : TArray<Boolean>;
+  ElseLine: TArray<Boolean>;
 
   // True when the line is a routine header (`[class] function|procedure|
   // constructor|destructor|operator ...`): its top-level `:` is the result
@@ -2230,12 +2222,14 @@ begin
     SetLength(ColonAt, Lines.Count);
     SetLength(SemiAt , Lines.Count);
     Depths:= ComputeLineStartDepths(Lines);
+    MarkCaseArmLines(Lines, ArmLine, ElseLine);
     for i:= 0 to Lines.Count - 1 do
     begin
       HasDeclShape(Lines[i], ColonAt[i], SemiAt[i]);
       // A declaration-shaped line that actually sits inside a multi-line
-      // ()/[] group is not a real top-level declaration -- leave it alone.
-      if Depths[i] > 0 then
+      // ()/[] group is not a real top-level declaration -- leave it alone. Nor is
+      // a case arm `0: Inc(X);` (owner decision Q16: no `;` padding on arms).
+      if (Depths[i] > 0) or ArmLine[i] then
       begin
         ColonAt[i]:= 0;
         SemiAt[i]:= 0;
@@ -2989,7 +2983,7 @@ end;
 //     `var`, `procedure`, line comment, directive, ...)
 // Block-comment / string-literal interiors are tracked so we never
 // merge across an open `{...}` or `(*...*)` boundary.
-function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: Boolean = False; AKeepComponentBreaks: Boolean = False): string;
+function ReflowLineBreaks(const S: string; AMaxLen: Integer; AKeepComponentBreaks: Boolean = False): string;
 
 // True iff ALine starts with AWord, case-insensitively, with a
 // non-identifier boundary after the word (so `class` matches but
@@ -3116,16 +3110,6 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
       end;
     end;
   end; // function
-// True iff ALine starts with a control-statement keyword whose own body
-// would dangle if it were pulled onto a preceding `then`/`do` header --
-// pulling it up is the "half-merge" we never want. begin/asm count too:
-// a begin block belongs on its own line under its `if`.
-  function StartsControlHeader(const ALine: string): Boolean;
-  begin
-    Result:= StartsWordCI(ALine, 'if') or StartsWordCI(ALine, 'while') or StartsWordCI(ALine, 'for') or StartsWordCI(ALine, 'with') or  // dl:ok boolean-expression-complexity@08d3
-    StartsWordCI(ALine, 'case') or StartsWordCI(ALine, 'repeat') or StartsWordCI(ALine, 'try') or StartsWordCI(ALine, 'begin') or StartsWordCI(ALine, 'asm');
-  end;
-
 // Returns True when the CURRENT line forbids being merged with the
 // following one. The big run of EndsWordCI checks below is the rule
 // book: every keyword that terminates a structural construct ends
@@ -3155,9 +3139,9 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
     if (Length(R) >= 2) and (R[Length(R) - 1] = '*') and (R[Length(R)] = ')') then
       Exit(True);
     // A line ending in `:` is a case-arm (or goto) label. Keep its body on the
-    // next line unless body-packing is on -- then a short arm collapses onto
-    // the label. (`:=` ends in `=`, so it is not caught here.)
-    if (R[Length(R)] = ':') and not APackShortBodies then
+    // next line: LayoutCaseArms (CaseArmOnLabelLine) owns that join. (`:=` ends
+    // in `=`, so it is not caught here.)
+    if R[Length(R)] = ':' then
       Exit(True);
     // A line ending in an unclosed `(` / `[` is the opener of a multi-line
     // group that the structural emitter chose NOT to inline (it overflows or
@@ -3211,30 +3195,14 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; APackShortBodies: B
       Exit(True);
     if EndsWordCI(R, 'published' ) then
       Exit(True);
-    // A `then`/`do` header keeps its body on the next line unless body-packing
-    // is enabled. Even when it is, a nested control header (if/case/begin/...)
-    // is never pulled up -- that produces the half-merged `for..do if..then`
-    // shape. Only a short, simple body merges.
+    // A `then`/`do` header keeps its body on the next line: the Break*Body
+    // options own that layout (BreakControlBodies / JoinControlBodies, task 2d-1).
     if EndsWordCI(R, 'then') or EndsWordCI(R, 'do') then
-    begin
-      if not APackShortBodies then
-        Exit(True);
-      if StartsControlHeader(TrimLeft(ANext)) then
-        Exit(True);
-    end;
-    if EndsWordCI(R, 'else') then
-    begin
-      // `else if ...` always chains onto one line. Otherwise the else body
-      // stays on its own line, unless body-packing is on and the body is a
-      // short simple statement (a control header is never pulled up).
-      if not StartsWordCI(TrimLeft(ANext), 'if') then
-      begin
-        if not APackShortBodies then
-          Exit(True);
-        if StartsControlHeader(TrimLeft(ANext)) then
-          Exit(True);
-      end;
-    end;
+      Exit(True);
+    // `else if ...` always chains onto one line. Otherwise the else body stays on
+    // its own line here; BreakIfBody / CaseArmOnLabelLine decide later.
+    if EndsWordCI(R, 'else') and not StartsWordCI(TrimLeft(ANext), 'if') then
+      Exit(True);
     if EndsWordCI(R, 'uses' ) then
       Exit(True);
     if EndsWordCI(R, 'contains') then
@@ -3418,14 +3386,196 @@ end; // begin
 // collapsed line presents no bare `begin` line to re-match.
 function TopLevelSepPositions(const AText: string; ASep: Char): TArray<Integer>; forward;
 
+/// <summary>True iff L, left-trimmed, starts with the whole word Wd (case-insensitive).</summary>
+function CtlStartsWord(const L, Wd: string): Boolean;
+var
+  Tr: string;
+begin
+  Tr:= TrimLeft(L);
+  if Length(Tr) < Length(Wd) then
+    Exit(False);
+  if not SameText(Copy(Tr, 1, Length(Wd)), Wd) then
+    Exit(False);
+  Result:= if Length(Tr) > Length(Wd) then not CharInSet(Tr[Length(Wd) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) else True;
+end;
+
+/// <summary>True iff B (one line) is a simple statement that a Break*Body option may
+/// move: not empty, not a begin/asm block and not a nested control statement.</summary>
+function IsSimpleControlBody(const B: string): Boolean;
+var
+  Tb: string;
+begin
+  Tb:= TrimLeft(B);
+  if Tb = '' then
+    Exit(False);
+  if CtlStartsWord(Tb, 'begin' ) or CtlStartsWord(Tb, 'asm' ) then
+    Exit(False);
+  if CtlStartsWord(Tb, 'if' ) or CtlStartsWord(Tb, 'while' ) or CtlStartsWord(Tb, 'for' ) or CtlStartsWord(Tb, 'with' ) or CtlStartsWord(Tb, 'case' ) or CtlStartsWord(Tb, 'repeat') or  // dl:ok boolean-expression-complexity@92ac
+  CtlStartsWord(Tb, 'try' ) then Exit(False);
+  Result:= True;
+end;
+
+/// <summary>Lists the top-level (outside strings, comments and ()/[]) do / then /
+/// else words of the line L: AW = the lower-cased words, ABef / AAft = their
+/// start column and the column after them. ADisq = the line holds a `//` comment
+/// or ends inside a block comment.</summary>
+procedure ScanControlWords(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@83a3 -- one flat hand lexer
+var
+  p    : Integer;
+  n    : Integer;
+  Ws   : Integer;
+  Depth: Integer;
+  InStr: Boolean;
+  InBlk: Boolean;
+  InPar: Boolean;
+  Wrd  : string ;
+  Cnt  : Integer;
+
+  function IsIdent(ch: Char): Boolean;
+  begin
+    Result:= CharInSet(ch, ['a'..'z', 'A'..'Z', '0'..'9', '_']);
+  end;
+
+  procedure AddHit(const AWord: string; ABp, AAp: Integer);
+  begin
+    if Cnt = Length(AW) then
+    begin
+      SetLength(AW  , Cnt * GrowMul + GrowAdd);
+      SetLength(ABef, Cnt * GrowMul + GrowAdd);
+      SetLength(AAft, Cnt * GrowMul + GrowAdd);
+    end;
+    AW[Cnt]:= AWord;
+    ABef[Cnt]:= ABp;
+    AAft[Cnt]:= AAp;
+    Inc(Cnt);
+  end;
+
+begin
+  ADisq:= False;
+  Cnt  := 0;
+  SetLength(AW, 0);
+  SetLength(ABef, 0);
+  SetLength(AAft, 0);
+  n:= Length(L);
+  p:= 1;
+  Depth:= 0;
+  InStr:= False;
+  InBlk:= False;
+  InPar:= False;
+  while p <= n do
+  begin
+    if InStr then
+    begin
+      if L[p] = '''' then
+        if (p < n) and (L[p + 1] = '''') then
+          Inc(p)
+        else
+          InStr:= False;
+      Inc(p);
+      Continue;
+    end;
+    if InBlk then
+    begin
+      if L[p] = '}' then
+        InBlk:= False;
+      Inc(p);
+      Continue;
+    end;
+    if InPar then
+    begin
+      if (L[p] = '*') and (p < n) and (L[p + 1] = ')') then
+      begin
+        InPar:= False;
+        Inc(p);
+      end;
+      Inc(p);
+      Continue;
+    end;
+    if L[p] = '''' then
+    begin
+      InStr:= True;
+      Inc(p);
+      Continue;
+    end;
+    if L[p] = '{'  then
+    begin
+      InBlk:= True;
+      Inc(p);
+      Continue;
+    end;
+    if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then
+    begin
+      InPar:= True;
+      Inc(p, 2);
+      Continue;
+    end;
+    if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then
+    begin
+      ADisq:= True;
+      Exit;
+    end;
+    if (L[p] = '(') or (L[p] = '[') then
+    begin
+      Inc(Depth);
+      Inc(p);
+      Continue;
+    end;
+    if (L[p] = ')') or (L[p] = ']') then
+    begin
+      if Depth > 0 then Dec(Depth);
+      Inc(p);
+      Continue;
+    end;
+    if IsIdent(L[p]) and ((p = 1) or not IsIdent(L[p - 1])) then
+    begin
+      Ws := p;
+      Wrd:= '';
+      while (p <= n) and IsIdent(L[p]) do
+      begin
+        Wrd:= Wrd + L[p];  // dl:ok concat-in-loop@02e7
+        Inc(p);
+      end;
+      if (Depth = 0) and (SameText(Wrd, 'do') or SameText(Wrd, 'then') or SameText(Wrd, 'else')) then
+        AddHit(LowerCase(Wrd), Ws, p);
+      Continue;
+    end;
+    Inc(p);
+  end; // while
+  if InBlk or InPar then
+    ADisq:= True;
+  SetLength(AW, Cnt);
+  SetLength(ABef, Cnt);
+  SetLength(AAft, Cnt);
+end; // begin
+
+const
+  /// <summary>First column of the text inside a `(*` comment opener.</summary>
+  PAREN_STAR_BODY = 3;
+
+type
+  /// <summary>The control-statement bodies the Break*Body options govern.</summary>
+  TBodyKind  = (bkIf, bkLoop, bkWith);
+  /// <summary>A set of TBodyKind.</summary>
+  TBodyKinds = set of TBodyKind;
+
 /// <summary>Forces the body of a single-line control statement onto its own
 /// indented line: for/while/with `... do Stmt;` (BreakLoopBody / BreakWithBody)
-/// and if `... then A else B;` (BreakIfBody, added later). Structural mirror of
+/// and if `... then A else B;` (BreakIfBody). Structural mirror of
 /// CollapseShortBlocks. Content-neutral (inserts only CRLF + whitespace);
 /// ReindentByDepth (called by the pipeline right after) fixes the body depth.
 /// A begin block, a body starting with a nested control header, or a line with a
 /// top-level line comment / open block comment is left unchanged. Idempotent.</summary>
-function BreakControlBodies(const S: string; const AOpts: TYadfOptions): string;  // dl:ok deep-nesting@b853, cyclomatic-complexity@877a, cognitive-complexity@2aff
+/// <param name="S">CRLF text, multi-line atoms shielded.</param>
+/// <param name="ASplit">Kinds whose one-line bodies are always split.</param>
+/// <param name="ASplitShort">Kinds split only when the line is at most AMaxLen
+/// long (the canonical form JoinControlBodies re-joins; a longer line is left as
+/// the author wrote it -- ReflowLines OFF never wraps).</param>
+/// <param name="AMaxLen">Maximum line length, for ASplitShort.</param>
+/// <returns>S with the selected bodies on their own lines.</returns>
+/// <remarks>The case `else` part belongs to CaseArmOnLabelLine and is never split
+/// here (owner decision Q11). A `{ }` / `(* *)` comment right after then/do/else
+/// stays on the header line (Q18).</remarks>
+function BreakControlBodies(const S: string; ASplit, ASplitShort: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@e405, cognitive-complexity@5743 -- one segment walk per line
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -3448,164 +3598,44 @@ var
   k     : Integer        ;
   Ok    : Boolean        ;
   S2    : Integer        ;
+  ArmL  : TArray<Boolean>;
+  ElseL : TArray<Boolean>;
+  Depths: TArray<Integer>;
 
-  function StartsWordCI(const L, Wd: string): Boolean;
-  var
-    Tr: string;
+  // A line that leaves a ()/[] group open continues its statement on the next
+  // line: moving its body would re-shape that group on every later format, so
+  // such a line is left alone (idempotency).
+  function Wants(AKind: TBodyKind): Boolean;
   begin
-    Tr:= TrimLeft(L);
-    if Length(Tr) < Length(Wd) then
+    if (i + 1 < Lines.Count) and (Depths[i + 1] <> Depths[i]) then
       Exit(False);
-    if not SameText(Copy(Tr, 1, Length(Wd)), Wd) then
-      Exit(False);
-    if Length(Tr) > Length(Wd) then
-      Result:= not CharInSet(Tr[Length(Wd) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_'])
-    else
-      Result:= True;
+    Result:= (AKind in ASplit) or ((AKind in ASplitShort) and (Length(Cur) <= AMaxLen));
   end;
 
-  function IsSimpleBody(const B: string): Boolean;
+  // Q18: a brace / paren-star comment that opens the body followed the header
+  // keyword; it stays on the header line.
+  procedure PeelLeadComment(var AHead, ABody: string);
   var
-    Tb: string;
+    e: Integer;
   begin
-    Tb:= TrimLeft(B);
-    if Tb = '' then
-      Exit(False);
-    if StartsWordCI(Tb, 'begin' ) or StartsWordCI(Tb, 'asm' ) then
-      Exit(False);
-    if StartsWordCI(Tb, 'if' ) or StartsWordCI(Tb, 'while' ) or StartsWordCI(Tb, 'for' ) or StartsWordCI(Tb, 'with' ) or StartsWordCI(Tb, 'case' ) or StartsWordCI(Tb, 'repeat') or  // dl:ok boolean-expression-complexity@f00f
-    StartsWordCI(Tb, 'try' ) then Exit(False);
-    Result:= True;
-  end;
-
-  procedure ScanTop(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@1198
-  var
-    p    : Integer;
-    n    : Integer;
-    Ws   : Integer;
-    Depth: Integer;
-    InStr: Boolean;
-    InBlk: Boolean;
-    InPar: Boolean;
-    Wrd  : string ;
-    Cnt  : Integer;
-
-    function IsIdent(ch: Char): Boolean;
+    while True do
     begin
-      Result:= CharInSet(ch, ['a'..'z', 'A'..'Z', '0'..'9', '_']);
-    end;
-
-    procedure AddHit(const AWord: string; ABp, AAp: Integer);
-    begin
-      if Cnt = Length(AW) then
+      if ABody.StartsWith('{') and not ABody.StartsWith('{$') then
+        e:= Pos('}', ABody)
+      else if ABody.StartsWith('(*') then
       begin
-        SetLength(AW  , Cnt * GrowMul + GrowAdd);
-        SetLength(ABef, Cnt * GrowMul + GrowAdd);
-        SetLength(AAft, Cnt * GrowMul + GrowAdd);
-      end;
-      AW[Cnt]:= AWord;
-      ABef[Cnt]:= ABp;
-      AAft[Cnt]:= AAp;
-      Inc(Cnt);
-    end;
-
-  begin
-    ADisq:= False;
-    Cnt  := 0;
-    SetLength(AW, 0);
-    SetLength(ABef, 0);
-    SetLength(AAft, 0);
-    n:= Length(L);
-    p:= 1;
-    Depth:= 0;
-    InStr:= False;
-    InBlk:= False;
-    InPar:= False;
-    while p <= n do
-    begin
-      if InStr then
-      begin
-        if L[p] = '''' then
-          if (p < n) and (L[p + 1] = '''') then
-            Inc(p)
-          else
-            InStr:= False;
-        Inc(p);
-        Continue;
-      end;
-      if InBlk then
-      begin
-        if L[p] = '}' then
-          InBlk:= False;
-        Inc(p);
-        Continue;
-      end;
-      if InPar then
-      begin
-        if (L[p] = '*') and (p < n) and (L[p + 1] = ')') then
-        begin
-          InPar:= False;
-          Inc(p);
-        end;
-        Inc(p);
-        Continue;
-      end;
-      if L[p] = '''' then
-      begin
-        InStr:= True;
-        Inc(p);
-        Continue;
-      end;
-      if L[p] = '{'  then
-      begin
-        InBlk:= True;
-        Inc(p);
-        Continue;
-      end;
-      if (L[p] = '(') and (p < n) and (L[p + 1] = '*') then
-      begin
-        InPar:= True;
-        Inc(p, 2);
-        Continue;
-      end;
-      if (L[p] = '/') and (p < n) and (L[p + 1] = '/') then
-      begin
-        ADisq:= True;
+        e:= PosEx('*)', ABody, PAREN_STAR_BODY);
+        if e > 0 then
+          Inc(e);
+      end
+      else
         Exit;
-      end;
-      if (L[p] = '(') or (L[p] = '[') then
-      begin
-        Inc(Depth);
-        Inc(p);
-        Continue;
-      end;
-      if (L[p] = ')') or (L[p] = ']') then
-      begin
-        if Depth > 0 then Dec(Depth);
-        Inc(p);
-        Continue;
-      end;
-      if IsIdent(L[p]) and ((p = 1) or not IsIdent(L[p - 1])) then
-      begin
-        Ws := p;
-        Wrd:= '';
-        while (p <= n) and IsIdent(L[p]) do
-        begin
-          Wrd:= Wrd + L[p];  // dl:ok concat-in-loop@02e7
-          Inc(p);
-        end;
-        if (Depth = 0) and (SameText(Wrd, 'do') or SameText(Wrd, 'then') or SameText(Wrd, 'else')) then
-          AddHit(LowerCase(Wrd), Ws, p);
-        Continue;
-      end;
-      Inc(p);
-    end; // while
-    if InBlk or InPar then
-      ADisq:= True;
-    SetLength(AW, Cnt);
-    SetLength(ABef, Cnt);
-    SetLength(AAft, Cnt);
-  end; // begin
+      if e = 0 then
+        Exit;
+      AHead:= TrimRight(AHead) + ' ' + Copy(ABody, 1, e);
+      ABody:= Trim(Copy(ABody, e + 1, MaxInt));
+    end;
+  end;
 
   procedure OutLine(const L: string);
   begin
@@ -3642,6 +3672,8 @@ begin
     Lines.LineBreak:= CRLF;
     Lines.Text     := S;
     Lock:= ComputeBlockCommentLock(Lines);
+    MarkCaseArmLines(Lines, ArmL, ElseL);
+    Depths:= ComputeLineStartDepths(Lines);
     OutVal:= TStringBuilder.Create;
     try
       for i:= 0 to Lines.Count - 1 do
@@ -3650,9 +3682,9 @@ begin
         T:= TrimLeft(Cur);
         Indent:= Copy(Cur, 1, Length(Cur) - Length(T));
         // Loops / with: split after the first top-level `do`.
-        if (not Lock[i]) and ( ((StartsWordCI(T, 'for') or StartsWordCI(T, 'while')) and AOpts.BreakLoopBody) or (StartsWordCI(T, 'with') and AOpts.BreakWithBody) ) then  // dl:ok boolean-expression-complexity@c421
+        if (not Lock[i]) and ( ((CtlStartsWord(T, 'for') or CtlStartsWord(T, 'while')) and Wants(bkLoop)) or (CtlStartsWord(T, 'with') and Wants(bkWith)) ) then  // dl:ok boolean-expression-complexity@79e9
         begin
-          ScanTop(Cur, W, BefP, AftP, Disq);
+          ScanControlWords(Cur, W, BefP, AftP, Disq);
           if not Disq then
           begin
             DoIx:= -1;
@@ -3665,7 +3697,8 @@ begin
             begin
               Header:= TrimRight(Copy(Cur, 1, AftP[DoIx] - 1));
               Body:= Trim(Copy(Cur, AftP[DoIx], Length(Cur)));
-              if IsSimpleBody(Body) then
+              PeelLeadComment(Header, Body);
+              if IsSimpleControlBody(Body) then
               begin
                 OutLine(Header);
                 OutBodySplit(Indent, Body);
@@ -3676,10 +3709,10 @@ begin
         end; // if
         // if / else: split after `then`, before/after each top-level `else`;
         // "else if ... then" stays glued as one header line.
-        IsElse:= StartsWordCI(T, 'else');
-        if (not Lock[i]) and AOpts.BreakIfBody and (StartsWordCI(T, 'if') or IsElse) then
+        IsElse:= CtlStartsWord(T, 'else');
+        if (not Lock[i]) and Wants(bkIf) and (CtlStartsWord(T, 'if') or IsElse) and not ElseL[i] then
         begin
-          ScanTop(Cur, W, BefP, AftP, Disq);
+          ScanControlWords(Cur, W, BefP, AftP, Disq);
           if not Disq then
           begin
             Segs:= TStringList.Create;
@@ -3723,7 +3756,10 @@ begin
                   Break;
                 end;
                 Body:= Trim(Copy(Cur, Cursor, BefP[k] - Cursor));
-                if not IsSimpleBody(Body) then
+                Header:= Segs[Segs.Count - 1];
+                PeelLeadComment(Header, Body);
+                Segs[Segs.Count - 1]:= Header;
+                if not IsSimpleControlBody(Body) then
                 begin
                   Ok:= False;
                   Break;
@@ -3745,7 +3781,10 @@ begin
               if Ok then
               begin
                 Body:= Trim(Copy(Cur, Cursor, Length(Cur))); // trailing body
-                if IsSimpleBody(Body) then
+                Header:= Segs[Segs.Count - 1];
+                PeelLeadComment(Header, Body);
+                Segs[Segs.Count - 1]:= Header;
+                if IsSimpleControlBody(Body) then
                   Segs.Add(Body)
                 else
                   Ok:= False;
@@ -3764,6 +3803,190 @@ begin
         end; // if
         OutLine(Cur);
       end; // for
+      Result:= OutVal.ToString;
+    finally
+      OutVal.Free;
+    end; // try
+  finally
+    Lines.Free;
+  end; // try
+end; // function
+
+/// <summary>Joins the body of a control statement back onto its header line when
+/// the result fits AMaxLen -- the OFF direction of BreakIfBody / BreakLoopBody /
+/// BreakWithBody (owner decision Q1, 2026-11-01). Expects the canonical split
+/// form BreakControlBodies produces (header line, body line).</summary>
+/// <param name="S">CRLF text, multi-line atoms shielded.</param>
+/// <param name="AKinds">The kinds whose Break* option is OFF.</param>
+/// <param name="AMaxLen">Maximum length of a joined line.</param>
+/// <returns>S with those bodies joined where they fit.</returns>
+/// <remarks>
+/// for / while / with: `header do` + one simple body line -> one line.
+/// if: the whole chain -- `if C then` / A / [`else if D then` / B ...] / [`else` / Z]
+/// -- goes on ONE line when every body is one simple line and the whole fits;
+/// otherwise nothing of it is joined, so an if/else is either one line or the
+/// fully broken form (Q9). The header must be one line that starts with its
+/// keyword (never packed onto a header spanning several lines, Q10); a `{ }`
+/// comment after the keyword rides along on the header (Q18). A line with a `//`
+/// comment, a block-comment interior and the case `else` part (CaseArmOnLabelLine,
+/// Q11) are never touched. A body must be complete on its line: it ends with `;`
+/// or the next line starts with else / end / until / finally / except.
+/// Content-neutral (removes only CRLF + leading blanks); idempotent.
+/// </remarks>
+function JoinControlBodies(const S: string; AKinds: TBodyKinds; AMaxLen: Integer): string;
+var
+  Lines : TStringList    ;
+  Lock  : TArray<Boolean>;
+  ArmL  : TArray<Boolean>;
+  ElseL : TArray<Boolean>;
+  OutVal: TStringBuilder ;
+  i     : Integer        ;
+  Last  : Integer        ;
+  Joined: string         ;
+  T     : string         ;
+
+  // True when ATail (the text after a header keyword) holds only closed
+  // `{ }` / `(* *)` comments.
+  function OnlyComments(const ATail: string): Boolean;
+  var
+    R: string ;
+    e: Integer;
+  begin
+    R:= Trim(ATail);
+    while R <> '' do
+    begin
+      if R.StartsWith('{') and not R.StartsWith('{$') then
+        e:= Pos('}', R)
+      else if R.StartsWith('(*') then
+      begin
+        e:= PosEx('*)', R, PAREN_STAR_BODY);
+        if e > 0 then
+          Inc(e);
+      end
+      else
+        Exit(False);
+      if e = 0 then
+        Exit(False);
+      R:= Trim(Copy(R, e + 1, MaxInt));
+    end;
+    Result:= True;
+  end;
+
+  // Line AIdx is a one-line header whose top-level control words are exactly
+  // AWords and which ends with the last of them (comments aside).
+  function IsHeader(AIdx: Integer; const AWords: array of string): Boolean;
+  var
+    W   : TArray<string> ;
+    BefP: TArray<Integer>;
+    AftP: TArray<Integer>;
+    Disq: Boolean        ;
+    n   : Integer        ;
+  begin
+    if (AIdx >= Lines.Count) or Lock[AIdx] or ElseL[AIdx] then
+      Exit(False);
+    ScanControlWords(Lines[AIdx], W, BefP, AftP, Disq);
+    if Disq or (Length(W) <> Length(AWords)) then
+      Exit(False);
+    for n:= 0 to High(W) do
+      if W[n] <> AWords[n] then
+        Exit(False);
+    Result:= OnlyComments(Copy(Lines[AIdx], AftP[High(AftP)], MaxInt));
+  end;
+
+  // Line AIdx is one complete simple statement (see the remarks above).
+  function IsBody(AIdx: Integer): Boolean;
+  var
+    W   : TArray<string> ;
+    BefP: TArray<Integer>;
+    AftP: TArray<Integer>;
+    Disq: Boolean        ;
+    B   : string         ;
+    Nx  : string         ;
+    Seps: TArray<Integer>;
+  begin
+    if (AIdx >= Lines.Count) or Lock[AIdx] or ElseL[AIdx] then
+      Exit(False);
+    B:= Trim(Lines[AIdx]);
+    if not IsSimpleControlBody(B) or B.StartsWith('{') or B.StartsWith('(*') then
+      Exit(False);
+    ScanControlWords(B, W, BefP, AftP, Disq);
+    if Disq or (Length(W) > 0) then
+      Exit(False);
+    Seps:= TopLevelSepPositions(B, ';');
+    if Length(Seps) > 1 then
+      Exit(False);
+    if Length(Seps) = 1 then
+      Exit(Seps[0] = Length(B));
+    Nx:= if AIdx + 1 < Lines.Count then TrimLeft(Lines[AIdx + 1]) else '';
+    Result:= CtlStartsWord(Nx, 'else') or CtlStartsWord(Nx, 'end') or CtlStartsWord(Nx, 'until') or CtlStartsWord(Nx, 'finally') or CtlStartsWord(Nx, 'except');
+  end;
+
+  // An if chain starting at line AIdx; on success AJoined is the one-line form
+  // and ALast the chain's last line.
+  function TryIf(AIdx: Integer; out AJoined: string; out ALast: Integer): Boolean;
+  var
+    j: Integer;
+  begin
+    Result := False;
+    AJoined:= '';
+    ALast  := AIdx;
+    if not IsHeader(AIdx, ['then']) or not IsBody(AIdx + 1) then
+      Exit;
+    AJoined:= TrimRight(Lines[AIdx]) + ' ' + Trim(Lines[AIdx + 1]);
+    j:= AIdx + 1;
+    while not TrimRight(Lines[j]).EndsWith(';') do
+    begin
+      if IsHeader(j + 1, ['else', 'then']) and IsBody(j + 2) then
+        AJoined:= AJoined + ' ' + Trim(Lines[j + 1]) + ' ' + Trim(Lines[j + 2])
+      else if IsHeader(j + 1, ['else']) and IsBody(j + 2) then
+      begin
+        AJoined:= AJoined + ' ' + Trim(Lines[j + 1]) + ' ' + Trim(Lines[j + 2]);
+        Inc(j, 2);
+        Break;
+      end
+      else if (j + 1 < Lines.Count) and CtlStartsWord(TrimLeft(Lines[j + 1]), 'else') and not ElseL[j + 1] then
+        Exit // an else part we cannot join: leave the whole chain broken (Q9)
+      else
+        Break;
+      Inc(j, 2);
+    end; // while
+    ALast := j;
+    Result:= Length(AJoined) <= AMaxLen;
+  end;
+
+begin
+  Lines:= TStringList.Create;
+  try
+    Lines.LineBreak:= CRLF;
+    Lines.Text     := S;
+    Lock:= ComputeBlockCommentLock(Lines);
+    MarkCaseArmLines(Lines, ArmL, ElseL);
+    OutVal:= TStringBuilder.Create;
+    try
+      i:= 0;
+      while i < Lines.Count do
+      begin
+        T:= TrimLeft(Lines[i]);
+        if (bkIf in AKinds) and CtlStartsWord(T, 'if') and TryIf(i, Joined, Last) then
+        begin
+          OutVal.Append(Joined).Append(CRLF);
+          i:= Last + 1;
+          Continue;
+        end;
+        if ( ((bkLoop in AKinds) and (CtlStartsWord(T, 'for') or CtlStartsWord(T, 'while'))) or ((bkWith in AKinds) and CtlStartsWord(T, 'with')) ) and  // dl:ok boolean-expression-complexity@922f -- kind gate per header keyword
+           IsHeader(i, ['do']) and IsBody(i + 1) then
+        begin
+          Joined:= TrimRight(Lines[i]) + ' ' + Trim(Lines[i + 1]);
+          if Length(Joined) <= AMaxLen then
+          begin
+            OutVal.Append(Joined).Append(CRLF);
+            Inc(i, 2);
+            Continue;
+          end;
+        end;
+        OutVal.Append(Lines[i]).Append(CRLF);
+        Inc(i);
+      end; // while
       Result:= OutVal.ToString;
     finally
       OutVal.Free;
@@ -5645,11 +5868,11 @@ var
 // ABOVE its immediate controller). 0 in declaration contexts (PendingCtrl
 // is 0 there), nonzero only for a begin/case/try opened as a nested
 // then/do/else/case-arm body. Released when the block pops.
-  procedure PushCtrlCarry;
+  procedure PushCtrlCarry(AFull: Boolean = False);
   var
     Carry: Integer;
   begin
-    Carry:= Max(0, PendingCtrl - 1);
+    Carry:= Max(0, PendingCtrl - (if AFull then 0 else 1));
     CtrlStack.Add(Carry);
     Inc(CtrlCarried, Carry);
     PendingCtrl:= 0;
@@ -5657,7 +5880,9 @@ var
 
   procedure StackPush(k: TptTokenKind);
   begin
-    PushCtrlCarry;
+    // A `case` used as a controlled body indents under its controller like any
+    // statement (it is not a begin block), so it carries the FULL pending level.
+    PushCtrlCarry(k = ptCase);
     Stack          .Add(k    );
     IsProcBody     .Add(False);
     // A class/object/interface enters with its HEADER open: everything up to
@@ -5987,7 +6212,7 @@ begin
           // `else if` ladder stays flat). Every other statement -- crucially a
           // nested `if` used as a body -- takes the full pending, so it indents
           // one level under its owner instead of sitting flat beside it.
-          if T.Kind in [ptBegin, ptCase, ptTry, ptAsm, ptRecord, ptObject, ptElse, ptEnd, ptUntil] then
+          if T.Kind in [ptBegin, ptTry, ptAsm, ptRecord, ptObject, ptElse, ptEnd, ptUntil] then
             Inc(EffectiveDepth, CtrlCarried + Max(0, PendingCtrl - 1))
           else
             Inc(EffectiveDepth, CtrlCarried + PendingCtrl);
@@ -8078,6 +8303,41 @@ begin
   end; // try
 end; // procedure
 
+/// <summary>The Break*Body layout step of the pipeline (two-way, owner decision Q1):
+/// every simple body first goes on its own line -- the canonical form, so the
+/// result never depends on where the author broke the line -- then the kinds
+/// whose option is OFF are joined back onto their header where the whole fits
+/// MaxLen.</summary>
+/// <param name="S">CRLF text, multi-line atoms shielded.</param>
+/// <param name="AOpts">BreakIfBody / BreakLoopBody / BreakWithBody, ReflowLines,
+/// MaxLen, Indent, IndentComments.</param>
+/// <returns>S with control bodies laid out and re-indented.</returns>
+/// <remarks>With ReflowLines OFF an OFF kind is not split when its line is
+/// already longer than MaxLen (ReflowLines OFF never wraps). Re-indents after
+/// each step so a moved body gets its structural depth. Idempotent.</remarks>
+function LayoutControlBodies(const S: string; const AOpts: TYadfOptions): string;
+var
+  OnKinds : TBodyKinds;
+  OffKinds: TBodyKinds;
+begin
+  OnKinds:= [];
+  if AOpts.BreakIfBody then
+    Include(OnKinds, bkIf);
+  if AOpts.BreakLoopBody then
+    Include(OnKinds, bkLoop);
+  if AOpts.BreakWithBody then
+    Include(OnKinds, bkWith);
+  OffKinds:= [bkIf, bkLoop, bkWith] - OnKinds;
+  Result:= if AOpts.ReflowLines then BreakControlBodies(S, OnKinds + OffKinds, [], AOpts.MaxLen)
+            else BreakControlBodies(S, OnKinds, OffKinds, AOpts.MaxLen);
+  Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
+  if OffKinds <> [] then
+  begin
+    Result:= JoinControlBodies(Result, OffKinds, AOpts.MaxLen);
+    Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
+  end;
+end; // function
+
 // ===== FormatSource =====
 // Top-level orchestrator. Runs the pipeline described in the unit
 // header comment. The first stage is token-level (capitalisation,
@@ -8797,35 +9057,25 @@ begin
           Result:= BreakLongLines(Result);
         if AOpts.ReflowLines then
         begin
-          Result:= ReflowLineBreaks(Result, AOpts.MaxLen, AOpts.PackShortBodies, AOpts.BreakLongExpressions);
+          Result:= ReflowLineBreaks(Result, AOpts.MaxLen, AOpts.BreakLongExpressions);
           Result:= ReindentByDepth (Result, AOpts.Indent, AOpts.IndentComments );
-        end
-        else
-        begin
-          // Case-arm joining is part of body-packing: only pull a short arm
-          // onto its `label:` line when PackShortBodies is on. Default leaves
-          // each arm body on its own line.
-          if AOpts.PackShortBodies then
-            Result:= JoinShortCaseAlts(Result, AOpts.MaxLen);
-          // JoinShortCaseAlts may pull a `label:` onto its body line; re-indent
-          // so the merged line's body depth is recomputed for the new shape
-          // (otherwise a case arm whose body is a nested `if` keeps the depth
-          // computed for the un-merged form -- a non-idempotency). Mirrors the
-          // reflow path, which already re-indents after ReflowLineBreaks.
-          Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
-        end; // else
+        end;
+        // Control-statement bodies (Break*Body, two-way, owner decision Q1). First
+        // every simple body goes on its own line -- the canonical form, so the result
+        // never depends on where the author broke the line -- then the kinds whose
+        // option is OFF are joined back onto their header where the whole fits MaxLen.
+        // With ReflowLines OFF an OFF kind is not split when its line is already
+        // longer than MaxLen (ReflowLines OFF never wraps). Runs on both reflow
+        // paths, after the reflow block and the deferred BreakLongExpressions breaker
+        // (acts on the settled line shape) and before the Stage-4 passes. The breaker
+        // runs once more afterwards: a header left alone once its body moved can now
+        // be broken (`... <> X then` -> `then` on its own line) -- else the NEXT
+        // format would do it (idempotency). Lines that fit are never touched.
         if AOpts.ReflowLines and AOpts.BreakLongExpressions then
           Result:= BreakLongLines(Result);
-        // Break single-line control-statement bodies onto their own line when
-        // any Break* flag is on. Runs after the reflow/pack block (so it acts on
-        // the settled line shape and wins over PackShortBodies) and before the
-        // Stage-4 alignment passes (splitting changes line adjacency). Re-indent
-        // so the freed body gets its structural +1 depth.
-        if AOpts.BreakLoopBody or AOpts.BreakWithBody or AOpts.BreakIfBody then
-        begin
-          Result:= BreakControlBodies(Result, AOpts);
-          Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
-        end;
+        Result:= LayoutControlBodies(Result, AOpts);
+        if AOpts.ReflowLines and AOpts.BreakLongExpressions then
+          Result:= BreakLongLines(Result);
         // Join routine headers the source split across lines back onto one line.
         // Always runs (JoinRoutineHeaders OFF only adds the one-per-line layout below). Runs after BreakControlBodies (acts
         // on the settled line shape) and before Stage-4 alignment. Content-neutral, so
@@ -8848,11 +9098,11 @@ begin
         if AOpts.BlanksBeforeType > EffMaxBlanks then
           EffMaxBlanks:= AOpts.BlanksBeforeType;
         Result:= CollapseBlankLines(Result, EffMaxBlanks);
-        // Case arms (CaseArmOnLabelLine, owner decisions Q2/Q5): join a hand-broken
-        // label list, and pull a one-statement arm onto its label line when the option
-        // is on (PackShortBodies implies it). Before the split stage so BreakCaseLabels
-        // sees whole arms; runs on BOTH reflow paths. Content-neutral.
-        Result:= LayoutCaseArms(Result, True, if AOpts.CaseArmOnLabelLine or AOpts.PackShortBodies then cabJoin else cabKeep, AOpts.Indent, AOpts.MaxLen);
+        // Case arms (CaseArmOnLabelLine, owner decisions Q2/Q5/Q11): join a hand-broken
+        // label list, and pull a one-statement arm (the case else part included) onto
+        // its label line when the option is on. Before the split stage so
+        // BreakCaseLabels sees whole arms; runs on BOTH reflow paths. Content-neutral.
+        Result:= LayoutCaseArms(Result, True, if AOpts.CaseArmOnLabelLine then cabJoin else cabKeep, AOpts.Indent, AOpts.MaxLen);
 
         // Stage 4: column alignment (Pass 2). CollapseInteriorSpaces
         // normalises spacing so anchor columns are predictable.
@@ -8867,8 +9117,13 @@ begin
         // CaseArmOnLabelLine OFF: the statement goes under its label. After the split
         // stage so the one-label arms BreakCaseLabels made are moved too; emits its own
         // indentation (label + Indent), so no re-indent is needed.
-        if not (AOpts.CaseArmOnLabelLine or AOpts.PackShortBodies) then
+        // A statement it moved under its label (`5:` / `if C then A else B;`) now
+        // starts its line, so the Break*Body layout applies to it like to any other.
+        if not AOpts.CaseArmOnLabelLine then
+        begin
           Result:= LayoutCaseArms(Result, False, cabSplit, AOpts.Indent, AOpts.MaxLen);
+          Result:= LayoutControlBodies(Result, AOpts);
+        end;
         if AOpts.AlignTypeColon or AOpts.AlignConstEquals or AOpts.AlignSmartAssign then
           Result:= CollapseInteriorSpaces(Result);
         if AOpts.AlignTypeColon then

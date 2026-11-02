@@ -17,7 +17,7 @@ procedure Demo(K: Integer; var Flag: Boolean);
 begin
   case K of
     0, 1: Flag:= True;
-    2, 3: Inc(K)     ;
+    2, 3: Inc(K);
   end;
 end;
 

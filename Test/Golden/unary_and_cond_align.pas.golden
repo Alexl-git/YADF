@@ -17,12 +17,18 @@ begin
   Be   := 22;
   Gamma:= +3;
   Result:= Alpha + Be + Gamma;
-  if A = 1 then Exit(0);
-  if Alpha = 1 then Exit(1);
-  while A = 1 do Exit(2);
-  while Alpha = 1 do Exit(3);
-  if (A > 0) and (B = 2) then Exit(4);
-  if (Alpha > 0) and (B = 2) then Exit(5);
+  if A = 1 then
+    Exit(0);
+  if Alpha = 1 then
+    Exit(1);
+  while A = 1 do
+    Exit(2);
+  while Alpha = 1 do
+    Exit(3);
+  if (A > 0) and (B = 2) then
+    Exit(4);
+  if (Alpha > 0) and (B = 2) then
+    Exit(5);
   Ok:= (A > 0)
     and (B = 2)
     or (Alpha = 3);

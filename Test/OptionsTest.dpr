@@ -27,7 +27,7 @@ end;
 
 // Count of fields in TYadfOptions; the descriptor table must match exactly.
 const
-  EXPECTED_OPTION_COUNT = 47;
+  EXPECTED_OPTION_COUNT = 46;
 
 procedure TestDescriptorCompleteness;
 var
@@ -195,6 +195,35 @@ begin
   end;
 end;
 
+// Owner decision Q1 (SPEC-2026-11-01 task 2d-1): PackShortBodies left the option
+// table but its INI key is a load-time alias; Break*Body default to ON.
+procedure TestPackShortBodiesAlias;
+var
+  Path: string;
+  O   : TYadfOptions;
+begin
+  O:= DefaultOptions;
+  Check('Break*Body default ON', O.BreakIfBody and O.BreakLoopBody and O.BreakWithBody);
+  Path:= TPath.Combine(TPath.GetTempPath, 'yadf_packalias_test.ini');
+  try
+    TFile.WriteAllText(Path, '[Format]' + sLineBreak + 'PackShortBodies=true' + sLineBreak + 'CaseArmOnLabelLine=false' + sLineBreak);
+    O:= LoadOptionsFromIni(Path);
+    Check('Pack alias: Break*Body OFF', not (O.BreakIfBody or O.BreakLoopBody or O.BreakWithBody));
+    Check('Pack alias: CaseArmOnLabelLine ON', O.CaseArmOnLabelLine);
+    TFile.WriteAllText(Path, '[Format]' + sLineBreak + 'PackShortBodies=true' + sLineBreak + 'BreakIfBody=true' + sLineBreak);
+    O:= LoadOptionsFromIni(Path);
+    Check('Pack alias: an explicit BreakIfBody=true still wins', O.BreakIfBody and not O.BreakLoopBody);
+    SaveOptionsToIni(O, Path);
+    Check('save drops the alias key', Pos('PackShortBodies', TFile.ReadAllText(Path)) = 0);
+    O:= LoadOptionsFromIni(Path);
+    Check('saved values round-trip without the alias', O.BreakIfBody and not O.BreakLoopBody and not O.BreakWithBody);
+    TFile.WriteAllText(Path, '[Format]' + sLineBreak + 'PackShortBodies=false' + sLineBreak);
+    O:= LoadOptionsFromIni(Path);
+    Check('PackShortBodies=false changes nothing', O.BreakIfBody and O.BreakLoopBody and O.BreakWithBody);
+  finally
+    TFile.Delete(Path);
+  end;
+end;
 // Review 2026-10-14: integers were never range-checked -- Indent=-3 with
 // MaxLen=0 produced zero-indented output with every operator on its own line.
 procedure TestIntRangeClamp;
@@ -351,6 +380,7 @@ begin
     TestLooksLikeUtf8;
     TestSaveFileReplaceFailure;
     TestHelpIds;
+    TestPackShortBodiesAlias;
     Writeln('');
     if GFailures = 0 then
       Writeln('ALL PASS')

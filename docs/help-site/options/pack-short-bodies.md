@@ -1,23 +1,18 @@
 ---
 id: pack-short-bodies
-title: Pack short bodies & case arms
-summary: Pull a short loop/if body or case arm onto one line when reflowing; implies "Case arm on its label line". Off by default.
+title: Pack short bodies & case arms (retired)
+summary: Retired in 1.0.21.0. PackShortBodies = true in an INI is still read: it turns the three Break ... body options off and Case arm on its label line on.
 group: reflow-whitespace
-order: 70
+order: 900
 default: "false"
 ini: PackShortBodies
 since: "1.0.0.0"
-status: "stable"
+status: "retired"
+manual: true
 ---
 
-# Pack short bodies & case arms
+# Pack short bodies & case arms (retired)
 
-When reflowing, pull a SHORT body onto one line: a loop/if header keeps its simple statement ("for I := 0 to N do Inc(X);", "if X then DoIt;") and a case arm collapses onto its label ("0: DoZero;"). Off by default -- every body/arm stays on its own line. A nested control header (if/case/begin...) is never half-merged onto a do/then/label either way.
+Retired in 1.0.21.0 and removed from the Options page. The Break if/then/else body, Break loop body and Break with body options are now two-way (on = body on its own line, off = body joined onto its header when it fits), and Case arm on its label line owns case arms, so this option has no construct of its own left.
 
-Off means only "don't pack": a body already on its header line is not un-packed. On implies [Case arm on its label line](case-arm-on-label-line.md) on. An explicit Break loop/with/if body option wins over Pack for its own construct; Pack decides only what no Break option covers.
-
-## Related
-
-- [Reflow long lines](reflow-lines.md) - Reflow lines that exceed MaxLen. When false, long lines are left as-is.
-- [Trim trailing spaces](trim-trailing.md) - Trim trailing whitespace from every output line.
-- [Max blank lines](max-blank-lines.md) - Maximum consecutive blank lines kept in output. Excess blanks are collapsed.
+An INI that still says `PackShortBodies = true` keeps formatting as before: on load it sets [Break if/then/else body](break-if-body.md), [Break loop body](break-loop-body.md) and [Break with body](break-with-body.md) to false -- except one the same INI sets to true explicitly, which still wins for its own construct -- and [Case arm on its label line](case-arm-on-label-line.md) to true. Saving the settings writes those values and drops the old key. `PackShortBodies = false` changes nothing. The CLI flag `--pack-bodies` is the same alias; `--no-pack-bodies` is accepted and does nothing.

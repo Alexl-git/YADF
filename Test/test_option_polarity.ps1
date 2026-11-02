@@ -69,26 +69,29 @@ $cases = @(
      In = 'Delta:= <195-char sum on one line>'; Want = 'line unchanged'; Show = '^\s*(Alpha,|Beta,?|\);)\s*$|^\s*Delta:='
      Must = @('(?m)^\s*Delta:= Sum3\(Alpha, Beta, Gamma\) \+ [^\r\n]* \+ Sum3\(Alpha, Beta, Beta\);\r?$') }
 
-  # PackShortBodies (default false): ON pulls a short loop/if body or case arm
-  # onto its header line.
-  @{ Id = 'PackShortBodies ON: for body packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T }
+  # PackShortBodies is RETIRED (owner decision Q1, SPEC-2026-11-01 task 2d-1): no
+  # longer an option, but PackShortBodies=true in an INI is a load-time alias for
+  # BreakIfBody/BreakLoopBody/BreakWithBody = false + CaseArmOnLabelLine = true.
+  @{ Id = 'PackShortBodies=true alias: for body packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T }
      In = 'for I:= 0 to N do<NL>Inc(PkA);'; Want = 'one line'
      Must = @('(?m)^\s*for I:= 0 to N do Inc\(PkA\);\r?$') }
-  @{ Id = 'PackShortBodies ON: if body packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T }
+  @{ Id = 'PackShortBodies=true alias: if body packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T }
      In = 'if PkA > 0 then<NL>Dec(PkB);'; Want = 'one line'
      Must = @('(?m)^\s*if PkA > 0 then Dec\(PkB\);\r?$') }
-  @{ Id = 'PackShortBodies ON: case arm packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T }
+  @{ Id = 'PackShortBodies=true alias: case arm packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T }
      In = '0:<NL>Inc(PkC);'; Want = '0: Inc(PkC);'
      Must = @('(?m)^\s*0: Inc\(PkC\);\r?$') }
-  # Owner decision Q1 (SPEC-2026-11-01): OFF means "don't pack" only. It never
-  # un-packs; Break*Body decides for if/loop/with bodies, CaseArmOnLabelLine for
-  # case arms (hence CaseArmOnLabelLine = false here to keep the arm broken).
-  @{ Id = 'PackShortBodies OFF: bodies on their own line stay there'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $F; CaseArmOnLabelLine = $F }
+  @{ Id = 'PackShortBodies=true alias: with body packed too (Q3)'; Fix = 'polarity_breakbody'; Set = @{ PackShortBodies = $T }
+     In = 'with R do<NL>WtB:= IfB;'; Want = 'with R do WtB:= IfB;'
+     Must = @('(?m)^\s*with R do WtB:= IfB;\r?$') }
+  # PackShortBodies=false changes nothing: the Break*Body defaults (ON) and
+  # CaseArmOnLabelLine decide.
+  @{ Id = 'PackShortBodies=false alias: bodies on their own line stay there'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $F; CaseArmOnLabelLine = $F }
      In = 'for/if/case-arm with the body on its own line'; Want = 'unchanged'
      Must = @('(?m)^\s*for I:= 0 to N do\r?\n\s+Inc\(PkA\);\r?$', '(?m)^\s*if PkA > 0 then\r?\n\s+Dec\(PkB\);\r?$', '(?m)^\s*0:\r?\n\s+Inc\(PkC\);\r?$') }
-  @{ Id = 'PackShortBodies OFF: a body already on the header line is not un-packed (Q1)'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $F }
-     In = 'for I:= 0 to N do Inc(PkD); / if PkD > 0 then Dec(PkE);'; Want = 'unchanged'
-     Must = @('(?m)^\s*for I:= 0 to N do Inc\(PkD\);\r?$', '(?m)^\s*if PkD > 0 then Dec\(PkE\);\r?$') }
+  @{ Id = 'PackShortBodies=false alias: Break*Body defaults (ON) put one-line bodies on their own line'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $F }
+     In = 'for I:= 0 to N do Inc(PkD); / if PkD > 0 then Dec(PkE);'; Want = 'bodies on their own line'
+     Must = @('(?m)^\s*for I:= 0 to N do\r?\n\s+Inc\(PkD\);\r?$', '(?m)^\s*if PkD > 0 then\r?\n\s+Dec\(PkE\);\r?$') }
 
   # CollapseShortBlocks (default false): ON folds a short control begin..end
   # onto one line when it fits MaxLen; OFF EXPANDS a one-line block.
@@ -112,30 +115,48 @@ $cases = @(
      In = 'if C then begin<NL>CbA:= 1;<NL>CbB:= 2;<NL>end;'; Want = 'unchanged'
      Must = @('(?m)^\s*if C then begin\r?\n\s+CbA:= 1;\r?\n\s+CbB:= 2;\r?\n\s*end;\r?$', '(?m)^\s*if not C then\r?\n\s*begin\r?\n\s+CbE:= 1;\r?\n\s+CbF:= 2;\r?\n\s*end;\r?$') }
 
-  # BreakIfBody (default false): ON forces then/else bodies of a one-line if
-  # onto their own lines; OFF does not force (CLI: "keep ... inline").
+  # BreakIfBody / BreakLoopBody / BreakWithBody (default TRUE since task 2d-1,
+  # owner decision Q1): two-way. ON = every simple body on its own line; OFF =
+  # the body is joined onto its header when it fits MaxLen. An if/else is all or
+  # nothing (Q9): one line when it fits, else every body on its own line. A body
+  # is never packed onto a header that spans several lines (Q10); a brace comment
+  # after then stays on the header line (Q18); the case else part belongs to
+  # CaseArmOnLabelLine (Q11).
   @{ Id = 'BreakIfBody ON: then/else bodies broken'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $T }
-     In = 'if C then IfA:= 1 else IfA:= 2;'; Want = 'if C then / IfA:= 1 / else / IfA:= 2;'
-     Must = @('(?m)^\s*if C then\r?\n\s+IfA:= 1\r?\n\s*else\r?\n\s+IfA:= 2;\r?$') }
-  @{ Id = 'BreakIfBody OFF: one-line if kept inline, broken if kept broken'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F }
-     In = 'if C then IfA:= 1 else IfA:= 2; + broken IfB'; Want = 'unchanged'
-     Must = @('(?m)^\s*if C then IfA:= 1 else IfA:= 2;\r?$', '(?m)^\s*if C then\r?\n\s+IfB:= 1\r?\n\s*else\r?\n\s+IfB:= 2;\r?$') }
+     In = 'if C then IfA:= 1 else IfA:= 2; / if C then IfE:= 1<NL>else IfE:= 2;'; Want = '4-line form'
+     Must = @('(?m)^\s*if C then\r?\n\s+IfA:= 1\r?\n\s*else\r?\n\s+IfA:= 2;\r?$', '(?m)^\s*if C then\r?\n\s+IfE:= 1\r?\n\s*else\r?\n\s+IfE:= 2;\r?$') }
+  @{ Id = 'BreakIfBody ON: a brace comment after then stays on the header line (Q18)'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $T }
+     In = 'if C then { why } IfD:= 1;'; Want = 'if C then { why } / IfD:= 1;'
+     Must = @('(?m)^\s*if C then \{ why \}\r?\n\s+IfD:= 1;\r?$') }
+  @{ Id = 'BreakIfBody OFF: one-line if kept, 4-line and half-broken if joined (Q1, Q9)'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F }
+     In = 'IfA one line, IfB 4 lines, IfE broken before else'; Want = 'all on one line'
+     Must = @('(?m)^\s*if C then IfA:= 1 else IfA:= 2;\r?$', '(?m)^\s*if C then IfB:= 1 else IfB:= 2;\r?$', '(?m)^\s*if C then IfE:= 1 else IfE:= 2;\r?$', '(?m)^\s*if C then \{ why \} IfD:= 1;\r?$') }
+  @{ Id = 'BreakIfBody OFF + MaxLen 80: an if/else that does not fit gets the 4-line form (Q9)'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F; MaxLen = 80 }
+     In = 'if C then IfF:= ...<NL>else IfF:= ...; (97 chars joined)'; Want = 'if C then / IfF:= ... / else / IfF:= ...;'
+     Must = @('(?m)^\s*if C then\r?\n\s+IfF:= IfA \+ IfB \+ LpA \+ LpB \+ LpC \+ LpD\r?\n\s*else\r?\n\s+IfF:= IfA - IfB - LpA - LpB - LpC - LpD;\r?$') }
+  @{ Id = 'BreakIfBody OFF: a body is never packed onto a header spanning several lines (Q10)'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F }
+     In = 'if (LpA > 0)<NL>and (LpB > 0) then<NL>Inc(LpA);'; Want = 'body stays on its own line'
+     Must = @('(?m)^\s*and \(LpB > 0\) then\r?\n\s+Inc\(LpA\);\r?$') }
+  @{ Id = 'BreakIfBody OFF + ReflowLines OFF: still joined'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F; ReflowLines = $F }
+     In = 'IfB 4 lines'; Want = 'one line'
+     Must = @('(?m)^\s*if C then IfB:= 1 else IfB:= 2;\r?$') }
 
-  # BreakLoopBody (default false).
   @{ Id = 'BreakLoopBody ON: while/for bodies broken, commented body left alone'; Fix = 'polarity_breakbody'; Set = @{ BreakLoopBody = $T }
      In = 'while LpA > 0 do Dec(LpA); / for ... do Inc(LpB);'; Want = 'body on its own line'
      Must = @('(?m)^\s*while LpA > 0 do\r?\n\s+Dec\(LpA\);\r?$', '(?m)^\s*for I:= 0 to 3 do\r?\n\s+Inc\(LpB\);\r?$', '(?m)^\s*while LpE > 0 do Dec\(LpE\); // keep\r?$') }
-  @{ Id = 'BreakLoopBody OFF: inline kept inline, broken kept broken'; Fix = 'polarity_breakbody'; Set = @{ BreakLoopBody = $F }
-     In = 'LpA/LpB inline, LpC/LpD broken'; Want = 'unchanged'
-     Must = @('(?m)^\s*while LpA > 0 do Dec\(LpA\);\r?$', '(?m)^\s*for I:= 0 to 3 do Inc\(LpB\);\r?$', '(?m)^\s*while LpC > 0 do\r?\n\s+Dec\(LpC\);\r?$', '(?m)^\s*for I:= 0 to 3 do\r?\n\s+Inc\(LpD\);\r?$') }
+  @{ Id = 'BreakLoopBody OFF: inline kept inline, broken joined (Q1)'; Fix = 'polarity_breakbody'; Set = @{ BreakLoopBody = $F }
+     In = 'LpA/LpB inline, LpC/LpD broken'; Want = 'all on one line'
+     Must = @('(?m)^\s*while LpA > 0 do Dec\(LpA\);\r?$', '(?m)^\s*for I:= 0 to 3 do Inc\(LpB\);\r?$', '(?m)^\s*while LpC > 0 do Dec\(LpC\);\r?$', '(?m)^\s*for I:= 0 to 3 do Inc\(LpD\);\r?$', '(?m)^\s*while LpE > 0 do Dec\(LpE\); // keep\r?$') }
+  @{ Id = 'BreakLoopBody OFF + ReflowLines OFF: still joined'; Fix = 'polarity_breakbody'; Set = @{ BreakLoopBody = $F; ReflowLines = $F }
+     In = 'LpC broken'; Want = 'one line'
+     Must = @('(?m)^\s*while LpC > 0 do Dec\(LpC\);\r?$') }
 
-  # BreakWithBody (default false).
   @{ Id = 'BreakWithBody ON: with body broken'; Fix = 'polarity_breakbody'; Set = @{ BreakWithBody = $T }
      In = 'with R do WtA:= IfA;'; Want = 'body on its own line'
      Must = @('(?m)^\s*with R do\r?\n\s+WtA:= IfA;\r?$') }
-  @{ Id = 'BreakWithBody OFF: inline kept inline, broken kept broken'; Fix = 'polarity_breakbody'; Set = @{ BreakWithBody = $F }
-     In = 'WtA inline, WtB broken'; Want = 'unchanged'
-     Must = @('(?m)^\s*with R do WtA:= IfA;\r?$', '(?m)^\s*with R do\r?\n\s+WtB:= IfB;\r?$') }
+  @{ Id = 'BreakWithBody OFF: inline kept inline, broken joined (Q1)'; Fix = 'polarity_breakbody'; Set = @{ BreakWithBody = $F }
+     In = 'WtA inline, WtB broken'; Want = 'both on one line'
+     Must = @('(?m)^\s*with R do WtA:= IfA;\r?$', '(?m)^\s*with R do WtB:= IfB;\r?$') }
 
   # BreakParamsOnePerLine (default false).
   @{ Id = 'BreakParamsOnePerLine ON: one parameter per line, groups split, calls untouched'; Fix = 'polarity_params'; Set = @{ BreakParamsOnePerLine = $T }
@@ -210,17 +231,28 @@ $cases = @(
   # CaseArmOnLabelLine (default true, owner decision Q2): ON = a case arm whose
   # body is one short simple statement sits on the label line (joined when it
   # fits MaxLen); OFF = the statement goes on its own line under the label.
-  # PackShortBodies ON implies ON. begin/case/try arms, the case else part, a
+  # PackShortBodies=true (alias) implies ON. begin/case/try arms, a
   # record variant part and "name: type;" declarations are never touched.
-  @{ Id = 'CaseArmOnLabelLine ON: arm under its label is joined, inline arms kept'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T }
+  @{ Id = 'CaseArmOnLabelLine ON: arm under its label is joined, inline arms kept'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T; BreakIfBody = $T }
      In = '0:<NL>Inc(CaA); / 1: Inc(CaB); / 3: Inc(CaD); // keep'; Want = '0: Inc(CaA); and the rest unchanged'
-     Must = @('(?m)^\s*0: Inc\(CaA\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$', '(?m)^\s*3: Inc\(CaD\); // keep\r?$', '(?m)^\s*else\r?\n\s+CaA:= 1;\r?$',
+     Must = @('(?m)^\s*0: Inc\(CaA\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$', '(?m)^\s*3: Inc\(CaD\); // keep\r?$', '(?m)^\s*else CaA:= 1;\r?$', '(?m)^\s*else Dec\(CaB\);\r?$', '(?m)^\s*7: Inc\(CaA, CaB\);\r?$',
               '(?m)^\s*0\s*: \(IntVal: Integer\);\r?$', '(?m)^\s*4:\r?\n\s+case CaB of\r?$', '(?m)^\s*0: Inc\(CaB\);\r?$', '(?m)^\s*5: if CaA > 0 then Inc\(CaA\) else Dec\(CaA\);\r?$')
-     Not = @('(?m)^[ ]*2:[ ]*begin', '(?m)^[ ]*4:[ ]*case') }
+     Not = @('(?m)^[ ]*2:[ ]*begin', '(?m)^[ ]*4:[ ]*case', '(?m)Inc\([^)
+]*\)[ ]+;') }
+  # Q11 + Q16 (task 2d-1): the case else part follows CaseArmOnLabelLine, never
+  # BreakIfBody; a one-line arm is never padded before its ";".
+  @{ Id = 'CaseArmOnLabelLine OFF + BreakIfBody OFF: case else stays broken'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; BreakIfBody = $F }
+     In = 'else<NL>CaA:= 1;'; Want = 'unchanged'
+     Must = @('(?m)^\s*else\r?\n\s+CaA:= 1;\r?$', '(?m)^\s*else\r?\n\s+Dec\(CaB\);\r?$') }
+  @{ Id = 'CaseArmOnLabelLine ON + ReflowLines OFF: no ";" padding on one-line arms (Q16)'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T; ReflowLines = $F }
+     In = '1: Inc(CaB); / 7: Inc(CaA, CaB);'; Want = 'no blanks before ";"'
+     Must = @('(?m)^\s*7: Inc\(CaA, CaB\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$')
+     Not = @('(?m)Inc\([^)
+]*\)[ ]+;') }
   @{ Id = 'CaseArmOnLabelLine OFF: arm statements go under their label'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F }
      In = '1: Inc(CaB); / 3: Inc(CaD); // keep / 5: if ..'; Want = '1: / Inc(CaB); and 3: / Inc(CaD); // keep'
-     Must = @('(?m)^\s*0:\r?\n\s+Inc\(CaA\);\r?$', '(?m)^\s*1:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*3:\r?\n\s+Inc\(CaD\); // keep\r?$', '(?m)^\s*else\r?\n\s+CaA:= 1;\r?$',
-              '(?m)^\s*0:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*5:\r?\n\s+if CaA > 0 then Inc\(CaA\) else Dec\(CaA\);\r?$',
+     Must = @('(?m)^\s*0:\r?\n\s+Inc\(CaA\);\r?$', '(?m)^\s*1:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*3:\r?\n\s+Inc\(CaD\); // keep\r?$', '(?m)^\s*else\r?\n\s+CaA:= 1;\r?$', '(?m)^\s*else\r?\n\s+Dec\(CaB\);\r?$',
+              '(?m)^\s*0:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*5:\r?\n\s+if CaA > 0 then\r?\n\s+Inc\(CaA\)\r?\n\s*else\r?\n\s+Dec\(CaA\);\r?$',
               '(?m)^\s*0\s*: \(IntVal: Integer\);\r?$', '(?m)^\s*case Kind: Integer of\r?$', '(?m)^\s*CaA\s*: Integer;\r?$', '(?m)^procedure RunCaseArm\(N: Integer\);\r?$')
      Not = @('(?m)^[ ]*[0-5]:[ ]*(Inc|Dec|begin|case|if)') }
   # SPEC task 2c: moving the statement under its label shifts the continuation
@@ -281,8 +313,8 @@ $cases = @(
      In = 'var DcA: Integer:= 3;  (inline)'; Want = 'unchanged'
      Must = @('(?m)^\s*var DcA: Integer:= 3;\r?$') }
 
-  # Owner decision Q2 (SPEC-2026-11-01): an explicit Break*Body option wins for
-  # its own construct; Pack affects only what no Break option covers (case arms).
+  # Owner decision Q2 (SPEC-2026-11-01), kept by the alias: a Break*Body set to
+  # true explicitly in the same INI still wins over PackShortBodies=true.
   @{ Id = 'PackShortBodies + BreakIfBody + BreakLoopBody all ON (bodies fixture): Break wins'; Fix = 'polarity_breakbody'; Set = @{ PackShortBodies = $T; BreakIfBody = $T; BreakLoopBody = $T }
      In = 'while LpA > 0 do Dec(LpA); / if C then IfA:= 1 else IfA:= 2;'; Want = 'bodies broken'
      Must = @('(?m)^\s*while LpA > 0 do\r?\n\s+Dec\(LpA\);\r?$', '(?m)^\s*if C then\r?\n\s+IfA:= 1\r?\n\s*else\r?\n\s+IfA:= 2;\r?$') }
@@ -291,9 +323,7 @@ $cases = @(
      Must = @('(?m)^\s*for I:= 0 to N do\r?\n\s+Inc\(PkA\);\r?$', '(?m)^\s*if PkA > 0 then\r?\n\s+Dec\(PkB\);\r?$', '(?m)^\s*0: Inc\(PkC\);\r?$', '(?m)^\s*1: Inc\(PkF\);\r?$') }
 )
 
-$questions = @(
-  'PackShortBodies ON also packs a "with R do" body (observed with the bodies fixture) -- the spec only names loop/if bodies and case arms.'
-)
+$questions = @()
 
 # --- run --------------------------------------------------------------------
 $outputs = @{}   # run key -> formatted text ($null = the run itself failed)

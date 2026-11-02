@@ -73,7 +73,6 @@ type
     AlignDeclSemicolons  : Boolean      ;
     BreakCaseLabels      : Boolean      ;
     IndentComments       : Boolean      ;
-    PackShortBodies      : Boolean      ;
     CaseArmOnLabelLine   : Boolean      ;
     CollapseShortBlocks  : Boolean      ;
     BreakLoopBody        : Boolean      ;
@@ -134,6 +133,20 @@ type
     GetVal        : TOptGetter    ;
     SetVal        : TOptSetter    ;
   end; // record
+
+const
+  /// <summary>INI key of the retired PackShortBodies option (owner decision Q1,
+  /// 2026-11-01). Not in the option table any more; LoadOptionsFromIni still reads
+  /// it as a load-time alias and SaveOptionsToIni deletes it.</summary>
+  PACK_ALIAS_KEY = 'PackShortBodies';
+
+/// <summary>Applies the retired PackShortBodies option to AOpts: the three
+/// Break*Body options OFF (bodies joined onto their header when they fit) and
+/// CaseArmOnLabelLine ON.</summary>
+/// <param name="AOpts">Options to update in place.</param>
+/// <remarks>Used by the INI loader (PackShortBodies=true) and the CLI
+/// (--pack-bodies). PackShortBodies=false / --no-pack-bodies change nothing.</remarks>
+procedure ApplyPackShortBodiesAlias(var AOpts: TYadfOptions);
 
 /// <returns><!-- drag-lint:auto type -->TYadfOptions</returns>
 /// <remarks>
@@ -664,12 +677,11 @@ begin
   Result.AlignDeclSemicolons  := True;
   Result.BreakCaseLabels      := False;
   Result.IndentComments       := True;
-  Result.PackShortBodies      := False;
   Result.CaseArmOnLabelLine   := True;
   Result.CollapseShortBlocks  := False;
-  Result.BreakLoopBody        := False;
-  Result.BreakWithBody        := False;
-  Result.BreakIfBody          := False;
+  Result.BreakLoopBody        := True;
+  Result.BreakWithBody        := True;
+  Result.BreakIfBody          := True;
   Result.BreakParamsOnePerLine:= False;
   Result.JoinRoutineHeaders   := True ;
   Result.BreakLongExpressions := True;
@@ -929,12 +941,11 @@ begin
     MakeOpt('JoinRoutineHeaders', 'Declarations', 'Join routine headers', 'Join a routine header the author split across lines back onto one line, wrapping it at the max length. Off = one parameter per line instead (implies "Break parameters one per line"). On by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.JoinRoutineHeaders end, procedure(var O: TYadfOptions; const V: Variant) begin O.JoinRoutineHeaders:= V end),
     MakeOpt('IndentComments', 'Comments', 'Indent comments', 'Re-indent comment-only lines to the surrounding code depth. A "//." comment keeps its indentation.'  //." always keeps its authored indentation even when this is on (an '
       , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.IndentComments end, procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments:= V end),
-    MakeOpt('PackShortBodies', 'Reflow & whitespace', 'Pack short bodies & case arms', 'Pull a short loop/if body or case arm onto one line when reflowing; implies "Case arm on its label line". Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackShortBodies end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies:= V end),
-    MakeOpt('CaseArmOnLabelLine', 'Reflow & whitespace', 'Case arm on its label line', 'Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"); off = the statement goes on its own line under the label. Always on while "Pack short bodies" is on.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CaseArmOnLabelLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.CaseArmOnLabelLine:= V end),
+    MakeOpt('CaseArmOnLabelLine', 'Reflow & whitespace', 'Case arm on its label line', 'Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"), the case else part included ("else DoOther;"); off = the statement goes on its own line under the label.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CaseArmOnLabelLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.CaseArmOnLabelLine:= V end),
     MakeOpt('CollapseShortBlocks', 'Reflow & whitespace', 'Collapse short begin..end blocks', 'Fold a short begin..end body of if/for/while/with onto one line when it fits. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CollapseShortBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks:= V end),
-    MakeOpt('BreakLoopBody', 'Reflow & whitespace', 'Break loop body onto its own line', 'Put the body of a single-line for/while loop on its own indented line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
-    MakeOpt('BreakWithBody', 'Reflow & whitespace', 'Break with body onto its own line', 'Put the body of a single-line with..do on its own indented line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),
-    MakeOpt('BreakIfBody', 'Reflow & whitespace', 'Break if/then/else body onto its own line', 'Put the then/else body of a single-line if on its own indented line. Off by default.'
+    MakeOpt('BreakLoopBody', 'Reflow & whitespace', 'Break loop body onto its own line', 'On: the body of a for/while loop goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
+    MakeOpt('BreakWithBody', 'Reflow & whitespace', 'Break with body onto its own line', 'On: the body of a with..do goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),
+    MakeOpt('BreakIfBody', 'Reflow & whitespace', 'Break if/then/else body onto its own line', 'On: the then/else bodies of an if go on their own indented lines. Off: the whole if ("if C then A else B;") goes on one line when it fits the max length, else every body on its own line.'
       , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakIfBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakIfBody:= V end),
     MakeOpt('BreakLongExpressions', 'Reflow & whitespace', 'Smart expression breakup', 'When a line exceeds the max length, break it at every top-level operator, one component per line. Off = greedy packing.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLongExpressions end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLongExpressions:= V end),
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Downgrade inline vars',
@@ -1004,11 +1015,22 @@ begin
   end;
 end; // function
 
+procedure ApplyPackShortBodiesAlias(var AOpts: TYadfOptions);
+begin
+  AOpts.BreakIfBody       := False;
+  AOpts.BreakLoopBody     := False;
+  AOpts.BreakWithBody     := False;
+  AOpts.CaseArmOnLabelLine:= True;
+end;
+
 function LoadOptionsFromIni(const APath: string): TYadfOptions;
 var
-  Ini: TIniFile        ;
-  T  : TArray<TOptInfo>;
-  i  : Integer         ;
+  Ini     : TIniFile        ;
+  T       : TArray<TOptInfo>;
+  i       : Integer         ;
+  KeepIf  : Boolean         ;
+  KeepLoop: Boolean         ;
+  KeepWith: Boolean         ;
 begin
   Result:= DefaultOptions;
   if (APath = '') or (not FileExists(APath)) then Exit;
@@ -1024,6 +1046,20 @@ begin
       okString, okEnum:
         if Ini.ValueExists('Format', T[i].Ident) then
           T[i].SetVal(Result, StripIniComment(Ini.ReadString('Format', T[i].Ident, '')));
+    end;
+    // Retired PackShortBodies (owner decision Q1, 2026-11-01): still honoured as a
+    // load-time alias. True = join every if/loop/with body and case arm, except that a
+    // Break*Body the same file sets to true explicitly keeps winning for its own
+    // construct (the old precedence), so an old INI formats exactly as before.
+    if ReadBoolIni(Ini, 'Format', PACK_ALIAS_KEY, False) then
+    begin
+      KeepIf  := ReadBoolIni(Ini, 'Format', 'BreakIfBody'  , False);
+      KeepLoop:= ReadBoolIni(Ini, 'Format', 'BreakLoopBody', False);
+      KeepWith:= ReadBoolIni(Ini, 'Format', 'BreakWithBody', False);
+      ApplyPackShortBodiesAlias(Result);
+      Result.BreakIfBody  := KeepIf  ;
+      Result.BreakLoopBody:= KeepLoop;
+      Result.BreakWithBody:= KeepWith;
     end;
   finally
     Ini.Free;
@@ -1060,6 +1096,9 @@ begin
       okString, okEnum:
         Ini.WriteString('Format', T[i].Ident, VarToStr(T[i].GetVal(AOpts)));
     end; // case
+    // The retired alias key is folded into the Break* values above; drop it so it
+    // cannot override them on the next load.
+    Ini.DeleteKey('Format', PACK_ALIAS_KEY);
     Ini.UpdateFile;
   finally
     Ini.Free;

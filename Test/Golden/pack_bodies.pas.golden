@@ -24,8 +24,7 @@ begin
     1:
       if Flag then
         DoOne;
-    else
-      DoDefault;
+    else DoDefault;
   end;
 end;
 

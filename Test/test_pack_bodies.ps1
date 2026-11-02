@@ -1,6 +1,8 @@
-# PackShortBodies option (--pack-bodies / --no-pack-bodies). OFF (default) keeps
-# a loop/if body on its own line under the header; ON pulls a SHORT simple body
-# onto the header line. A nested control header (if under for) is never pulled
+# Retired PackShortBodies option, still accepted as an alias (--pack-bodies =
+# BreakIfBody/BreakLoopBody/BreakWithBody off + CaseArmOnLabelLine on;
+# --no-pack-bodies changes nothing, task 2d-1). The Break*Body defaults (on) keep
+# a loop/if body on its own line under the header; the alias pulls a SHORT simple
+# body onto the header line. A nested control header (if under for) is never pulled
 # up in either mode (no half-merge). Exit 0 = pass.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')

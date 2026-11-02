@@ -106,7 +106,9 @@ $greedy = FmtBody '  if (Aa > 0) or (Bb > 0) or (AlphaFlagIsLong and BetaFlagIsL
 if ($greedy -eq $three) { Fail 'control: --break-expr output must differ from the greedy default' }
 
 # A line that already fits is untouched.
-$short = FmtBody '  if Aa > 0 then Writeln(1);' '--break-expr'
+# --no-break-if: BreakIfBody (default on since task 2d-1) would move the body;
+# this case is about BreakLongExpressions leaving a fitting line alone.
+$short = FmtBody '  if Aa > 0 then Writeln(1);' '--break-expr --no-break-if'
 MustMatch $short '(?m)^\s+if Aa > 0 then Writeln\(1\);\s*$' 'short: fitting line untouched'
 
 # ----- Task 3: trailing then / do on their own line, at the header column -----

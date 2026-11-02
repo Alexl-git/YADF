@@ -3,7 +3,7 @@ id: collapse-short-blocks
 title: Collapse short begin..end blocks
 summary: Fold a short begin..end body of if/for/while/with onto one line when it fits. Off by default.
 group: reflow-whitespace
-order: 90
+order: 80
 default: "false"
 ini: CollapseShortBlocks
 since: "1.0.0.0"
