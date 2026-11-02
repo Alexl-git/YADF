@@ -75,7 +75,7 @@ type
   /// the output at least as often (nothing lost; duplicates and new names
   /// tolerated).
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: declaration (YADF.Guard.pas), YADF.Guard.CodeStreamReason (YADF.Guard.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Guard.pas), [YADF]YADF.Guard.CodeStreamReason (YADF.Guard.pas), [YADF]YADF.Guard.FormatPreservesContent/6 (YADF.Guard.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TGuardCodeMode = (gcNone, gcStrict, gcSplit, gcD10);
@@ -92,7 +92,7 @@ type
 /// <remarks>
 /// Same purity/fail-closed contract as the other overloads.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Guard.FormatPreservesContent/5 (YADF.Guard.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas)</para>
+/// <para>Called from: [YADF]YADF.Guard.FormatPreservesContent/5 (YADF.Guard.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas)</para>
 /// <para>Calls: YADF.Guard.CodeStreamReason, YADF.Guard.CountOccurrences, YADF.Guard.DropFlagged, YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence</para>
 /// <para>Returns: False; AReason = ''</para>
 /// <para>Overload 2 of 3</para>

@@ -55,7 +55,7 @@ type
   /// Pure value record, no heap state -- copy/discard freely.
   /// Not thread-shared; give each scan its own record.
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas), [YADF]YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindComponentBoundaries (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindOperatorPositionsAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas), [YADF]YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelSepPositions (YADF.Layout.pas), [YADF]YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), [YADF]YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)</para>
+  /// <para>Used by: [YADF]YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas), [YADF]YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.FindComponentBoundaries (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.FindOperatorPositionsAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas), [YADF]YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelSepPositions (YADF.Layout.pas), [YADF]YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), [YADF]YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)</para>
   /// <para>Used in units: YADF.Layout, YADF.LineScan</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -72,7 +72,7 @@ type
     /// <summary>Clears all state; call once before scanning a document.</summary>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// <para>Called from: [YADF]YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas), [YADF]YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindComponentBoundaries (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindOperatorPositionsAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas), [YADF]YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelSepPositions (YADF.Layout.pas), [YADF]YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), [YADF]YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)</para>
+    /// <para>Called from: [YADF]YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas), [YADF]YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.FindComponentBoundaries (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.FindOperatorPositionsAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas), [YADF]YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelSepPositions (YADF.Layout.pas), [YADF]YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), [YADF]YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)</para>
     /// <para>Writes: InBrace, InParenStar, InString, Depth, ClampDepth, TrackAngle, AngleDepth</para>
     /// <seealso cref="YADF.LineScan.TLineScanState.AtTopLevel"/>
     /// <seealso cref="YADF.LineScan.TLineScanState.BeginLine"/>
@@ -149,7 +149,7 @@ type
     /// <returns>What the position landed on.</returns>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// <para>Called from: [YADF]YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas), [YADF]YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindComponentBoundaries (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindOperatorPositionsAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders.ScanLine (YADF.Layout.pas) ?, [YADF]YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas), [YADF]YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelSepPositions (YADF.Layout.pas), [YADF]YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), [YADF]YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)</para>
+    /// <para>Called from: [YADF]YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas), [YADF]YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.FindComponentBoundaries (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.FindOperatorPositionsAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders.ScanLine (YADF.Layout.pas) ?, [YADF]YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas), [YADF]YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelSepPositions (YADF.Layout.pas), [YADF]YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), [YADF]YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)</para>
     /// <para>Returns: seLineComment; seCode; seEndOfLine</para>
     /// <para>Complexity: 20 (cyclomatic, outer body), 64 lines (full implementation)</para>
     /// <para>Reads: InBrace, InParenStar, InString   Writes: InBrace, InParenStar, InString</para>
@@ -170,7 +170,7 @@ type
     /// <param name="i"><!-- drag-lint:auto type -->var Integer</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// <para>Called from: [YADF]YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas), [YADF]YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindComponentBoundaries (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindOperatorPositionsAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders.ScanLine (YADF.Layout.pas) ?, [YADF]YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas), [YADF]YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelSepPositions (YADF.Layout.pas), [YADF]YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), [YADF]YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)</para>
+    /// <para>Called from: [YADF]YADF.Layout.AlignDeclarationSemicolons.HasDeclShape (YADF.Layout.pas), [YADF]YADF.Layout.FindAnchorAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.FindComponentBoundaries (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.FindOperatorPositionsAtTopLevel (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders.ScanLine (YADF.Layout.pas) ?, [YADF]YADF.Layout.JoinRoutineHeaders.WrapHeaderLine (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks.HasLineCommentOrOpenBlock (YADF.Layout.pas), [YADF]YADF.Layout.SplitMultiVarDeclarations (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelLineCommentCol (YADF.Layout.pas), [YADF]YADF.Layout.TopLevelSepPositions (YADF.Layout.pas), [YADF]YADF.LineScan.ComputeBlockCommentLock (YADF.LineScan.pas), [YADF]YADF.LineScan.ComputeLineStartDepths (YADF.LineScan.pas)</para>
     /// <para>Calls: YADF.LineScan.IsGenericOpen</para>
     /// <para>Complexity: 11 (cyclomatic, outer body), 9 lines (full implementation)</para>
     /// <para>Reads: Depth, ClampDepth, TrackAngle, AngleDepth   Writes: Depth, AngleDepth</para>
@@ -193,7 +193,7 @@ type
 /// <returns>One flag per line, same indexing as ALines.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Layout.BreakControlBodies (YADF.Layout.pas), YADF.Layout.CollapseShortBlocks (YADF.Layout.pas), YADF.Layout.FormatSource.BreakLongLines (YADF.Layout.pas), YADF.Layout.ReflowLineBreaks (YADF.Layout.pas)</para>
+/// <para>Called from: [YADF]YADF.Layout.BreakControlBodies (YADF.Layout.pas), [YADF]YADF.Layout.CollapseShortBlocks (YADF.Layout.pas), [YADF]YADF.Layout.ExpandShortBlocks (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.BreakLongLines (YADF.Layout.pas), [YADF]YADF.Layout.JoinControlBodies (YADF.Layout.pas), [YADF]YADF.Layout.PackStatementLines (YADF.Layout.pas), [YADF]YADF.Layout.ReflowLineBreaks (YADF.Layout.pas), [YADF]YADF.Layout.SplitStatementLines (YADF.Layout.pas)</para>
 /// <para>Calls: YADF.LineScan.TLineScanState.BeginLine, YADF.LineScan.TLineScanState.InBlockComment, YADF.LineScan.TLineScanState.Reset, YADF.LineScan.TLineScanState.SkipNonCode, YADF.LineScan.TLineScanState.StepCode</para>
 /// <seealso cref="YADF.LineScan.TLineScanState.BeginLine"/>
 /// <seealso cref="YADF.LineScan.TLineScanState.InBlockComment"/>
@@ -213,7 +213,7 @@ function ComputeBlockCommentLock(ALines: TStringList): TArray<Boolean>;
 /// <returns>One depth per line, same indexing as ALines.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Layout.AlignByAnchor (YADF.Layout.pas), YADF.Layout.AlignDeclarationSemicolons (YADF.Layout.pas)</para>
+/// <para>Called from: [YADF]YADF.Layout.AlignByAnchor (YADF.Layout.pas), [YADF]YADF.Layout.AlignDeclarationSemicolons (YADF.Layout.pas), [YADF]YADF.Layout.BreakControlBodies (YADF.Layout.pas)</para>
 /// <para>Calls: YADF.LineScan.TLineScanState.BeginLine, YADF.LineScan.TLineScanState.Reset, YADF.LineScan.TLineScanState.SkipNonCode, YADF.LineScan.TLineScanState.StepCode</para>
 /// <seealso cref="YADF.LineScan.TLineScanState.BeginLine"/>
 /// <seealso cref="YADF.LineScan.TLineScanState.Reset"/>

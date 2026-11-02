@@ -459,6 +459,13 @@ $cases = @(
   @{ Id = 'PackStatements ON + MaxLen 40 (the minimum): packing stops at MaxLen'; Fix = 'polarity_stmts'; Set = @{ PackStatements = $T; MaxLen = '40' }
      In = 'five statements'; Want = 'StA..StD (37 chars) / StE'; Show = 'StA:=|StD:=|StE:='
      Must = @('(?m)^\s*StA:= 1; StB:= 2; StC:= 3; StD:= 4;\r?\n\s*StE:= 5;\r?$') }
+  # Task 5b: column padding (`cfgML_STR_AXISZ     .Text   :=`, the alignment's own
+  # output) is not measured -- packed exactly like the plain statements, so the
+  # next format packs the same (idempotence; ORM3 uSetupDefaultsFrm).
+  @{ Id = 'PackStatements ON: padded statements pack like plain ones (no blank kept before the member dot)'; Fix = 'polarity_pack_align'; Set = @{ PackStatements = $T; CollapseShortBlocks = $T; BreakIfBody = $F; BreakLoopBody = $F; CaseArmOnLabelLine = $F }
+     In = 'cfgML_STR_AXISZ     .Text   := ...; (one per line, padded)'; Want = 'three per line, tight dots'; Show = 'cfgML_STR_AXISZ|cfgUseAbbrML'
+     Must = @('(?m)^\s*cfgML_STR_AXISZ\.Text:= SetupDefaultsRec\.ML_STR_AXISZ; cfgML_STR_DATUM1\.Text:= SetupDefaultsRec\.ML_STR_DATUM1; cfgSetValuetoZeroUSL\.Checked:= SetupDefaultsRec\.SetValuetoZeroUSL;\r?$')
+     Not = @('\w \.(Text|Checked)') }
   @{ Id = 'PackStatements ON: a block keyword is never packed (repeat / try / case lines, the if block)'; Fix = 'polarity_stmts'; Set = @{ PackStatements = $T }
      In = 'StE:= 5; / repeat ...'; Want = 'repeat starts its line'
      Must = @('(?m)^\s*repeat\r?$', '(?m)^\s*StE:= 6;\r?$')

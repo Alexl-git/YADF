@@ -32,8 +32,8 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Debug.pas), [YADF]declaration (YADF.Groups.pas), [YADF]YADF.Debug.WalkGroup (YADF.Debug.pas), [YADF]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), [YADF]YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), [YADF]YADF.Groups.IsVariantPartCase (YADF.Groups.pas), [YADF]YADF.Groups.ParseGroups (YADF.Groups.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.EndLineTailIsMultiline (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.TrailingCommentIdx (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.FindChildGroupAt (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.ParensContentInlineWidth (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.RenderParensBroken (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource.WalkGroup (YADF.Layout.pas),
-  /// [YADF]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YadfMain.DebugTree (YadfMain.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Debug.pas), [YADF]declaration (YADF.Groups.pas), [YADF]YADF.Debug.RenderGroupTree (YADF.Debug.pas) ?, [YADF]YADF.Debug.WalkGroup (YADF.Debug.pas), [YADF]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), [YADF]YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), [YADF]YADF.Groups.IsVariantPartCase (YADF.Groups.pas), [YADF]YADF.Groups.ParseGroups (YADF.Groups.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.EndLineTailIsMultiline (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.TrailingCommentIdx (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas) ?, [YADF]YADF.Layout.FormatSourceOnce.FindChildGroupAt (YADF.Layout.pas) ?, [YADF]YADF.Layout.FormatSourceOnce.ParensContentInlineWidth (YADF.Layout.pas) ?,
+  /// [YADF]YADF.Layout.FormatSourceOnce.RenderParensBroken (YADF.Layout.pas) ?, [YADF]YADF.Layout.FormatSourceOnce.WalkGroup (YADF.Layout.pas) ?, [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YadfMain.DebugTree (YadfMain.pas)</para>
   /// <para>Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -72,7 +72,7 @@ type
 /// <returns>Observed: Root.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), YADF.Layout.FormatSource/3 (YADF.Layout.pas), YadfMain.DebugTree (YadfMain.pas)</para>
+/// <para>Called from: [YADF]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF]YadfMain.DebugTree (YadfMain.pas)</para>
 /// <para>Calls: YADF.Groups.IsRecordConstraint, YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx, YADF.Groups.TGroup.Create</para>
 /// <para>Returns: Root</para>
 /// <para>Complexity: 23 (cyclomatic, outer body), 58 lines (full implementation)</para>

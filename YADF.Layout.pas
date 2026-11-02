@@ -118,19 +118,16 @@ function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 /// CurLine - track the current output position so the walker can decide whether a parens group fits
 /// inline at the current column or must be broken. Block-end labels are NOT decided here: they are
 /// a post-pass over the final line-broken text (ApplyBlockEndLabels), because the line count the
-/// walker sees is not the one the reader gets.
+/// walker sees is not the one the reader gets. With BreakLongExpressions ON the pipeline may run
+/// twice: when the walker left an over-long bracketed list inline because an operator break on its
+/// line comes first, the second run decides the list at the column the break gave it (idempotency,
+/// SPEC-2026-11-01 task 5a).
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)</para>
-/// <para>Calls: AddIfWord, AddIfWordAtDepth, BreakComponents, BreakLineByOperators, CharInSet, CodeLen, CollectParensItems, ComputeBlockCommentLock, Copy, EmitText (+56 more)</para>
+/// <para>Calls: YADF.Layout.FormatSourceOnce</para>
 /// <para>Overload 2 of 2</para>
-/// <para>Complexity: 33 (cyclomatic, outer body), 828 lines (full implementation)</para>
-/// <para>Mutates: ADeclineReason (out)</para>
 /// <para>Directives: overload</para>
-/// <seealso cref="YADF.Groups.ParseGroups"/>
-/// <seealso cref="YADF.Guard.FormatPreservesContent"/>
-/// <seealso cref="YADF.Layout.AlignByAnchor"/>
-/// <seealso cref="YADF.Layout.AlignDeclarationSemicolons"/>
-/// <seealso cref="YADF.Layout.ApplyBlockEndLabels"/>
+/// <seealso cref="YADF.Layout.FormatSourceOnce"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string; overload;
@@ -1839,10 +1836,12 @@ var
   T      : TToken        ;
   Tokens : TTokenList    ;
 
-  // True when the blank token AIdx sits between code and a `:` / `;` (Q13).
+  // True when the blank token AIdx sits between code and a `:` / `;` (Q13) or a
+  // member-access `.` (task 5b: the shape alignment pads `A  .X:= 1`; kept, that
+  // padding made the next format measure -- and pack -- the line differently).
   function BlankBeforeColonOrSemi(AIdx: Integer): Boolean;
   begin
-    Result:= (AIdx > 0) and (AIdx + 1 < Tokens.Count) and (Tokens[AIdx + 1].Kind in [ptColon, ptSemiColon]);
+    Result:= (AIdx > 0) and (AIdx + 1 < Tokens.Count) and (Tokens[AIdx + 1].Kind in [ptColon, ptSemiColon, ptPoint]);
     if Result then
       Result:= (Tokens[AIdx - 1].Kind not in [ptAnsiComment, ptBorComment, ptSlashesComment]) and not Tokens[AIdx - 1].Text.StartsWith('{');
   end;
@@ -3974,7 +3973,7 @@ type
 /// <remarks>The case `else` part belongs to CaseArmOnLabelLine and is never split
 /// here (owner decision Q11). A `{ }` / `(* *)` comment right after then/do/else
 /// stays on the header line (Q18).</remarks>
-function BreakControlBodies(const S: string; ASplit, ASplitShort: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@e405, cognitive-complexity@5743 -- one segment walk per line
+function BreakControlBodies(const S: string; ASplit, ASplitShort: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@a8d5, cognitive-complexity@3324 -- one segment walk per line
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -4036,6 +4035,14 @@ var
     end;
   end;
 
+  // True when the lse at W[AElse] is an lse if -- the next 	hen is that
+  // if's own. Any other word after the else (lse begin if B then) means the
+  // 	hen belongs to a nested statement: gluing lse begin if B then as one
+  // header split a folded block on every second format (task 5b).
+  function ElseIfAt(AElse: Integer): Boolean;
+  begin
+    Result:= CtlStartsWord(TrimLeft(Copy(Cur, AftP[AElse], MaxInt)), 'if');
+  end;
   procedure OutLine(const L: string);
   begin
     OutVal.Append(L);
@@ -4132,7 +4139,7 @@ begin
                   k:= 1;
                 end;
               end
-              else if (Length(W) >= 2) and (W[0] = 'else') and (W[1] = 'then') then
+              else if (Length(W) >= 2) and (W[0] = 'else') and (W[1] = 'then') and ElseIfAt(0) then
               begin
                 Segs.Add(Trim(Copy(Cur, 1, AftP[1] - 1))); // "else if COND then"
                 Cursor:= AftP[1];
@@ -4164,7 +4171,7 @@ begin
                   Break;
                 end;
                 Segs.Add(Body);
-                if (k + 1 <= High(W)) and (W[k + 1] = 'then') then
+                if (k + 1 <= High(W)) and (W[k + 1] = 'then') and ElseIfAt(k) then
                 begin
                   Segs.Add(Trim(Copy(Cur, BefP[k], AftP[k + 1] - BefP[k]))); // "else if COND then"
                   Cursor:= AftP[k + 1];
@@ -9286,29 +9293,10 @@ begin
   end;
 end; // function
 
-// ===== FormatSource =====
-// Top-level orchestrator. Runs the pipeline described in the unit
-// header comment. The first stage is token-level (capitalisation,
-// assignment spacing); the second is a structural emission driven by
-// WalkGroup over the TGroup tree; the third is a sequence of pure
-// string -> string passes for indentation, blank lines, line breaks,
-// and (optionally) reflow and column alignment.
-//
-// Shared mutable state for the walker (in scope of the nested procs):
-//   Tokens       - the lexed token stream (after capitalisation /
-//                  assign-spacing passes have mutated it).
-//   Root         - the parsed TGroup tree.
-//   Sb           - StringBuilder for the rendered output.
-//   Cursor       - next un-emitted token index. Incremented as
-//                  WalkGroup descends into / past child groups.
-//   CurCol,
-//   CurLine      - track the current output position so the walker
-//                  can decide whether a parens group fits inline at
-//                  the current column or must be broken.
-// Block-end labels are NOT decided here: they are a post-pass over the
-// final line-broken text (ApplyBlockEndLabels), because the line count
-// the walker sees is not the one the reader gets.
-function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@77c8, method-too-long@bd09 -- the stage list reads top to bottom as the pipeline diagram
+// One run of the pipeline; FormatSource below is the public entry. ADeferredTree
+// is set when the walker left an over-long bracketed list inline because an
+// operator break comes first (OperatorBreakComesFirst).
+function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string; out ADeferredTree: Boolean): string;  // dl:ok cyclomatic-complexity@cba5, method-too-long@7899 -- the stage list reads top to bottom as the pipeline diagram
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -9483,162 +9471,10 @@ var
     EmitText(Tokens[G.CloseIdx].Text);
   end; // procedure
 
-// The structural emission walker. Recursively descends the TGroup
-// tree, handing off to specialised renderers per group kind:
-//   gkUses     -> RenderUsesGroup (uses-clause formatter)
-//   gkParens / gkBrackets:
-//     - fits inline at current column -> InlineRenderRange
-//     - overflows AND has >1 comma item -> RenderParensBroken
-//     - else descend into children (let inner groups break)
-//   gkBlock and everything else -> recurse, emitting tokens
-//                                   between child groups verbatim.
-// After each child closes, one side-channel may fire:
-//   * MarkUnclosed: emits a // TODO -oYADF marker if Child was  // dl:ok compiler-magic-comments@e3b0
-//     ForceClosed by the group parser (unmatched begin/record).
-// Block-end labels are decided later, by ApplyBlockEndLabels.
-  procedure WalkGroup(G: TGroup);
-  var
-    Child   : TGroup ;
-    GroupEnd: Integer;
-    InlineW : Integer;
-    Marker  : string ;
-  begin
-    GroupEnd:= G.CloseIdx;
-    for Child in G.Children do
-    begin
-      if Cursor < Child.OpenIdx then
-      begin
-        EmitTokenRange(Cursor, Child.OpenIdx - 1);
-        Cursor:= Child.OpenIdx;
-      end;
-      if Child.Kind = gkUses then
-      begin
-        EmitText(RenderUsesGroup(Tokens, Child, AOpts));
-        Cursor:= Child.CloseIdx + 1;
-      end
-      else if (Child.Kind in [gkParens, gkBrackets]) and not Child.ForceClosed then
-      begin
-        InlineW:= 1 + ParensContentInlineWidth(Child) + 1;
-        // A `//`/`///` line comment anywhere inside the group makes
-        // BOTH flattening paths unsafe: InlineRenderRange and
-        // RenderParensBroken's per-item inline render would place the
-        // closing `)`/`]`, following members, or the next argument on
-        // the comment's physical line and comment them out (the enum /
-        // argument-list corruption bug). Fall through to WalkGroup,
-        // which emits the group's tokens verbatim and keeps the
-        // developer's own line breaks (reflow is already comment-safe).
-        if RangeHasLineComment(Tokens, Child.OpenIdx, Child.CloseIdx) or RangeHasConditionalDirective(Tokens, Child.OpenIdx, Child.CloseIdx) then
-          WalkGroup(Child)
-        // ReflowLines OFF preserves the author's line breaks and never wraps:
-        // a group written across lines, or one that does not fit, is emitted
-        // verbatim (only re-indented later) instead of flattened or broken.
-        else if (not AOpts.ReflowLines) and (RangeHasLineBreak(Tokens, Child.OpenIdx, Child.CloseIdx) or (CurCol + InlineW > AOpts.MaxLen)) then
-          WalkGroup(Child)
-        else if (CurCol + InlineW > AOpts.MaxLen) and (Length(CollectParensItems(Tokens, Child.OpenIdx, Child.CloseIdx)) > 1) then
-        begin
-          RenderParensBroken(Child, CurrentLineLeadingWS);
-          Cursor:= Child.CloseIdx + 1;
-        end
-        else if (CurCol + InlineW <= AOpts.MaxLen) and not RangeHasMultiLineToken(Tokens, Child.OpenIdx, Child.CloseIdx) then
-        begin
-          EmitText(InlineRenderRange(Tokens, Child.OpenIdx, Child.CloseIdx));
-          Cursor:= Child.CloseIdx + 1;
-        end
-        else
-          WalkGroup(Child);
-      end // if
-      else
-      begin
-        WalkGroup(Child);
-      end;
-      if AOpts.MarkUnclosed and Child.ForceClosed and (Child.Kind = gkBlock) then
-      begin
-        Marker:= Format('// TODO -oYADF : ''%s'' on line %d has no matching ''end''', [Tokens[Child.OpenIdx].Text, Tokens[Child.OpenIdx].Line]);
-        if Pos(Marker, ASource) = 0 then
-          EmitText(CRLF + Marker);
-      end;
-    end; // for
-    if Cursor <= GroupEnd then
-    begin
-      EmitTokenRange(Cursor, GroupEnd);
-      Cursor:= GroupEnd + 1;
-    end;
-  end; // procedure
-
   function IsAlphaNum(C: Char): Boolean;
   begin
     Result:= C.IsLetterOrDigit or (C = '_');
   end;
-
-// Scans Line for top-level break points usable by the line-overflow
-// breaker. Two categories are collected:
-//   * Word operators with surrounding spaces: ` + ` ` - ` ` and `
-//     ` xor ` (with whole-word boundaries enforced by AddIfWord).
-//   * Commas inside parens/brackets at any nesting depth, where
-//     the break point is just AFTER the comma+space.
-// Returns positions are 1-based byte indices. String/brace/paren
-// comment interiors are skipped so we don't split a literal or a
-// documentation block.
-  function FindOperatorPositionsAtTopLevel(const Line: string): TArray<Integer>;
-  var
-    Positions: TList<Integer>;
-    i        : Integer       ;
-    St       : TLineScanState;
-    Done     : Boolean       ;
-    procedure AddIfWord(Idx, Wlen: Integer; const W: string);
-    begin
-      if (Idx + Wlen - 1 > Length(Line)) then
-        Exit;
-      if not SameText(Copy(Line, Idx, Wlen), W) then
-        Exit;
-      if (Idx > 1) and IsAlphaNum(Line[Idx - 1]) then
-        Exit;
-      if (Idx + Wlen <= Length(Line)) and IsAlphaNum(Line[Idx + Wlen]) then
-        Exit;
-      Positions.Add(Idx);
-    end;
-  begin
-    Positions:= TList<Integer>.Create;
-    try
-      St.Reset;
-      Done:= False;
-      i   := 1;
-      while not Done do
-      case St.SkipNonCode(Line, i) of
-        seEndOfLine, seLineComment: Done:= True;
-        seCode                    :
-        begin
-          if CharInSet(Line[i], ['(', '[', ')', ']']) then
-          begin
-            St.StepCode(Line, i);
-            Continue;
-          end;
-          if (i > 1) and (Line[i - 1] = ' ') then
-          begin
-            if CharInSet(Line[i], ['+', '-']) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
-            begin
-              Positions.Add(i);
-              Inc(i);
-              Continue;
-            end;
-            AddIfWord(i, 2, 'or' );
-            AddIfWord(i, Length('and'), 'and');
-            AddIfWord(i, Length('xor'), 'xor');
-          end; // if
-          if (Line[i] = ',') and (St.Depth > 0) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
-          begin
-            Positions.Add(i + 2);
-            Inc(i);
-            Continue;
-          end;
-          Inc(i);
-        end; // case
-      end; // case
-      Result:= Positions.ToArray;
-    finally
-      Positions.Free;
-    end; // try
-  end; // begin
 
 // Depth-aware sibling of FindOperatorPositionsAtTopLevel, for the
 // one-component-per-line breaker. Returns only the connecting
@@ -9730,6 +9566,195 @@ var
       Inc(i);
     Result:= Copy(Line, 1, i - 1);
   end;
+
+// BreakLongExpressions ON: True when the line being emitted already holds a
+// depth-0 component boundary (` or ` / ` and ` / ` + ` ..., not the line's own
+// leading operator). BreakLongLines splits there first, which moves the
+// overflowing bracketed list to a shorter line -- so the comma-first tree must
+// not be decided at today's column (the next format would decide it at the
+// new one and rejoin it). The walker emits the list inline instead and the
+// format runs once more on its own output (ADeferredTree), measuring the list
+// at the column it really gets.
+  function OperatorBreakComesFirst: Boolean;
+  var
+    S         : string ;
+    i         : Integer;
+    LineStart : Integer;
+    Line      : string ;
+    Bound     : Integer;
+  begin
+    S:= Sb.ToString;
+    LineStart:= 1;
+    for i:= Length(S) downto 1 do if (S[i] = LF) or (S[i] = CR) then
+    begin
+      LineStart:= i + 1;
+      Break;
+    end;
+    Line:= Copy(S, LineStart, MaxInt);
+    Result:= False;
+    for Bound in FindComponentBoundaries(Line, 0) do if Bound >= Length(LeadingIndent(Line)) + 2 then
+      Exit(True);
+  end; // function
+
+// The structural emission walker. Recursively descends the TGroup
+// tree, handing off to specialised renderers per group kind:
+//   gkUses     -> RenderUsesGroup (uses-clause formatter)
+//   gkParens / gkBrackets:
+//     - fits inline at current column -> InlineRenderRange
+//     - overflows AND has >1 comma item -> RenderParensBroken
+//     - else descend into children (let inner groups break)
+//   gkBlock and everything else -> recurse, emitting tokens
+//                                   between child groups verbatim.
+// After each child closes, one side-channel may fire:
+//   * MarkUnclosed: emits a // TODO -oYADF marker if Child was  // dl:ok compiler-magic-comments@e3b0
+//     ForceClosed by the group parser (unmatched begin/record).
+// Block-end labels are decided later, by ApplyBlockEndLabels.
+  procedure WalkGroup(G: TGroup);
+  var
+    Child   : TGroup ;
+    GroupEnd: Integer;
+    InlineW : Integer;
+    Marker  : string ;
+  begin
+    GroupEnd:= G.CloseIdx;
+    for Child in G.Children do
+    begin
+      if Cursor < Child.OpenIdx then
+      begin
+        EmitTokenRange(Cursor, Child.OpenIdx - 1);
+        Cursor:= Child.OpenIdx;
+      end;
+      if Child.Kind = gkUses then
+      begin
+        EmitText(RenderUsesGroup(Tokens, Child, AOpts));
+        Cursor:= Child.CloseIdx + 1;
+      end
+      else if (Child.Kind in [gkParens, gkBrackets]) and not Child.ForceClosed then
+      begin
+        InlineW:= 1 + ParensContentInlineWidth(Child) + 1;
+        // A `//`/`///` line comment anywhere inside the group makes
+        // BOTH flattening paths unsafe: InlineRenderRange and
+        // RenderParensBroken's per-item inline render would place the
+        // closing `)`/`]`, following members, or the next argument on
+        // the comment's physical line and comment them out (the enum /
+        // argument-list corruption bug). Fall through to WalkGroup,
+        // which emits the group's tokens verbatim and keeps the
+        // developer's own line breaks (reflow is already comment-safe).
+        if RangeHasLineComment(Tokens, Child.OpenIdx, Child.CloseIdx) or RangeHasConditionalDirective(Tokens, Child.OpenIdx, Child.CloseIdx) then
+          WalkGroup(Child)
+        // ReflowLines OFF preserves the author's line breaks and never wraps:
+        // a group written across lines, or one that does not fit, is emitted
+        // verbatim (only re-indented later) instead of flattened or broken.
+        else if (not AOpts.ReflowLines) and (RangeHasLineBreak(Tokens, Child.OpenIdx, Child.CloseIdx) or (CurCol + InlineW > AOpts.MaxLen)) then
+          WalkGroup(Child)
+        else if (CurCol + InlineW > AOpts.MaxLen) and (Length(CollectParensItems(Tokens, Child.OpenIdx, Child.CloseIdx)) > 1)
+                and AOpts.BreakLongExpressions and not RangeHasMultiLineToken(Tokens, Child.OpenIdx, Child.CloseIdx)
+                and OperatorBreakComesFirst then
+        begin
+          EmitText(InlineRenderRange(Tokens, Child.OpenIdx, Child.CloseIdx));
+          Cursor       := Child.CloseIdx + 1;
+          ADeferredTree:= True;
+        end
+        else if (CurCol + InlineW > AOpts.MaxLen) and (Length(CollectParensItems(Tokens, Child.OpenIdx, Child.CloseIdx)) > 1) then
+        begin
+          RenderParensBroken(Child, CurrentLineLeadingWS);
+          Cursor:= Child.CloseIdx + 1;
+        end
+        else if (CurCol + InlineW <= AOpts.MaxLen) and not RangeHasMultiLineToken(Tokens, Child.OpenIdx, Child.CloseIdx) then
+        begin
+          EmitText(InlineRenderRange(Tokens, Child.OpenIdx, Child.CloseIdx));
+          Cursor:= Child.CloseIdx + 1;
+        end
+        else
+          WalkGroup(Child);
+      end // if
+      else
+      begin
+        WalkGroup(Child);
+      end;
+      if AOpts.MarkUnclosed and Child.ForceClosed and (Child.Kind = gkBlock) then
+      begin
+        Marker:= Format('// TODO -oYADF : ''%s'' on line %d has no matching ''end''', [Tokens[Child.OpenIdx].Text, Tokens[Child.OpenIdx].Line]);
+        if Pos(Marker, ASource) = 0 then
+          EmitText(CRLF + Marker);
+      end;
+    end; // for
+    if Cursor <= GroupEnd then
+    begin
+      EmitTokenRange(Cursor, GroupEnd);
+      Cursor:= GroupEnd + 1;
+    end;
+  end; // procedure
+
+// Scans Line for top-level break points usable by the line-overflow
+// breaker. Two categories are collected:
+//   * Word operators with surrounding spaces: ` + ` ` - ` ` and `
+//     ` xor ` (with whole-word boundaries enforced by AddIfWord).
+//   * Commas inside parens/brackets at any nesting depth, where
+//     the break point is just AFTER the comma+space.
+// Returns positions are 1-based byte indices. String/brace/paren
+// comment interiors are skipped so we don't split a literal or a
+// documentation block.
+  function FindOperatorPositionsAtTopLevel(const Line: string): TArray<Integer>;
+  var
+    Positions: TList<Integer>;
+    i        : Integer       ;
+    St       : TLineScanState;
+    Done     : Boolean       ;
+    procedure AddIfWord(Idx, Wlen: Integer; const W: string);
+    begin
+      if (Idx + Wlen - 1 > Length(Line)) then
+        Exit;
+      if not SameText(Copy(Line, Idx, Wlen), W) then
+        Exit;
+      if (Idx > 1) and IsAlphaNum(Line[Idx - 1]) then
+        Exit;
+      if (Idx + Wlen <= Length(Line)) and IsAlphaNum(Line[Idx + Wlen]) then
+        Exit;
+      Positions.Add(Idx);
+    end;
+  begin
+    Positions:= TList<Integer>.Create;
+    try
+      St.Reset;
+      Done:= False;
+      i   := 1;
+      while not Done do
+      case St.SkipNonCode(Line, i) of
+        seEndOfLine, seLineComment: Done:= True;
+        seCode                    :
+        begin
+          if CharInSet(Line[i], ['(', '[', ')', ']']) then
+          begin
+            St.StepCode(Line, i);
+            Continue;
+          end;
+          if (i > 1) and (Line[i - 1] = ' ') then
+          begin
+            if CharInSet(Line[i], ['+', '-']) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
+            begin
+              Positions.Add(i);
+              Inc(i);
+              Continue;
+            end;
+            AddIfWord(i, 2, 'or' );
+            AddIfWord(i, Length('and'), 'and');
+            AddIfWord(i, Length('xor'), 'xor');
+          end; // if
+          if (Line[i] = ',') and (St.Depth > 0) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
+          begin
+            Positions.Add(i + 2);
+            Inc(i);
+            Continue;
+          end;
+          Inc(i);
+        end; // case
+      end; // case
+      Result:= Positions.ToArray;
+    finally
+      Positions.Free;
+    end; // try
+  end; // begin
 
 // Greedy line-wrapping at top-level operators/commas. Strategy:
 //   1. Find all candidate break positions in the current line.
@@ -9949,6 +9974,7 @@ var
 // The code below is a literal rendering of those stages.
 begin
   ADeclineReason:= '';
+  ADeferredTree := False;
   // The lexer treats #0 as end of input, so everything after a NUL would be
   // dropped from the output -- and from the guard's view of BOTH sides, so it
   // could not decline. A NUL never belongs in Delphi source (a BOM-less UTF-16
@@ -10012,6 +10038,11 @@ begin
         if AOpts.TrimTrailing then
           Result:= TrimTrailingWhitespace(Result);
         Result:= DetabLeadingWhitespace(Result, AOpts.TabWidth);
+        // Drop the column padding a previous format's alignment put in (`A  .X:= 1`)
+        // BEFORE any pass measures a line against MaxLen (PackStatements,
+        // CollapseShortBlocks, the joins): measured with it, the next format packed
+        // and folded differently (task 5b). Stage 4 re-aligns at the end.
+        Result:= CollapseInteriorSpaces(Result);
         // CollapseShortBlocks OFF means "keep begin..end blocks expanded": split
         // a control block the source wrote on one line (or half-broken) before
         // the re-indent, so every later pass sees the expanded shape.
@@ -10209,6 +10240,45 @@ begin
   end; // try
 end; // begin
 
+// ===== FormatSource =====
+// Top-level orchestrator. Runs the pipeline described in the unit
+// header comment. The first stage is token-level (capitalisation,
+// assignment spacing); the second is a structural emission driven by
+// WalkGroup over the TGroup tree; the third is a sequence of pure
+// string -> string passes for indentation, blank lines, line breaks,
+// and (optionally) reflow and column alignment.
+//
+// Shared mutable state for the walker (in scope of the nested procs):
+//   Tokens       - the lexed token stream (after capitalisation /
+//                  assign-spacing passes have mutated it).
+//   Root         - the parsed TGroup tree.
+//   Sb           - StringBuilder for the rendered output.
+//   Cursor       - next un-emitted token index. Incremented as
+//                  WalkGroup descends into / past child groups.
+//   CurCol,
+//   CurLine      - track the current output position so the walker
+//                  can decide whether a parens group fits inline at
+//                  the current column or must be broken.
+// Block-end labels are NOT decided here: they are a post-pass over the
+// final line-broken text (ApplyBlockEndLabels), because the line count
+// the walker sees is not the one the reader gets.
+// With BreakLongExpressions ON the pipeline may run twice: when the walker left an
+// over-long bracketed list inline because an operator break on its line comes first,
+// the second run decides the list at the column the break gave it (idempotency,
+// SPEC-2026-11-01 task 5a).
+function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
+var
+  Deferred: Boolean;
+  Ignored : Boolean;
+  Reason2 : string ;
+begin
+  Result:= FormatSourceOnce(ASource, AOpts, ADeclineReason, Deferred);
+  // A list left inline for an operator break (ADeferredTree) is measured again
+  // at the column the break gave it; one more run settles it (idempotency). A
+  // declined second run returns its input, the already-checked first result.
+  if Deferred and (ADeclineReason = '') then
+    Result:= FormatSourceOnce(Result, AOpts, Reason2, Ignored);
+end;
 function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 var
   Reason: string;

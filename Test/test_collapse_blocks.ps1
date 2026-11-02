@@ -42,4 +42,17 @@ MustMatch    $on "begin S:= 'a   b'; end;"                  'on: string interior
 CheckStable 'off' @('--no-collapse-blocks')
 CheckStable 'on'  @('--collapse-blocks')
 
+# ----- REGRESSION (idempotency, SPEC-2026-11-01 task 5b): Collapse ON + BreakIfBody
+# OFF folds `else begin if B then X; end;`; BreakControlBodies then read
+# `else begin if B then` as an `else if` header and split the fold again on the
+# next format (fold / unfold on alternate runs, ORM3 ImportPDFFile). Compile-
+# checked fixture (golden compile gate).
+$src = Join-Path $PSScriptRoot 'Cases\collapse_else_nested_if.pas'
+$enFlags = @('--collapse-blocks', '--no-break-if')
+$en = Fmt $enFlags
+MustMatch    $en '(?m)^  else begin if B then Writeln\(2\); end;\r?$' 'else-nested-if: else block folded'
+MustMatch    $en '(?m)^  else begin if B then Writeln\(4\); end;\r?$' 'else-nested-if: else block after a simple then folded'
+MustNotMatch $en '(?m)^\s*else begin if B then\r?$'                  'else-nested-if: fold not split at the nested then'
+CheckStable 'else-nested-if' $enFlags
+
 Finish 'collapse_blocks'

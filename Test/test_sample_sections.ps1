@@ -97,6 +97,11 @@ try {
   $inB  = Split-Blocks $src
   $base = Format-Sample '' ''
   if ($null -eq $base) { throw 'default run failed' }
+  # Idempotence at the small MaxLen values that broke BreakLongExpressions (task 5a:
+  # ShowReflow's `Pos(` list was laid out comma-first, the next format rejoined it).
+  # The MaxLen toggle above stays 150 only because Sample.pas's MaxLen block (and
+  # its help example) is written for 150.
+  foreach ($ml in 100, 120, 130) { if ($null -eq (Format-Sample 'MaxLen' $ml)) { Fail "MaxLen=$ml run failed" } }
   if ($haveDcc -and -not (Test-DccCompiles $base.Path $work $dcuDir)) { Fail 'default output of Sample.pas does not compile' }
   $baseB = Split-Blocks $base.Text
   if (@($inB.Keys) -join '|' -ne (@($baseB.Keys) -join '|')) { Fail 'block markers changed by formatting' }

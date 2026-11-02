@@ -428,5 +428,23 @@ $tnchk = & $exe --ini $ini --check $tnO1 2>&1
 if ("$tnchk" -notmatch 'PASS') { Fail 'roundtrip/guard: trailing-note overflow' }
 Remove-Item $tnIn, $tnO1, $tnO2 -Force -ErrorAction SilentlyContinue
 
+# ----- REGRESSION (idempotency, SPEC-2026-11-01 task 5a): a bracketed list that
+# overflows only at the column it has BEFORE an operator break. The walker laid
+# `Pos('gamma', S)` out comma-first at the pre-break column (`(Pos(` / `'gamma'`
+# / `, S`), BreakLongLines then broke the or-chain, and the next format rejoined
+# the list. Fixture compiles (golden compile gate); checked at several MaxLen.
+$laIn = Join-Path $PSScriptRoot 'Cases\break_expr_list_after_operator.pas'
+foreach ($ml in 100, 130, 180) {
+  $laO1 = Join-Path $tmpRoot "be_la1_$ml.pas"
+  $laO2 = Join-Path $tmpRoot "be_la2_$ml.pas"
+  & $exe --ini $ini $laIn --max-len $ml --o $laO1 | Out-Null
+  & $exe --ini $ini $laO1 --max-len $ml --o $laO2 | Out-Null
+  $la = Get-Content $laO1 -Raw
+  MustNotMatch $la "Pos\(\s*\r?\n"                          "list after operator ($ml): Pos( list not broken comma-first"
+  MustMatch    $la "(?m)^    or \(\(Length\(S\) > 30\) and \(Pos\('gamma', S\) > 0\)\)\r?$" "list after operator ($ml): or-chain one component per line"
+  MustMatch    $la "(?m)^    or \(S = 'epsilon'\);"       "list after operator ($ml): last component on its own line"
+  if (-not (SameBytes $laO1 $laO2)) { Fail "idempotent: list after operator at MaxLen $ml" }
+}
+
 [IO.Directory]::Delete($tmpRoot, $true)
 Finish 'break_expr'
