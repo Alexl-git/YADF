@@ -683,7 +683,9 @@ end;
 // original has must be a spelling the original used (or a licensed re-casing of
 // a keyword / number); spellings that must survive -- the spelling-sensitive
 // ones, or every identifier spelling without gkFirstOccurrence -- must occur in
-// the output at least as often as in the original.
+// the output at least as often as in the original (outside `: Type` annotations).
+function ContinuesType(const C: TCodeTok; var ANest: Integer): Boolean; forward;
+
 function CasingReasonUnordered(const AOrig, AFmt: TCodeList; ACasing: TGuardCasing): string;
 var
   Spell : THashSet<string>;
@@ -692,6 +694,8 @@ var
   C     : TCodeTok;
   KwOk  : Boolean ;
   NumOk : Boolean ;
+  InType: Boolean ;
+  Nest  : Integer ;
   N     : Integer ;
   Pair  : TPair<string, Integer>;
 begin
@@ -702,24 +706,49 @@ begin
   Keys := THashSet<string>.Create;
   Need := TDictionary<string, Integer>.Create;
   try
+    // The identifiers of a `: Type` annotation are not counted: D10Reason checks
+    // them as name-keyed sets, and the hoist legally drops a same-name/same-type
+    // duplicate declaration (`var R: Integer` twice -> one `R: Integer;`).
+    InType:= False;
+    Nest  := 0;
     for C in AOrig do
+    begin
+      if InType then
+        InType:= ContinuesType(C, Nest);
       if C.Cls in [ccIdent, ccKeyword, ccNumber] then
       begin
         Spell.Add(C.Text);
         Keys.Add(C.Key);
-        if (C.Cls = ccIdent) and (C.Sensitive or (gkFirstOccurrence not in ACasing)) then
+        if (C.Cls = ccIdent) and (C.Sensitive or (gkFirstOccurrence not in ACasing)) and not InType then
           Bump(Need, C.Text, 1);
       end;
+      if C.Key = ':' then
+      begin
+        InType:= True;
+        Nest  := 0;
+      end;
+    end; // for
+    InType:= False;
+    Nest  := 0;
     for C in AFmt do
+    begin
+      if InType then
+        InType:= ContinuesType(C, Nest);
       if (C.Cls in [ccIdent, ccKeyword, ccNumber]) and Keys.Contains(C.Key) then
       begin
         KwOk := (C.Cls = ccKeyword) and (gkKeywordsLower in ACasing) and (C.Text = C.Key);
         NumOk:= (C.Cls = ccNumber) and (gkUpperHex in ACasing);
         if not (Spell.Contains(C.Text) or KwOk or NumOk) then
           Exit('code token re-cased: ' + C.Text);
-        if Need.TryGetValue(C.Text, N) then
+        if not InType and Need.TryGetValue(C.Text, N) then
           Need[C.Text]:= N - 1;
       end;
+      if C.Key = ':' then
+      begin
+        InType:= True;
+        Nest  := 0;
+      end;
+    end; // for
     for Pair in Need do
       if Pair.Value > 0 then
         Exit('code token re-cased: ' + Pair.Key);

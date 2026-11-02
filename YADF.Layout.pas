@@ -140,6 +140,7 @@ uses
   , System.Math
   , System.StrUtils
   , System.Generics.Collections
+  , System.Generics.Defaults
   , System.Character
   , SimpleParser.Lexer
   , SimpleParser.Lexer.Types
@@ -8511,7 +8512,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@427b, cognitive-complexity@e490, method-too-long@fba7 -- 320 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@427b, cognitive-complexity@e490, method-too-long@1d54 -- 320 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -8534,7 +8535,7 @@ var
   BodyDecls  : TObjectDictionary<Integer, TStringList>; // key = routine `begin` token index
   BodyConst  : TObjectDictionary<Integer, TStringList>; // hoisted inline-CONST decls per routine `begin`
   ForTodos   : TDictionary<Integer, string>           ; // non-inferable for-var -> TODO before the `for`  // dl:ok compiler-magic-comments@6f4e
-  RNames     : TDictionary<string, string>            ; // per-routine name -> hoisted type
+  RNames     : TDictionary<string, string>            ; // per-routine name (case-insensitive) -> hoisted type
   BlkAnon    : TList<Boolean>                         ; // open blocks in body; True = anon-method body
   BlkKind    : TList<TptTokenKind>                    ; // opener kinds, index-aligned to BlkAnon
   BlkLoop    : TList<Boolean>                         ; // index-aligned to BlkAnon; True = `begin` body of a for/while loop
@@ -9236,7 +9237,8 @@ begin
   BodyDecls:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
   BodyConst:= TObjectDictionary<Integer, TStringList>.Create([doOwnsValues]);
   ForTodos:= TDictionary<Integer, string>.Create;
-  RNames:= TDictionary<string, string>.Create;
+  // Delphi identifiers are case-insensitive: DcR and dcr are one name.
+  RNames:= TDictionary<string, string>.Create(TIStringComparer.Ordinal);
   BlkAnon:= TList<Boolean     >.Create;
   BlkKind:= TList<TptTokenKind>.Create;
   BlkLoop:= TList<Boolean     >.Create;
