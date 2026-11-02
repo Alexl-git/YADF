@@ -191,9 +191,13 @@ $cases = @(
   @{ Id = 'BreakIfBody OFF + MaxLen 80: an if/else that does not fit gets the 4-line form (Q9)'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F; MaxLen = 80 }
      In = 'if C then IfF:= ...<NL>else IfF:= ...; (97 chars joined)'; Want = 'if C then / IfF:= ... / else / IfF:= ...;'
      Must = @('(?m)^\s*if C then\r?\n\s+IfF:= IfA \+ IfB \+ LpA \+ LpB \+ LpC \+ LpD\r?\n\s*else\r?\n\s+IfF:= IfA - IfB - LpA - LpB - LpC - LpD;\r?$') }
-  @{ Id = 'BreakIfBody OFF: a body is never packed onto a header spanning several lines (Q10)'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F }
-     In = 'if (LpA > 0)<NL>and (LpB > 0) then<NL>Inc(LpA);'; Want = 'body stays on its own line'
-     Must = @('(?m)^\s*and \(LpB > 0\) then\r?\n\s+Inc\(LpA\);\r?$') }
+  # MaxLen 40: the header does not fit joined, so it keeps spanning two lines (Q6).
+  @{ Id = 'BreakIfBody OFF + MaxLen 40: a body is never packed onto a header spanning several lines (Q10)'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F; MaxLen = '40' }
+     In = 'if (LpA > 0)<NL>and (LpB > 0) and (LpC > 0) then<NL>Inc(LpA);'; Want = 'body stays on its own line'
+     Must = @('(?m)^\s*and \(LpB > 0\) and \(LpC > 0\) then\r?\n\s+Inc\(LpA\);\r?$') }
+  @{ Id = 'BreakIfBody OFF: a hand-broken header that fits is joined (Q6), then its body joins it'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F }
+     In = 'if (LpA > 0)<NL>and (LpB > 0) and (LpC > 0) then<NL>Inc(LpA);'; Want = 'one line'
+     Must = @('(?m)^\s*if \(LpA > 0\) and \(LpB > 0\) and \(LpC > 0\) then Inc\(LpA\);\r?$') }
   @{ Id = 'BreakIfBody OFF + ReflowLines OFF: still joined'; Fix = 'polarity_breakbody'; Set = @{ BreakIfBody = $F; ReflowLines = $F }
      In = 'IfB 4 lines'; Want = 'one line'
      Must = @('(?m)^\s*if C then IfB:= 1 else IfB:= 2;\r?$') }
@@ -265,6 +269,37 @@ $cases = @(
   @{ Id = 'BreakLongExpressions OFF: greedy packing (one-per-line input)'; Fix = 'polarity_breakexpr'; Set = @{ BreakLongExpressions = $F }
      In = 'the W condition one component per line'; Want = 'repacked greedily'
      Must = @('(?m)^[^\r\n]*\(W\[0\][^\r\n]*\band \(W\[1\][^\r\n]*\band \(W\[2\]') }
+  # Q6 (SPEC-2026-11-01 task 2d-4a): an operator-leading hand break is joined when
+  # the whole statement fits MaxLen; the one-per-line guard only protects
+  # statements longer than MaxLen (the W case above stays one per line).
+  @{ Id = 'BreakLongExpressions ON: operator-leading hand breaks join when the statement fits (Q6)'; Fix = 'polarity_lists'; Set = @{ BreakLongExpressions = $T }
+     In = 'J:= I / + 1;  and  if (I > 0) / and (J > 0) then'; Want = 'one line each'
+     Must = @('(?m)^\s*J:= I \+ 1;\r?$', '(?m)^\s*if \(I > 0\) and \(J > 0\) then\r?$') }
+  # Q6 extension: a bracketed list longer than MaxLen is a tree -- comma-first,
+  # one whole top-level branch per line, a branch that does not fit is broken the
+  # same way one level down; "(" ends the header line, ")" gets its own line; a
+  # list that fits is joined (no " ," left from comma-first input).
+  @{ Id = 'BreakLongExpressions ON: a comma-first constant that fits is joined (Q6 ext)'; Fix = 'polarity_lists'; Set = @{ BreakLongExpressions = $T }
+     In = 'Pts = ( / (X: 1; Y: 2) / , (X: 3; Y: 4) / , (X: 5; Y: 6) / );'; Want = 'one line'
+     Must = @('(?m)^\s*Pts\s*: array\[0\.\.2\] of TPt\s*= \(\(X: 1; Y: 2\), \(X: 3; Y: 4\), \(X: 5; Y: 6\)\);\r?$') }
+  @{ Id = 'BreakLongExpressions ON: a long array of records -- one whole record per line, comma-first (Q6 ext)'; Fix = 'polarity_lists'; Set = @{ BreakLongExpressions = $T }
+     In = 'Recs = ((X: ..; Y: ..), ... 10 records) on one line > 180'; Want = 'comma-first, one record per line, ); alone'
+     Must = @('(?m)^  Recs\s*: array\[0\.\.9\] of TPt\s*= \(\r?\n    \(X: 1000001; Y: 2000002\)\r?\n  , \(X: 3000003; Y: 4000004\)\r?$',
+              '(?m)^  , \(X: 1900019; Y: 2000020\)\r?\n  \);\r?$')
+     Not = @('(?m)\(X: \d{7}; Y: \d{7}\),', '(?m)^\s+\(?X: \d+;\r?$') }
+  @{ Id = 'BreakLongExpressions ON: a branch that does not fit is broken one level down (Q6 ext)'; Fix = 'polarity_lists'; Set = @{ BreakLongExpressions = $T }
+     In = 'Grid = ((24 numbers), (24 numbers)), each row > 180'; Want = 'rows broken comma-first inside, rows comma-first outside'
+     Must = @('(?m)^  Grid\s*: array\[0\.\.1, 0\.\.23\] of Integer\s*= \(\r?\n    \(\r?\n      100001\r?\n    , 100002\r?$',
+              '(?m)^    , 100024\r?\n    \)\r?\n  , \(\r?\n      200001\r?$', '(?m)^    , 200024\r?\n    \)\r?\n  \);\r?$') }
+  @{ Id = 'BreakLongExpressions ON: a long argument list -- comma-first, one argument per line (Q6 ext)'; Fix = 'polarity_lists'; Set = @{ BreakLongExpressions = $T }
+     In = 'Result:= Sum8(8 arguments) on one line > 180'; Want = 'comma-first, ); alone'
+     Must = @('(?m)^  Result:= Sum8\(\r?\n    Recs\[0\]\.X \+ Recs\[1\]\.X \+ Recs\[2\]\.X\r?\n  , Recs\[3\]\.X',
+              '(?m)^  , Grid\[1, 23\]\r?\n  \);\r?$') }
+  @{ Id = 'BreakLongExpressions OFF: long lists packed greedily comma-last, comma-first input joined (Q6 ext)'; Fix = 'polarity_lists'; Set = @{ BreakLongExpressions = $F }
+     In = 'the same lists'; Want = 'several records per line, comma-last; Pts on one line'
+     Must = @('(?m)^\s+\(X: 1000001; Y: 2000002\), \(X: 3000003; Y: 4000004\),',
+              '(?m)^\s*Pts\s*: array\[0\.\.2\] of TPt\s*= \(\(X: 1; Y: 2\), \(X: 3; Y: 4\), \(X: 5; Y: 6\)\);\r?$')
+     Not = @('(?m)^\s*, \(X', '(?m)^[^\r\n]{181,}') }
 
   # BreakCaseLabels (default false).
   @{ Id = 'BreakCaseLabels ON: multi-label arm split, statement duplicated'; Fix = 'polarity_caselabels'; Set = @{ BreakCaseLabels = $T }
@@ -323,12 +358,17 @@ $cases = @(
      Not = @('(?m)^[ ]*[0-5]:[ ]*(Inc|Dec|begin|case|if)') }
   # SPEC task 2c: moving the statement under its label shifts the continuation
   # lines by the SAME amount (they keep their offset from the statement start).
-  @{ Id = 'CaseArmOnLabelLine OFF: continuation lines keep their offset to the statement'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F }
-     In = '6: CaB:= CaA<NL>         + CaC;'; Want = '6: / CaB:= CaA / (statement + 2) + CaC;'
-     Must = @('(?m)^(?<i> *)6:\r?\n\k<i>  CaB:= CaA\r?\n\k<i>    \+ CaC;\r?$') }
-  @{ Id = 'CaseArmOnLabelLine ON: a broken statement on the label line is left as written'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T }
-     In = '6: CaB:= CaA<NL>         + CaC;'; Want = 'unchanged'
-     Must = @('(?m)^(?<i> *)6: CaB:= CaA\r?\n\k<i>     \+ CaC;\r?$') }
+  # MaxLen 40: the arm-6 statement does not fit joined, so its operator-leading
+  # break is BreakLongExpressions' layout and stays (Q6); at 180 it is joined.
+  @{ Id = 'CaseArmOnLabelLine OFF + MaxLen 40: continuation lines keep their offset to the statement'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; MaxLen = '40' }
+     In = '6: CaB:= CaA + CaC + CaD + CaA<NL>         + CaC + CaD;'; Want = '6: / CaB:= CaA + CaC + CaD + CaA / (statement + 2) + CaC + CaD;'
+     Must = @('(?m)^(?<i> *)6:\r?\n\k<i>  CaB:= CaA \+ CaC \+ CaD \+ CaA\r?\n\k<i>    \+ CaC \+ CaD;\r?$') }
+  @{ Id = 'CaseArmOnLabelLine ON + MaxLen 40: a broken statement on the label line is left as written'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T; MaxLen = '40' }
+     In = '6: CaB:= CaA + CaC + CaD + CaA<NL>         + CaC + CaD;'; Want = 'unchanged'
+     Must = @('(?m)^(?<i> *)6: CaB:= CaA \+ CaC \+ CaD \+ CaA\r?\n\k<i>     \+ CaC \+ CaD;\r?$') }
+  @{ Id = 'CaseArmOnLabelLine ON: an operator-leading hand break in an arm joins when it fits (Q6)'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T }
+     In = '6: CaB:= CaA + CaC + CaD + CaA<NL>         + CaC + CaD;'; Want = 'one line'
+     Must = @('(?m)^\s*6: CaB:= CaA \+ CaC \+ CaD \+ CaA \+ CaC \+ CaD;\r?$') }
   @{ Id = 'CaseArmOnLabelLine OFF + PackShortBodies ON: Pack implies ON'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; PackShortBodies = $T }
      In = '0:<NL>Inc(CaA); / 1: Inc(CaB);'; Want = 'both on the label line'
      Must = @('(?m)^\s*0: Inc\(CaA\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$') }

@@ -129,7 +129,9 @@ $call = Fmt @(
   'end.'
 )
 MustMatch $call '(?m)^\s+DoStuffWithAVeryVeryVeryVeryVeryVeryLongNameThatWontFitOnOneLineAtAllNoMatterWhat\(\s*$' 'call header opener left split (line 1)'
-MustMatch $call '(?m)^\s+AlphaParameterNameIsQuiteLongIndeedYes, BetaParameterNameIsQuiteLongTooYesIndeed, GammaParameterNameAlsoQuiteLongIndeedYesVeryLong\);\s*$' 'call args left split (line 2)'
+# The args are a long bracketed list: comma-first, one per line, `);` alone
+# (BreakLongExpressions default ON, SPEC-2026-11-01 task 2d-4a Q6 extension).
+MustMatch $call '(?m)^\s+AlphaParameterNameIsQuiteLongIndeedYes\r?\n\s+, BetaParameterNameIsQuiteLongTooYesIndeed\r?\n\s+, GammaParameterNameAlsoQuiteLongIndeedYesVeryLong\r?\n\s+\);\s*$' 'call args left split (comma-first, one per line)'
 
 # ----- GUARD (const/var bail-set fix): an anonymous method passed as a call
 # argument, spanning multiple physical lines and carrying its own real

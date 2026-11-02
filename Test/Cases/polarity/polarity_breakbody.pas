@@ -6,8 +6,8 @@ unit polarity_breakbody;
 // bodies already on their own line: IfB, LpC, LpD, WtB. LpE = one-line loop
 // body with a trailing comment (spec: left alone). IfD = a brace comment after
 // then (Q18); IfE = an if/else broken after its then-body (Q9); IfF = an if/else
-// too long for MaxLen 80 when joined (Q9); the LpA/LpB if = a header that spans
-// two lines (Q10).
+// too long for MaxLen 80 when joined (Q9); the LpA/LpB/LpC if = a header that spans
+// two lines (joined when it fits, Q6; kept at MaxLen 40 -> Q10).
 
 interface
 
@@ -62,7 +62,7 @@ begin
   if C then IfF:= IfA + IfB + LpA + LpB + LpC + LpD
   else IfF:= IfA - IfB - LpA - LpB - LpC - LpD;
   if (LpA > 0)
-    and (LpB > 0) then
+    and (LpB > 0) and (LpC > 0) then
     Inc(LpA);
   if R.WtA + R.WtB + LpB + LpD + IfD + IfE + IfF > 0 then
     LpA:= 0;

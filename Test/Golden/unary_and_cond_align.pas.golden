@@ -29,12 +29,8 @@ begin
     Exit(4);
   if (Alpha > 0) and (B = 2) then
     Exit(5);
-  Ok:= (A > 0)
-    and (B = 2)
-    or (Alpha = 3);
-  Result:= Alpha
-    - Be
-    + Gamma;
+  Ok:= (A > 0) and (B = 2) or (Alpha = 3);
+  Result:= Alpha - Be + Gamma;
 end; // function
 
 end.
