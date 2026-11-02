@@ -406,7 +406,10 @@ $cases = @(
      Must = @('(?m)^\s*SvA\s*: Integer;\r?\n\s*SvB\s*: Integer;\r?$') }
   @{ Id = 'SplitMultiVarDecls OFF: grouped decl kept, split decls unchanged'; Fix = 'polarity_splitvars'; Set = @{ SplitMultiVarDecls = $F }
      In = 'SvA, SvB: Integer; SvC/SvD separate'; Want = 'unchanged'
-     Must = @('(?m)^\s*SvA, SvB\s*: Integer;\r?$', '(?m)^\s*SvC\s*: Integer;\r?\n\s*SvD\s*: Integer;\r?$') }
+     Must = @('(?m)^\s*SvA, SvB\s*: Integer;\r?$', '(?m)^\s*SvC\s*: Integer;\r?\n\s*SvD\s*: Integer;\r?$', '(?m)^\s*SvE, \{note\} SvF\s*: Integer;\r?$') }
+  @{ Id = 'SplitMultiVarDecls ON: a comment in the name list stays with the FIRST name'; Fix = 'polarity_splitvars'; Set = @{ SplitMultiVarDecls = $T }
+     In = 'SvE, {note} SvF: Integer;'; Want = 'SvE: {note} Integer; / SvF: Integer;'
+     Must = @('(?m)^\s*SvE\s*: \{note\} Integer;\r?\n\s*SvF\s*: Integer\s*;\r?$') }
 
   # UsesAlwaysBreak (default true) / UsesCommaLast (default false).
   @{ Id = 'UsesAlwaysBreak ON: one-line uses broken comma-first'; Fix = 'polarity_uses'; Set = @{ UsesAlwaysBreak = $T }

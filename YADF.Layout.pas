@@ -2263,7 +2263,7 @@ begin
   end; // try
 end; // function
 
-function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@9f04, cognitive-complexity@f3c5, too-many-locals@8588 -- one line walk; the locals are the parts of the line being split
+function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@10e9, cognitive-complexity@90a2 -- one line walk over the parts of the line being split
 var
   Lines     : TStringList    ;
   OutVal      : TStringBuilder ;
@@ -2286,7 +2286,6 @@ var
   NameTokens: TArray<string> ; // the names / labels without comments
   RawNames  : TArray<string> ; // the same, as written
   CmtNames  : TArray<string> ; // per name, its comments
-  NameCmts  : Boolean        ; // some name carries a comment
   Moved     : string         ; // label comments that ride on the first split line
   HasComma  : Boolean        ;
   DoSplit   : Boolean        ;
@@ -2379,8 +2378,8 @@ begin
           // the first -- producing uncompilable code. A real keyword prefix or
           // any embedded space now poisons the match, leaving such lines alone.
           // Comment-aware (task 6): `1, {x} 2` -> labels 1 / 2, `{x}` belongs to
-          // the second. Only a case arm may carry comments into its split.
-          NameCmts:= SplitNameList(Names, RawNames, NameTokens, CmtNames);
+          // the second; on a split every comment rides on the first line.
+          SplitNameList(Names, RawNames, NameTokens, CmtNames);
           HasComma:= Length(NameTokens) > 1;
           if HasComma then
           begin
@@ -2413,9 +2412,9 @@ begin
             DoSplit:= ASplitCaseLabels
           else
           begin
-            // A comment inside a declaration's name list has no defined home
-            // on the split lines: such a declaration stays whole.
-            DoSplit:= ASplitDecls and not NameCmts;
+            // A comment inside the name list stays with the FIRST name, as for
+            // case labels below (`A, {x} B: T;` -> `A: {x} T;` / `B: T;`).
+            DoSplit:= ASplitDecls;
             // A genuine type never carries a top-level `;`. If TypePart does,
             // the line packs a SECOND declaration ("A, B: T1; C: T2;") -- the
             // scan ran the type to the last `;`, so splitting would duplicate
@@ -2454,7 +2453,8 @@ begin
           if HasComma and (TypePart <> '') and DoSplit then
           begin
             // Owner decision 2026-11-02 (task 6): a comment inside the label list
-            // stays with the FIRST label -- `1, {x} 2: S;` -> `1: {x} S;` / `2: S;`.
+            // stays with the FIRST label -- `1, {x} 2: S;` -> `1: {x} S;` / `2: S;`;
+            // a declaration name list follows the same rule (task 7).
             // The first name keeps its own comments where they were.
             Moved:= '';
             for k:= 1 to High(CmtNames) do

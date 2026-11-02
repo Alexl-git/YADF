@@ -19,7 +19,8 @@ names, strings, and numbers are ignored), every shared anchor is
 padded to a common column so the lines form a neat table. Applies
 anywhere -- record-constant arrays, declarations, repeated calls
 -- not just constant definitions. Lines whose skeletons differ
-are never touched. Set false to keep the old `:=`/const-only
+are never touched. A member `.` (`A.B`) is part of the skeleton
+but is never padded. Set false to keep the old `:=`/const-only
 behaviour.
 
 ## Example

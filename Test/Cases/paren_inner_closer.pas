@@ -1,0 +1,34 @@
+unit paren_inner_closer;
+
+// A closer line that closes only the inner of two brackets opened on one
+// line returns to the opener line's level (one level per line that opened
+// brackets; task 7 closed this as by design).
+
+interface
+
+implementation
+
+function Bar(A: Integer): Integer;
+begin
+  Result:= A;
+end;
+
+function Foo(A, B: Integer): Integer;
+begin
+  Result:= A + B;
+end;
+
+procedure P;
+var
+  C: Integer;
+begin
+  C:= 1;
+  C:= Foo(Bar( // keep
+          C // inner
+          ), C);
+  C:= Foo(Bar(C), // keep
+    Bar(C // inner
+    ));
+end;
+
+end.

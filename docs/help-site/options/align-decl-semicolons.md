@@ -15,6 +15,8 @@ status: "stable"
 After AlignTypeColon, align the trailing `;` on adjacent declaration
 lines so the semicolons line up in a column too. Set this AND
 AlignTypeColon to false for plain `Name: Type;` declarations.
+Typed constants and initialised variables (`Box: TRect = (...);`,
+`X: Integer = 0;`) are never padded: their value widths differ.
 
 ## Example
 
