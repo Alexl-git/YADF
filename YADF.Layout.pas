@@ -795,8 +795,11 @@ const
   CASE_ARM_GROW = 16; // dynamic-array growth step of the case-arm scanner
 
 type
-  /// <summary>What LayoutCaseArms does with an arm's statement.</summary>
-  TCaseArmBodies = (cabKeep, cabJoin, cabSplit);
+  /// <summary>What LayoutCaseArms does with an arm's statement: keep it, join it
+  /// onto its label line, split it under the label, or split it only when it is a
+  /// control statement (if / for / while / with) so the Break*Body layout applies to
+  /// it like to any other (task 2d-2).</summary>
+  TCaseArmBodies = (cabKeep, cabJoin, cabSplit, cabSplitCtl);
 
   TArmTok = record
     Line  : Integer; // 0-based line index
@@ -1276,7 +1279,8 @@ end;
 /// <param name="AJoinLabels">Join `7,` / `8: X;` into `7, 8: X;` when it fits AMaxLen.</param>
 /// <param name="ABodies">cabJoin pulls a one-line statement onto its `label:`
 /// line when it fits AMaxLen; cabSplit moves the statement of a `label: X;`
-/// arm onto its own line, AIndent deeper than the label; cabKeep leaves it.</param>
+/// arm onto its own line, AIndent deeper than the label; cabSplitCtl does the same
+/// only for an if / for / while / with statement; cabKeep leaves it.</param>
 /// <param name="AIndent">Indent width in spaces.</param>
 /// <param name="AMaxLen">Maximum line length for a join.</param>
 /// <returns>S with only line breaks and leading blanks between tokens changed.</returns>
@@ -1285,7 +1289,7 @@ end;
 /// variant part, a declaration, or an arm whose statement is begin/case/try/asm/
 /// repeat. A span holding any comment is left alone, except a trailing `//`
 /// comment on the statement line, which rides along. Idempotent.</remarks>
-function LayoutCaseArms(const S: string; AJoinLabels: Boolean; ABodies: TCaseArmBodies; AIndent, AMaxLen: Integer): string;  // dl:ok deep-nesting@a3f5, cyclomatic-complexity@780f, cognitive-complexity@cfc8 -- plan pass + emit pass over one line table
+function LayoutCaseArms(const S: string; AJoinLabels: Boolean; ABodies: TCaseArmBodies; AIndent, AMaxLen: Integer): string;  // dl:ok deep-nesting@a3f5, cyclomatic-complexity@7637, cognitive-complexity@ed4e -- plan pass + emit pass over one line table
 var
   Lines    : TStringList   ;
   Scan     : TCaseArmScan  ;
@@ -1370,6 +1374,8 @@ begin
         end
         else if CaseArmBodyIsBlock(Scan, Arm) or (Ls <> Lc) or (Scan.LineFirst[Lc] <> Arm.LabelStart) or Scan.HasCmt[Lc] then
           Continue
+        else if (ABodies = cabSplitCtl) and not (Scan.Toks[Arm.BodyStart].IsWord and MatchText(Scan.Toks[Arm.BodyStart].Text, ['if', 'for', 'while', 'with'])) then
+          Continue
         else if ABodies = cabJoin then
         begin
           // `label:` alone on its line, the whole statement alone on the next.
@@ -1430,6 +1436,155 @@ begin
       Lines.Free;
     end; // try
   end; // for
+end; // function
+
+// True when token AIdx of AScan opens a control block when a `begin` follows it:
+// then / do / else, or the colon of a case arm (AArmColon).
+function IsBeginHeaderTok(const AScan: TCaseArmScan; const AArmColon: TArray<Boolean>; AIdx: Integer): Boolean;
+begin
+  Result:= (AIdx >= 0) and (AIdx < Length(AScan.Toks)) and
+           ((AScan.Toks[AIdx].IsWord and MatchStr(AScan.Toks[AIdx].Text, ['then', 'do', 'else'])) or AArmColon[AIdx]);
+end;
+
+/// <summary>Places the `begin` of a control block (BeginOnHeaderLine, owner
+/// decision Q3, SPEC-2026-11-01 task 2d-2). ON joins `begin` onto the line of its
+/// then / do / else, case-arm label or case else, and `end` / `else` / `begin`
+/// into `end else begin`; OFF puts `begin` on its own line and lays out
+/// `end else begin` as `end` / `else` / `begin`.</summary>
+/// <param name="S">CRLF text, multi-line atoms shielded.</param>
+/// <param name="AOnHeader">True = the ON layout (join); False = the OFF layout (split).</param>
+/// <param name="AMaxLen">Maximum length of a joined line.</param>
+/// <returns>S with only line breaks and leading blanks between tokens changed;
+/// the caller re-indents.</returns>
+/// <remarks>Content-neutral. OFF splits only when `begin` is the last code token
+/// on its line, so a block folded onto one line (CollapseShortBlocks) is never
+/// touched; a trailing `//` comment moves with `begin`. ON never joins across a
+/// `//` comment, a { } / (* *) comment or directive, or a blank line, and only
+/// when the joined line fits AMaxLen. A line holding a { } / (* *) comment is
+/// never split. Idempotent.</remarks>
+function LayoutBeginPlacement(const S: string; AOnHeader: Boolean; AMaxLen: Integer): string;  // dl:ok cyclomatic-complexity@78f9 -- plan pass + emit pass over one line table, like LayoutCaseArms
+var
+  Lines    : TStringList    ;
+  Scan     : TCaseArmScan   ;
+  ArmColon : TArray<Boolean>;
+  JoinNext : TArray<Boolean>;
+  ChainLen : TArray<Integer>;
+  SplitElse: TArray<Integer>;
+  SplitBeg : TArray<Integer>;
+  OutVal   : TStringBuilder ;
+  Cur      : string         ;
+  Ind      : string         ;
+  a        : Integer        ;
+  k        : Integer        ;
+  n        : Integer        ;
+  p        : Integer        ;
+  Cand     : Boolean        ;
+  NewLen   : Integer        ;
+
+  function WordIs(AIdx: Integer; const AText: string): Boolean;
+  begin
+    Result:= (AIdx >= 0) and (AIdx < Length(Scan.Toks)) and Scan.Toks[AIdx].IsWord and (Scan.Toks[AIdx].Text = AText);
+  end;
+
+  // Token AP ends line AN - 1 and nothing on lines AN - 1 / AN blocks a join:
+  // no `//` comment on the upper line, no { } / (* *) comment or directive on either.
+  function Joinable(AN, AP: Integer): Boolean;
+  begin
+    Result:= (AP >= 0) and (Scan.Toks[AP].Line = AN - 1) and (Scan.LineCmt[AN - 1] = 0) and not Scan.HasCmt[AN - 1] and not Scan.HasCmt[AN];
+  end;
+
+begin
+  Result:= S;
+  Lines:= TStringList.Create;
+  try
+    Lines.LineBreak:= CRLF;
+    Lines.Text     := S;
+    LexCaseArmLines(Lines, Scan);
+    ParseCaseArms(Scan);
+    SetLength(ArmColon, Length(Scan.Toks));
+    for k:= 0 to High(ArmColon) do
+      ArmColon[k]:= False;
+    for a:= 0 to High(Scan.Arms) do
+      if not Scan.Toks[Scan.Arms[a].Colon].IsWord then
+        ArmColon[Scan.Arms[a].Colon]:= True;
+    SetLength(JoinNext, Lines.Count);
+    SetLength(ChainLen, Lines.Count);
+    SetLength(SplitElse, Lines.Count);
+    SetLength(SplitBeg, Lines.Count);
+    for n:= 0 to Lines.Count - 1 do
+    begin
+      JoinNext [n]:= False;
+      ChainLen [n]:= Length(TrimRight(Lines[n]));
+      SplitElse[n]:= 0;
+      SplitBeg [n]:= 0;
+    end;
+    if AOnHeader then
+      // ON: `begin` (or an `else` that follows `end` and precedes `begin`) opening
+      // a line joins the line above when that line ends with its header token.
+      for n:= 1 to Lines.Count - 1 do
+      begin
+        k:= Scan.LineFirst[n];
+        p:= k - 1;
+        if (k < 0) or not Joinable(n, p) then
+          Continue;
+        Cand:= (WordIs(k, 'begin') and IsBeginHeaderTok(Scan, ArmColon, p)) or (WordIs(k, 'else') and WordIs(p, 'end') and WordIs(k + 1, 'begin'));
+        NewLen:= ChainLen[n - 1] + 1 + Length(Trim(Lines[n]));
+        if Cand and (NewLen <= AMaxLen) then
+        begin
+          JoinNext[n - 1]:= True;
+          ChainLen[n]    := NewLen;
+        end;
+      end // for
+    else
+      // OFF: split before a header-following `begin` that ends its line, and
+      // between `end` and an `else` whose block `begin` follows.
+      for k:= 0 to High(Scan.Toks) do
+      begin
+        n:= Scan.Toks[k].Line;
+        if Scan.HasCmt[n] then
+          Continue;
+        if WordIs(k, 'begin') and (Scan.LineLast[n] = k) and (k > 0) and (Scan.Toks[k - 1].Line = n) and IsBeginHeaderTok(Scan, ArmColon, k - 1) then
+          SplitBeg[n]:= Scan.Toks[k].Col
+        else if WordIs(k, 'else') and WordIs(k - 1, 'end') and (Scan.Toks[k - 1].Line = n) and WordIs(k + 1, 'begin') then
+          SplitElse[n]:= Scan.Toks[k].Col;
+      end; // for
+    OutVal:= TStringBuilder.Create;
+    try
+      n:= 0;
+      while n < Lines.Count do
+      begin
+        Cur:= Lines[n];
+        if (SplitElse[n] > 0) or (SplitBeg[n] > 0) then
+        begin
+          Ind:= Copy(Cur, 1, Length(Cur) - Length(TrimLeft(Cur)));
+          if SplitElse[n] > 0 then
+          begin
+            OutVal.Append(TrimRight(Copy(Cur, 1, SplitElse[n] - 1))).Append(CRLF);
+            if SplitBeg[n] > 0 then
+              OutVal.Append(Ind).Append(TrimRight(Copy(Cur, SplitElse[n], SplitBeg[n] - SplitElse[n]))).Append(CRLF)
+            else
+              Cur:= Ind + Copy(Cur, SplitElse[n], MaxInt);
+          end
+          else
+            OutVal.Append(TrimRight(Copy(Cur, 1, SplitBeg[n] - 1))).Append(CRLF);
+          if SplitBeg[n] > 0 then
+            Cur:= Ind + Copy(Lines[n], SplitBeg[n], MaxInt);
+        end;
+        while JoinNext[n] and (n + 1 < Lines.Count) do
+        begin
+          Inc(n);
+          Cur:= TrimRight(Cur) + ' ' + Trim(Lines[n]);
+        end;
+        OutVal.Append(Cur).Append(CRLF);
+        Inc(n);
+      end; // while
+      Result:= OutVal.ToString;
+    finally
+      OutVal.Free;
+    end; // try
+  finally
+    Lines.Free;
+  end; // try
 end; // function
 // ===== Pass-2 column alignment =====
 // These run AFTER the structural rendering and re-indentation. They
@@ -2755,7 +2910,8 @@ var
 
   function Eligible(AIdx: Integer): Boolean;
   var
-    AInfo: TLineShape;
+    AInfo: TLineShape  ;
+    Tk   : TptTokenKind;
   begin
     // A uses clause never participates in column alignment (see MarkUsesLines).
     if InUses[AIdx] then
@@ -2763,6 +2919,11 @@ var
     if IsAttributedDeclLine(Lines[AIdx]) then
       Exit(False);
     AInfo:= Info[AIdx];
+    // A begin..end block folded onto one line (CollapseShortBlocks) is never an
+    // alignment peer: padding inside it (`X:= 9 ;`) is noise (owner decision Q16).
+    for Tk in AInfo.Shape do
+      if Tk = ptBegin then
+        Exit(False);
     Result:= AInfo.HasAssign or  // dl:ok boolean-expression-complexity@ef5c
     (AMatchShapes and (Length(AInfo.Shape) >= AMinAnchors) and (Length(AInfo.Shape) > 0) and (AInfo.Shape[0] <> ptColon) and not StructuralLead(AInfo.Shape[0]) and not IsParenContinuation(AIdx, AInfo));  // dl:ok boolean-expression-complexity@3dbd
   end;
@@ -4918,6 +5079,9 @@ var
   Joined: string         ;
   Ok    : Boolean        ;
   Hdr   : string         ; // control header text before `begin`
+  Scan  : TCaseArmScan   ;
+  ArmCol: TArray<Integer>; // per line: column of a case-arm colon, 0 = none
+  a     : Integer        ;
 
   function StartsWordCI(const L, W: string): Boolean;
   var
@@ -5087,7 +5251,8 @@ var
     if Lock[AIdx] or HasCommentChars(Lines[AIdx]) or Lines[AIdx].Contains(MlShieldMark) then
       Exit;
     T:= TrimRight(Lines[AIdx]);
-    if IsHeaderEnd(T) and (AIdx + 1 < Lines.Count) and (not Lock[AIdx + 1]) and SameText(Trim(Lines[AIdx + 1]), 'begin') then
+    // A case-arm label (`9:`) is a header too (owner decision Q5).
+    if (IsHeaderEnd(T) or (ArmCol[AIdx] = Length(T))) and (AIdx + 1 < Lines.Count) and (not Lock[AIdx + 1]) and SameText(Trim(Lines[AIdx + 1]), 'begin') then
     begin
       AHdr    := T;
       ABodyIdx:= AIdx + 2;
@@ -5096,7 +5261,7 @@ var
     if not EndsWordCI(T, 'begin') then
       Exit;
     AHdr:= TrimRight(Copy(T, 1, Length(T) - Length('begin')));
-    if (Trim(AHdr) = '') or (not IsHeaderEnd(AHdr)) or ContainsWordCI(AHdr, 'begin') or ContainsWordCI(AHdr, 'end') then
+    if (Trim(AHdr) = '') or (not IsHeaderEnd(AHdr) and (ArmCol[AIdx] <> Length(AHdr))) or ContainsWordCI(AHdr, 'begin') or ContainsWordCI(AHdr, 'end') then
       Exit;
     ABodyIdx:= AIdx + 1;
     Result  := True;
@@ -5110,6 +5275,14 @@ begin
     // Per-line "inside a block comment" flags (a multi-line { } / (* *)
     // interior never participates) -- the shared scanner's lock helper.
     Lock:= ComputeBlockCommentLock(Lines);
+    LexCaseArmLines(Lines, Scan);
+    ParseCaseArms(Scan);
+    SetLength(ArmCol, Lines.Count);
+    for a:= 0 to High(ArmCol) do
+      ArmCol[a]:= 0;
+    for a:= 0 to High(Scan.Arms) do
+      if not Scan.Toks[Scan.Arms[a].Colon].IsWord then
+        ArmCol[Scan.Toks[Scan.Arms[a].Colon].Line]:= Scan.Toks[Scan.Arms[a].Colon].Col;
     OutVal:= TStringBuilder.Create;
     try
       i:= 0;
@@ -5308,9 +5481,10 @@ begin
 end; // function
 
 /// <summary>Inverse of CollapseShortBlocks, run when that option is OFF: a
-/// control-statement begin..end block (after then/do/else, or a `begin` line
-/// that follows such a header line) written on one line -- or half-broken
-/// across lines -- is expanded: `begin` stays where the author put it, every
+/// control-statement begin..end block (after then/do/else or a case-arm label
+/// (owner decision Q5), or a `begin` line that follows such a header line)
+/// written on one line -- or half-broken across lines -- is expanded: `begin`
+/// stays where the author put it (BeginOnHeaderLine places it later), every
 /// statement goes on its own line, `end` starts its own line.</summary>
 /// <param name="S">CRLF text after Stage-2 emission (indent is not final).</param>
 /// <returns>The text with those blocks expanded. Inserts only CRLF + indent,
@@ -5331,8 +5505,12 @@ var
   Repl  : TArray<TArray<string>>;
   OutL  : TStringList           ;
   i     : Integer               ;
+  a     : Integer               ;
   Round : Integer               ;
   Prev  : string                ;
+  Scan  : TCaseArmScan          ;
+  ArmCol: TArray<Integer>       ; // per line: column of a case-arm colon, 0 = none
+  CurArm: Integer               ; // arm colon column for the next top-level Expand
 
   function IsDisqWord(const W: string): Boolean;
   begin
@@ -5372,17 +5550,31 @@ var
     Result:= ScanExpandLine(L, T, C) and (Length(T) > 0) and IsHdrWord(T[High(T)]);
   end;
 
-  // Index of the line's control-block `begin` (the FIRST begin, and only when it
-  // follows then/do/else or opens a line after a header line, with code after
-  // it on the same line); -1 otherwise.
-  function FindBegin(const T: TArray<TXTok>; APrevHdr: Boolean): Integer;
+  // Line AIdx ends with its case-arm colon (`11:` alone, a block on the next line).
+  function EndsWithArmColon(AIdx: Integer): Boolean;
   var
-    k: Integer;
+    T: TArray<TXTok>;
+    C: Boolean     ;
+  begin
+    Result:= (ArmCol[AIdx] > 0) and ScanExpandLine(Lines[AIdx], T, C) and (Length(T) > 0) and (T[High(T)].P = ArmCol[AIdx]);
+  end;
+
+  // Index of the line's control-block `begin` (the FIRST begin, and only when it
+  // follows then/do/else or the case-arm colon at column AArmCol (owner decision
+  // Q5), or opens a line after a header line, with code after it on the same
+  // line); -1 otherwise.
+  function FindBegin(const T: TArray<TXTok>; APrevHdr: Boolean; AArmCol: Integer): Integer;
+  var
+    k  : Integer;
+    Hdr: Boolean;
   begin
     for k:= 0 to High(T) do
       if (T[k].Kind = xkWord) and (T[k].W = 'begin') then
       begin
-        if (k < High(T)) and (((k > 0) and IsHdrWord(T[k - 1])) or ((k = 0) and APrevHdr)) then
+        Hdr:= False;
+        if k > 0 then
+          Hdr:= IsHdrWord(T[k - 1]) or ((AArmCol > 0) and (T[k - 1].Kind = xkOther) and (T[k - 1].P = AArmCol));
+        if (k < High(T)) and (Hdr or ((k = 0) and APrevHdr)) then
           Exit(k);
         Exit(-1);
       end;
@@ -5456,13 +5648,17 @@ var
     b  : Integer      ;
     e  : Integer      ;
     Ind: string       ;
+    Arm: Integer      ;
   begin
+    // Only the top-level call for a source line knows its arm colon column.
+    Arm   := CurArm;
+    CurArm:= 0;
     if L.Contains(ShieldPrefix) or not ScanExpandLine(L, T, C) or C or HasDisq(T, 0, Length(T)) then
     begin
       AOut.Add(L);
       Exit;
     end;
-    b:= FindBegin(T, APrevHdr);
+    b:= FindBegin(T, APrevHdr, Arm);
     e:= if b < 0 then -1 else MatchEnd(T, b);
     if e < 0 then
     begin
@@ -5532,7 +5728,7 @@ var
     Result:= False;
     if Lines[AIdx].Contains(ShieldPrefix) or not ScanExpandLine(Lines[AIdx], T, C) or C or HasDisq(T, 0, Length(T)) then
       Exit;
-    b:= FindBegin(T, APrevHdr);
+    b:= FindBegin(T, APrevHdr, ArmCol[AIdx]);
     if (b < 0) or (MatchEnd(T, b) >= 0) then
       Exit;
     D:= 0;
@@ -5577,6 +5773,14 @@ begin
       OutL.LineBreak := CRLF;
       Lines.Text     := Prev;
       Lock:= ComputeBlockCommentLock(Lines);
+      // Case-arm colons (owner decision Q5: CollapseShortBlocks owns `label: begin..end`).
+      LexCaseArmLines(Lines, Scan);
+      ParseCaseArms(Scan);
+      ArmCol:= nil;
+      SetLength(ArmCol, Lines.Count);
+      for a:= 0 to High(Scan.Arms) do
+        if not Scan.Toks[Scan.Arms[a].Colon].IsWord then
+          ArmCol[Scan.Toks[Scan.Arms[a].Colon].Line]:= Scan.Toks[Scan.Arms[a].Colon].Col;
       Repl:= nil; // SetLength keeps old entries -- every round starts empty
       SetLength(Repl, Lines.Count);
       for i:= 0 to Lines.Count - 1 do
@@ -5591,9 +5795,13 @@ begin
           OutL.Add(Lines[i]);
           Continue;
         end;
-        var PrevHdr:= (i > 0) and (not Lock[i - 1]) and EndsWithHeader(Lines[i - 1]);
+        var PrevHdr:= (i > 0) and (not Lock[i - 1]) and (EndsWithHeader(Lines[i - 1]) or EndsWithArmColon(i - 1));
+        CurArm:= 0;
         if not TryPartial(i, PrevHdr) then
+        begin
+          CurArm:= ArmCol[i];
           Expand(Lines[i], OutL, PrevHdr);
+        end;
       end; // for
       Result:= OutL.Text;
     finally
@@ -8372,6 +8580,7 @@ var
   AsmMap      : TStringList   ; // asm bodies shielded before Stage 1 (ShieldAsmBodies)
   EffMaxBlanks: Integer       ; // hoisted from inline var in the pipeline (XE8/D10)
   PreSplit    : string        ; // Result just before the split stage (strict code-token check)
+  PreBegin    : string        ; // Result before LayoutBeginPlacement (re-indent only on change)
   HoistSnap   : string        ; // Delphi10Compat only: token text right after the inline-var hoist
   Reference   : string        ; // text the pre-split snapshot is compared against
   PreMode     : TGuardCodeMode; // code-token strictness for the pre-split snapshot
@@ -9073,9 +9282,22 @@ begin
         // format would do it (idempotency). Lines that fit are never touched.
         if AOpts.ReflowLines and AOpts.BreakLongExpressions then
           Result:= BreakLongLines(Result);
+        // Task 2d-2: an if / for / while / with written on its case-arm label line
+        // moves under the label first, so the Break*Body layout below treats it like
+        // any other control statement (never half-split). CaseArmOnLabelLine ON pulls
+        // it back onto the label line later when it ended up on one line.
+        Result:= LayoutCaseArms(Result, False, cabSplitCtl, AOpts.Indent, AOpts.MaxLen);
         Result:= LayoutControlBodies(Result, AOpts);
         if AOpts.ReflowLines and AOpts.BreakLongExpressions then
           Result:= BreakLongLines(Result);
+        // BeginOnHeaderLine (owner decision Q3): `begin` joins or leaves its
+        // then / do / else / case-label line, `end else begin` joins or splits. On the
+        // settled line shape (after the breakers), on both reflow paths; before the
+        // final CollapseShortBlocks, which folds either shape.
+        PreBegin:= Result;
+        Result  := LayoutBeginPlacement(Result, AOpts.BeginOnHeaderLine, AOpts.MaxLen);
+        if Result <> PreBegin then
+          Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
         // Join routine headers the source split across lines back onto one line.
         // Always runs (JoinRoutineHeaders OFF only adds the one-per-line layout below). Runs after BreakControlBodies (acts
         // on the settled line shape) and before Stage-4 alignment. Content-neutral, so
@@ -9124,6 +9346,14 @@ begin
           Result:= LayoutCaseArms(Result, False, cabSplit, AOpts.Indent, AOpts.MaxLen);
           Result:= LayoutControlBodies(Result, AOpts);
         end;
+        // Fold a short control-statement begin..end body onto one line (case arms
+        // and the case else included, owner decision Q5). Runs BEFORE the column
+        // passes (task 2d-2): the next format feeds the folded lines through them
+        // anyway, so aligning them already now keeps the formatter idempotent
+        // (`9 : begin X; end;` under `10: begin Y; end;`). Still before unshield,
+        // so multi-line string sentinels are single-line and can be skipped.
+        if AOpts.CollapseShortBlocks then
+          Result:= CollapseShortBlocks(Result, AOpts.MaxLen);
         if AOpts.AlignTypeColon or AOpts.AlignConstEquals or AOpts.AlignSmartAssign then
           Result:= CollapseInteriorSpaces(Result);
         if AOpts.AlignTypeColon then
@@ -9134,13 +9364,6 @@ begin
           Result:= AlignByAnchor(Result, '=', AOpts.AlignMaxColumn);
         if AOpts.AlignSmartAssign then
           Result:= SmartAlignAssignments(Result, AOpts.AlignMaxColumn, AOpts.AlignMatchingShapes, AOpts.AlignShapeMinAnchors, AOpts.AlignCommentMaxShift);
-
-        // Final pass: fold a short control-statement begin..end body onto one
-        // line. Runs after alignment (so it never feeds joined lines back
-        // through the column passes) but before unshield (so multi-line string
-        // sentinels are still single-line and can be detected + skipped).
-        if AOpts.CollapseShortBlocks then
-          Result:= CollapseShortBlocks(Result, AOpts.MaxLen);
 
         // Stage 4b: block-end labels (`end; // while`). LAST pass that touches
         // line SHAPE, so it is the first place where a block's line span is the

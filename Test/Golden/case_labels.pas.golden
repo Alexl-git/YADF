@@ -14,7 +14,11 @@ begin
   case K of
     0, 1, 2: Flag:= True;
     3, 4   : DoThing(K);
-    5, 6, 7: begin Flag:= False; Inc(A); end;
+    5, 6, 7:
+    begin
+      Flag:= False;
+      Inc(A);
+    end;
     else Inc(B);
   end;
 end;

@@ -13,9 +13,9 @@ $ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect te
 Assert-ToolOrSkip 'break_case' $exe
 $src = Join-Path $PSScriptRoot 'Cases\case_labels.pas'
 
-function Fmt([string]$flag) {
-  $tmp = Join-Path $tmpRoot ("bc_" + ($flag -replace '\W','') + ".out")
-  & $exe --ini $ini $src $flag --o $tmp | Out-Null
+function Fmt([string[]]$flags) {
+  $tmp = Join-Path $tmpRoot ("bc_" + (($flags -join '') -replace '\W','') + ".out")
+  & $exe --ini $ini $src @flags --o $tmp | Out-Null
   $out = Get-Content $tmp -Raw
   Remove-Item $tmp -Force -ErrorAction SilentlyContinue
   return $out
@@ -34,7 +34,10 @@ MustMatch    $off '(?m)^\s*B: Integer;'  'off: var B split'
 MustMatch    $off '(?m)^\s*C: Integer;'  'off: var C split'
 
 # ----- --break-case: arms split per label -----
-$on = Fmt '--break-case'
+# --collapse-blocks keeps the one-line block arm `5, 6, 7: begin .. end;` on one line:
+# CollapseShortBlocks OFF (the default) expands it (owner decision Q5, task 2d-2), and
+# BreakCaseLabels splits only an arm whose body sits on its label line.
+$on = Fmt @('--break-case', '--collapse-blocks')
 MustMatch    $on '(?m)^\s*0:\s'          'on: label 0 split out'
 MustMatch    $on '(?m)^\s*1:\s'          'on: label 1 split out'
 MustMatch    $on '(?m)^\s*2:\s'          'on: label 2 split out'

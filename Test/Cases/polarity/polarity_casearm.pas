@@ -5,6 +5,8 @@ unit polarity_casearm;
 // its label; CaB = an arm already on the label line; CaC = a begin..end arm;
 // CaD = an arm with a trailing // comment; arm 4 holds a nested case, arm 5 an
 // if..else, arm 6 a statement whose continuation line leads with an operator. Arm 7 = a longer statement (no ; padding, Q16).
+// Arm 8 = an if..else the author broke after its then body (task 2d-2: an arm's
+// if follows BreakIfBody like any other if, never half-split).
 // The case else part follows CaseArmOnLabelLine (Q11); the variant part of TCaRec must never move.
 
 interface
@@ -51,6 +53,8 @@ begin
     6: CaB:= CaA
          + CaC;
     7: Inc(CaA, CaB);
+    8: if CaA > 1 then Inc(CaB)
+       else Dec(CaB);
   else
     CaA:= 1;
   end;

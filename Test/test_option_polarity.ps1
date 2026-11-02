@@ -104,16 +104,73 @@ $cases = @(
   @{ Id = 'CollapseShortBlocks ON: one-line block stays folded'; Fix = 'polarity_collapse'; Set = @{ CollapseShortBlocks = $T }
      In = 'while CbC > 0 do begin Dec(CbC); CbD:= CbC; end;'; Want = 'unchanged'
      Must = @('(?m)^\s*while CbC > 0 do begin Dec\(CbC\); CbD:= CbC; end;\r?$') }
-  @{ Id = 'CollapseShortBlocks ON + block too long for MaxLen stays expanded'; Fix = 'polarity_collapse'; Set = @{ CollapseShortBlocks = $T }
-     In = '3-statement block, ~225 chars folded'; Want = 'expanded'
-     Must = @('(?m)^\s*if C then begin\r?\n\s+LongNameNumberOne\s*:=')
+  @{ Id = 'CollapseShortBlocks ON + block too long for MaxLen stays expanded (begin per BeginOnHeaderLine, default OFF)'; Fix = 'polarity_collapse'; Set = @{ CollapseShortBlocks = $T }
+     In = '3-statement block, ~225 chars folded'; Want = 'expanded, begin on its own line'
+     Must = @('(?m)^\s*if C then\r?\n\s*begin\r?\n\s+LongNameNumberOne\s*:=')
      Not = @('begin LongNameNumberOne', '(?m)^[^\r\n]{181,}') }
-  @{ Id = 'CollapseShortBlocks OFF: one-line block expands'; Fix = 'polarity_collapse'; Set = @{ CollapseShortBlocks = $F }
+  @{ Id = 'CollapseShortBlocks OFF: one-line block expands'; Fix = 'polarity_collapse'; Set = @{ CollapseShortBlocks = $F; BeginOnHeaderLine = $T }
      In = 'while CbC > 0 do begin Dec(CbC); CbD:= CbC; end;'; Want = 'one statement per line'
      Must = @('(?m)^\s*while CbC > 0 do begin\r?\n\s+Dec\(CbC\);\r?\n\s+CbD:= CbC;\r?\n\s*end;\r?$') }
-  @{ Id = 'CollapseShortBlocks OFF: expanded block stays expanded'; Fix = 'polarity_collapse'; Set = @{ CollapseShortBlocks = $F }
+  @{ Id = 'CollapseShortBlocks OFF: expanded block stays expanded'; Fix = 'polarity_collapse'; Set = @{ CollapseShortBlocks = $F; BeginOnHeaderLine = $T }
      In = 'if C then begin<NL>CbA:= 1;<NL>CbB:= 2;<NL>end;'; Want = 'unchanged'
-     Must = @('(?m)^\s*if C then begin\r?\n\s+CbA:= 1;\r?\n\s+CbB:= 2;\r?\n\s*end;\r?$', '(?m)^\s*if not C then\r?\n\s*begin\r?\n\s+CbE:= 1;\r?\n\s+CbF:= 2;\r?\n\s*end;\r?$') }
+     Must = @('(?m)^\s*if C then begin\r?\n\s+CbA:= 1;\r?\n\s+CbB:= 2;\r?\n\s*end;\r?$', '(?m)^\s*if not C then begin\r?\n\s+CbE:= 1;\r?\n\s+CbF:= 2;\r?\n\s*end;\r?$') }
+
+  # BeginOnHeaderLine (default false, owner decision Q3, SPEC-2026-11-01 task 2d-2):
+  # OFF = `begin` on its own line under then / do / else / a case label / the case
+  # else, and `end` / `else` / `begin` on three lines; ON = `then begin`,
+  # `end else begin`, `9: begin`. A `//` comment after the header pins it. Not
+  # applied to a block CollapseShortBlocks folds onto one line. Q5: Collapse owns
+  # `label: begin..end` and the case `else begin..end` in both directions.
+  @{ Id = 'BeginOnHeaderLine OFF: begin goes on its own line after then / do'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $F }
+     In = 'if C then begin / while BgE > 0 do begin'; Want = 'if C then / begin'
+     Must = @('(?m)^(?<i> *)if C then\r?\n\k<i>begin\r?\n\k<i>  BgA:= 1;\r?$', '(?m)^(?<i> *)while BgE > 0 do\r?\n\k<i>begin\r?\n\k<i>  Dec\(BgE\);\r?$', '(?m)^(?<i> *)for BgF:= 0 to N do\r?\n\k<i>begin\r?$')
+     Not = @('(?m)^[^/\r\n]*\b(then|do|else)[ ]+begin') }
+  @{ Id = 'BeginOnHeaderLine OFF: end else begin goes on three lines'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $F }
+     In = 'end else begin'; Want = 'end / else / begin'
+     Must = @('(?m)^(?<i> *)  BgD:= 2;\r?\n\k<i>end\r?\n\k<i>else\r?\n\k<i>begin\r?\n\k<i>  BgC:= 3;\r?$', '(?m)^(?<i> *)  BgC:= 2;\r?\n\k<i>end\r?\n\k<i>else\r?\n\k<i>begin\r?\n\k<i>  BgD:= 3;\r?$')
+     Not = @('(?m)^[^/\r\n]*\bend[ ]+else') }
+  @{ Id = 'BeginOnHeaderLine OFF: a // comment after begin moves with it, a // after then pins'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $F }
+     In = 'if C then begin // note G / if not C then // note H<NL>begin'; Want = 'if C then / begin // note G'
+     Must = @('(?m)^(?<i> *)if C then\r?\n\k<i>begin // note G\r?$', '(?m)^(?<i> *)if not C then // note H\r?\n\k<i>begin\r?$') }
+  @{ Id = 'BeginOnHeaderLine OFF: case arm and case else begin on their own line (Q5)'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $F }
+     In = '9: begin / 10: begin X; Y; end; / 11:<NL>begin / else begin'; Want = 'label / begin / body / end at the begin column'
+     Must = @('(?m)^(?<i> *)9:\r?\n\k<i>begin\r?\n\k<i>  BgA:= 9;\r?\n\k<i>  BgB:= 9;\r?\n\k<i>end;\r?$', '(?m)^(?<i> *)10:\r?\n\k<i>begin\r?\n\k<i>  BgA:= 10;\r?\n\k<i>  BgB:= 10;\r?\n\k<i>end;\r?$',
+              '(?m)^(?<i> *)11:\r?\n\k<i>begin\r?\n\k<i>  BgA:= 11;\r?$', '(?m)^(?<i> *)else\r?\n\k<i>begin\r?\n\k<i>  BgA:= 0;\r?$')
+     Not = @('(?m)^\s*\d+:[ ]*begin') }
+  @{ Id = 'BeginOnHeaderLine ON: begin joins its then / do header'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $T }
+     In = 'if not C then<NL>begin / for .. do<NL>begin'; Want = 'if not C then begin'
+     Must = @('(?m)^(?<i> *)if not C then begin\r?\n\k<i>  BgB:= 1;\r?$', '(?m)^(?<i> *)for BgF:= 0 to N do begin\r?\n\k<i>  BgE:= BgF;\r?$', '(?m)^\s*if C then begin\r?\n\s+BgA:= 1;\r?$', '(?m)^\s*while BgE > 0 do begin\r?$')
+     }
+  @{ Id = 'BeginOnHeaderLine ON: end / else / begin joined to end else begin'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $T }
+     In = 'end<NL>else<NL>begin'; Want = 'end else begin'
+     Must = @('(?m)^(?<i> *)  BgC:= 2;\r?\n\k<i>end else begin\r?\n\k<i>  BgD:= 3;\r?$', '(?m)^(?<i> *)  BgD:= 2;\r?\n\k<i>end else begin\r?$') }
+  @{ Id = 'BeginOnHeaderLine ON: a // comment after then keeps begin on its own line'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $T }
+     In = 'if not C then // note H<NL>begin'; Want = 'unchanged'
+     Must = @('(?m)^(?<i> *)if not C then // note H\r?\n\k<i>begin\r?$', '(?m)^\s*if C then begin // note G\r?$') }
+  @{ Id = 'BeginOnHeaderLine ON: case arm and case else begin on the label line (Q5)'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $T }
+     In = '11:<NL>begin / else<NL>begin / 10: begin X; Y; end;'; Want = '11: begin / else begin / 10 expanded'
+     Must = @('(?m)^(?<i> *)9: begin\r?\n\k<i>  BgA:= 9;\r?\n\k<i>  BgB:= 9;\r?\n\k<i>end;\r?$', '(?m)^(?<i> *)10: begin\r?\n\k<i>  BgA:= 10;\r?\n\k<i>  BgB:= 10;\r?\n\k<i>end;\r?$',
+              '(?m)^(?<i> *)11: begin\r?\n\k<i>  BgA:= 11;\r?$', '(?m)^(?<i> *)else begin\r?\n\k<i>  BgA:= 0;\r?$') }
+  @{ Id = 'BeginOnHeaderLine OFF + CollapseShortBlocks ON: short blocks fold anyway (Collapse wins)'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $F; CollapseShortBlocks = $T }
+     In = 'then begin / then<NL>begin / end else begin / arms / case else'; Want = 'one-line blocks'
+     Must = @('(?m)^\s*if C then begin BgA:= 1; BgB:= 2; end;\r?$', '(?m)^\s*if not C then begin BgB:= 1; BgC:= 2; end;\r?$', '(?m)^\s*if BgA > 0 then begin BgC:= 1; BgD:= 2; end\r?\n\s*else begin BgC:= 3; BgD:= 4; end;\r?$',
+              '(?m)^\s*9\s*: begin BgA:= 9; BgB:= 9; end;\r?$', '(?m)^\s*10: begin BgA:= 10; BgB:= 10; end;\r?$', '(?m)^\s*11\s*: begin BgA:= 11; BgB:= 11; end;\r?$', '(?m)^\s*else begin BgA:= 0; BgB:= 0; end;\r?$') }
+  @{ Id = 'BeginOnHeaderLine ON + CollapseShortBlocks ON: short blocks fold, arms and case else too (Q5)'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $T; CollapseShortBlocks = $T }
+     In = 'blocks + arms + case else'; Want = 'one-line blocks'
+     Must = @('(?m)^\s*if not C then begin BgB:= 1; BgC:= 2; end;\r?$', '(?m)^\s*while BgE > 0 do begin Dec\(BgE\); BgF:= BgE; end;\r?$', '(?m)^\s*9\s*: begin BgA:= 9; BgB:= 9; end;\r?$', '(?m)^\s*11\s*: begin BgA:= 11; BgB:= 11; end;\r?$', '(?m)^\s*else begin BgA:= 0; BgB:= 0; end;\r?$') }
+  @{ Id = 'BeginOnHeaderLine ON + CaseArmOnLabelLine OFF: block arms keep begin on the label line'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $T; CaseArmOnLabelLine = $F }
+     In = '9: begin / 11:<NL>begin'; Want = '9: begin / 11: begin'
+     Must = @('(?m)^\s*9: begin\r?$', '(?m)^\s*11: begin\r?$', '(?m)^\s*else begin\r?$') }
+  @{ Id = 'BeginOnHeaderLine OFF + CaseArmOnLabelLine ON: block arms get begin on its own line'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $F; CaseArmOnLabelLine = $T }
+     In = '9: begin'; Want = '9: / begin'
+     Must = @('(?m)^(?<i> *)9:\r?\n\k<i>begin\r?$', '(?m)^(?<i> *)11:\r?\n\k<i>begin\r?$') }
+  @{ Id = 'BeginOnHeaderLine ON + ReflowLines OFF: begin still joins its header'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $T; ReflowLines = $F }
+     In = 'if not C then<NL>begin'; Want = 'if not C then begin'
+     Must = @('(?m)^\s*if not C then begin\r?$', '(?m)^\s*end else begin\r?$', '(?m)^\s*11: begin\r?$') }
+  @{ Id = 'BeginOnHeaderLine OFF + ReflowLines OFF: begin still split from its header'; Fix = 'polarity_begin'; Set = @{ BeginOnHeaderLine = $F; ReflowLines = $F }
+     In = 'if C then begin'; Want = 'if C then / begin'
+     Must = @('(?m)^(?<i> *)if C then\r?\n\k<i>begin\r?$', '(?m)^(?<i> *)9:\r?\n\k<i>begin\r?$')
+     Not = @('(?m)^[^/\r\n]*\b(then|do|else)[ ]+begin', '(?m)^[^/\r\n]*\bend[ ]+else') }
 
   # BreakIfBody / BreakLoopBody / BreakWithBody (default TRUE since task 2d-1,
   # owner decision Q1): two-way. ON = every simple body on its own line; OFF =
@@ -236,9 +293,18 @@ $cases = @(
   @{ Id = 'CaseArmOnLabelLine ON: arm under its label is joined, inline arms kept'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T; BreakIfBody = $T }
      In = '0:<NL>Inc(CaA); / 1: Inc(CaB); / 3: Inc(CaD); // keep'; Want = '0: Inc(CaA); and the rest unchanged'
      Must = @('(?m)^\s*0: Inc\(CaA\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$', '(?m)^\s*3: Inc\(CaD\); // keep\r?$', '(?m)^\s*else CaA:= 1;\r?$', '(?m)^\s*else Dec\(CaB\);\r?$', '(?m)^\s*7: Inc\(CaA, CaB\);\r?$',
-              '(?m)^\s*0\s*: \(IntVal: Integer\);\r?$', '(?m)^\s*4:\r?\n\s+case CaB of\r?$', '(?m)^\s*0: Inc\(CaB\);\r?$', '(?m)^\s*5: if CaA > 0 then Inc\(CaA\) else Dec\(CaA\);\r?$')
+              '(?m)^\s*0\s*: \(IntVal: Integer\);\r?$', '(?m)^\s*4:\r?\n\s+case CaB of\r?$', '(?m)^\s*0: Inc\(CaB\);\r?$', '(?m)^(?<i> *)5:\r?\n\k<i>  if CaA > 0 then\r?\n\k<i>    Inc\(CaA\)\r?\n\k<i>  else\r?\n\k<i>    Dec\(CaA\);\r?$',
+              '(?m)^(?<i> *)8:\r?\n\k<i>  if CaA > 1 then\r?\n\k<i>    Inc\(CaB\)\r?\n\k<i>  else\r?\n\k<i>    Dec\(CaB\);\r?$')
      Not = @('(?m)^[ ]*2:[ ]*begin', '(?m)^[ ]*4:[ ]*case', '(?m)Inc\([^)
 ]*\)[ ]+;') }
+  # Task 2d-2: an if inside an arm follows BreakIfBody exactly as elsewhere (never
+  # half-split); OFF + CaseArmOnLabelLine ON puts the whole if on the label line.
+  @{ Id = 'CaseArmOnLabelLine ON + BreakIfBody OFF: an arm if goes on its label line whole'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T; BreakIfBody = $F }
+     In = '5: if C then A else B; / 8: if C then A<NL>else B;'; Want = 'one line each'
+     Must = @('(?m)^\s*5: if CaA > 0 then Inc\(CaA\) else Dec\(CaA\);\r?$', '(?m)^\s*8: if CaA > 1 then Inc\(CaB\) else Dec\(CaB\);\r?$') }
+  @{ Id = 'CaseArmOnLabelLine OFF + BreakIfBody OFF: an arm if goes whole under its label'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; BreakIfBody = $F }
+     In = '8: if C then A<NL>else B;'; Want = '8: / if C then A else B;'
+     Must = @('(?m)^(?<i> *)8:\r?\n\k<i>  if CaA > 1 then Inc\(CaB\) else Dec\(CaB\);\r?$', '(?m)^(?<i> *)5:\r?\n\k<i>  if CaA > 0 then Inc\(CaA\) else Dec\(CaA\);\r?$') }
   # Q11 + Q16 (task 2d-1): the case else part follows CaseArmOnLabelLine, never
   # BreakIfBody; a one-line arm is never padded before its ";".
   @{ Id = 'CaseArmOnLabelLine OFF + BreakIfBody OFF: case else stays broken'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; BreakIfBody = $F }
@@ -252,7 +318,7 @@ $cases = @(
   @{ Id = 'CaseArmOnLabelLine OFF: arm statements go under their label'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F }
      In = '1: Inc(CaB); / 3: Inc(CaD); // keep / 5: if ..'; Want = '1: / Inc(CaB); and 3: / Inc(CaD); // keep'
      Must = @('(?m)^\s*0:\r?\n\s+Inc\(CaA\);\r?$', '(?m)^\s*1:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*3:\r?\n\s+Inc\(CaD\); // keep\r?$', '(?m)^\s*else\r?\n\s+CaA:= 1;\r?$', '(?m)^\s*else\r?\n\s+Dec\(CaB\);\r?$',
-              '(?m)^\s*0:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*5:\r?\n\s+if CaA > 0 then\r?\n\s+Inc\(CaA\)\r?\n\s*else\r?\n\s+Dec\(CaA\);\r?$',
+              '(?m)^\s*0:\r?\n\s+Inc\(CaB\);\r?$', '(?m)^\s*5:\r?\n\s+if CaA > 0 then\r?\n\s+Inc\(CaA\)\r?\n\s*else\r?\n\s+Dec\(CaA\);\r?$', '(?m)^(?<i> *)8:\r?\n\k<i>  if CaA > 1 then\r?\n\k<i>    Inc\(CaB\)\r?\n\k<i>  else\r?\n\k<i>    Dec\(CaB\);\r?$',
               '(?m)^\s*0\s*: \(IntVal: Integer\);\r?$', '(?m)^\s*case Kind: Integer of\r?$', '(?m)^\s*CaA\s*: Integer;\r?$', '(?m)^procedure RunCaseArm\(N: Integer\);\r?$')
      Not = @('(?m)^[ ]*[0-5]:[ ]*(Inc|Dec|begin|case|if)') }
   # SPEC task 2c: moving the statement under its label shifts the continuation

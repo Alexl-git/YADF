@@ -24,35 +24,43 @@ var
   S: string ;
 begin
   I:= 0;
-  if C then begin
+  if C then
+  begin
     Log(3);
     Exit;
   end
-  else begin
+  else
+  begin
     Log(4);
   end;
-  for I:= 0 to 3 do begin
+  for I:= 0 to 3 do
+  begin
     X(I);
     Y;
   end;
-  if B then begin
+  if B then
+  begin
     Log(2);
     Exit;
   end;
-  while I > 0 do begin
+  while I > 0 do
+  begin
     Dec(I);
-    if C then begin
+    if C then
+    begin
       Log(I);
       Y;
     end;
   end;
-  if B then begin
+  if B then
+  begin
     S:= 'a; b begin end';
     Log(Length(S));
   end;
   if C then begin Log(5); { keep } Y; end;
   if B then begin {$IFDEF DEBUG} Log(9); {$ENDIF} Y; end;
-  if B then begin
+  if B then
+  begin
     Log(6);
     Y;
   end else Log(7);

@@ -18,6 +18,8 @@ The case else part follows the same rule when it is one statement: `else DoOther
 
 Never touched: arms whose body is a begin..end block, a nested case, try, asm or repeat; an else part of several statements; record variant parts; declarations. A // comment on the label line keeps the arm broken; a trailing // comment on the statement line moves with the statement.
 
+An arm whose statement is an if / for / while / with follows its Break*Body option exactly as elsewhere (since 1.0.21.0): when that option breaks the statement over several lines, the whole statement goes under the label (`5:` / `  if C then` / `    A` / `  else` / `    B;`), never half on the label line; when it stays one line, this option decides (`5: if C then A else B;` when on).
+
 The retired option "Pack short bodies" is still read from an INI as an alias: PackShortBodies = true turns this option on.
 
 ## Example

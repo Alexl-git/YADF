@@ -3,7 +3,7 @@ id: break-if-body
 title: Break if/then/else body onto its own line
 summary: On: the then/else bodies of an if go on their own indented lines. Off: the whole if ("if C then A else B;") goes on one line when it fits the max length, else every body on its own line.
 group: reflow-whitespace
-order: 110
+order: 120
 default: "true"
 ini: BreakIfBody
 since: "1.0.0.0"
