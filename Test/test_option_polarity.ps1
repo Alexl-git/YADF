@@ -412,10 +412,11 @@ $cases = @(
   @{ Id = 'UsesAlwaysBreak ON: one-line uses broken comma-first'; Fix = 'polarity_uses'; Set = @{ UsesAlwaysBreak = $T }
      In = 'uses SysUtils, Classes;'; Want = 'one unit per line, leading comma, ; alone'
      Must = @('(?m)^uses\r?\n\s+SysUtils\r?\n\s*, Classes\r?\n\s*;\r?$') }
-  @{ Id = 'UsesAlwaysBreak ON: commas and ; at the column of "uses" (spec example)'; Fix = 'polarity_uses'; Set = @{ UsesAlwaysBreak = $T }
-     In = 'uses SysUtils, Classes;'; Want = 'uses / "  SysUtils" / ", Classes" / ";"'; Show = '^\s*(uses|SysUtils|, Classes|;)\s*$'
-     Must = @('(?m)^uses\r?\n  SysUtils\r?\n, Classes\r?\n;\r?$')
-     Gap = 'wrong output vs spec example (cosmetic): comma and ; are indented to the unit column ("  , Classes" / "  ;"), the spec shows them under "uses"' }
+  # G5 (SPEC-2026-11-01): the code was right, the doc was wrong -- the commas and the ; sit
+  # at the unit column ("  , Classes" / "  ;"); help + yadf.ini fixed in task 4.
+  @{ Id = 'UsesAlwaysBreak ON: commas and ; indented to the unit column (G5, documented shape)'; Fix = 'polarity_uses'; Set = @{ UsesAlwaysBreak = $T }
+     In = 'uses SysUtils, Classes;'; Want = 'uses / "  SysUtils" / "  , Classes" / "  ;"'
+     Must = @('(?m)^uses\r?\n  SysUtils\r?\n  , Classes\r?\n  ;\r?$') }
   @{ Id = 'UsesAlwaysBreak OFF: broken uses that fits is joined'; Fix = 'polarity_uses'; Set = @{ UsesAlwaysBreak = $F }
      In = 'uses<NL>Math,<NL>Types;'; Want = 'uses Math, Types;'
      Must = @('(?m)^uses Math, Types;\r?$', '(?m)^uses SysUtils, Classes;\r?$') }
