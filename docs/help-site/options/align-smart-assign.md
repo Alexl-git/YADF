@@ -15,8 +15,8 @@ status: "stable"
 When adjacent assignment lines share the same token shape (same
 sequence of operators/punctuation, identifier names may differ),
 pad every common anchor (`:=`, `(`, `,`, `)`, `;`) to its
-max column so they line up. A member `.` (`A.B`) must match but
-is never padded.
+max column so they line up. A member `.` (`A.B`) is an anchor
+like the others: padded only when every line of the run has it.
 
 ## Example
 

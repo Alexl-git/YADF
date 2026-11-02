@@ -561,10 +561,13 @@ $cases = @(
   @{ Id = 'Rule: an anonymous method assigned in a statement does not leak a routine level'; Fix = 'polarity_rules6'; Set = @{}
      In = 'X := procedure begin After6; end; / X := procedure<NL>begin...end;'; Want = 'later statements and routines keep their indent'; Show = 'X:=|Alpha\.Beta|^\s*procedure After6|^\s*end\.'
      Must = @('(?m)^  Alpha\.Beta', '(?m)^procedure After6;\r?$', '(?m)^end\.\s*$') }
-  @{ Id = 'Rule: a member . is never a shape-alignment anchor (Eta.Th stays one token)'; Fix = 'polarity_rules6'; Set = @{}
-     In = 'Alpha.Beta := 1; Gamma.Delta := 2; Eta.Th := 3;'; Want = 'only := aligned'; Show = 'Beta|Delta|Eta.*:='
-     Must = @('(?m)^\s*Eta\.Th +:= 3;\r?$', '(?m)^\s*Gamma\.Delta:= 2;\r?$')
-     Not = @('Eta +\.') }
+  # Task 8b (owner 2026-11-02, reverses task 6 item 7): a member . is an ordinary
+  # shape anchor -- padded when every line of the run has it; a neighbour whose
+  # shape lacks it is no peer, so nothing of the shape is padded there.
+  @{ Id = 'Rule: a member . is an ordinary shape anchor (padded only in a run that all has it)'; Fix = 'polarity_rules6'; Set = @{}
+     In = 'Alpha.Beta := 1; Gamma.Delta := 2; Eta.Th := 3; / Eta.Th := 5; D := 6;'; Want = 'Eta  .Th   := 3; / Eta.Th:= 5;'; Show = 'Beta|Delta|Eta.*:=|D:= [06]'
+     Must = @('(?m)^  Alpha\.Beta := 1;\r?\n  Gamma\.Delta:= 2;\r?\n  Eta  \.Th   := 3;\r?\n  D:= 0;', '(?m)^  Eta\.Th:= 5;\r?\n  D:= 6;\r?$')
+     Not = @('Eta +\.Th:= 5') }
   @{ Id = 'Rule: a case label list holding a comment is not a colon-alignment peer'; Fix = 'polarity_rules6'; Set = @{}
      In = '3: {three} D := 1; / 4, {four} 5: D := 2;'; Want = 'no padding from the comment'; Show = '\{three\}|\{four\}'
      Must = @('(?m)^\s*3: \{three\} D:= 1;\r?$', '(?m)^\s*4, \{four\} 5: D:= 2;\r?$') }

@@ -51,7 +51,7 @@ var
 
 ## Tight parens and single spaces
 
-No blank after `(` or `[` and none before `)` or `]`; a run of blanks inside code becomes one blank; no blank before a `:` or `;` of code (so with all alignment options off a declaration is plain `Name: Type;`). Strings and comments are never touched.
+No blank after `(` or `[` and none before `)` or `]`; a run of blanks inside code becomes one blank; no blank before a `:`, `;` or member `.` of code (so with all alignment options off a declaration is plain `Name: Type;`). Only alignment adds blanks back: a member `.` is an ordinary anchor of [Align lines of the same shape](align-matching-shapes.md), padded only when every line of the run has it (`Eta  .Th:= 3;` / `Omega.Th:= 4;`), never in a line that lacks it. Strings and comments are never touched.
 
 ```pascal
 // input

@@ -2751,9 +2751,9 @@ end; // function
 // have the same "shape" when their punctuation/operator tokens form
 // the same sequence -- so identifier names and literals are
 // interchangeable, but `a.b := c(d, e);` and `x.y := z(w, v);` count
-// as the same shape and get their `:=`, `(`, `,`, `)`, `;`
-// padded to a shared column run. A member `.` takes part in the match but
-// is never padded (it belongs to the qualified name, task 6).
+// as the same shape and get their `.`, `:=`, `(`, `,`, `)`, `;`
+// padded to a shared column run. A member `.` is an ordinary anchor
+// (owner rule 2026-11-02, task 8b): padded only inside such a run.
 //   Shape     - the sequence of structural token kinds (no idents,
 //               whitespace, strings, numbers, chars, or comments).
 //   Cols      - the 1-based column of each structural token on the
@@ -2934,7 +2934,7 @@ begin
     Result:= Length(ALine);
 end; // function
 
-function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@2d56, cognitive-complexity@6f63
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@bf90, cognitive-complexity@ecc0
 var
   AnyOver  : Boolean                ;
   ColCols  : TArray<Integer>        ;
@@ -3221,11 +3221,9 @@ begin
             // arrays keep their columns.
             if (k = High(Info[i].Shape)) and (Info[i].Shape[k] = ptSemiColon) then
               Continue;
-            // Nor a member `.`: it is tight by rule (TightenAnchorSpacingInLine),
-            // and padding it split a qualified name (`Eta  .Th:= 3`, task 6). The
-            // `:=` after it still lines up.
-            if Info[i].Shape[k] = ptPoint then
-              Continue;
+            // A member `.` is an ordinary anchor (owner rule 2026-11-02, task 8b):
+            // every line of a run has the identical skeleton, so it is padded
+            // only where all lines carry it (`Eta  .Th:= 3` / `Omega.Th:= 4`).
             for L:= 0 to (j - i) - 1 do
             begin
               ColLines[L]:= WorkLine[L] ;

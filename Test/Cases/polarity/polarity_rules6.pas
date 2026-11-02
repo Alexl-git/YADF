@@ -1,6 +1,8 @@
 unit polarity_rules6;
 
 // Task 6 (SPEC-2026-11-01 reflow round leftovers): fixed rules at the defaults.
+// Task 8b: a member . is an ordinary shape anchor (Alpha/Gamma/Eta run padded;
+// the Eta.Th / D pair has different shapes and gets no . padding).
 
 interface
 
@@ -75,6 +77,8 @@ begin
   Writeln(Format('%d %d', [K, // keep
     D]));
   Writeln(D, Alpha.Beta, Gamma.Delta, Eta.Th);
+  Eta.Th := 5;
+  D := 6;
   X;
 end;
 
