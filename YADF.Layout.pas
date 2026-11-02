@@ -499,6 +499,31 @@ begin
   end; // try
 end; // procedure
 
+// Fixed rule (owner decision Q12, task 2d-4b): no blank right after `(` or right
+// before `)` -- `Foo( X )` / `( A * 2 )` become `Foo(X)` / `(A * 2)`. Under any
+// option set. A blank next to a line break (indent, a `(` that ends its line) or
+// next to a comment is left alone, and so is `( *` (removing that blank would
+// open a `(*` comment). Deletes whitespace tokens only, so it is guard-safe.
+procedure TightenParenSpacing(const ATokens: TTokenList);
+const
+  KEEP_NEXT = [ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment, ptStar];
+  KEEP_PREV = [ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment];
+var
+  i          : Integer;
+  AfterOpen  : Boolean;
+  BeforeClose: Boolean;
+begin
+  i:= ATokens.Count - 2;
+  while i >= 1 do
+  begin
+    AfterOpen  := (ATokens[i - 1].Kind = ptRoundOpen) and (ATokens[i + 1].Kind not in KEEP_NEXT);
+    BeforeClose:= (ATokens[i + 1].Kind = ptRoundClose) and (ATokens[i - 1].Kind not in KEEP_PREV);
+    if (ATokens[i].Kind = ptSpace) and (AfterOpen or BeforeClose) then
+      ATokens.Delete(i);
+    Dec(i);
+  end;
+end; // procedure
+
 // Applies all four capitalisation rules driven by AOpts:
 //   LowercaseKeywords - lowercases reserved words (any all-alpha token
 //                       whose Kind is not in the literal/comment/whitespace
@@ -1724,6 +1749,15 @@ var
   Sb     : TStringBuilder;
   T      : TToken        ;
   Tokens : TTokenList    ;
+
+  // True when the blank token AIdx sits between code and a `:` / `;` (Q13).
+  function BlankBeforeColonOrSemi(AIdx: Integer): Boolean;
+  begin
+    Result:= (AIdx > 0) and (AIdx + 1 < Tokens.Count) and (Tokens[AIdx + 1].Kind in [ptColon, ptSemiColon]);
+    if Result then
+      Result:= (Tokens[AIdx - 1].Kind not in [ptAnsiComment, ptBorComment, ptSlashesComment]) and not Tokens[AIdx - 1].Text.StartsWith('{');
+  end;
+
 begin
   LeadLen:= 0;
   while (LeadLen < Length(ALine)) and (ALine[LeadLen + 1] = ' ') do
@@ -1739,6 +1773,12 @@ begin
     for i:= 0 to Tokens.Count - 1 do
     begin
       T:= Tokens[i];
+      // Owner decision Q13 (task 2d-4b): no blank before a `:` or `;` that
+      // follows code (`Alpha   : Integer;` -> `Alpha: Integer;`). The column
+      // passes re-pad exactly the anchors they align, so with every align option
+      // off a declaration comes out plain `Name: Type;`.
+      if (T.Kind = ptSpace) and BlankBeforeColonOrSemi(i) then
+        Continue;
       Sb.Append(T.Pre);
       if (T.Kind = ptSpace) and (Length(T.Text) > 1) then
         Sb.Append(' ')
@@ -9158,7 +9198,7 @@ end; // function
 // Block-end labels are NOT decided here: they are a post-pass over the
 // final line-broken text (ApplyBlockEndLabels), because the line count
 // the walker sees is not the one the reader gets.
-function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@3314
+function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@77c8, method-too-long@bd09 -- the stage list reads top to bottom as the pipeline diagram
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -9824,6 +9864,7 @@ begin
     NormalizeAssignSpacing(Tokens, AOpts);
     if AOpts.SpaceAroundOperators then
       NormalizeOperatorSpacing(Tokens);
+    TightenParenSpacing(Tokens);
     // Delphi 10 compatibility transform (opt-in): hoist inline vars. Runs before
     // ParseGroups so it can mutate the token list freely.
     if AOpts.Delphi10Compat then
@@ -9980,8 +10021,9 @@ begin
         // so multi-line string sentinels are single-line and can be skipped.
         if AOpts.CollapseShortBlocks then
           Result:= CollapseShortBlocks(Result, AOpts.MaxLen);
-        if AOpts.AlignTypeColon or AOpts.AlignConstEquals or AOpts.AlignSmartAssign then
-          Result:= CollapseInteriorSpaces(Result);
+        // Unconditional (owner decision Q13, task 2d-4b): with every align option off
+        // the output is plain `Name: Type;`, never the author's padding.
+        Result:= CollapseInteriorSpaces(Result);
         if AOpts.AlignTypeColon then
           Result:= AlignByAnchor(Result, ':', AOpts.AlignMaxColumn);
         if AOpts.AlignDeclSemicolons then

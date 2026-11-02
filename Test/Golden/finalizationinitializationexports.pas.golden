@@ -4,7 +4,7 @@ interface
 
 type
   TFoo = class(TObject)
-    function A : Integer;
+    function A: Integer;
     constructor Create;
   end;
 
@@ -31,7 +31,7 @@ end;
 
 { TFoo }
 
-function TFoo.A : Integer;
+function TFoo.A: Integer;
 begin
 
 end;

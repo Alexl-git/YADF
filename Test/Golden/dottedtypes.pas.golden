@@ -11,7 +11,7 @@ type
     public
       function DoStuff<T2: MyUnit.TMyObject>(Obj: MyUnit.TMyObject): MyUnit.TMyObject;
 
-      property Obj : TObj read FObj implements MyUnit.IStuff;
+      property Obj: TObj read FObj implements MyUnit.IStuff;
   end;
 
 implementation

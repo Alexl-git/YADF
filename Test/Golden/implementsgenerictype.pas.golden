@@ -8,9 +8,9 @@ type
 
   TBar = class(TInterfacedObject, IFoo<IInterface>)
     private
-      FFoo : IFoo<IInterface>;
+      FFoo: IFoo<IInterface>;
     public
-      property Foo : IFoo<IInterface> read FFoo implements IFoo<IInterface>;
+      property Foo: IFoo<IInterface> read FFoo implements IFoo<IInterface>;
   end;
 
 implementation

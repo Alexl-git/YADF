@@ -295,6 +295,24 @@ $cases = @(
      In = 'Result:= Sum8(8 arguments) on one line > 180'; Want = 'comma-first, ); alone'
      Must = @('(?m)^  Result:= Sum8\(\r?\n    Recs\[0\]\.X \+ Recs\[1\]\.X \+ Recs\[2\]\.X\r?\n  , Recs\[3\]\.X',
               '(?m)^  , Grid\[1, 23\]\r?\n  \);\r?$') }
+  # Q12 (SPEC-2026-11-01 task 2d-4b), a fixed rule under any option set: no blank
+  # after "(" or before ")".
+  @{ Id = 'Rule: tight parens -- no blank after "(" or before ")" (Q12)'; Fix = 'polarity_spacing'; Set = @{ ReflowLines = $T }
+     In = 'Sq( SpOne ) + ( SpTwenty * 2 ); IntToStr( Alpha ); if ( Alpha > 0 ) and ( B <> '''' )'; Want = 'tight'
+     Must = @('(?m)^\s*Alpha:= Sq\(SpOne\) \+ \(SpTwenty \* 2\);\r?$', '(?m)^\s*B:= IntToStr\(Alpha\);\r?$', '(?m)^\s*if \(Alpha > 0\) and \(B <> ''''\) then\r?$')
+     Not = @('(?m)^(?!\s*//)[^\r\n]*\( ', '(?m)^(?!\s*//)[^\r\n]* \)') }
+  @{ Id = 'Rule + ReflowLines OFF: tight parens too (Q12)'; Fix = 'polarity_spacing'; Set = @{ ReflowLines = $F }
+     In = 'the same'; Want = 'tight'
+     Must = @('(?m)^\s*Alpha:= Sq\(SpOne\) \+ \(SpTwenty \* 2\);\r?$')
+     Not = @('(?m)^(?!\s*//)[^\r\n]*\( ', '(?m)^(?!\s*//)[^\r\n]* \)') }
+  # Q13: every align option OFF -> plain "Name: Type;" / "Name = Value;", the
+  # author's padding is not kept; ON (default) -> aligned columns.
+  @{ Id = 'All align options OFF: plain "Name: Type;" and "Name = Value;" (Q13)'; Fix = 'polarity_spacing'; Set = @{ AlignTypeColon = $F; AlignDeclSemicolons = $F; AlignConstEquals = $F; AlignSmartAssign = $F }
+     In = 'Alpha   : Integer; / B       : string ; / SpOne     = 1;'; Want = 'Alpha: Integer; / B: string; / SpOne = 1;'
+     Must = @('(?m)^\s*Alpha: Integer;\r?$', '(?m)^\s*B: string;\r?$', '(?m)^\s*SpOne = 1;\r?$', '(?m)^\s*SpTwenty = 20;\r?$') }
+  @{ Id = 'Align options ON (default): declaration columns aligned (Q13 ON side)'; Fix = 'polarity_spacing'; Set = @{ AlignTypeColon = $T; AlignConstEquals = $T }
+     In = 'the same'; Want = 'aligned'
+     Must = @('(?m)^\s*Alpha: Integer;\r?$', '(?m)^\s*B    : string', '(?m)^\s*SpOne    = 1;\r?$', '(?m)^\s*SpTwenty = 20;\r?$') }
   @{ Id = 'BreakLongExpressions OFF: long lists packed greedily comma-last, comma-first input joined (Q6 ext)'; Fix = 'polarity_lists'; Set = @{ BreakLongExpressions = $F }
      In = 'the same lists'; Want = 'several records per line, comma-last; Pts on one line'
      Must = @('(?m)^\s+\(X: 1000001; Y: 2000002\), \(X: 3000003; Y: 4000004\),',
