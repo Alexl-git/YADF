@@ -275,24 +275,27 @@ type
       /// </remarks>
       procedure Reformat;
       /// <summary>Fill the Source memo from %APPDATA%\YADF\Sample.pas, seeding that
-      /// file from the embedded YADF_SAMPLE resource (Demo\Sample.pas) when absent.</summary>
+      /// file from the embedded YADF_SAMPLE resource (Demo\Sample.pas) when absent or older.</summary>
       /// <remarks>
       /// Single per-user copy: nothing is read from beside the host module
       /// (YADFOT.bpl / YADFSetup.exe), so an install under Program Files needs no
-      /// sample file. An existing copy is never overwritten -- the user may edit it;
-      /// deleting it re-seeds the shipped demo. If the seed cannot be written the
-      /// memo is filled straight from the resource.
+      /// sample file. Line 1 of the sample carries a stamp (`// YADF-Sample
+      /// version md5`); SyncSampleFile replaces a copy whose stamp is older than
+      /// the embedded one, first saving an edited or unstamped copy as
+      /// Sample.pas.bak. A copy of the current sample is never overwritten, edited
+      /// or not; deleting it re-seeds the shipped demo. If the seed cannot be
+      /// written the memo is filled straight from the resource.
       /// <!-- drag-lint:auto BEGIN -->
       /// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas)</para>
-      /// <para>Calls: ForceDirectories, YADF.Options.ProfilesDir</para>
+      /// <para>Calls: ExtractFileName, YADF.Options.ProfilesDir, YADF.Options.SyncSampleFile, YADF.OptionsFrame.TYadfOptionsFrame.LoadSample.EmbeddedSample, YADF.OptionsFrame.TYadfOptionsFrame.LoadSample.LoadBuiltIn</para>
       /// <para>Reads: FSource, FSourceName</para>
       /// <para>Catches: Exception (swallowed)</para>
       /// <para>Touches: file system</para>
       /// <seealso cref="YADF.Options.ProfilesDir"/>
+      /// <seealso cref="YADF.Options.SyncSampleFile"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.LoadSample.EmbeddedSample"/>
+      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.LoadSample.LoadBuiltIn"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildControls"/>
-      /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildPreview"/>
       /// <!-- drag-lint:auto END -->
       /// </remarks>
       procedure LoadSample;
@@ -1743,7 +1746,8 @@ const
   // IDE's Options dialog (it is loaded into a memo AND formatted on open).
   MAX_SAMPLE_BYTES = 256 * 1024;
 var
-  Path: string;
+  Path  : string           ;
+  Action: TSampleSeedAction;
 
   // The embedded demo, straight from the resource. Never raises: this runs
   // inside the IDE's Options-dialog construction (review 2026-10-14, #8).
@@ -1765,14 +1769,15 @@ var
     FSourceName.Caption:= 'sample (built-in; ' + AWhy + ')';
   end;
 
-  procedure SeedFromResource;
+  // The embedded demo's bytes (Demo\Sample.pas, stamp line included).
+  function EmbeddedSample: TBytes;
   var
     Res: TResourceStream;
   begin
     Res:= TResourceStream.Create(HInstance, 'YADF_SAMPLE', RT_RCDATA);
     try
-      ForceDirectories(ProfilesDir);
-      Res.SaveToFile(Path);
+      SetLength(Result, Res.Size);
+      Res.ReadBuffer(Result, Length(Result));
     finally
       Res.Free;
     end;
@@ -1781,15 +1786,16 @@ var
 begin
   Path:= TPath.Combine(ProfilesDir, 'Sample.pas');
   try
-    if not TFile.Exists(Path) then
-      SeedFromResource;
+    // Seeds a missing copy and upgrades an older one (task 8c); an edited or
+    // unstamped older copy is saved as Sample.pas.bak first.
+    Action:= SyncSampleFile(Path, EmbeddedSample);
     if TFile.GetSize(Path) > MAX_SAMPLE_BYTES then
     begin
       LoadBuiltIn(ExtractFileName(Path) + ' is larger than 256 KB');
       Exit;
     end;
     FSource.Lines.LoadFromFile(Path);
-    FSourceName.Caption:= 'file: ' + Path;
+    FSourceName.Caption:= 'file: ' + Path + (if Action = ssBackupAndReseed then ' (updated; your copy is in Sample.pas.bak)' else '');
   except
     on E: Exception do
       // Unwritable profile folder, locked or unreadable Sample.pas: show the

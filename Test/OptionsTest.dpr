@@ -367,6 +367,70 @@ begin
     TDirectory.Delete(Dir);
   end;
 end;
+
+// BACKLOG-ZERO task 8c: the preview-sample upgrade decision (LoadSample).
+procedure TestSampleSeed;
+const
+  ABC_MD5 = '900150983cd24fb0d6963f7d28e17f72';  // md5('abc'), RFC 1321 test vector
+  BODY    = 'unit Sample;'#13#10'begin'#13#10'end.'#13#10;
+  BODY2   = 'unit Sample;'#13#10'// new block'#13#10'begin'#13#10'end.'#13#10;
+
+  function Stamped(const AVer, ABody: string): string;
+  begin
+    Result:= SAMPLE_STAMP_TAG + AVer + ' ' + SampleBodyHash('x'#13#10 + ABody) + #13#10 + ABody;
+  end;
+
+var
+  V, H   : string;
+  Emb    : string;
+  Dir    : string;
+  F      : string;
+  Act    : TSampleSeedAction;
+  EmbB   : TBytes;
+begin
+  Check('sample: body hash = md5 of the text after line 1', SampleBodyHash('// stamp'#13#10'abc') = ABC_MD5);
+  Check('sample: body hash ignores CRLF vs LF', SampleBodyHash('s'#13#10'a'#13#10'b') = SampleBodyHash('s'#10'a'#10'b'));
+  Check('sample: stamp parsed', ParseSampleStamp(SAMPLE_STAMP_TAG + '1.0.21.0 ' + ABC_MD5 + #13#10'unit X;', V, H) and (V = '1.0.21.0') and (H = ABC_MD5));
+  Check('sample: no stamp on a plain unit line', not ParseSampleStamp('unit Sample;'#13#10, V, H));
+  Check('sample: malformed stamp (short hash) rejected', not ParseSampleStamp(SAMPLE_STAMP_TAG + '1.0.21.0 abc'#13#10, V, H));
+  Check('sample: malformed stamp (bad version) rejected', not ParseSampleStamp(SAMPLE_STAMP_TAG + '1.x.21 ' + ABC_MD5, V, H));
+
+  Emb:= Stamped('1.0.21.0', BODY2);
+  Check('sample: no copy -> seed', DecideSampleSeed(False, '', Emb) = ssSeed);
+  Check('sample: unstamped copy -> backup + reseed', DecideSampleSeed(True, BODY, Emb) = ssBackupAndReseed);
+  Check('sample: same stamp -> keep', DecideSampleSeed(True, Emb, Emb) = ssKeep);
+  Check('sample: same stamp, user edited -> keep', DecideSampleSeed(True, Emb + '// mine'#13#10, Emb) = ssKeep);
+  Check('sample: older stamp, unedited -> reseed', DecideSampleSeed(True, Stamped('1.0.20.0', BODY), Emb) = ssReseed);
+  Check('sample: older stamp, LF line ends only -> reseed', DecideSampleSeed(True, Stamped('1.0.20.0', BODY).Replace(#13#10, #10), Emb) = ssReseed);
+  Check('sample: older stamp, user edited -> backup + reseed', DecideSampleSeed(True, Stamped('1.0.20.0', BODY) + '// mine'#13#10, Emb) = ssBackupAndReseed);
+  Check('sample: older stamp (fewer parts) -> reseed', DecideSampleSeed(True, Stamped('1.0.9', BODY), Emb) = ssReseed);
+  Check('sample: newer stamp (downgrade) -> keep', DecideSampleSeed(True, Stamped('1.0.100.0', BODY), Emb) = ssKeep);
+  Check('sample: same version, other sample -> reseed', DecideSampleSeed(True, Stamped('1.0.21.0', BODY), Emb) = ssReseed);
+  Check('sample: unstamped embedded sample -> keep', DecideSampleSeed(True, BODY, BODY2) = ssKeep);
+
+  Dir:= TPath.Combine(TPath.GetTempPath, 'yadf_sample_' + IntToStr(GetCurrentProcessId));
+  F  := TPath.Combine(Dir, 'Sample.pas');
+  EmbB:= TEncoding.UTF8.GetBytes(Emb);
+  try
+    Act:= SyncSampleFile(F, EmbB);
+    Check('sample file: missing -> seeded, folder created', (Act = ssSeed) and (TFile.ReadAllText(F) = Emb));
+    TFile.WriteAllText(F, Emb + '// mine'#13#10);
+    Act:= SyncSampleFile(F, EmbB);
+    Check('sample file: edited copy of the same sample kept as is', (Act = ssKeep) and TFile.ReadAllText(F).EndsWith('// mine'#13#10) and not TFile.Exists(F + '.bak'));
+    TFile.WriteAllText(F, Stamped('1.0.20.0', BODY) + '// mine'#13#10);
+    Act:= SyncSampleFile(F, EmbB);
+    Check('sample file: edited older copy -> .bak + reseeded', (Act = ssBackupAndReseed) and (TFile.ReadAllText(F) = Emb) and
+      TFile.ReadAllText(F + '.bak').EndsWith('// mine'#13#10));
+    TFile.Delete(F + '.bak');
+    TFile.WriteAllText(F, Stamped('1.0.20.0', BODY));
+    Act:= SyncSampleFile(F, EmbB);
+    Check('sample file: unedited older copy -> reseeded, no .bak', (Act = ssReseed) and (TFile.ReadAllText(F) = Emb) and not TFile.Exists(F + '.bak'));
+  finally
+    if TDirectory.Exists(Dir) then
+      TDirectory.Delete(Dir, True);
+  end;
+end;
+
 begin
   try
     TestDescriptorCompleteness;
@@ -381,6 +445,7 @@ begin
     TestSaveFileReplaceFailure;
     TestHelpIds;
     TestPackShortBodiesAlias;
+    TestSampleSeed;
     Writeln('');
     if GFailures = 0 then
       Writeln('ALL PASS')

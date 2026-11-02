@@ -13,6 +13,31 @@ $root = Split-Path $PSScriptRoot
 $src  = [IO.File]::ReadAllBytes((Join-Path $root 'Demo\Sample.pas'))
 $res  = [IO.File]::ReadAllBytes((Join-Path $root 'YADFSample.RES'))
 $hex  = [BitConverter]::ToString($res)
+
+# Task 8c: line 1 is the stamp `// YADF-Sample <version> <md5>` LoadSample uses to
+# upgrade %APPDATA%\YADF\Sample.pas (YADF.Options.DecideSampleSeed). The md5 is
+# SampleBodyHash: MD5 of the UTF-8 text after line 1, CRLF -> LF. <version> is the
+# YADF_VERSION (YADF.Version.inc) current when the sample last changed, never
+# above it. After editing the demo: re-stamp line 1, then brcc32 YADFSample.rc.
+$text  = [Text.Encoding]::UTF8.GetString($src)
+$nlAt  = $text.IndexOf("`n")
+$body  = $text.Substring($nlAt + 1).Replace("`r`n", "`n")
+$md5   = ([BitConverter]::ToString([Security.Cryptography.MD5]::HashData([Text.Encoding]::UTF8.GetBytes($body)))).Replace('-', '').ToLower()
+$inc   = [IO.File]::ReadAllText((Join-Path $root 'YADF.Version.inc'))
+$yver  = [version]([regex]::Match($inc, "YADF_VERSION\s*=\s*'([\d.]+)'").Groups[1].Value)
+$m     = [regex]::Match($text.Substring(0, $nlAt).TrimEnd(), '^// YADF-Sample (\d+(?:\.\d+)*) ([0-9a-f]{32})$')
+if (-not $m.Success) {
+  Write-Output "sample_resource: FAIL -- line 1 of Demo\Sample.pas is no stamp; want: // YADF-Sample $yver $md5"
+  exit 1
+}
+if ($m.Groups[2].Value -ne $md5) {
+  Write-Output "sample_resource: FAIL -- the stamp hash is stale (Demo\Sample.pas changed); want: // YADF-Sample $yver $md5"
+  exit 1
+}
+if ([version]$m.Groups[1].Value -gt $yver) {
+  Write-Output "sample_resource: FAIL -- stamp version $($m.Groups[1].Value) is above YADF_VERSION $yver"
+  exit 1
+}
 if ($hex.Contains([BitConverter]::ToString($src))) {
   Write-Output 'sample_resource: PASS (YADFSample.RES embeds the current Demo\Sample.pas)'
   exit 0

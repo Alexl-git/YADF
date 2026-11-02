@@ -637,10 +637,68 @@ function EncodeForSave(const AContent: string; AEnc: TEncoding; AWithBOM: Boolea
 /// </remarks>
 procedure SaveFile(const AFileName, AContent: string; AEnc: TEncoding; AWithBOM: Boolean);
 
+type
+  /// <summary>What SyncSampleFile does with the per-user preview sample
+  /// (%APPDATA%\YADF\Sample.pas) against the sample embedded in the host.</summary>
+  /// <remarks>ssKeep: the copy stays as it is. ssSeed: there is no copy; the
+  /// embedded sample is written. ssReseed: an unedited copy of an older sample
+  /// is replaced. ssBackupAndReseed: an edited or unstamped copy is first saved
+  /// as Sample.pas.bak (replacing an older .bak), then replaced.</remarks>
+  TSampleSeedAction = (ssKeep, ssSeed, ssReseed, ssBackupAndReseed);
+
+const
+  /// <summary>Start of the stamp on line 1 of Demo\Sample.pas:
+  /// `// YADF-Sample &lt;version&gt; &lt;md5&gt;` -- the YADF version that last
+  /// changed the sample and the SampleBodyHash of the sample as shipped.</summary>
+  SAMPLE_STAMP_TAG = '// YADF-Sample ';
+
+/// <summary>Reads the version stamp on line 1 of a preview sample.</summary>
+/// <param name="AText">Whole sample text.</param>
+/// <param name="AVersion">Dotted numeric version of the stamp ('' when there is none).</param>
+/// <param name="AHash">Lowercase SampleBodyHash recorded in the stamp ('' when there is none).</param>
+/// <returns>True when line 1 is `// YADF-Sample &lt;version&gt; &lt;32 hex digits&gt;`.</returns>
+/// <remarks>Pure.</remarks>
+function ParseSampleStamp(const AText: string; out AVersion, AHash: string): Boolean;
+
+/// <summary>Content hash of a preview sample: lowercase-hex MD5 of the UTF-8
+/// text AFTER its first line, CRLF normalised to LF.</summary>
+/// <param name="AText">Whole sample text, stamp line included.</param>
+/// <returns>32 lowercase hex digits.</returns>
+/// <remarks>Line 1 is left out so the stamp can carry the hash of the rest; an
+/// editor that only changed the line endings does not count as an edit. Pure.</remarks>
+function SampleBodyHash(const AText: string): string;
+
+/// <summary>Decides what happens to the user's copy of the preview sample.</summary>
+/// <param name="AExists">True when the user's copy exists.</param>
+/// <param name="AUserText">The user's copy (ignored when AExists is False).</param>
+/// <param name="AEmbeddedText">The sample embedded in the running host.</param>
+/// <returns>ssSeed when there is no copy. ssKeep when the embedded sample has no
+/// stamp, when both stamps are equal, or when the copy's stamp version is newer
+/// (an older YADF never downgrades it). Otherwise the embedded sample is newer
+/// (higher version, or the same version with another hash): ssReseed when the
+/// copy is unedited (its body hash equals the hash in its own stamp), else
+/// ssBackupAndReseed. A copy without a stamp gets ssBackupAndReseed: a
+/// pre-stamp shipped sample and the user's own file cannot be told apart.</returns>
+/// <remarks>Pure.</remarks>
+function DecideSampleSeed(AExists: Boolean; const AUserText, AEmbeddedText: string): TSampleSeedAction;
+
+/// <summary>Brings the user's preview sample file in line with the embedded one,
+/// as DecideSampleSeed says.</summary>
+/// <param name="APath">The user's copy, normally %APPDATA%\YADF\Sample.pas.</param>
+/// <param name="AEmbedded">Bytes of the embedded sample, written verbatim.</param>
+/// <returns>The action taken.</returns>
+/// <exception cref="EInOutError">Raised (like the other System.IOUtils file
+/// errors) when the copy cannot be read, backed up or written.</exception>
+/// <remarks>A backup goes to APath + '.bak', replacing an existing one. Both
+/// files are decoded as UTF-8 (a BOM is ignored); an undecodable copy hashes
+/// differently and so is backed up, never lost. Not thread-safe per file.</remarks>
+function SyncSampleFile(const APath: string; const AEmbedded: TBytes): TSampleSeedAction;
+
 implementation
 
 uses
   System.StrUtils
+  , System.Hash
   , Winapi.Windows
   , Winapi.ShlObj
   ;
@@ -1432,5 +1490,115 @@ begin
   SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW, PWideChar(AFileName), nil);
 end;
 
-end.
+const
+  // Length of an MD5 digest in hex digits (the stamp's hash field).
+  MD5_HEX_LEN = 32;
 
+// <0 / 0 / >0 for dotted numeric versions; a missing part counts as 0
+// (`1.0.9` < `1.0.21.0`). Callers pass versions ParseSampleStamp validated.
+function CompareDottedVersion(const A, B: string): Integer;
+var
+  PA: TArray<string>;
+  PB: TArray<string>;
+  NA: Integer       ;
+  NB: Integer       ;
+  i : Integer       ;
+begin
+  PA:= A.Split(['.']);
+  PB:= B.Split(['.']);
+  i := 0;
+  while (i < Length(PA)) or (i < Length(PB)) do
+  begin
+    NA:= if i < Length(PA) then StrToIntDef(PA[i], 0) else 0;
+    NB:= if i < Length(PB) then StrToIntDef(PB[i], 0) else 0;
+    if NA <> NB then
+      Exit(if NA < NB then -1 else 1);
+    Inc(i);
+  end;
+  Result:= 0;
+end; // function
+
+// Sample bytes as text: UTF-8 (the sample is ASCII), a leading BOM dropped.
+function SampleText(const ABytes: TBytes): string;
+begin
+  Result:= TEncoding.UTF8.GetString(ABytes);
+  if Result.StartsWith(#$FEFF) then
+    Delete(Result, 1, 1);
+end;
+
+function ParseSampleStamp(const AText: string; out AVersion, AHash: string): Boolean;
+var
+  Line : string        ;
+  Parts: TArray<string>;
+  Part : string        ;
+  p    : Integer       ;
+  N    : Integer       ;
+begin
+  AVersion:= '';
+  AHash   := '';
+  p       := Pos(#10, AText);
+  Line    := TrimRight(if p > 0 then Copy(AText, 1, p - 1) else AText);
+  if not Line.StartsWith(SAMPLE_STAMP_TAG) then
+    Exit(False);
+  Parts:= Copy(Line, Length(SAMPLE_STAMP_TAG) + 1, MaxInt).Split([' '], TStringSplitOptions.ExcludeEmpty);
+  if (Length(Parts) <> 2) or (Length(Parts[1]) <> MD5_HEX_LEN) then
+    Exit(False);
+  for Part in Parts[0].Split(['.']) do
+    if not TryStrToInt(Part, N) or (N < 0) then
+      Exit(False);
+  for p:= 1 to MD5_HEX_LEN do
+    if not CharInSet(Parts[1][p], ['0'..'9', 'a'..'f', 'A'..'F']) then
+      Exit(False);
+  AVersion:= Parts[0];
+  AHash   := LowerCase(Parts[1]);
+  Result  := True;
+end; // function
+
+function SampleBodyHash(const AText: string): string;
+var
+  p: Integer;
+begin
+  p:= Pos(#10, AText);
+  Result:= THashMD5.GetHashString(if p > 0 then Copy(AText, p + 1, MaxInt).Replace(#13#10, #10) else '');
+end;
+
+function DecideSampleSeed(AExists: Boolean; const AUserText, AEmbeddedText: string): TSampleSeedAction;
+var
+  EmbVer : string ;
+  EmbHash: string ;
+  UsrVer : string ;
+  UsrHash: string ;
+  Cmp    : Integer;
+begin
+  if not AExists then
+    Exit(ssSeed);
+  // Nothing to compare against: never touch the user's copy.
+  if not ParseSampleStamp(AEmbeddedText, EmbVer, EmbHash) then
+    Exit(ssKeep);
+  // A pre-stamp shipped sample or the user's own file -- cannot tell: keep a .bak.
+  if not ParseSampleStamp(AUserText, UsrVer, UsrHash) then
+    Exit(ssBackupAndReseed);
+  Cmp:= CompareDottedVersion(EmbVer, UsrVer);
+  if (Cmp < 0) or ((Cmp = 0) and (EmbHash = UsrHash)) then
+    Exit(ssKeep);
+  Result:= if SampleBodyHash(AUserText) = UsrHash then ssReseed else ssBackupAndReseed;
+end; // function
+
+function SyncSampleFile(const APath: string; const AEmbedded: TBytes): TSampleSeedAction;
+var
+  Exists  : Boolean;
+  UserText: string ;
+begin
+  Exists  := TFile.Exists(APath);
+  UserText:= if Exists then SampleText(TFile.ReadAllBytes(APath)) else '';
+  Result  := DecideSampleSeed(Exists, UserText, SampleText(AEmbedded));
+  if Result = ssKeep then
+    Exit;
+  if Result = ssBackupAndReseed then
+    TFile.Copy(APath, APath + '.bak', True);
+  if not ForceDirectories(ExtractFilePath(APath)) then
+    raise EInOutError.CreateFmt('Cannot create the folder of %s', [APath]);
+  TFile.WriteAllBytes(APath, AEmbedded);
+end; // function
+
+end.
