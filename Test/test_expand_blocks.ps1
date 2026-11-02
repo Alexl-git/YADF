@@ -2,8 +2,9 @@
 # block that the source wrote on one line (or half-broken): one statement per
 # line, `end` on its own line; `begin` then goes where BeginOnHeaderLine says (the
 # default OFF puts it on its own line, task 2d-2). The mirror
-# of --collapse-blocks. A block holding a comment or a {$...} directive is left
-# exactly as written (splitting it is not provably safe). Exit 0 = pass.
+# of --collapse-blocks. A block holding a {$...} directive is left exactly as
+# written (splitting it is not provably safe); a closed one-line comment travels
+# with the statement before it (comment rule, SPEC-2026-11-01 task 3). Exit 0 = pass.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
 $exe = Get-YadfExe
@@ -26,8 +27,9 @@ MustMatch $off '(?m)^  if B then\r\n  begin\r\n    Log\(2\);\r\n    Exit;\r\n  e
 MustMatch $off '(?m)^  while I > 0 do\r\n  begin\r\n    Dec\(I\);\r\n    if C then\r\n    begin\r\n      Log\(I\);\r\n      Y;\r\n    end;\r\n  end;\r?$' 'nested expanded'
 # a string holding ; begin end is not a split point
 MustMatch $off "(?m)^    S:= 'a; b begin end';\r?$" 'string literal kept whole'
-# comment / directive inside: left exactly as written
-MustMatch $off '(?m)^  if C then begin Log\(5\); \{ keep \} Y; end;\r?$' 'comment block untouched'
+# task 3: a one-line comment inside rides along at the end of the statement before it
+MustMatch $off '(?m)^  if C then\r\n  begin\r\n    Log\(5\); \{ keep \}\r\n    Y;\r\n  end;\r?$' 'comment block expanded, comment kept with Log(5)'
+# directive inside: left exactly as written
 MustMatch $off '(?m)^  if B then begin \{\$IFDEF DEBUG\} Log\(9\); \{\$ENDIF\} Y; end;\r?$' 'directive block untouched'
 # end else <stmt> keeps the else on the end line
 MustMatch $off '(?m)^  if B then\r\n  begin\r\n    Log\(6\);\r\n    Y;\r\n  end else Log\(7\);\r?$' 'end else stmt'

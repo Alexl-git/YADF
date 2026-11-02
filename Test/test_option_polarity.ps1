@@ -484,6 +484,60 @@ $cases = @(
   @{ Id = 'Rule exception: CollapseShortBlocks ON still folds the short if block'; Fix = 'polarity_stmts'; Set = @{ CollapseShortBlocks = $T; PackStatements = $T }
      In = 'if N > 0 then / begin / StE:= 6; / end;'; Want = 'if N > 0 then begin StE:= 6; end;'; Show = 'if N > 0|StE:= 6'
      Must = @('(?m)^\s*if N > 0 then begin StE:= 6; end;\r?$', '(?m)^\s*repeat\r?$') }
+
+  # Comment rule (SPEC-2026-11-01 task 3, a fixed rule under every option): only a
+  # // line comment pins a line -- it blocks a join across it, and a split never
+  # moves it off the end of its line. A short one-line {...} / (*...*) comment
+  # travels with its neighbouring token: a join carries it along, a split goes
+  # before the next CODE token so it stays at the end of the earlier line. A
+  # multi-line block comment pins; {$...} directives never move across lines.
+  @{ Id = 'Comment rule: reflow join carries a brace comment, // blocks it'; Fix = 'polarity_comments'; Set = @{ ReflowLines = $T }
+     In = 'CmE:= Sum2(1, {one}<NL>2); / CmF:= Sum2(1, // one<NL>2);'; Want = 'CmE joined, CmF kept'
+     Must = @('(?m)^\s*CmE:= Sum2\(1, \{one\} 2\);\r?$', '(?m)^\s*CmF:= Sum2\(1, // one\r?\n\s+2\);\r?$') }
+  @{ Id = 'Comment rule: routine header join carries a brace comment, // blocks it'; Fix = 'polarity_comments'; Set = @{ JoinRoutineHeaders = $T }
+     In = 'procedure CmHeadBrace(const CmA: string; { first }<NL>CmB: Integer);'; Want = 'brace header joined, // header kept'
+     Must = @('(?m)^procedure CmHeadBrace\(const CmA: string; \{ first \} CmB: Integer\);\r?$', '(?m)^procedure CmHeadSlash\(const CmC: string; // first\r?\n\s+CmD: Integer\);\r?$') }
+  @{ Id = 'Comment rule: Q6 operator-leading join carries a brace comment; // and a multi-line comment block it'; Fix = 'polarity_comments'; Set = @{ BreakLongExpressions = $T }
+     In = 'CmG:= CmE {+ CmF}<NL>+ N; / CmH:= CmE // keep<NL>+ N;'; Want = 'CmG joined, CmH kept'; Show = 'CmG:=|CmH:=|\+ N'
+     Must = @('(?m)^\s*CmG:= CmE \{\+ CmF\} \+ N;\r?$', '(?m)^\s*CmH:= CmE // keep\r?\n\s+\+ N;\r?$', '(?m)^\s*lines \}\r?\n\s+\+ N;\r?$') }
+  @{ Id = 'Comment rule: comma-first list layout keeps a brace comment with its item'; Fix = 'polarity_comments'; Set = @{ BreakLongExpressions = $T }
+     In = 'CmRecs = ((..), {first} (..), ...) > 180'; Want = 'comment on the item line'
+     Must = @('(?m)^    \(X: 1000001; Y: 2000002\) \{first\}\r?\n  , \(X: 3000003; Y: 4000004\)\r?$') }
+  @{ Id = 'Comment rule: greedy list layout (BreakLongExpressions OFF) packs across a brace comment'; Fix = 'polarity_comments'; Set = @{ BreakLongExpressions = $F }
+     In = 'CmRecs = ((..), {first} (..), ...) > 180'; Want = 'comment mid-line, records packed after it'; Show = 'X: 1000001|\{first\}'
+     Must = @('(?m)\(X: 1000001; Y: 2000002\), \{first\} \(X: 3000003; Y: 4000004\), ')
+     Not = @('(?m)\{first\}\r?$') }
+  @{ Id = 'Comment rule: BreakIfBody/BreakLoopBody OFF join a body across a brace comment, // blocks it'; Fix = 'polarity_comments'; Set = @{ BreakIfBody = $F; BreakLoopBody = $F }
+     In = 'if N > 0 then {why} Inc(CmI); / if N > 1 then<NL>{short} Inc(CmI); / while .. do (*loop*)<NL>Dec(CmI);'; Want = 'one line each; the // one kept'; Show = 'if N > [012]|while CmI|Inc\(CmI\)|Dec\(CmI\)'
+     Must = @('(?m)^\s*if N > 0 then \{why\} Inc\(CmI\);\r?$', '(?m)^\s*if N > 1 then \{short\} Inc\(CmI\);\r?$',
+              '(?m)^\s*while CmI > 0 do \(\*loop\*\) Dec\(CmI\);\r?$', '(?m)^\s*if N > 2 then // why\r?\n\s+Inc\(CmI\);\r?$') }
+  @{ Id = 'Comment rule: BreakIfBody ON splits before the body, the brace comment stays on the header line'; Fix = 'polarity_comments'; Set = @{ BreakIfBody = $T }
+     In = 'if N > 0 then {why} Inc(CmI);'; Want = 'if N > 0 then {why} / Inc(CmI);'
+     Must = @('(?m)^\s*if N > 0 then \{why\}\r?\n\s+Inc\(CmI\);\r?$', '(?m)^\s*if N > 1 then\r?\n\s+\{short\} Inc\(CmI\);\r?$') }
+  @{ Id = 'Comment rule: CaseArmOnLabelLine ON joins an arm across a brace comment, // blocks it'; Fix = 'polarity_comments'; Set = @{ CaseArmOnLabelLine = $T }
+     In = '0: {zero}<NL>Inc(CmJ); / 1:<NL>{one} Inc(CmJ); / 2: // two<NL>Inc(CmJ);'; Want = 'arms 0, 1 on the label line'; Show = '^\s*[0-7][,:]|Inc\(CmJ\)'
+     Must = @('(?m)^\s*0\s*: \{zero\} Inc\(CmJ\);\r?$', '(?m)^\s*1\s*: \{one\} Inc\(CmJ\);\r?$', '(?m)^\s*2\s*: // two\r?\n\s+Inc\(CmJ\);\r?$', '(?m)^\s*3\s*: \{three\} Inc\(CmJ\);\r?$') }
+  @{ Id = 'Comment rule: CaseArmOnLabelLine OFF splits before the statement, the brace comment stays on the label line'; Fix = 'polarity_comments'; Set = @{ CaseArmOnLabelLine = $F }
+     In = '3: {three} Inc(CmJ);'; Want = '3: {three} / Inc(CmJ);'; Show = '^\s*[0-7][,:]|Inc\(CmJ\)'
+     Must = @('(?m)^\s*3\s*: \{three\}\r?\n\s+Inc\(CmJ\);\r?$', '(?m)^\s*1\s*:\r?\n\s+\{one\} Inc\(CmJ\);\r?$', '(?m)^\s*0\s*: \{zero\}\r?\n\s+Inc\(CmJ\);\r?$') }
+  @{ Id = 'Comment rule: BreakCaseLabels OFF joins a label list across a brace comment, // blocks it'; Fix = 'polarity_comments'; Set = @{ BreakCaseLabels = $F }
+     In = '4, {four}<NL>5: Inc(CmJ); / 6, // six<NL>7: Inc(CmJ);'; Want = '4, {four} 5: Inc(CmJ);'; Show = '^\s*[4-7][,:]'
+     Must = @('(?m)^\s*4, \{four\} 5\s*: Inc\(CmJ\);\r?$', '(?m)^\s*6, // six\r?\n\s*7\s*: Inc\(CmJ\);\r?$') }
+  @{ Id = 'Comment rule: CollapseShortBlocks ON folds across brace comments; //, multi-line comments block it'; Fix = 'polarity_comments'; Set = @{ CollapseShortBlocks = $T }
+     In = 'begin {blk} / begin .. (*mid*) / begin // blk / { two<NL>lines }'; Want = 'first two folded'; Show = 'if N > [3-7]|begin|CmK:=|CmL:='
+     Must = @('(?m)^\s*if N > 3 then begin \{blk\} CmK:= 1; CmL:= 2; end;\r?$', '(?m)^\s*if N > 4 then begin CmK:= 3; \(\*mid\*\) CmL:= 4; end;\r?$',
+              '(?m)^\s*begin // blk\r?\n\s+CmK:= 5;\r?\n\s+CmL:= 6;\r?$', '(?m)^\s*CmK:= 7; \{ two\r?\n\s*lines \}\r?\n\s+CmL:= 8;\r?$',
+              '(?m)^\s*if N > 7 then begin CmK:= 9; \{nine\} CmL:= 10; end;\r?$') }
+  @{ Id = 'Comment rule: CollapseShortBlocks OFF expands a one-line block holding a brace comment'; Fix = 'polarity_comments'; Set = @{ CollapseShortBlocks = $F }
+     In = 'if N > 7 then begin CmK:= 9; {nine} CmL:= 10; end;'; Want = 'expanded, {nine} after CmK:= 9;'; Show = 'if N > 7|begin|CmK:= 9|CmL:= 10'
+     Must = @('(?m)^\s*if N > 7 then\r?\n\s*begin\r?\n\s+CmK:= 9; \{nine\}\r?\n\s+CmL:= 10;\r?\n\s*end;\r?$', '(?m)^\s*begin \{blk\}\r?\n\s+CmK:= 1;\r?$') }
+  @{ Id = 'Comment rule: PackStatements OFF splits across a brace comment, it stays on the earlier line'; Fix = 'polarity_comments'; Set = @{ PackStatements = $F }
+     In = 'CmM:= 1; {a} CmN:= 2;'; Want = 'CmM:= 1; {a} / CmN:= 2;'; Show = 'CmM:=|CmN:='
+     Must = @('(?m)^\s*CmM:= 1; \{a\}\r?\n\s*CmN:= 2;\r?$', '(?m)^\s*CmM:= 3; \(\*b\*\)\r?\n\s*CmN:= 4;\r?$', '(?m)^\s*\{\$IFDEF DEBUG\} CmM:= 7; \{\$ENDIF\}\r?$') }
+  @{ Id = 'Comment rule: PackStatements ON packs across a brace comment; //, directives block it'; Fix = 'polarity_comments'; Set = @{ PackStatements = $T }
+     In = 'CmM:= 3; (*b*)<NL>CmN:= 4; / CmM:= 5; // c<NL>CmN:= 6; / {$IFDEF}'; Want = 'packed up to the //'; Show = 'CmM:=|CmN:=|\{\$'
+     Must = @('(?m)^\s*CmM:= 1; \{a\} CmN:= 2;( |\r?$)', '(?m)CmM:= 3; \(\*b\*\) CmN:= 4;', '(?m)CmM:= 5; // c\r?\n\s*CmN:= 6;\r?$',
+              '(?m)^\s*\{\$IFDEF DEBUG\} CmM:= 7; \{\$ENDIF\}\r?$', '(?m)^\s*CmM:= 8;\r?\n\s*\{\$IFDEF DEBUG\}\r?\n\s*CmN:= 9;\r?\n\s*\{\$ENDIF\}\r?$') }
 )
 
 $questions = @()

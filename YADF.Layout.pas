@@ -809,6 +809,86 @@ begin
   end;
 end;
 
+/// <summary>Comment rule (SPEC-2026-11-01 task 3): finds the code part of one
+/// line, i.e. the text between the closed one-line `{...}` / `(*...*)` comments
+/// at its two edges. Such a comment is not a line pin: it travels with its
+/// neighbouring token through every join and split pass.</summary>
+/// <param name="ALine">One line of text, no line break.</param>
+/// <param name="AFirst">Out: column of the first code character, 0 = none.</param>
+/// <param name="ALast">Out: column of the last code character, 0 = none.</param>
+/// <returns>False when the line pins: it holds a `//` comment, a comment that
+/// does not close on the line, or a shielded multi-line comment placeholder.</returns>
+/// <remarks>A `{$...}` / `(*$...*)` directive is code, never an edge comment, so
+/// it never moves across lines. String literals are code. Pure.</remarks>
+function BraceCommentEdges(const ALine: string; out AFirst, ALast: Integer): Boolean;
+var
+  i  : Integer;
+  e  : Integer;
+  n  : Integer;
+  Cmt: Boolean;
+begin
+  AFirst:= 0;
+  ALast := 0;
+  n     := Length(ALine);
+  i     := 1;
+  while i <= n do
+  begin
+    Cmt:= False;
+    e  := i;
+    if CharInSet(ALine[i], [' ', #9]) then
+    begin
+      Inc(i);
+      Continue;
+    end;
+    if ALine[i] = '''' then
+    begin
+      e:= i + 1;
+      while (e < n) and ((ALine[e] <> '''') or (ALine[e + 1] = '''')) do
+        if ALine[e] = '''' then
+          Inc(e, 2)
+        else
+          Inc(e);
+      e:= Min(e, n);
+    end
+    else if (ALine[i] = '/') and (i < n) and (ALine[i + 1] = '/') then
+      Exit(False)
+    else if (ALine[i] = '{') or ((ALine[i] = '(') and (i < n) and (ALine[i + 1] = '*')) then
+    begin
+      e:= if ALine[i] = '{' then Pos('}', ALine, i + 1) else Pos('*)', ALine, i + 2);
+      if e = 0 then
+        Exit(False);
+      if ALine[i] = '(' then
+        Inc(e);
+      Cmt:= (ALine.Substring(i, 1) <> '$') and ((ALine[i] = '{') or (ALine.Substring(i + 1, 1) <> '$'));
+      if Cmt and ContainsText(Copy(ALine, i, e - i + 1), ShieldPrefix) then
+        Exit(False);
+    end;
+    if not Cmt then
+    begin
+      if AFirst = 0 then
+        AFirst:= i;
+      ALast:= e;
+    end;
+    i:= e + 1;
+  end; // while
+  Result:= True;
+end; // function
+
+/// <summary>The code part of ALine as text (see BraceCommentEdges): the line
+/// without the closed one-line brace comments at its two edges.</summary>
+/// <param name="ALine">One line of text, no line break.</param>
+/// <param name="ACode">Out: the code part ('' for a comment-only line); Trim(ALine)
+/// when the line pins.</param>
+/// <returns>False when the line pins (see BraceCommentEdges).</returns>
+function EdgeCommentFreeCode(const ALine: string; out ACode: string): Boolean;
+var
+  F: Integer;
+  L: Integer;
+begin
+  Result:= BraceCommentEdges(ALine, F, L);
+  ACode := if not Result then Trim(ALine) else if F = 0 then '' else Copy(ALine, F, L - F + 1);
+end;
+
 // ===== Case-arm layout (CaseArmOnLabelLine; BreakCaseLabels OFF joining) =====
 // Token-based: a small lexer turns the text into word/symbol tokens (strings
 // and comments skipped), a block-structure walk finds the arms of every case
@@ -845,14 +925,14 @@ type
     Toks     : TArray<TArmTok> ;
     Arms     : TArray<TCaseArm>; // labelled arms + one-statement else parts (LabelStart = Colon = `else`)
     Elses    : TArray<Integer> ; // token index of EVERY case-statement `else` / `otherwise`
-    HasCmt   : TArray<Boolean> ; // line holds (part of) a { } / (* *) comment or directive
+    HasCmt   : TArray<Boolean> ; // line holds a directive or (part of) a multi-line / shielded comment -- a closed one-line comment does not count (task 3)
     LineCmt  : TArray<Integer> ; // column of a `//` comment, 0 = none
     LineFirst: TArray<Integer> ; // first token on the line, -1 = none
     LineLast : TArray<Integer> ; // last token on the line, -1 = none
   end;
 
 // Lexes ALines into AScan.Toks plus the per-line comment / first / last tables.
-procedure LexCaseArmLines(ALines: TStringList; var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@26aa, cognitive-complexity@e249 -- one flat hand lexer
+procedure LexCaseArmLines(ALines: TStringList; var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@41d8, cognitive-complexity@724a -- one flat hand lexer
 var
   n      : Integer;
   i      : Integer;
@@ -919,15 +999,20 @@ begin
       C:= Line[i];
       if CharInSet(C, [' ', #9]) then
         Inc(i)
-      else if C = '{' then
+      else if (C = '{') or ((C = '(') and (i < L) and (Line[i + 1] = '*')) then
       begin
-        InBrace:= True;
-        Inc(i);
-      end
-      else if (C = '(') and (i < L) and (Line[i + 1] = '*') then
-      begin
-        InPStar:= True;
-        Inc(i, 2);
+        // Comment rule (task 3): a closed one-line comment travels with the
+        // tokens around it, so it is skipped without pinning the line. A
+        // directive, a multi-line comment or its shield placeholder pins.
+        P:= if C = '{' then Pos('}', Line, i + 1) else Pos('*)', Line, i + 2);
+        if (P > 0) and (Copy(Line, i + Ord(C = '(') + 1, 1) <> '$') and not ContainsText(Copy(Line, i, P - i + 1), ShieldPrefix) then
+          i:= if C = '{' then P + 1 else P + 2
+        else
+        begin
+          InBrace:= C = '{';
+          InPStar:= C = '(';
+          i      := if C = '{' then i + 1 else i + 2;
+        end;
       end
       else if (C = '/') and (i < L) and (Line[i + 1] = '/') then
       begin
@@ -1312,8 +1397,11 @@ end;
 /// <remarks>Content-neutral. The case else part is laid out like an arm when it
 /// is one statement (`else X;`, owner decision Q11). Never touches a record
 /// variant part, a declaration, or an arm whose statement is begin/case/try/asm/
-/// repeat. A span holding any comment is left alone, except a trailing `//`
-/// comment on the statement line, which rides along. Idempotent.</remarks>
+/// repeat. Comment rule (task 3): a closed one-line `{ }` / `(* *)` comment
+/// travels with its neighbouring token (a split goes before the next token, so
+/// it stays on the label line); a `//` comment blocks a join across it, and a
+/// trailing `//` on the statement line rides along. A span holding a directive
+/// or a multi-line comment is left alone. Idempotent.</remarks>
 function LayoutCaseArms(const S: string; AJoinLabels: Boolean; ABodies: TCaseArmBodies; AIndent, AMaxLen: Integer): string;  // dl:ok deep-nesting@a3f5, cyclomatic-complexity@7637, cognitive-complexity@ed4e -- plan pass + emit pass over one line table
 var
   Lines    : TStringList   ;
@@ -1512,7 +1600,8 @@ var
   end;
 
   // Token AP ends line AN - 1 and nothing on lines AN - 1 / AN blocks a join:
-  // no `//` comment on the upper line, no { } / (* *) comment or directive on either.
+  // no `//` comment on the upper line, no directive or multi-line comment on
+  // either (a closed one-line comment travels along, task 3).
   function Joinable(AN, AP: Integer): Boolean;
   begin
     Result:= (AP >= 0) and (Scan.Toks[AP].Line = AN - 1) and (Scan.LineCmt[AN - 1] = 0) and not Scan.HasCmt[AN - 1] and not Scan.HasCmt[AN];
@@ -3351,9 +3440,10 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; AKeepComponentBreak
 // the line. The `else` case has one exception -- `else if ...` is
 // a chain we WANT to keep on one line, so an `else` is allowed to
 // merge if the next line starts with `if`.
-  function CurBlocksMerge(const ALine, ANext: string): Boolean;  // dl:ok too-many-exit-points@e3db, cyclomatic-complexity@4152
+  function CurBlocksMerge(const ALine, ANext: string): Boolean;  // dl:ok too-many-exit-points@e3db, cyclomatic-complexity@ca06
   var
-    R: string;
+    R   : string;
+    Code: string;
   begin
     if HasLineCommentOrOpenBlock(ALine) then
       Exit(True);
@@ -3362,6 +3452,12 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; AKeepComponentBreak
     R:= TrimRight(ALine);
     if R = '' then
       Exit(True);
+    // Comment rule (task 3): a closed one-line `{ }` / `(* *)` comment at the end
+    // travels with the code before it, so the tests below look at that code. A
+    // comment-only line, a directive or a multi-line comment placeholder at the
+    // end still ends the line (the `}` / `*)` tests below).
+    if EdgeCommentFreeCode(R, Code) and (Code <> '') then
+      R:= Code;
     if R[Length(R)] = ';' then
       Exit(True);
     if R[Length(R)] = '.' then
@@ -4130,9 +4226,10 @@ end; // function
 /// otherwise nothing of it is joined, so an if/else is either one line or the
 /// fully broken form (Q9). The header must be one line that starts with its
 /// keyword (never packed onto a header spanning several lines, Q10); a `{ }`
-/// comment after the keyword rides along on the header (Q18). A line with a `//`
-/// comment, a block-comment interior and the case `else` part (CaseArmOnLabelLine,
-/// Q11) are never touched. A body must be complete on its line: it ends with `;`
+/// comment after the keyword rides along on the header (Q18), and one at either
+/// edge of a body line rides along with the body (comment rule, task 3). A line
+/// with a `//` comment, a directive edge, a block-comment interior and the case
+/// `else` part (CaseArmOnLabelLine, Q11) are never touched. A body must be complete on its line: it ends with `;`
 /// or the next line starts with else / end / until / finally / except.
 /// Content-neutral (removes only CRLF + leading blanks); idempotent.
 /// </remarks>
@@ -4150,29 +4247,12 @@ var
 
   // True when ATail (the text after a header keyword) holds only closed
   // `{ }` / `(* *)` comments.
+  // `{ }` comments (not a directive, not a multi-line comment placeholder).
   function OnlyComments(const ATail: string): Boolean;
   var
-    R: string ;
-    e: Integer;
+    R: string;
   begin
-    R:= Trim(ATail);
-    while R <> '' do
-    begin
-      if R.StartsWith('{') and not R.StartsWith('{$') then
-        e:= Pos('}', R)
-      else if R.StartsWith('(*') then
-      begin
-        e:= PosEx('*)', R, PAREN_STAR_BODY);
-        if e > 0 then
-          Inc(e);
-      end
-      else
-        Exit(False);
-      if e = 0 then
-        Exit(False);
-      R:= Trim(Copy(R, e + 1, MaxInt));
-    end;
-    Result:= True;
+    Result:= EdgeCommentFreeCode(ATail, R) and (R = '');
   end;
 
   // Line AIdx is a one-line header whose top-level control words are exactly
@@ -4209,8 +4289,9 @@ var
   begin
     if (AIdx >= Lines.Count) or Lock[AIdx] or ElseL[AIdx] then
       Exit(False);
-    B:= Trim(Lines[AIdx]);
-    if not IsSimpleControlBody(B) or B.StartsWith('{') or B.StartsWith('(*') then
+    // Comment rule (task 3): closed brace comments at the edges ride along; a
+    // `//` comment, a directive edge or a multi-line comment blocks the join.
+    if not EdgeCommentFreeCode(Lines[AIdx], B) or not IsSimpleControlBody(B) or B.StartsWith('{') or B.StartsWith('(*') then
       Exit(False);
     ScanControlWords(B, W, BefP, AftP, Disq);
     if Disq or (Length(W) > 0) then
@@ -5221,6 +5302,9 @@ var
   Joined: string         ;
   Ok    : Boolean        ;
   Hdr   : string         ; // control header text before `begin`
+  Bgn   : string         ; // `begin` with its closed one-line comments
+  Cj    : string         ; // code part of body line j
+  PlainStmt: Boolean      ; // body line j is one statement ending in `;`, nothing pins it
   Scan  : TCaseArmScan   ;
   ArmCol: TArray<Integer>; // per line: column of a case-arm colon, 0 = none
   a     : Integer        ;
@@ -5295,29 +5379,12 @@ var
     Result:= False;
   end; // function
 
-// any comment involvement on the line forbids collapse (over-conservative on
-// `//` inside a string -- safe: we just decline to collapse that block)
-  function HasCommentChars(const L: string): Boolean;
-  var
-    p: Integer;
-  begin
-    for p:= 1 to Length(L) do
-    begin
-      if L[p] = '{' then
-        Exit(True);
-      if (p < Length(L)) and (L[p] = '(') and (L[p + 1] = '*') then
-        Exit(True);
-      if (p < Length(L)) and (L[p] = '/') and (L[p + 1] = '/') then
-        Exit(True);
-    end;
-    Result:= False;
-  end;
-
-// Squeeze runs of spaces to one, OUTSIDE string literals (handles the
-// doubled-quote escape so a string's interior is preserved byte-for-byte).
+// Squeeze runs of spaces to one, OUTSIDE string literals and comments (handles
+// the doubled-quote escape so a string's interior is preserved byte-for-byte).
   function Squeeze(const L: string): string;
   var
     p     : Integer       ;
+    e     : Integer       ;
     InStr : Boolean       ;
     Sb    : TStringBuilder;
   begin
@@ -5348,6 +5415,15 @@ var
           InStr:= True;
           Sb.Append(L[p]);
           Inc(p);
+        end
+        else if (L[p] = '{') or ((L[p] = '(') and (p < Length(L)) and (L[p + 1] = '*')) then
+        begin
+          // a comment's interior is content: copied verbatim (task 3)
+          e:= if L[p] = '{' then Pos('}', L, p + 1) else Pos('*)', L, p + 2) + 1;
+          if e <= p then
+            e:= Length(L);
+          Sb.Append(Copy(L, p, e - p + 1));
+          p:= e + 1;
         end
         else if L[p] = ' ' then
         begin
@@ -5380,29 +5456,40 @@ var
 // True when line AIdx opens a foldable control block. Two shapes:
 //   `if X then` / `begin`      -> AHdr = line AIdx,        ABodyIdx = AIdx + 2
 //   `if X then begin`          -> AHdr = text before begin, ABodyIdx = AIdx + 1
+// ABegin is the `begin` with the closed one-line comments around it (comment
+// rule, task 3: they travel with it into the folded line; a `//` comment, a
+// directive or a multi-line comment on either line blocks the fold).
 // In the second shape the header part must not itself hold a begin/end word:
 // `if A then begin X; end else begin` (a line this pass produced) would
 // otherwise fold its else block on the next run (a non-idempotency).
-  function HeaderStartsBlock(AIdx: Integer; out AHdr: string; out ABodyIdx: Integer): Boolean;
+  function HeaderStartsBlock(AIdx: Integer; out AHdr, ABegin: string; out ABodyIdx: Integer): Boolean;
   var
-    T: string;
+    T        : string ;
+    Bc       : string ;
+    F        : Integer;
+    L        : Integer;
+    BeginNext: Boolean; // line AIdx + 1 is `begin` with only closed comments around it
   begin
     Result  := False;
     AHdr    := '';
+    ABegin  := '';
     ABodyIdx:= -1;
-    if Lock[AIdx] or HasCommentChars(Lines[AIdx]) or Lines[AIdx].Contains(MlShieldMark) then
+    if Lock[AIdx] or Lines[AIdx].Contains(MlShieldMark) or not BraceCommentEdges(Lines[AIdx], F, L) or (L = 0) then
       Exit;
-    T:= TrimRight(Lines[AIdx]);
+    T:= Copy(Lines[AIdx], 1, L); // trailing comments cut off for the shape tests
     // A case-arm label (`9:`) is a header too (owner decision Q5).
-    if (IsHeaderEnd(T) or (ArmCol[AIdx] = Length(T))) and (AIdx + 1 < Lines.Count) and (not Lock[AIdx + 1]) and SameText(Trim(Lines[AIdx + 1]), 'begin') then
+    BeginNext:= (AIdx + 1 < Lines.Count) and not Lock[AIdx + 1] and EdgeCommentFreeCode(Lines[AIdx + 1], Bc) and SameText(Bc, 'begin');
+    if (IsHeaderEnd(T) or (ArmCol[AIdx] = Length(T))) and BeginNext then
     begin
-      AHdr    := T;
+      AHdr    := TrimRight(Lines[AIdx]);
+      ABegin  := Trim(Lines[AIdx + 1]);
       ABodyIdx:= AIdx + 2;
       Exit(True);
     end;
     if not EndsWordCI(T, 'begin') then
       Exit;
-    AHdr:= TrimRight(Copy(T, 1, Length(T) - Length('begin')));
+    AHdr  := TrimRight(Copy(T, 1, Length(T) - Length('begin')));
+    ABegin:= Trim(Copy(Lines[AIdx], Length(T) - Length('begin') + 1, MaxInt));
     if (Trim(AHdr) = '') or (not IsHeaderEnd(AHdr) and (ArmCol[AIdx] <> Length(AHdr))) or ContainsWordCI(AHdr, 'begin') or ContainsWordCI(AHdr, 'end') then
       Exit;
     ABodyIdx:= AIdx + 1;
@@ -5432,7 +5519,7 @@ begin
       begin
         // trigger: control header, then a `begin`-only line (body from i + 2),
         // or a header line that itself ends in `begin` (body from i + 1)
-        if HeaderStartsBlock(i, Hdr, j) then
+        if HeaderStartsBlock(i, Hdr, Bgn, j) then
         begin
           Ok  := True;
           Body:= '';
@@ -5452,8 +5539,10 @@ begin
             if StartsWordCI(Tj, 'end') then Break; // matching end
             // a shielded multi-line string/comment sentinel would re-expand to
             // several lines after unshield -- never fold one into a one-liner
-            if (Tj = '') or HasCommentChars(Lines[j]) or (Tj[Length(Tj)] <> ';') or (Pos(MlShieldMark, Lines[j]) > 0)  // dl:ok boolean-expression-complexity@743c
-              or ContainsWordCI(Tj, 'begin') or ContainsWordCI(Tj, 'end') then
+            // Comment rule (task 3): closed brace comments ride along; a `//`,
+            // a directive edge or a comment-only line blocks the fold.
+            PlainStmt:= EdgeCommentFreeCode(Lines[j], Cj) and Cj.EndsWith(';') and not Lines[j].Contains(MlShieldMark);
+            if not PlainStmt or ContainsWordCI(Tj, 'begin') or ContainsWordCI(Tj, 'end') then
             begin
               Ok:= False;
               Break;
@@ -5465,7 +5554,7 @@ begin
           begin
             EndLn := Trim     (Lines[j]);
             Indent:= LeadingWS(Lines[i]);
-            Joined:= Indent + Squeeze(Trim(Hdr) + ' begin' + Body + ' ' + EndLn);
+            Joined:= Indent + Squeeze(Trim(Hdr) + ' ' + Bgn + Body + ' ' + EndLn);
             if Length(Joined) <= AMaxLen then
             begin
               OutVal.Append(Joined);
@@ -5501,12 +5590,28 @@ type
     E   : Integer; // 1-based column just past the token
   end;
 
+/// <summary>Where the piece that ends with token AK of line L ends when a split
+/// pass cuts the line after AK: at the start of the next token, or past the end
+/// of the line after the last one. A closed one-line comment between the two
+/// tokens therefore stays at the end of the earlier piece, and a trailing `//`
+/// comment at the end of the last one (comment rule, SPEC-2026-11-01 task 3).</summary>
+/// <param name="L">The line the tokens were scanned from.</param>
+/// <param name="T">The code tokens of L (ScanExpandLine).</param>
+/// <param name="AK">Index of the last token of the piece.</param>
+/// <returns>1-based column just past the piece.</returns>
+function NextTokP(const L: string; const T: TArray<TXTok>; AK: Integer): Integer;
+begin
+  Result:= if AK < High(T) then T[AK + 1].P else Length(L) + 1;
+end;
+
 /// <summary>Splits one line into code tokens for ExpandShortBlocks. String
-/// literals, numbers and other punctuation become xkOther; comments are skipped
-/// and reported through AHasCmt.</summary>
+/// literals, numbers and other punctuation become xkOther; comments are skipped.
+/// A closed one-line `{ }` / `(* *)` comment travels with its neighbouring
+/// tokens (comment rule, SPEC-2026-11-01 task 3); only a `//` comment, which
+/// pins the end of its line, is reported through AHasCmt.</summary>
 /// <param name="L">The line (no line break).</param>
 /// <param name="ATok">Receives the code tokens in source order.</param>
-/// <param name="AHasCmt">True when the line holds any comment.</param>
+/// <param name="AHasCmt">True when the line ends with a `//` comment.</param>
 /// <returns>False when the line ends inside a string or a block comment, or
 /// holds a compiler directive -- such a line is never touched.</returns>
 function ScanExpandLine(const L: string; out ATok: TArray<TXTok>; out AHasCmt: Boolean): Boolean;  // dl:ok cognitive-complexity@e7c1
@@ -5563,7 +5668,6 @@ begin
     begin
       if (p < n) and (L[p + 1] = '$') then
         Exit; // directive
-      AHasCmt:= True;
       q:= Pos('}', L, p + 1);
       if q = 0 then
         Exit;
@@ -5573,7 +5677,6 @@ begin
     begin
       if (p + 2 <= n) and (L[p + 2] = '$') then
         Exit; // directive
-      AHasCmt:= True;
       q:= Pos('*)', L, p + 2);
       if q = 0 then
         Exit;
@@ -5631,12 +5734,13 @@ end; // function
 /// <param name="S">CRLF text after Stage-2 emission (indent is not final).</param>
 /// <returns>The text with those blocks expanded. Inserts only CRLF + indent,
 /// so it is content-neutral; ReindentByDepth (run next) sets the depths.</returns>
-/// <remarks>Leaves a block alone whenever the split is not provably safe: any
-/// comment or {$...} directive on a line it would split, a line inside a block
-/// comment, a shielded multi-line string / asm placeholder, and any line holding
+/// <remarks>Leaves a block alone whenever the split is not provably safe: a
+/// {$...} directive on a line it would split, a line inside a block comment, a shielded multi-line string / asm placeholder, and any line holding
 /// asm/case/try/repeat/record/an anonymous routine. A nested one-line block is
-/// expanded under the same rules. Repeats until nothing changes (bounded), which
-/// makes it idempotent by construction.</remarks>
+/// expanded under the same rules. Comment rule (task 3): a closed one-line
+/// comment stays at the end of the piece before it, a trailing `//` at the end of
+/// the last piece. Repeats until nothing changes (bounded), which makes it
+/// idempotent by construction.</remarks>
 function ExpandShortBlocks(const S: string): string;
 const
   CBodyIndent = '  ';
@@ -5774,13 +5878,13 @@ var
         xkSemi:
           if (PD <= 0) and (BD = 0) then
           begin
-            Expand(AIndent + Trim(Copy(L, Seg, T[k].E - Seg)), AOut, False);
+            Expand(AIndent + Trim(Copy(L, Seg, NextTokP(L, T, k) - Seg)), AOut, False);
             Seg:= -1;
           end;
       end; // case
     end; // for
     if Seg >= 0 then
-      Expand(AIndent + Trim(Copy(L, Seg, T[ATo - 1].E - Seg)), AOut, False);
+      Expand(AIndent + Trim(Copy(L, Seg, NextTokP(L, T, ATo - 1) - Seg)), AOut, False);
   end; // procedure
 
   procedure Expand(const L: string; AOut: TStringList; APrevHdr: Boolean);
@@ -5795,7 +5899,7 @@ var
     // Only the top-level call for a source line knows its arm colon column.
     Arm   := CurArm;
     CurArm:= 0;
-    if L.Contains(ShieldPrefix) or not ScanExpandLine(L, T, C) or C or HasDisq(T, 0, Length(T)) then
+    if L.Contains(ShieldPrefix) or not ScanExpandLine(L, T, C) or HasDisq(T, 0, Length(T)) then
     begin
       AOut.Add(L);
       Exit;
@@ -5808,7 +5912,7 @@ var
       Exit;
     end;
     Ind:= LeadWS(L);
-    AOut.Add(TrimRight(Copy(L, 1, T[b].E - 1)));
+    AOut.Add(TrimRight(Copy(L, 1, NextTokP(L, T, b) - 1)));
     EmitStatements(AOut, L, T, b + 1, e, Ind + CBodyIndent);
     Expand(Ind + Trim(Copy(L, T[e].P, MaxInt)), AOut, False);
   end; // procedure
@@ -5868,7 +5972,7 @@ var
     Tmp: TStringList  ;
   begin
     Result:= False;
-    if Lines[AIdx].Contains(ShieldPrefix) or not ScanExpandLine(Lines[AIdx], T, C) or C or HasDisq(T, 0, Length(T)) then
+    if Lines[AIdx].Contains(ShieldPrefix) or not ScanExpandLine(Lines[AIdx], T, C) or HasDisq(T, 0, Length(T)) then
       Exit;
     b:= FindBegin(T, APrevHdr, ArmCol[AIdx]);
     if (b < 0) or (MatchEnd(T, b) >= 0) then
@@ -5885,7 +5989,7 @@ var
     // Closing line: split only when code precedes the `end`.
     if Hit > 0 then
     begin
-      if C2 or HasDisq(T2, 0, Hit) or (Repl[j] <> nil) then
+      if HasDisq(T2, 0, Hit) or (Repl[j] <> nil) then
         Exit;
       Tmp:= TStringList.Create;
       try
@@ -5898,7 +6002,7 @@ var
       end;
     end;
     Ind:= LeadWS(Lines[AIdx]);
-    OutL.Add(TrimRight(Copy(Lines[AIdx], 1, T[b].E - 1)));
+    OutL.Add(TrimRight(Copy(Lines[AIdx], 1, NextTokP(Lines[AIdx], T, b) - 1)));
     EmitStatements(OutL, Lines[AIdx], T, b + 1, Length(T), Ind + CBodyIndent);
     Result:= True;
   end; // function
@@ -6004,9 +6108,10 @@ end;
 /// <returns>The text with the breaks inserted (S itself when nothing is split).
 /// Inserts only CRLF + indent, so it is content-neutral.</returns>
 /// <remarks>Never splits inside () / [] (depth carried across lines) or a
-/// generic &lt;...&gt; list, and never touches a line that holds a comment (a
-/// comment pins its line, as for every join/split pass), a {$...} directive, a
-/// shielded multi-line token, asm or an interface / object type. An anonymous
+/// generic &lt;...&gt; list, and never touches a line that holds a {$...}
+/// directive, a shielded multi-line token, asm or an interface / object type.
+/// Comment rule (task 3): a closed one-line comment between two tokens stays at
+/// the end of the earlier piece; a trailing `//` stays at the end of the last. An anonymous
 /// routine, a procedural type and an anonymous record type
 /// (`R: record X: Integer; end;`) are kept whole, as are an empty record / class
 /// body (`TFoo = class end;`) and a visibility word with its nested type /
@@ -6040,12 +6145,13 @@ var
     Result:= InRange(AIdx, 0, High(T)) and (T[AIdx].Kind <> xkWord) and (Lines[i][T[AIdx].P] = ACh);
   end;
 
-  // A line this pass never splits (it still carries the paren depth).
+  // A line this pass never splits (it still carries the paren depth). A comment
+  // does not stop it (task 3): a trailing `//` stays at the end of the last piece.
   function Untouchable: Boolean;
   var
     m: Integer;
   begin
-    Result:= Cmt;
+    Result:= False;
     for m:= 0 to High(T) do
       if (T[m].W = 'asm') or (MatchStr(T[m].W, ['interface', 'dispinterface', 'object']) and IsSym(m - 1, '=')) then
         Exit(True);
@@ -6226,9 +6332,10 @@ var
 
   procedure SplitLine;
   var
-    k    : Integer;
-    Touch: Boolean;
-    Gap  : Boolean;
+    k      : Integer;
+    Touch  : Boolean;
+    Gap    : Boolean;
+    GapCode: string ;
   begin
     Cut:= nil;
     SetLength(Cut, Length(T));
@@ -6240,7 +6347,9 @@ var
     Touch := not Untouchable;
     for k:= 0 to High(T) do
     begin
-      Gap:= (k > 0) and (Trim(Copy(Lines[i], T[k - 1].E, T[k].P - T[k - 1].E)) = '');
+      // Only blanks and closed one-line comments between the two tokens (comment
+      // rule, task 3): the comments stay at the end of the earlier piece.
+      Gap:= (k > 0) and EdgeCommentFreeCode(Copy(Lines[i], T[k - 1].E, T[k].P - T[k - 1].E), GapCode) and (GapCode = '');
       if Touch and Gap and (k > Skip) and (PD = 0) and (AD = 0) then
         Cut[k]:= CutBefore(k);
       NoteToken(k);
@@ -6285,7 +6394,8 @@ end; // function
 /// <summary>The join half of PackStatements (ON): adjacent plain statements
 /// -- consecutive lines at the same indent inside a code block, each one
 /// simple statement ending in `;` (no block or control keyword, no label, no
-/// comment) -- are packed onto one line while the line fits AMaxLen.</summary>
+/// `//` comment; a closed one-line comment travels along, task 3) -- are packed
+/// onto one line while the line fits AMaxLen.</summary>
 /// <param name="S">CRLF text after the re-indent (indent is final).</param>
 /// <param name="AMaxLen">Maximum line length.</param>
 /// <returns>The text with the runs packed (S itself when nothing is packed);

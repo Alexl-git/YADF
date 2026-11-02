@@ -57,7 +57,11 @@ begin
     S:= 'a; b begin end';
     Log(Length(S));
   end;
-  if C then begin Log(5); { keep } Y; end;
+  if C then
+  begin
+    Log(5); { keep }
+    Y;
+  end;
   if B then begin {$IFDEF DEBUG} Log(9); {$ENDIF} Y; end;
   if B then
   begin
