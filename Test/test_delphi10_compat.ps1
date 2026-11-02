@@ -42,6 +42,15 @@ MustMatch    $o "Tag: string\s*=\s*'x';" 'inline_const: typed const kept'
 MustContain  $o 'WriteLn(Factor, Tag)' 'inline_const: body references survive'
 MustNotMatch $o '(?ms)\bbegin\b.*\bconst\s+Factor' 'inline_const: no inline const left inside begin'
 
+# --- d10_existing_var: inline var CONTINUES the routine's existing simple var section ---
+$o = Fmt 'd10_existing_var.pas'
+MustMatch    $o '(?ms)A\s*: Integer;\s+B\s*: Integer;\s+X\s*: Integer;' 'existing_var: A,B,X in ONE var section (merged)'
+MustNotMatch $o '(?ms)procedure Demo;\s+var\r?$(?:(?!^begin).)*^\s*var\r?$' 'existing_var: no second var section'
+MustMatch    $o 'X\s*: Integer; // YADF Delphi10: inferred type' 'existing_var: X hoisted with verify note'
+MustMatch    $o '(?m)^const\r?$' 'existing_var: const section for the hoisted const'
+MustMatch    $o '(?ms)A\s*: Integer;\s+const\s+N = 3;\s+var\s+Arr\s*: array\[0\.\.N\] of Integer;' 'existing_var: a var naming a hoisted const keeps const-then-var order'
+MustMatch    $o '(?ms)Buf\s*: array\[0\.\.1\] of Integer;\s+var\s+Y\s*: Integer;' 'existing_var: a non-simple section gets a fresh var block'
+
 # --- d10_flag: non-inferable residuals get a TODO; nothing silently downgraded ---
 $o = Fmt 'd10_flag.pas'
 MustMatch $o '// TODO -oYADF : inline loop var cannot be type-inferred' 'flag: for-in flagged'

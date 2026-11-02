@@ -8604,7 +8604,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@eac8, cognitive-complexity@6806, method-too-long@4303 -- 309 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@427b, cognitive-complexity@e490, method-too-long@56c4 -- 319 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -8645,6 +8645,8 @@ var
   ConstDecl  : string                                 ;
   TodoText   : string                                 ;
   FlagTok    : TToken                                 ;
+  MergeVars  : Boolean                                ;
+  HoistList  : TStringList                            ;
 
   function NextSig(AFrom: Integer): Integer;
   begin
@@ -8659,6 +8661,79 @@ var
     while (Result >= 0) and (ATokens[Result].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
       Dec(Result);
   end;
+
+// Section merge: when the routine's declaration part ends -- right before the
+// `begin` at ABeginIdx -- with a SIMPLE `var` section (only `Name[, Name]: Type;`
+// with identifier / dotted / generic / `string` types and comments), returns that
+// `var` keyword index so the hoisted vars CONTINUE it instead of opening a second
+// `var` block. Returns -1 (open a fresh block) the instant anything else appears:
+// `const` / `type`, an `=` initialiser, a nested routine's `end`, a bracket, a
+// directive... A miss only yields the legal separate-section output.
+  function FindMergeVarKeyword(ABeginIdx: Integer): Integer;
+  var
+    j: Integer;
+  begin
+    Result:= -1;
+    j:= PrevSig(ABeginIdx - 1);
+    while j >= 0 do
+    begin
+      case ATokens[j].Kind of
+        ptVar: Exit(j);
+        ptIdentifier, ptColon, ptComma, ptSemiColon, ptPoint, ptSpace, ptCRLF, ptCRLFCo,
+        ptSlashesComment, ptBorComment, ptAnsiComment, ptString, ptLower, ptGreater:
+          Dec(j);
+      else
+        Exit;
+      end;
+    end;
+  end; // function
+
+// True when a hoisted var declaration of the routine at ABeginIdx names one of
+// its hoisted consts (`var A: array[0..N] ...` after `const N = 3;`): the vars
+// may then not continue an earlier var section, because the const block that
+// declares N is emitted after them.
+  function HoistedVarsUseHoistedConst(ABeginIdx: Integer): Boolean;
+  const
+    IDENT_CHARS = ['A'..'Z', 'a'..'z', '0'..'9', '_', '&'];
+  var
+    c, v, n: Integer;
+    Name: string;
+    Decl: string;
+
+    function ContainsWholeWord(const AText, AWord: string): Boolean;
+    var
+      Hay: string;
+      p: Integer;
+    begin
+      Result:= False;
+      if AWord = '' then
+        Exit;
+      Hay:= ' ' + LowerCase(AText) + ' ';
+      p:= Pos(LowerCase(AWord), Hay);
+      while p > 0 do
+      begin
+        if not CharInSet(Hay[p - 1], IDENT_CHARS) and not CharInSet(Hay[p + Length(AWord)], IDENT_CHARS) then
+          Exit(True);
+        p:= Pos(LowerCase(AWord), Hay, p + 1);
+      end;
+    end; // function
+
+  begin
+    Result:= False;
+    if not BodyConst.ContainsKey(ABeginIdx) then
+      Exit;
+    for c:= 0 to BodyConst[ABeginIdx].Count - 1 do
+    begin
+      Decl:= BodyConst[ABeginIdx][c];
+      n:= 1;
+      while (n <= Length(Decl)) and CharInSet(Decl[n], IDENT_CHARS) do
+        Inc(n);
+      Name:= Copy(Decl, 1, n - 1);
+      for v:= 0 to BodyDecls[ABeginIdx].Count - 1 do
+        if ContainsWholeWord(BodyDecls[ABeginIdx][v], Name) then
+          Exit(True);
+    end;
+  end; // function
 
 // True when the `begin` at ABegin is the body of a `for` / `while` loop
 // (`... do begin`) or the block of a single-statement body that is not a begin of
@@ -9414,25 +9489,35 @@ begin
           Outp.Add(FlagTok);
           Outp.Add(MakeTok(ptCRLF, CRLF));
         end;
-        // Inject the hoisted `const` then `var` block immediately before a
-        // routine's `begin` (const first so it can be referenced by the vars).
-        if BodyConst.ContainsKey(i) then
+        // Inject the hoisted decls immediately before a routine's `begin`. When
+        // the routine's own declaration part ends with a simple `var` section,
+        // the hoisted vars CONTINUE it (no second `var`) and the hoisted const
+        // block follows them; otherwise const first (the vars may reference it),
+        // then a fresh var block.
+        MergeVars:= BodyDecls.TryGetValue(i, HoistList) and (FindMergeVarKeyword(i) >= 0) and not HoistedVarsUseHoistedConst(i);
+        if MergeVars then
+          for k:= 0 to HoistList.Count - 1 do
+          begin
+            Outp.Add(MakeTok(ptIdentifier, HoistList[k]));
+            Outp.Add(MakeTok(ptCRLF, CRLF));
+          end;
+        if BodyConst.TryGetValue(i, HoistList) then
         begin
           Outp.Add(MakeTok(ptConst, 'const'));
           Outp.Add(MakeTok(ptCRLF , CRLF   ));
-          for k:= 0 to BodyConst[i].Count - 1 do
+          for k:= 0 to HoistList.Count - 1 do
           begin
-            Outp.Add(MakeTok(ptIdentifier, BodyConst[i][k]));
+            Outp.Add(MakeTok(ptIdentifier, HoistList[k]));
             Outp.Add(MakeTok(ptCRLF, CRLF));
           end;
         end;
-        if BodyDecls.ContainsKey(i) then
+        if not MergeVars and BodyDecls.TryGetValue(i, HoistList) then
         begin
           Outp.Add(MakeTok(ptVar , 'var'));
           Outp.Add(MakeTok(ptCRLF, CRLF ));
-          for k:= 0 to BodyDecls[i].Count - 1 do
+          for k:= 0 to HoistList.Count - 1 do
           begin
-            Outp.Add(MakeTok(ptIdentifier, BodyDecls[i][k]));
+            Outp.Add(MakeTok(ptIdentifier, HoistList[k]));
             Outp.Add(MakeTok(ptCRLF, CRLF));
           end;
         end;

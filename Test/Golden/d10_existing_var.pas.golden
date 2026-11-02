@@ -1,0 +1,37 @@
+unit d10_existing_var;
+
+interface
+
+implementation
+
+procedure Demo;
+var
+  A: Integer;
+  B: Integer;
+begin
+  var X:= 1;
+  const C = 2;
+  WriteLn(A, B, X, C);
+end;
+
+procedure UsesConst;
+var
+  A: Integer;
+begin
+  const N = 3;
+  var Arr: array[0..N] of Integer;
+  A:= N;
+  Arr[0]:= A;
+  WriteLn(Arr[0]);
+end;
+
+procedure NotSimple;
+var
+  Buf: array[0..1] of Integer;
+begin
+  var Y:= 2;
+  Buf[0]:= Y;
+  WriteLn(Buf[0]);
+end;
+
+end.
