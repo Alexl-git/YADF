@@ -1,9 +1,9 @@
 ---
 id: begin-on-header-line
 title: Put begin on the same line as then / do / else
-summary: On: begin joins the line of its then / do / else, case label or case else ("if C then begin", "end else begin", "9: begin"). Off: begin goes on its own line, and "end" / "else" / "begin" on three lines. A block that "Collapse short begin..end blocks" folds onto one line is not affected. Off by default.
-group: reflow-whitespace
-order: 80
+summary: On: begin joins the line of its then / do / else, case label or case else ("if C then begin", "end else begin", "9: begin"). Off: begin goes on its own line, and "end" / "else" / "begin" on three lines. A block that "Fold short begin..end onto one line" folds onto one line is not affected. Off by default.
+group: bodies-and-blocks
+order: 40
 default: "false"
 ini: BeginOnHeaderLine
 since: "1.0.21.0"
@@ -18,65 +18,78 @@ On: `begin` joins the line of the then / do / else, the case label or the case e
 
 Off (default): `begin` goes on its own line at the column of its header (`if C then` / `begin`), and `end else begin` is laid out as `end` / `else` / `begin` on three lines.
 
-A `//` comment after then / do / else or the label keeps `begin` on its own line; a `//` comment after `begin` moves with it. A block that "Collapse short begin..end blocks" folds onto one line is not affected (the fold wins). Applies whether "Reflow long lines" is on or off.
+A `//` comment after then / do / else or the label keeps `begin` on its own line; a `//` comment after `begin` moves with it. A block that "Fold short begin..end onto one line" folds onto one line is not affected (the fold wins). Applies whether "Reflow lines" is on or off.
 
 ## Example
 
+Real YADF output for the "BeginOnHeaderLine + CollapseShortBlocks" block of the preview sample (Demo\Sample.pas), all other options at their defaults:
+
 ```pascal
 // input
-if C then begin
-  A:= 1;
-end else begin
-  A:= 2;
-end;
-while A > 0 do
+procedure ShowBeginOnHeaderLine(var K: Integer);
 begin
-  Dec(A);
-end;
-case N of
-  9: begin
-    A:= 9;
+  if K > 0 then begin
+    Inc(K); // up
+    Inc(K);
+  end else begin
+    Dec(K); // down
+    Dec(K);
   end;
 end;
 
-// off (default)
-if C then
+procedure ShowCollapseShortBlocks(var K: Integer);
 begin
-  A:= 1;
-end
-else
-begin
-  A:= 2;
-end;
-while A > 0 do
-begin
-  Dec(A);
-end;
-case N of
-  9:
+  while K > 5 do
   begin
-    A:= 9;
+    Dec(K);
   end;
 end;
 
-// on
-if C then begin
-  A:= 1;
-end else begin
-  A:= 2;
+// BeginOnHeaderLine = false (default)
+procedure ShowBeginOnHeaderLine(var K: Integer);
+begin
+  if K > 0 then
+  begin
+    Inc(K); // up
+    Inc(K);
+  end
+  else
+  begin
+    Dec(K); // down
+    Dec(K);
+  end;
 end;
-while A > 0 do begin
-  Dec(A);
+
+procedure ShowCollapseShortBlocks(var K: Integer);
+begin
+  while K > 5 do
+  begin
+    Dec(K);
+  end;
 end;
-case N of
-  9: begin
-    A:= 9;
+
+// BeginOnHeaderLine = true
+procedure ShowBeginOnHeaderLine(var K: Integer);
+begin
+  if K > 0 then begin
+    Inc(K); // up
+    Inc(K);
+  end else begin
+    Dec(K); // down
+    Dec(K);
+  end;
+end;
+
+procedure ShowCollapseShortBlocks(var K: Integer);
+begin
+  while K > 5 do begin
+    Dec(K);
   end;
 end;
 ```
 
 ## Related
 
-- [Collapse short begin..end blocks](collapse-short-blocks.md) - Folds a short block onto one line; that layout wins over this option.
-- [Case arm on its label line](case-arm-on-label-line.md) - Lays out one-statement arms; a begin..end arm follows this option.
-- [Reflow long lines](reflow-lines.md) - This option applies whether reflow is on or off.
+- [Fold short begin..end onto one line](collapse-short-blocks.md) - Folds a short block onto one line; that layout wins over this option.
+- [One-statement case arm on its label line](case-arm-on-label-line.md) - Lays out one-statement arms; a begin..end arm follows this option.
+- [Reflow lines (join and wrap)](reflow-lines.md) - This option applies whether reflow is on or off.

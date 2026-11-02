@@ -18,6 +18,15 @@ and the source file is left untouched. Leave empty (the default)
 for in-place formatting.
 CLI equivalents: --of <folder> sets, --no-o clears.
 
+## Example
+
+No effect on the formatted code. In yadf.ini, or on the command line:
+
+```
+ResultDir = C:\Formatted
+yadf --of C:\Formatted MyUnit.pas     (writes C:\Formatted\MyUnit.pas, the source is untouched)
+```
+
 ## Related
 
 - [Backup before overwrite](backup.md) - Create a backup of every file before overwriting it.

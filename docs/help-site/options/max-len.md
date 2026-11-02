@@ -1,7 +1,7 @@
 ---
 id: max-len
 title: Max line length
-summary: Maximum line length in columns. Long lines are reflowed when "Reflow long lines" is on.
+summary: Maximum line length in columns. Long lines are wrapped when "Reflow lines" is on.
 group: line-layout
 order: 10
 default: "180"
@@ -15,7 +15,7 @@ status: "stable"
 
 Sets the column at which YADF starts wrapping a line. A line longer than this
 value is broken at the safest available point (after a comma, before an
-operator) when [Reflow long lines](reflow-lines.md) is on.
+operator) when [Reflow lines (join and wrap)](reflow-lines.md) is on.
 
 ## When it does not apply
 
@@ -25,16 +25,32 @@ leaves those lines alone by design.
 
 ## Example
 
-With `MaxLen=60` a long call is wrapped:
+Real YADF output for the "MaxLen" block of the preview sample (Demo\Sample.pas), all other options at their defaults:
 
-    Result:= DoSomething(FirstArgument, SecondArgument, ThirdArgument, FourthArgument);
+```pascal
+// input
+procedure ShowMaxLen(const S: string);
+begin
+  Writeln(Format('%s has %d characters, %d of them before the first "a", %d before the first "b" and %d before "c"', [S, Length(S), Pos('a', S), Pos('b', S), Pos('c', S)]));
+end;
 
-becomes
+// MaxLen = 180 (default)
+procedure ShowMaxLen(const S: string);
+begin
+  Writeln(Format('%s has %d characters, %d of them before the first "a", %d before the first "b" and %d before "c"', [S, Length(S), Pos('a', S), Pos('b', S), Pos('c', S)]));
+end;
 
-    Result:= DoSomething(FirstArgument, SecondArgument,
-      ThirdArgument, FourthArgument);
+// MaxLen = 150
+procedure ShowMaxLen(const S: string);
+begin
+  Writeln(Format(
+      '%s has %d characters, %d of them before the first "a", %d before the first "b" and %d before "c"'
+    , [S, Length(S), Pos('a', S), Pos('b', S), Pos('c', S)]
+    ));
+end;
+```
 
 ## Related
 
-- [Reflow long lines](reflow-lines.md) - switches wrapping on or off.
+- [Reflow lines (join and wrap)](reflow-lines.md) - switches wrapping on or off.
 - [Indent step](indent.md) - width of the continuation indent.

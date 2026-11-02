@@ -31,6 +31,16 @@ Accepted aliases (case-insensitive):
   UTF-8 | UTF8 | UTF-8-BOM | UTF8BOM
   UTF-16 | UTF16 | UTF-16-BOM | UTF16BOM | UTF-16-LE
 
+## Example
+
+No effect on the formatted code, only on the bytes written:
+
+```
+Encoding = ANSI         ; keep each file's own encoding (default)
+Encoding = UTF-8        ; write UTF-8 with BOM
+yadf --encoding UTF-16 MyUnit.pas
+```
+
 ## Related
 
 - [Backup before overwrite](backup.md) - Create a backup of every file before overwriting it.

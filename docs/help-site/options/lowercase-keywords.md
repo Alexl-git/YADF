@@ -15,6 +15,36 @@ status: "stable"
 
 Lowercase reserved keywords (begin, end, if, else, var, ...).
 
+## Example
+
+Real YADF output for the "LowercaseKeywords" block of the preview sample (Demo\Sample.pas), all other options at their defaults:
+
+```pascal
+// input
+procedure ShowLowercaseKeywords(var K: Integer);
+begin
+  REPEAT
+    Dec(K);
+  UNTIL K <= 0;
+end;
+
+// LowercaseKeywords = true (default)
+procedure ShowLowercaseKeywords(var K: Integer);
+begin
+  repeat
+    Dec(K);
+  until K <= 0;
+end;
+
+// LowercaseKeywords = false
+procedure ShowLowercaseKeywords(var K: Integer);
+begin
+  REPEAT
+    Dec(K);
+  UNTIL K <= 0;
+end;
+```
+
 ## Related
 
 - [Uppercase hex](upper-hex-numbers.md) - Uppercase hex digits in numeric literals ($AB not $ab).

@@ -17,6 +17,15 @@ overwrites the source with no copy of the original. Set Backup=true
 (or pass --b on the command line) to write a backup before the
 in-place edit. Irrelevant when ResultDir is set.
 
+## Example
+
+No effect on the formatted code. In yadf.ini, or on the command line:
+
+```
+Backup = true
+yadf --b MyUnit.pas        (backup next to the file: MyUnit.pas.BCK1, BCK2, ...)
+```
+
 ## Related
 
 - [Backup directory](backup-dir.md) - Directory for backups (used when Backup=true). Empty = next to original file.

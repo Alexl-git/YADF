@@ -23,6 +23,15 @@ Useful for diagnosing why YADF wrote where it wrote when called
 from an IDE Tool or a build script. Off by default.
 CLI: `--log` to enable, `--no-log` to disable.
 
+## Example
+
+No effect on the formatted code:
+
+```
+Logging = true
+yadf --log MyUnit.pas   (appends to %APPDATA%\YADF\yadf-startup.log)
+```
+
 ## Related
 
 - [Backup before overwrite](backup.md) - Create a backup of every file before overwriting it.

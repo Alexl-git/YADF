@@ -15,6 +15,36 @@ status: "stable"
 
 Uppercase compiler-directive names: {$IFDEF}, {$DEFINE}, ...
 
+## Example
+
+Real YADF output for the "UpperDirectives" block of the preview sample (Demo\Sample.pas), all other options at their defaults:
+
+```pascal
+// input
+procedure ShowUpperDirectives(var K: Integer);
+begin
+  {$ifdef DEBUG}
+  Inc(K);
+  {$endif}
+end;
+
+// UpperDirectives = true (default)
+procedure ShowUpperDirectives(var K: Integer);
+begin
+  {$IFDEF DEBUG}
+  Inc(K);
+  {$ENDIF}
+end;
+
+// UpperDirectives = false
+procedure ShowUpperDirectives(var K: Integer);
+begin
+  {$ifdef DEBUG}
+  Inc(K);
+  {$endif}
+end;
+```
+
 ## Related
 
 - [Lowercase keywords](lowercase-keywords.md) - Lowercase Pascal keywords (begin, end, if, then ...).

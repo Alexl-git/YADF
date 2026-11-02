@@ -2,8 +2,8 @@
 id: pack-statements
 title: Pack several statements on one line
 summary: On: adjacent plain statements ("A:= 1; B:= 2;") are packed onto one line while it fits the max length. Off: one statement per line. Block keywords (begin, repeat, try, case, record, class) always start a line either way. Off by default.
-group: reflow-whitespace
-order: 100
+group: bodies-and-blocks
+order: 60
 default: "false"
 ini: PackStatements
 cli: --pack-statements
@@ -19,49 +19,37 @@ On: adjacent plain statements -- assignments and calls written on consecutive li
 
 Off (default): one statement per line (`A:= 1; B:= 2;` becomes two lines).
 
-Fixed rule, whatever this option says: block keywords start a line and a block body never stays on its header line -- a routine `begin`, `repeat` / `until`, `try` / `finally` / `except`, `case ... of` and its arms, a record or class body and its visibility sections, and every `end`. Only "Collapse short begin..end blocks" may fold a short begin..end onto one line. Two declarations written on one line (`A: Integer; B: string;`) are always split one per line.
+Fixed rule, whatever this option says: block keywords start a line and a block body never stays on its header line -- a routine `begin`, `repeat` / `until`, `try` / `finally` / `except`, `case ... of` and its arms, a record or class body and its visibility sections, and every `end`. Only "Fold short begin..end onto one line" may fold a short begin..end onto one line. Two declarations written on one line (`A: Integer; B: string;`) are always split one per line.
 
-Left as written: a line holding a comment or a `{$...}` directive, an anonymous method, a procedural type, an anonymous record type in a declaration (`R: record X: Integer; end;`), an empty class or record (`TFoo = class end;`). Applies whether "Reflow long lines" is on or off.
+Left as written: a line holding a comment or a `{$...}` directive, an anonymous method, a procedural type, an anonymous record type in a declaration (`R: record X: Integer; end;`), an empty class or record (`TFoo = class end;`). Applies whether "Reflow lines" is on or off.
 
 ## Example
 
+Real YADF output for the "PackStatements" block of the preview sample (Demo\Sample.pas), all other options at their defaults:
+
 ```pascal
 // input
-var
-  A: Integer; B: Integer;
+procedure ShowPackStatements(var K: Integer);
 begin
-  A:= 1; B:= 2;
-  N:= A + B;
-  repeat Dec(N); until N = 0;
+  K:= 1; Inc(K);
 end;
 
-// Off (default)
-var
-  A: Integer;
-  B: Integer;
+// PackStatements = false (default)
+procedure ShowPackStatements(var K: Integer);
 begin
-  A:= 1;
-  B:= 2;
-  N:= A + B;
-  repeat
-    Dec(N);
-  until N = 0;
+  K:= 1;
+  Inc(K);
 end;
 
-// On
-var
-  A: Integer;
-  B: Integer;
+// PackStatements = true
+procedure ShowPackStatements(var K: Integer);
 begin
-  A:= 1; B:= 2; N:= A + B;
-  repeat
-    Dec(N);
-  until N = 0;
+  K:= 1; Inc(K);
 end;
 ```
 
 ## Related
 
-- [Reflow long lines](reflow-lines.md) - Reflow lines that exceed the max line length. Off = long lines are left as-is.
+- [Reflow lines (join and wrap)](reflow-lines.md) - Reflow lines that exceed the max line length. Off = long lines are left as-is.
 - [Trim trailing spaces](trim-trailing.md) - Trim trailing whitespace from every output line.
 - [Max blank lines](max-blank-lines.md) - Maximum consecutive blank lines kept in output. Excess blanks are collapsed.

@@ -19,6 +19,16 @@ Used only when Backup=true and ResultDir is empty.
     where N is the lowest unused integer (1, 2, 3, ...).
 CLI equivalent: --b <folder> (with arg) or --b (no arg, sibling).
 
+## Example
+
+No effect on the formatted code. In yadf.ini, or on the command line:
+
+```
+Backup    = true
+BackupDir = C:\Backups\Yadf
+yadf --b C:\Backups\Yadf MyUnit.pas   (writes MyUnit.pas.<YYYYMMDD-hhmmss>.bak there)
+```
+
 ## Related
 
 - [Backup before overwrite](backup.md) - Create a backup of every file before overwriting it.

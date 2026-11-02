@@ -1,16 +1,16 @@
 ---
 id: case-arm-on-label-line
-title: Case arm on its label line
+title: One-statement case arm on its label line
 summary: Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"), the case else part included ("else DoOther;"); off = the statement goes on its own line under the label.
-group: reflow-whitespace
-order: 70
+group: case-statements
+order: 10
 default: "true"
 ini: CaseArmOnLabelLine
 since: "1.0.21.0"
 status: "stable"
 ---
 
-# Case arm on its label line
+# One-statement case arm on its label line
 
 Lays out a case arm whose body is ONE short simple statement. On (default): the statement sits on its label line -- an arm the author broke under its label is joined when the result fits the max line length. Off: the statement goes on its own line, one indent under the label. Unchecked means the opposite layout, not "leave as written".
 
@@ -24,40 +24,47 @@ The retired option "Pack short bodies" is still read from an INI as an alias: Pa
 
 ## Example
 
+Real YADF output for the "CaseArmOnLabelLine + BreakCaseLabels" block of the preview sample (Demo\Sample.pas), all other options at their defaults:
+
 ```pascal
 // input
-case N of
-  0:
-    Inc(CaA);
-  1: Inc(CaB);
-  3: Inc(CaD); // keep
-else
-  Dec(CaA);
-end;
-
-// on (default)
-case N of
-  0: Inc(CaA);
-  1: Inc(CaB);
-  3: Inc(CaD); // keep
-  else Dec(CaA);
-end;
-
-// off
-case N of
-  0:
-    Inc(CaA);
-  1:
-    Inc(CaB);
-  3:
-    Inc(CaD); // keep
+procedure ShowCaseArms(var K: Integer);
+begin
+  case K of
+    1, 2:
+      Inc(K);
+    3, 4: Dec(K);
   else
-    Dec(CaA);
+    K:= 0;
+  end;
+end;
+
+// CaseArmOnLabelLine = true (default)
+procedure ShowCaseArms(var K: Integer);
+begin
+  case K of
+    1, 2: Inc(K);
+    3, 4: Dec(K);
+    else K:= 0;
+  end;
+end;
+
+// CaseArmOnLabelLine = false
+procedure ShowCaseArms(var K: Integer);
+begin
+  case K of
+    1, 2:
+      Inc(K);
+    3, 4:
+      Dec(K);
+    else
+      K:= 0;
+  end;
 end;
 ```
 
 ## Related
 
 - [Break if/then/else body onto its own line](break-if-body.md) - if statements inside an arm follow that option.
-- [Break case labels](break-case-labels.md) - One label per arm; the statement then follows this option.
-- [Reflow long lines](reflow-lines.md) - Reflow lines that exceed the max line length. This option applies whether reflow is on or off.
+- [Break case labels one per line](break-case-labels.md) - One label per arm; the statement then follows this option.
+- [Reflow lines (join and wrap)](reflow-lines.md) - Reflow lines that exceed the max line length. This option applies whether reflow is on or off.

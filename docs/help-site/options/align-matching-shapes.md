@@ -1,16 +1,16 @@
 ---
 id: align-matching-shapes
-title: Align matching shapes
+title: Align lines of the same shape
 summary: Align matching "shapes" (record-init lines, repeated field declarations).
-group: assignment-alignment
-order: 70
+group: alignment
+order: 50
 default: "true"
 ini: AlignMatchingShapes
 since: "1.0.0.0"
 status: "stable"
 ---
 
-# Align matching shapes
+# Align lines of the same shape
 
 Generalises AlignSmartAssign beyond `:=` lines. When two or more
 ADJACENT lines share an identical structural skeleton (same
@@ -22,8 +22,53 @@ anywhere -- record-constant arrays, declarations, repeated calls
 are never touched. Set false to keep the old `:=`/const-only
 behaviour.
 
+## Example
+
+Real YADF output for the "AlignMatchingShapes + AlignShapeMinAnchors" block of the preview sample (Demo\Sample.pas), all other options at their defaults:
+
+```pascal
+// input
+procedure ShowAlignMatchingShapes;
+begin
+  Writeln(Format('%d', [1]), 'a', 22); // one
+  Writeln(Format('%d', [333]), 'bb', 4); // two
+end;
+
+procedure ShowAlignShapeMinAnchors(var K: Integer);
+begin
+  Writeln(K, 'a', 22); // one
+  Writeln(K, 'bbbbbb', 4); // two
+end;
+
+// AlignMatchingShapes = true (default)
+procedure ShowAlignMatchingShapes;
+begin
+  Writeln(Format('%d', [1  ]), 'a' , 22); // one
+  Writeln(Format('%d', [333]), 'bb', 4 ); // two
+end;
+
+procedure ShowAlignShapeMinAnchors(var K: Integer);
+begin
+  Writeln(K, 'a'     , 22); // one
+  Writeln(K, 'bbbbbb', 4 ); // two
+end;
+
+// AlignMatchingShapes = false
+procedure ShowAlignMatchingShapes;
+begin
+  Writeln(Format('%d', [1]), 'a', 22); // one
+  Writeln(Format('%d', [333]), 'bb', 4); // two
+end;
+
+procedure ShowAlignShapeMinAnchors(var K: Integer);
+begin
+  Writeln(K, 'a', 22); // one
+  Writeln(K, 'bbbbbb', 4); // two
+end;
+```
+
 ## Related
 
 - [No space before :=](assign-no-space-before.md) - No space BEFORE := ("X:= 1" not "X := 1").
 - [Space after :=](assign-space-after.md) - Single space AFTER := ("X:= 1" not "X:=1").
-- [Align const =](align-const-equals.md) - Vertical-align = in const blocks.
+- [Align = in const blocks](align-const-equals.md) - Vertical-align = in const blocks.

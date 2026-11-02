@@ -15,6 +15,30 @@ status: "stable"
 Uppercase hex digits in $NN literals and the exponent letter
 in floats: $FF, 1E5.
 
+## Example
+
+Real YADF output for the "UpperHexNumbers" block of the preview sample (Demo\Sample.pas), all other options at their defaults:
+
+```pascal
+// input
+procedure ShowUpperHexNumbers(var K: Integer);
+begin
+  K:= $ff;
+end;
+
+// UpperHexNumbers = true (default)
+procedure ShowUpperHexNumbers(var K: Integer);
+begin
+  K:= $FF;
+end;
+
+// UpperHexNumbers = false
+procedure ShowUpperHexNumbers(var K: Integer);
+begin
+  K:= $ff;
+end;
+```
+
 ## Related
 
 - [Lowercase keywords](lowercase-keywords.md) - Lowercase Pascal keywords (begin, end, if, then ...).

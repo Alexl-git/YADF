@@ -15,6 +15,42 @@ status: "stable"
 Normalize identifier casing to the first occurrence in the
 file. Pascal is case-insensitive, so this is semantically safe.
 
+## Example
+
+Real YADF output for the "FirstOccCasing" block of the preview sample (Demo\Sample.pas), all other options at their defaults:
+
+```pascal
+// input
+procedure ShowFirstOccCasing;
+var
+  MixedValue: Integer;
+begin
+  mixedvalue:= 1;
+
+  Writeln(MIXEDVALUE);
+end;
+
+// FirstOccCasing = true (default)
+procedure ShowFirstOccCasing;
+var
+  MixedValue: Integer;
+begin
+  MixedValue:= 1;
+
+  Writeln(MixedValue);
+end;
+
+// FirstOccCasing = false
+procedure ShowFirstOccCasing;
+var
+  MixedValue: Integer;
+begin
+  mixedvalue:= 1;
+
+  Writeln(MIXEDVALUE);
+end;
+```
+
 ## Related
 
 - [Lowercase keywords](lowercase-keywords.md) - Lowercase Pascal keywords (begin, end, if, then ...).
