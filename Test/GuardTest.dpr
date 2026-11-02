@@ -526,6 +526,174 @@ begin
     not FormatPreservesContent('X := 1;', 'X := 1; //__YADF1_ASM_0__'));
 end;
 
+// --- task 8: strict code-token stream ---------------------------------------
+
+const
+  // The casing licence at default options (LowercaseKeywords, FirstOccCasing,
+  // UpperHexNumbers all on).
+  DEF_CASING: TGuardCasing = [gkKeywordsLower, gkFirstOccurrence, gkUpperHex];
+
+function GuardOk(const AOrig, AFmt: string; AMode: TGuardCodeMode; ACasing: TGuardCasing; ALabels: Boolean = False): Boolean;
+var
+  Reason: string;
+begin
+  Result:= FormatPreservesContent(AOrig, AFmt, False, ALabels, AMode, ACasing, Reason);
+end;
+
+// Each corruption class of the 2026-10-14 review, injected straight into the
+// guard as the formatter's output, in the modes FormatSource uses at defaults
+// (gcSplit: SplitMultiVarDecls is on) and in gcStrict.
+procedure TestReviewCorruptionClasses;
+const
+  Unit0 = 'unit U;' + CRLF + 'interface' + CRLF + 'implementation' + CRLF + 'procedure P;' + CRLF + 'begin' + CRLF + '  A:= 1;' + CRLF + '  B:= 2;' + CRLF + 'end;' + CRLF + 'end.' + CRLF;
+  Exp0  = 'Tol:= A - B;' + CRLF + 'Eps:= 1E-9;' + CRLF;
+  Dir0  = 'var' + CRLF + '  I, J: Integer; {$IFDEF X}' + CRLF + '  K: Integer;' + CRLF + '{$ENDIF}' + CRLF;
+  Ext0  = 'procedure A; begin gettickcount; end;' + CRLF + 'function GetTickCount: Cardinal; stdcall; external ''kernel32.dll'';' + CRLF;
+  Enum0 = 'var red: Integer;' + CRLF + 'type TColor = (Red, Green);' + CRLF;
+  NUL_CUT = 38; // the review's NUL repro kept 38 of 83 bytes
+  D10S  = 'procedure P;' + CRLF + 'begin' + CRLF + '{$IFDEF X}' + CRLF + '  var Y: Integer:= 1;' + CRLF + '  Use(Y);' + CRLF + '{$ENDIF}' + CRLF + 'end;' + CRLF;
+var
+  M: TGuardCodeMode;
+begin
+  for M in [gcStrict, gcSplit] do
+  begin
+    Check(Format('#5 truncated output (NUL) rejected [%d]', [Ord(M)]),
+      not GuardOk(Unit0, Copy(Unit0, 1, NUL_CUT), M, DEF_CASING));
+    Check(Format('#6 signed exponent split by alignment rejected [%d]', [Ord(M)]),
+      not GuardOk(Exp0, 'Tol:= A - B;' + CRLF + 'Eps:= 1E   -9;' + CRLF, M, DEF_CASING));
+    Check(Format('#8 external import name re-cased rejected [%d]', [Ord(M)]),
+      not GuardOk(Ext0, 'procedure A; begin gettickcount; end;' + CRLF + 'function gettickcount: Cardinal; stdcall; external ''kernel32.dll'';' + CRLF, M, DEF_CASING));
+    Check(Format('#9 enum member re-cased rejected [%d]', [Ord(M)]),
+      not GuardOk(Enum0, 'var red: Integer;' + CRLF + 'type TColor = (red, Green);' + CRLF, M, DEF_CASING));
+    Check(Format('duplicated statement rejected [%d]', [Ord(M)]),
+      not GuardOk(Unit0, StringReplace(Unit0, '  A:= 1;', '  A:= 1;' + CRLF + '  A:= 1;', []), M, DEF_CASING));
+    Check(Format('code moved across a directive rejected [%d]', [Ord(M)]),
+      not GuardOk('{$IFDEF X} A; {$ENDIF} B;', '{$IFDEF X} A; B; {$ENDIF}', M, DEF_CASING));
+    Check(Format('string literal moved past code rejected [%d]', [Ord(M)]),
+      not GuardOk('X:= ''a''; Y:= Z;', 'X:= Y; ''a'':= Z;', M, DEF_CASING));
+  end;
+  Check('#7 split moving a name into an {$IFDEF} rejected (gcSplit)',
+    not GuardOk(Dir0, 'var' + CRLF + '  I: Integer; {$IFDEF X}' + CRLF + '  J: Integer;' + CRLF + '  K: Integer;' + CRLF + '{$ENDIF}' + CRLF, gcSplit, DEF_CASING));
+  Check('#7 legitimate split before the {$IFDEF} passes (gcSplit)',
+    GuardOk(Dir0, 'var' + CRLF + '  I: Integer;' + CRLF + '  J: Integer; {$IFDEF X}' + CRLF + '  K: Integer;' + CRLF + '{$ENDIF}' + CRLF, gcSplit, DEF_CASING));
+  Check('#10 --d10 hoist out of an {$IFDEF} rejected (gcD10)',
+    not GuardOk(D10S, 'procedure P;' + CRLF + 'var' + CRLF + '  Y: Integer;' + CRLF + 'begin' + CRLF + '{$IFDEF X}' + CRLF + '  Y:= 1;' + CRLF + '  Use(Y);' + CRLF + '{$ENDIF}' + CRLF + 'end;' + CRLF,
+      gcD10, DEF_CASING));
+  Check('#10 --d10 hoist of a var AFTER an {$IFDEF} block passes (gcD10)',
+    GuardOk('procedure P;' + CRLF + 'begin' + CRLF + '{$IFDEF X}' + CRLF + '  Foo;' + CRLF + '{$ENDIF}' + CRLF + '  var Y: Integer:= 1;' + CRLF + '  Use(Y);' + CRLF + 'end;' + CRLF,
+      'procedure P;' + CRLF + 'var' + CRLF + '  Y: Integer;' + CRLF + 'begin' + CRLF + '{$IFDEF X}' + CRLF + '  Foo;' + CRLF + '{$ENDIF}' + CRLF + '  Y:= 1;' + CRLF + '  Use(Y);' + CRLF + 'end;' + CRLF,
+      gcD10, DEF_CASING));
+  Check('#10 a lost statement in a branch rejected (gcD10)',
+    not GuardOk(D10S, StringReplace(D10S, '  Use(Y);' + CRLF, '', []), gcD10, DEF_CASING));
+end;
+
+procedure TestCasingLicence;
+begin
+  Check('keyword lowercased passes with gkKeywordsLower', GuardOk('BEGIN X:= 1; END;', 'begin X:= 1; end;', gcStrict, [gkKeywordsLower]));
+  Check('keyword lowercased rejected without the licence', not GuardOk('BEGIN X:= 1; END;', 'begin X:= 1; end;', gcStrict, []));
+  Check('keyword UPPERcased rejected even with gkKeywordsLower', not GuardOk('begin X:= 1; end;', 'BEGIN X:= 1; END;', gcStrict, [gkKeywordsLower]));
+  Check('first-occurrence cascade passes', GuardOk('Foo:= 1; FOO:= 2;', 'Foo:= 1; Foo:= 2;', gcStrict, DEF_CASING));
+  Check('identifier re-cased to a NON-first spelling rejected', not GuardOk('Foo:= 1; FOO:= 2;', 'FOO:= 1; FOO:= 2;', gcStrict, DEF_CASING));
+  Check('identifier re-cased without gkFirstOccurrence rejected', not GuardOk('Foo:= 1; FOO:= 2;', 'Foo:= 1; Foo:= 2;', gcStrict, [gkKeywordsLower]));
+  Check('hex case change passes with gkUpperHex', GuardOk('X:= $ab;', 'X:= $AB;', gcStrict, [gkUpperHex]));
+  Check('hex case change rejected without gkUpperHex', not GuardOk('X:= $ab;', 'X:= $AB;', gcStrict, []));
+  Check('gkAnyCase keeps the historic lowercase-only comparison', GuardOk('Foo:= 1;', 'FOO:= 1;', gcStrict, [gkAnyCase]));
+  Check('gcSplit checks spelling of the expanded copies too',
+    not GuardOk('var A, B: Integer;', 'var A: Integer; B: integer;', gcSplit, DEF_CASING));
+  Check('gcSplit expanded copies with the original spelling pass',
+    GuardOk('var A, B: Integer;', 'var A: Integer; B: Integer;', gcSplit, DEF_CASING));
+  Check('gcSplit parameter modifier repeated per name passes',
+    GuardOk('procedure P(const A, B: Integer; var C, D: string);', 'procedure P(const A: Integer; const B: Integer; var C: string; var D: string);', gcSplit, DEF_CASING));
+  Check('gcSplit untyped parameter list re-spelled per name passes',
+    GuardOk('procedure P(var A, B; const C, D);', 'procedure P(var A; var B; const C; const D);', gcSplit, DEF_CASING));
+  Check('gcSplit modifier dropped from the second name rejected',
+    not GuardOk('procedure P(const A, B: Integer);', 'procedure P(const A: Integer; B: Integer);', gcSplit, DEF_CASING));
+  Check('gcD10 enum member re-cased rejected',
+    not GuardOk('var red: Integer; type TColor = (Red, Green);', 'var red: Integer; type TColor = (red, Green);', gcD10, DEF_CASING));
+end;
+
+// Task 8 (b): FindBlockLabel's 300-token budget counted whitespace, so the same
+// routine got the `// procedure` marker verdict on the tight side and not on the
+// spaced side (the --d10 snapshot renders a space between every token pair).
+procedure TestLabelVerdictIgnoresSpacing;
+const
+  LIST_LEN = 120; // ~250 significant tokens: under FindBlockLabel's 300 only when spaces do not count
+var
+  Tight : string;
+  Spaced: string;
+  Items : string;
+  i     : Integer;
+begin
+  Items:= '';
+  for i:= 1 to LIST_LEN do
+    Items:= Items + IntToStr(i) + ',';
+  Items:= Items + '0';
+  Tight := 'procedure P;' + CRLF + 'const' + CRLF + '  C: array[0..120] of Integer = (' + Items + ');' + CRLF + 'begin' + CRLF + '  X:= 1;' + CRLF + 'end; // procedure' + CRLF;
+  Spaced:= StringReplace(Tight, ',', ' , ', [rfReplaceAll]);
+  Check('label-removal verdict is the same for tight and spaced text',
+    GuardOk(Spaced, Tight, gcStrict, DEF_CASING, True));
+  Check('...and the other way round', GuardOk(Tight, Spaced, gcStrict, DEF_CASING, True));
+end;
+
+// Task 8 (b): the --d10 hoist drops a same-name same-type redeclaration
+// (YADF.Layout.DowngradeInlineVars.CommitInline); that is not a lost token.
+procedure TestD10SameTypeDedupe;
+const
+  Src = 'function P(N: Integer): Double; begin if N > 0 then for var I: Integer:= 1 to N do R:= 1 else for var I: Integer:= 1 to -N do R:= 2; end;';
+  Fmt = 'function P(N: Integer): Double; var I: Integer; begin if N > 0 then for I:= 1 to N do R:= 1 else for I:= 1 to -N do R:= 2; end;';
+begin
+  Check('D10 same-type duplicate declaration dropped passes', GuardOk(Src, Fmt, gcD10, DEF_CASING));
+  Check('D10 for-var retyped to an earlier same-name var rejected',
+    not GuardOk('procedure P(N: Integer); begin begin var R: string:= ''a''; Use(R); end; for var R: Integer:= 1 to N do Use(R); end;',
+      'procedure P(N: Integer); var R: string; begin begin R:= ''a''; Use(R); end; for R:= 1 to N do Use(R); end;', gcD10, DEF_CASING));
+  Check('D10 the loop itself still may not be lost',
+    not GuardOk(Src, 'function P(N: Integer): Double; var I: Integer; begin if N > 0 then for I:= 1 to N do R:= 1; end;', gcD10, DEF_CASING));
+end;
+
+// Task 8 (b) end to end: both ORM3 shapes now format under --d10.
+procedure TestFormatSourceD10NoFalseDecline;
+const
+  PAIRS = 30; // ~180 significant tokens, ~360 with the snapshot's spaces
+  SrcLabel =
+    'unit U;' + CRLF + 'interface' + CRLF + 'implementation' + CRLF +
+    'procedure P;' + CRLF + 'const' + CRLF +
+    '  C: array[0..3, 0..1] of string = (' + CRLF +
+    '    (''A1'',''B1''), (''A2'',''B2''), (''A3'',''B3''), (''A4'',''B4''));' + CRLF +
+    'begin' + CRLF + '  try' + CRLF + '    X:= 1;' + CRLF + '  finally' + CRLF + '    Y:= 2;' + CRLF + '  end; // try' + CRLF + 'end; // procedure' + CRLF + 'end.' + CRLF;
+  SrcDup =
+    'unit U;' + CRLF + 'interface' + CRLF + 'implementation' + CRLF +
+    'function P(N: Integer): Double;' + CRLF + 'begin' + CRLF + '  Result:= 1;' + CRLF +
+    '  if N > 0 then for var I: Integer:= 1 to N do Result:= Result * 10.0' + CRLF +
+    '  else if N < 0 then for var I: Integer:= 1 to -N do Result:= Result / 10.0;' + CRLF + 'end;' + CRLF + 'end.' + CRLF;
+var
+  Opts  : TYadfOptions;
+  Res   : string;
+  Reason: string;
+  Pad   : string;
+  i     : Integer;
+begin
+  Opts:= DefaultOptions;
+  Opts.Delphi10Compat:= True;
+  // Enough tight `('An','Bn')` pairs that the spaced snapshot crosses the budget.
+  Pad:= '';
+  for i:= 1 to PAIRS do
+    Pad:= Pad + '(''A' + IntToStr(i) + ''',''B' + IntToStr(i) + '''), ';
+  FormatSource(StringReplace(StringReplace(SrcLabel, '0..3,', '0..33,', []), '(''A1'',''B1''), ', Pad + '(''A1'',''B1''), ', []), Opts, Reason);
+  Check('--d10: const array + labelled end not declined (' + Reason + ')', Reason = '');
+  Res:= FormatSource(SrcDup, Opts, Reason);
+  Check('--d10: duplicate same-type for-var not declined (' + Reason + ')', Reason = '');
+  Check('--d10: duplicate for-var hoisted once', Res.Contains('for I:=') and not Res.Contains('for var'));
+  // Found by task 8 (ORM3 Blueprint4.ViewModel.pas): the hoist retyped a for-var
+  // that collides with an earlier DIFFERENT-type inline var (`R: TJVRow` /
+  // `for var R: Integer`). It must leave the loop variable in place, flagged.
+  Res:= FormatSource('unit U;' + CRLF + 'interface' + CRLF + 'implementation' + CRLF + 'procedure P(N: Integer);' + CRLF + 'begin' + CRLF + '  begin' + CRLF +
+    '    var R: string:= ''a'';' + CRLF + '    Use(R);' + CRLF + '  end;' + CRLF + '  for var R: Integer:= 1 to N do Use(R);' + CRLF + 'end;' + CRLF + 'end.' + CRLF, Opts, Reason);
+  Check('--d10: colliding for-var is not declined (' + Reason + ')', Reason = '');
+  Check('--d10: colliding for-var stays inline and is flagged', Res.Contains('var R: Integer:= 1 to N') and Res.Contains('TODO -oYADF'));
+  Check('--d10: the string var is still hoisted', Res.Contains('R: string;'));
+  Check('--d10: colliding for-var output is idempotent', FormatSource(Res, Opts, Reason) = Res);
+end;
+
 begin
   try
     TestAcceptsLegitimateFormatting;
@@ -545,6 +713,11 @@ begin
     TestDirectiveWhitespaceKey;
     TestFormatSourceStillFormats;
     TestShieldPrefixAvoidsUserText;
+    TestReviewCorruptionClasses;
+    TestCasingLicence;
+    TestLabelVerdictIgnoresSpacing;
+    TestD10SameTypeDedupe;
+    TestFormatSourceD10NoFalseDecline;
     Writeln('');
     if GFailures = 0 then
       Writeln('ALL PASS')

@@ -98,7 +98,7 @@ function ParseGroups(const ATokens: TTokenList): TGroup;
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas)</para>
 /// <para>Returns: 'begin'</para>
-/// <para>Complexity: 23 (cyclomatic, outer body), 47 lines (full implementation)</para>
+/// <para>Complexity: 23 (cyclomatic, outer body), 50 lines (full implementation)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;
@@ -179,7 +179,6 @@ begin
   Limit:= MAX_LABEL_SCAN;
   while (i >= 0) and (Limit > 0) do
   begin
-    Dec(Limit);
     k:= ATokens[i].Kind;
     if k in [
       ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment, ptIfDirect, ptIfDefDirect, ptIfNDefDirect, ptElseDirect, ptElseIfDirect, ptEndIfDirect,
@@ -188,6 +187,10 @@ begin
       Dec(i);
       Continue;
     end;
+    // Only significant tokens use up the budget: counting layout too made the
+    // verdict depend on SPACING (`('A','B')` vs `('A', 'B')`), so the guard,
+    // which flags markers on both sides, saw a marker on one side only.
+    Dec(Limit);
     case k of
       ptDo, ptThen    :                       ;  // dl:ok empty-case-branch@a369
       ptElse          : Exit('else')          ;

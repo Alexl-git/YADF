@@ -27,8 +27,8 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Tokens.pas), [YADF]YADF.Guard.ExtractContent (YADF.Guard.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), [YADF]YADF.Layout.CollectParensItems (YADF.Layout.pas), [YADF]YADF.Layout.CollectUsesItems (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars.MakeTok (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing.MakeSpace (YADF.Layout.pas), [YADF]YADF.Layout.ReindentByDepth (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Layout.ShieldAsmBodies (YADF.Layout.pas), [YADF]YADF.Layout.ShieldMultilineTokens (YADF.Layout.pas), [YADF]YADF.Layout.SplitNameList (YADF.Layout.pas), [YADF]YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas),
-  /// [YADF]YADF.Tokens.EmitTokens (YADF.Tokens.pas), [YADF]YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), [YADF]YADF.Tokens.UnshieldIncludeToken (YADF.Tokens.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Tokens.pas), [YADF]YADF.Guard.AddCodeToken (YADF.Guard.pas), [YADF]YADF.Guard.ExtractContent (YADF.Guard.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), [YADF]YADF.Layout.CollectParensItems (YADF.Layout.pas), [YADF]YADF.Layout.CollectUsesItems (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars.MakeTok (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing.MakeSpace (YADF.Layout.pas), [YADF]YADF.Layout.ReindentByDepth (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Layout.ShieldAsmBodies (YADF.Layout.pas), [YADF]YADF.Layout.ShieldMultilineTokens (YADF.Layout.pas), [YADF]YADF.Layout.SplitNameList (YADF.Layout.pas),
+  /// [YADF]YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), [YADF]YADF.Tokens.EmitTokens (YADF.Tokens.pas), [YADF]YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), [YADF]YADF.Tokens.UnshieldIncludeToken (YADF.Tokens.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas)</para>
   /// <para>Used in units: YADF.Guard, YADF.Layout, YADF.Tokens, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -43,9 +43,9 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Debug.pas), [YADF]declaration (YADF.Groups.pas), [YADF]declaration (YADF.Tokens.pas), [YADF]YADF.Debug.PreviewSpan (YADF.Debug.pas), [YADF]YADF.Debug.RenderGroupTree (YADF.Debug.pas) ?, [YADF]YADF.Debug.WalkGroup (YADF.Debug.pas), [YADF]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas) ?, [YADF]YADF.Groups.FindBlockLabel (YADF.Groups.pas) ?, [YADF]YADF.Groups.IsRecordConstraint (YADF.Groups.pas), [YADF]YADF.Groups.ParseGroups (YADF.Groups.pas) ?, [YADF]YADF.Groups.PrevSignificantIdx (YADF.Groups.pas), [YADF]YADF.Guard.AddAsmLines (YADF.Guard.pas), [YADF]YADF.Guard.ExtractContent (YADF.Guard.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.CodeHoldsComment (YADF.Layout.pas) ?, [YADF]YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), [YADF]YADF.Layout.CollectParensItems (YADF.Layout.pas), [YADF]YADF.Layout.CollectUsesItems (YADF.Layout.pas),
-  /// [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas) ?, [YADF]YADF.Layout.InlineRenderRange (YADF.Layout.pas), [YADF]YADF.Layout.MarkEnumMembers (YADF.Layout.pas), [YADF]YADF.Layout.MarkExternalName (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasConditionalDirective (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasLineBreak (YADF.Layout.pas) ?, [YADF]YADF.Layout.RangeHasLineComment (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasMultiLineToken (YADF.Layout.pas), [YADF]YADF.Layout.ReindentByDepth (YADF.Layout.pas), [YADF]YADF.Layout.RenderTokensForGuard (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Layout.ShieldAsmBodies (YADF.Layout.pas), [YADF]YADF.Layout.ShieldMultilineTokens (YADF.Layout.pas), [YADF]YADF.Layout.SpellingSensitiveIdents (YADF.Layout.pas),
-  /// [YADF]YADF.Layout.SplitNameList (YADF.Layout.pas) ?, [YADF]YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), [YADF]YADF.Layout.TightenParenSpacing (YADF.Layout.pas) ?, [YADF]YADF.Layout.TokIs (YADF.Layout.pas), [YADF]YADF.Tokens.EmitTokens (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.IsAsmBlockEnd (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.RoundTrip (YadfMain.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Debug.pas), [YADF]declaration (YADF.Groups.pas), [YADF]declaration (YADF.Tokens.pas), [YADF]YADF.Debug.PreviewSpan (YADF.Debug.pas), [YADF]YADF.Debug.RenderGroupTree (YADF.Debug.pas) ?, [YADF]YADF.Debug.WalkGroup (YADF.Debug.pas), [YADF]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas) ?, [YADF]YADF.Groups.FindBlockLabel (YADF.Groups.pas) ?, [YADF]YADF.Groups.IsRecordConstraint (YADF.Groups.pas), [YADF]YADF.Groups.ParseGroups (YADF.Groups.pas) ?, [YADF]YADF.Groups.PrevSignificantIdx (YADF.Groups.pas), [YADF]YADF.Guard.AddAsmLines (YADF.Guard.pas), [YADF]YADF.Guard.ExtractContent (YADF.Guard.pas), [YADF]YADF.Guard.IsSplitExponent (YADF.Guard.pas) ?, [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.CodeHoldsComment (YADF.Layout.pas) ?, [YADF]YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), [YADF]YADF.Layout.CollectParensItems (YADF.Layout.pas),
+  /// [YADF]YADF.Layout.CollectUsesItems (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas) ?, [YADF]YADF.Layout.InlineRenderRange (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasConditionalDirective (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasLineBreak (YADF.Layout.pas) ?, [YADF]YADF.Layout.RangeHasLineComment (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasMultiLineToken (YADF.Layout.pas), [YADF]YADF.Layout.ReindentByDepth (YADF.Layout.pas), [YADF]YADF.Layout.RenderTokensForGuard (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Layout.ShieldAsmBodies (YADF.Layout.pas), [YADF]YADF.Layout.ShieldMultilineTokens (YADF.Layout.pas), [YADF]YADF.Layout.SplitNameList (YADF.Layout.pas) ?, [YADF]YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas),
+  /// [YADF]YADF.Layout.TightenParenSpacing (YADF.Layout.pas) ?, [YADF]YADF.Tokens.EmitTokens (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.IsAsmBlockEnd (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), [YADF]YADF.Tokens.MarkEnumMembers (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.MarkExternalName (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.SpellingSensitiveIdents (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.TokIs (YADF.Tokens.pas) ?, [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.RoundTrip (YadfMain.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TTokenList = TList<TToken>;
@@ -92,6 +92,26 @@ function EmitTokens(const ATokens: TTokenList): string;
 /// </remarks>
 function IsAsmBlockEnd(const ATokens: TTokenList; AIdx: Integer): Boolean;
 
+/// <summary>Marks the identifier tokens whose exact SPELLING reaches the binary,
+/// so a casing pass must leave them as written: an enum member at its declaration
+/// (`TColor = (Red, Green)`, RTTI / GetEnumName) and the routine name of an
+/// `external` declaration without a `name` clause (resolved by spelling at load).</summary>
+/// <param name="ATokens">The token list.</param>
+/// <returns>One flag per token; True = spelling-sensitive identifier.</returns>
+/// <remarks>
+/// Pure. Shared by FirstOccCasing (YADF.Layout.ApplyCapitalization), which
+/// skips these positions, and the guard (YADF.Guard), which declines any output
+/// that re-cases one of them.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.Guard.ExtractContent (YADF.Guard.pas), YADF.Layout.ApplyCapitalization (YADF.Layout.pas)</para>
+/// <para>Calls: YADF.Tokens.MarkEnumMembers, YADF.Tokens.MarkExternalName, YADF.Tokens.TokIs</para>
+/// <seealso cref="YADF.Tokens.MarkEnumMembers"/>
+/// <seealso cref="YADF.Tokens.MarkExternalName"/>
+/// <seealso cref="YADF.Tokens.TokIs"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
+function SpellingSensitiveIdents(const ATokens: TTokenList): TArray<Boolean>;
+
 implementation
 
 function IsAsmBlockEnd(const ATokens: TTokenList; AIdx: Integer): Boolean;
@@ -105,6 +125,107 @@ begin
     Result:= not ((Prev <> '') and (Prev[Length(Prev)] = '@'));
   end;
 end;
+
+// Token positions whose SPELLING reaches the binary, so FirstOccCasing must
+// leave them exactly as written (review 2026-10-14, reviewer 1):
+//   * an enum member at its declaration (`TColor = (Red, Green)`) -- RTTI /
+//     GetEnumName return the declared spelling;
+//   * the name of an `external` routine with no `name` clause -- the import
+//     is resolved by that exact spelling at load time, so re-casing it to an
+//     earlier same-named identifier made the exe fail with "entry point not
+//     found" while still compiling and linking.
+// Every OTHER occurrence (call sites, uses) is still normalised.
+const
+  SPELL_SKIP = [ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment];
+
+// True when ATokens[AIdx] is AKind as a reserved word OR as a directive word
+// (the lexer files `external` / `name` under ExID when used as directives).
+function TokIs(const ATokens: TTokenList; AIdx: Integer; AKind: TptTokenKind): Boolean;
+begin
+  Result:= (ATokens[AIdx].Kind = AKind) or (ATokens[AIdx].ExID = AKind);
+end;
+
+// Marks the member names of an enumerated type whose `(` is at AOpen (the
+// caller has checked it follows `=`): identifiers at paren depth 0 that
+// start the list or follow a comma.
+procedure MarkEnumMembers(const ATokens: TTokenList; AOpen: Integer; var AMarks: TArray<Boolean>);
+var
+  j         : Integer;
+  Depth     : Integer;
+  ExpectName: Boolean;
+begin
+  ExpectName:= True;
+  Depth     := 0;
+  j         := AOpen + 1;
+  while j < ATokens.Count do
+  begin
+    case ATokens[j].Kind of
+      ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment: ; // layout only
+      ptRoundOpen : Inc(Depth);
+      ptRoundClose: if Depth = 0 then
+          Exit
+        else
+          Dec(Depth);
+      ptComma    : ExpectName:= Depth = 0;
+      ptSemiColon: Exit;
+      ptIdentifier:
+      begin
+        if (Depth = 0) and ExpectName then
+          AMarks[j]:= True;
+        ExpectName:= False;
+      end;
+      else
+        ExpectName:= False;
+    end; // case
+    Inc(j);
+  end; // while
+end; // procedure
+
+// Marks the routine name of an `external` declaration at AExt -- unless the
+// clause carries `name '...'`, which fixes the import spelling by itself.
+procedure MarkExternalName(const ATokens: TTokenList; AExt: Integer; var AMarks: TArray<Boolean>);
+var
+  j: Integer;
+begin
+  j:= AExt + 1;
+  while (j < ATokens.Count) and (ATokens[j].Kind <> ptSemiColon) do
+  begin
+    if TokIs(ATokens, j, ptName) then
+      Exit;
+    Inc(j);
+  end;
+  j:= AExt - 1;
+  while (j >= 0) and (ATokens[j].Kind not in [ptProcedure, ptFunction, ptBegin, ptEnd, ptImplementation, ptInterface]) do
+    Dec(j);
+  if (j < 0) or (ATokens[j].Kind not in [ptProcedure, ptFunction]) then
+    Exit;
+  Inc(j);
+  while (j < AExt) and (ATokens[j].Kind in SPELL_SKIP) do
+    Inc(j);
+  if (j < AExt) and (ATokens[j].Kind = ptIdentifier) then
+    AMarks[j]:= True;
+end; // procedure
+
+function SpellingSensitiveIdents(const ATokens: TTokenList): TArray<Boolean>;
+var
+  i: Integer;
+  j: Integer;
+begin
+  SetLength(Result, ATokens.Count);
+  for i:= 0 to ATokens.Count - 1 do
+  begin
+    if ATokens[i].Kind = ptRoundOpen then
+    begin
+      j:= i - 1;
+      while (j >= 0) and (ATokens[j].Kind in SPELL_SKIP) do
+        Dec(j);
+      if (j >= 0) and (ATokens[j].Kind = ptEqual) then
+        MarkEnumMembers(ATokens, i, Result);
+    end
+    else if TokIs(ATokens, i, ptExternal) then
+      MarkExternalName(ATokens, i, Result);
+  end; // for
+end; // function
 
 // ---------------------------------------------------------------------------
 // Include-directive shield.

@@ -533,107 +533,6 @@ end; // procedure
 // Each rule is independent; they're applied as separate passes for
 // clarity, not performance. The IsLiteralKind block-list keeps us
 // from accidentally lowercasing string contents, comments, etc.
-// Token positions whose SPELLING reaches the binary, so FirstOccCasing must
-// leave them exactly as written (review 2026-10-14, reviewer 1):
-//   * an enum member at its declaration (`TColor = (Red, Green)`) -- RTTI /
-//     GetEnumName return the declared spelling;
-//   * the name of an `external` routine with no `name` clause -- the import
-//     is resolved by that exact spelling at load time, so re-casing it to an
-//     earlier same-named identifier made the exe fail with "entry point not
-//     found" while still compiling and linking.
-// Every OTHER occurrence (call sites, uses) is still normalised.
-const
-  SPELL_SKIP = [ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment];
-
-// True when ATokens[AIdx] is AKind as a reserved word OR as a directive word
-// (the lexer files `external` / `name` under ExID when used as directives).
-function TokIs(const ATokens: TTokenList; AIdx: Integer; AKind: TptTokenKind): Boolean;
-begin
-  Result:= (ATokens[AIdx].Kind = AKind) or (ATokens[AIdx].ExID = AKind);
-end;
-
-// Marks the member names of an enumerated type whose `(` is at AOpen (the
-// caller has checked it follows `=`): identifiers at paren depth 0 that
-// start the list or follow a comma.
-procedure MarkEnumMembers(const ATokens: TTokenList; AOpen: Integer; var AMarks: TArray<Boolean>);
-var
-  j         : Integer;
-  Depth     : Integer;
-  ExpectName: Boolean;
-begin
-  ExpectName:= True;
-  Depth     := 0;
-  j         := AOpen + 1;
-  while j < ATokens.Count do
-  begin
-    case ATokens[j].Kind of
-      ptSpace, ptCRLF, ptCRLFCo, ptAnsiComment, ptBorComment, ptSlashesComment: ; // layout only
-      ptRoundOpen : Inc(Depth);
-      ptRoundClose: if Depth = 0 then
-          Exit
-        else
-          Dec(Depth);
-      ptComma    : ExpectName:= Depth = 0;
-      ptSemiColon: Exit;
-      ptIdentifier:
-      begin
-        if (Depth = 0) and ExpectName then
-          AMarks[j]:= True;
-        ExpectName:= False;
-      end;
-      else
-        ExpectName:= False;
-    end; // case
-    Inc(j);
-  end; // while
-end; // procedure
-
-// Marks the routine name of an `external` declaration at AExt -- unless the
-// clause carries `name '...'`, which fixes the import spelling by itself.
-procedure MarkExternalName(const ATokens: TTokenList; AExt: Integer; var AMarks: TArray<Boolean>);
-var
-  j: Integer;
-begin
-  j:= AExt + 1;
-  while (j < ATokens.Count) and (ATokens[j].Kind <> ptSemiColon) do
-  begin
-    if TokIs(ATokens, j, ptName) then
-      Exit;
-    Inc(j);
-  end;
-  j:= AExt - 1;
-  while (j >= 0) and not (ATokens[j].Kind in [ptProcedure, ptFunction, ptBegin, ptEnd, ptImplementation, ptInterface]) do
-    Dec(j);
-  if (j < 0) or not (ATokens[j].Kind in [ptProcedure, ptFunction]) then
-    Exit;
-  Inc(j);
-  while (j < AExt) and (ATokens[j].Kind in SPELL_SKIP) do
-    Inc(j);
-  if (j < AExt) and (ATokens[j].Kind = ptIdentifier) then
-    AMarks[j]:= True;
-end; // procedure
-
-function SpellingSensitiveIdents(const ATokens: TTokenList): TArray<Boolean>;
-var
-  i: Integer;
-  j: Integer;
-begin
-  SetLength(Result, ATokens.Count);
-  for i:= 0 to ATokens.Count - 1 do
-  begin
-    if ATokens[i].Kind = ptRoundOpen then
-    begin
-      j:= i - 1;
-      while (j >= 0) and (ATokens[j].Kind in SPELL_SKIP) do
-        Dec(j);
-      if (j >= 0) and (ATokens[j].Kind = ptEqual) then
-        MarkEnumMembers(ATokens, i, Result);
-    end
-    else if TokIs(ATokens, i, ptExternal) then
-      MarkExternalName(ATokens, i, Result);
-  end; // for
-end; // function
-
 procedure ApplyCapitalization(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@effd
 var
   Pinned       : TArray<Boolean>            ;
@@ -2928,7 +2827,7 @@ begin
         and CharInSet(Prev[Length(Prev)], ['E', 'e']) then
         Tok:= ptFloat; // treat as part of the literal: not a shape anchor
       // A sign at line start or right after := ( [ , : or an operator is
-      // UNARY (Y:= -1, (a, -b)): not an operand separator, so not an anchor.
+      // UNARY (Y:= -1, `f(a, -b)`): not an operand separator, so not an anchor.
       // The same holds after the signed-argument directives default/index
       // (property) and message/dispid (routine): index -2 is not a subtraction.
       if (Tok in [ptPlus, ptMinus]) and ((LastSig in UnaryLeadKinds) or IsSignedDirective) then
@@ -4191,9 +4090,9 @@ var
     end;
   end;
 
-  // True when the lse at W[AElse] is an lse if -- the next 	hen is that
-  // if's own. Any other word after the else (lse begin if B then) means the
-  // 	hen belongs to a nested statement: gluing lse begin if B then as one
+  // True when the `else` at W[AElse] is an `else if` -- the next `then` is that
+  // if's own. Any other word after the else (`else begin if B then`) means the
+  // `then` belongs to a nested statement: gluing `else begin if B then` as one
   // header split a folded block on every second format (task 5b).
   function ElseIfAt(AElse: Integer): Boolean;
   begin
@@ -8427,10 +8326,20 @@ begin
   end; // for
 end; // procedure
 
+// True when ALeft ends and ARight starts with an identifier/number character:
+// written back to back they would re-lex as ONE token.
+function WordCharsMeet(const ALeft, ARight: string): Boolean;
+const
+  WORD_CHARS = ['a'..'z', 'A'..'Z', '0'..'9', '_'];
+begin
+  Result:= (ALeft <> '') and (ARight <> '') and CharInSet(ALeft[Length(ALeft)], WORD_CHARS) and CharInSet(ARight[1], WORD_CHARS);
+end;
+
 // Renders the token list back to text for the Delphi10Compat hoist snapshot.
-// A token with no Pre-whitespace (the hoist synthesises some) gets one space so
-// neighbours can never fuse into a different token when the text is re-lexed;
-// a space between two tokens never changes the code-token stream.
+// Two glued tokens (the hoist synthesises some with no Pre-whitespace) get one
+// space only where they would otherwise fuse into one word when re-lexed. A
+// space everywhere (the old rule) also landed INSIDE lexer-split literals
+// (multi-line strings) and changed FindBlockLabel's verdicts (task 8).
 function RenderTokensForGuard(const ATokens: TTokenList): string;
 var
   Sb: TStringBuilder;
@@ -8441,7 +8350,7 @@ begin
     for i:= 0 to ATokens.Count - 1 do
     begin
       Sb.Append(ATokens[i].Pre);
-      if (ATokens[i].Pre = '') and (i > 0) then
+      if (ATokens[i].Pre = '') and (i > 0) and WordCharsMeet(ATokens[i - 1].Text, ATokens[i].Text) then
         Sb.Append(' ');
       Sb.Append(ATokens[i].Text);
     end;
@@ -8604,7 +8513,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@427b, cognitive-complexity@e490, method-too-long@56c4 -- 319 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@427b, cognitive-complexity@e490, method-too-long@fba7 -- 320 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -8662,6 +8571,42 @@ var
       Dec(Result);
   end;
 
+// Seeds RNames with the names the routine whose body opens at ABeginIdx already
+// declares (parameters and classic var sections, `Name[, Name]: Type`), so an
+// inline var of the same name is checked for a type collision instead of being
+// hoisted as a second declaration (task 8: a second --d10 pass re-hoisted a
+// left-in-place `for var R: Integer` next to the `R: TJVRow` the first pass
+// had hoisted). Scans back to the routine header; stops early at an `end`
+// (a nested routine or a record type) -- a miss keeps the previous behaviour.
+  procedure SeedDeclaredNames(ABeginIdx: Integer);
+  var
+    j : Integer;
+    e : Integer;
+    n : Integer;
+    Ty: string ;
+  begin
+    j:= ABeginIdx - 1;
+    while (j >= 0) and (ATokens[j].Kind not in [ptProcedure, ptFunction, ptConstructor, ptDestructor, ptOperator, ptImplementation, ptBegin, ptEnd]) do
+    begin
+      if ATokens[j].Kind = ptColon then
+      begin
+        e:= j + 1;
+        while (e < ABeginIdx) and (ATokens[e].Kind not in [ptSemiColon, ptRoundClose, ptEqual, ptAssign]) do
+          Inc(e);
+        Ty:= Trim(InlineRenderRange(ATokens, j + 1, e - 1));
+        n:= PrevSig(j - 1);
+        while (n >= 0) and (ATokens[n].Kind = ptIdentifier) do
+        begin
+          RNames.TryAdd(ATokens[n].Text, Ty);
+          n:= PrevSig(n - 1);
+          if (n < 0) or (ATokens[n].Kind <> ptComma) then
+            Break;
+          n:= PrevSig(n - 1);
+        end; // while
+      end; // if
+      Dec(j);
+    end; // while
+  end; // procedure
 // Section merge: when the routine's declaration part ends -- right before the
 // `begin` at ABeginIdx -- with a SIMPLE `var` section (only `Name[, Name]: Type;`
 // with identifier / dotted / generic / `string` types and comments), returns that
@@ -8737,8 +8682,8 @@ var
 
 // True when the `begin` at ABegin is the body of a `for` / `while` loop
 // (`... do begin`) or the block of a single-statement body that is not a begin of
-// its own (`for ... do if C then begin` / `... else begin`): scans back from the`r
-// `do` to the statement that owns it, passing through `then` / `else` / nested`r
+// its own (`for ... do if C then begin` / `... else begin`): scans back from the
+// `do` to the statement that owns it, passing through `then` / `else` / nested
 // `do` but stopping at `;` or any other block opener.
   function IsLoopBegin(ABegin, AFloor: Integer): Boolean;
   var
@@ -9135,6 +9080,8 @@ var
     Nm      : string        ;
     OrigLine: string        ;
     Cname   : string        ;
+    ForIdx  : Integer       ;
+    Above   : Integer       ;
   begin
     Collide:= False;
     SetLength(Keep, 0);
@@ -9167,6 +9114,18 @@ var
       ARec.Kind:= ikFallbackTodo;
       ARec.Comment:= ' // TODO -oYADF : name ''' + Cname + ''' already hoisted with a different type; resolve manually for Delphi 10 -- was: ' + OrigLine;
       Inlines.Add(AVarIdx, ARec);
+      Exit;
+    end; // if
+    // A loop variable colliding the same way must not be retyped either (task 8:
+    // `for var R: Integer` after `var R: TJVRow` became `for R:=` over a record):
+    // keep `for var` as written, flagged by a TODO line above the `for` (the
+    // ForTodos mechanism; idempotent: an existing YADF flag line is not repeated).
+    if Collide and (ARec.Kind = ikForExplicit) then
+    begin
+      ForIdx:= PrevSig(AVarIdx - 1);
+      Above := PrevSig(ForIdx - 1);
+      if not ForTodos.ContainsKey(ForIdx) and not ((Above >= 0) and (ATokens[Above].Kind = ptSlashesComment) and ATokens[Above].Text.Contains('YADF')) then
+        ForTodos.Add(ForIdx, '// TODO -oYADF : loop variable ''' + ARec.Names[0] + ''' is already declared with a different type; resolve manually for Delphi 10');
       Exit;
     end; // if
     Inlines.Add(AVarIdx, ARec);
@@ -9295,6 +9254,7 @@ begin
       if G.CloseIdx <= G.OpenIdx then
         Continue;
       RNames.Clear; // names are scoped per routine
+      SeedDeclaredNames(G.OpenIdx);
       BlkAnon.Clear;
       BlkKind.Clear;
       BlkLoop.Clear;
@@ -9631,7 +9591,7 @@ end; // function
 // One run of the pipeline; FormatSource below is the public entry. ADeferredTree
 // is set when the walker left an over-long bracketed list inline because an
 // operator break comes first (OperatorBreakComesFirst).
-function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string; out ADeferredTree: Boolean): string;  // dl:ok cyclomatic-complexity@cba5, method-too-long@7899 -- the stage list reads top to bottom as the pipeline diagram
+function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string; out ADeferredTree: Boolean): string;  // dl:ok cyclomatic-complexity@e27c, method-too-long@7899 -- the stage list reads top to bottom as the pipeline diagram
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -9648,6 +9608,9 @@ var
   Reference   : string        ; // text the pre-split snapshot is compared against
   PreMode     : TGuardCodeMode; // code-token strictness for the pre-split snapshot
   CodeMode    : TGuardCodeMode; // code-token strictness for the final guard call
+  SplitMode   : TGuardCodeMode; // strictness of the order-sensitive check of the final text
+  Casing      : TGuardCasing  ; // re-casings the casing options license
+  ParamSplit  : Boolean       ; // parameters are put one per line (re-spells const A, B: T)
 
   // Updates CurCol/CurLine after every text emission. Tabs are
   // counted as TabWidth columns; CR is ignored (column reset happens
@@ -10533,34 +10496,34 @@ begin
         // LabelLongBlocks legitimately DELETES a stale block-end marker, so the
         // comment stream relaxes to "this exact marker may be missing" -- and
         // only that (see AAllowLabelRemoval).
-        // The code-token stream is checked too (WP1): STRICT up to the split
-        // stage (skipped under Delphi10Compat, whose token-level hoist runs
-        // before it), then the bounded SPLIT / D10 transformation on the final
-        // text, STRICT when neither applies.
-        if AOpts.Delphi10Compat then
-          CodeMode:= gcD10
-        else if AOpts.SplitMultiVarDecls or AOpts.BreakCaseLabels then
-          CodeMode:= gcSplit
-        else
-          CodeMode:= gcStrict;
+        // The code-token stream is checked too (WP1, task 8): every code token
+        // with its exact spelling (re-casing only as the casing options license),
+        // directives and literals as position markers. STRICT up to the split
+        // stage, then the expected split transform (gcSplit) on the final text.
+        // Under Delphi10Compat the order-sensitive checks start from the
+        // post-hoist snapshot (the hoist is the only legitimate reorder) and
+        // gcD10 checks the hoist itself against the source.
+        Casing:= [];
+        if AOpts.LowercaseKeywords then
+          Include(Casing, gkKeywordsLower);
+        if AOpts.FirstOccCasing then
+          Include(Casing, gkFirstOccurrence);
+        if AOpts.UpperHexNumbers then
+          Include(Casing, gkUpperHex);
         // BreakParamsOnePerLine (which runs before the snapshot) re-spells
-        // `const A, B: T` as `const A: T; const B: T` -- the same bounded split
-        // the SPLIT mode allows -- so that option relaxes the snapshot check too.
-        if AOpts.BreakParamsOnePerLine then
-          PreMode:= gcSplit
-        else
-          PreMode:= gcStrict;
-        // Under Delphi10Compat the strict snapshot check compares against the
-        // token text right AFTER the hoist (the hoist is the only legitimate
-        // reorder); the bag-of-tokens gcD10 then only sees the bounded
-        // split/alignment tail plus the hoist itself.
-        if AOpts.Delphi10Compat then
-          Reference:= HoistSnap
-        else
-          Reference:= ASource;
-        if not FormatPreservesContent(Reference, PreSplit, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, PreMode, ADeclineReason) then
+        // `const A, B: T` as `const A: T; const B: T` -- the same expansion the
+        // split passes make -- so it selects gcSplit for the snapshot too.
+        // JoinRoutineHeaders OFF implies one parameter per line (BreakRoutineParams).
+        ParamSplit:= AOpts.BreakParamsOnePerLine or not AOpts.JoinRoutineHeaders;
+        PreMode  := if ParamSplit then gcSplit else gcStrict;
+        SplitMode:= if AOpts.SplitMultiVarDecls or AOpts.BreakCaseLabels or ParamSplit then gcSplit else gcStrict;
+        CodeMode:= if AOpts.Delphi10Compat then gcD10 else SplitMode;
+        Reference:= if AOpts.Delphi10Compat then HoistSnap else ASource;
+        if not FormatPreservesContent(Reference, PreSplit, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, PreMode, Casing, ADeclineReason) then
           Result:= ASource
-        else if not FormatPreservesContent(ASource, Result, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, CodeMode, ADeclineReason) then
+        else if AOpts.Delphi10Compat and not FormatPreservesContent(HoistSnap, Result, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, SplitMode, Casing, ADeclineReason) then
+          Result:= ASource
+        else if not FormatPreservesContent(ASource, Result, AOpts.BreakCaseLabels, AOpts.LabelLongBlocks, CodeMode, Casing, ADeclineReason) then
           Result:= ASource;
       finally
         Sb.Free;
