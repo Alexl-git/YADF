@@ -437,8 +437,20 @@ begin
   // from the post-hoist token text to the pre-split text, then gcD10 from the
   // source to the final text. The bag-of-tokens gcD10 alone cannot see a
   // reorder; the strict stage is what rejects it.
-  Check('D10 bag check alone is blind to a reorder (why the strict stage exists)',
-    CodeOk('procedure P; begin X:= A - B; end;', 'procedure P; begin X:= B - A; end;', gcD10));
+  // Task 10 (TODO guard-scope gap 1): gcD10 used to be a bag per branch, blind to
+  // a reorder made by the hoist itself; it now also checks the source order with
+  // the hoisted declarations taken out.
+  Check('D10 reorder rejected by the order check',
+    not CodeOk('procedure P; begin X:= A - B; end;', 'procedure P; begin X:= B - A; end;', gcD10));
+  Check('D10 statements swapped by a hoist rejected',
+    not CodeOk('procedure P; begin var X: Integer:= 1; Use(X); Done; end;',
+               'procedure P; var X: Integer; begin Done; X:= 1; Use(X); end;', gcD10));
+  Check('D10 inline const hoisted before begin ok',
+    CodeOk('procedure P; begin const C = 5; Use(C); end;',
+           'procedure P; const C = 5; begin Use(C); end;', gcD10));
+  Check('D10 hoist into an existing var section ok',
+    CodeOk('procedure P; var A: Integer; begin A:= 0; var X: string:= ''s''; Use(A, X); end;',
+           'procedure P; var A: Integer; X: string; begin A:= 0; X:= ''s''; Use(A, X); end;', gcD10));
   Check('D10 strict stage: reordered A - B rejected after the hoist',
     not CodeOk('procedure P; var X: Integer; begin X:= 1; Y:= A - B; end;',
                'procedure P;' + CRLF + 'var X: Integer;' + CRLF + 'begin' + CRLF + '  X:= 1;' + CRLF + '  Y:= B - A;' + CRLF + 'end;', gcStrict));
@@ -451,6 +463,21 @@ begin
   Check('D10 lost statement rejected',
     not CodeOk('procedure P; begin var X: Integer:= 1; Use(X); end;',
                'procedure P; var X: Integer; begin X:= 1; end;', gcD10));
+  // Task 10 (ORM3 uAutoTest): a second `var R: TBytes;` (no initializer) of a
+  // name already hoisted with the SAME type is dropped whole -- its name token
+  // goes with it, which the bag counted as a lost token.
+  Check('D10 dropped same-type duplicate (no initializer) ok',
+    CodeOk('procedure P; begin var R: TBytes; Use(R); var R: TBytes; Use(R); end;',
+           'procedure P; var R: TBytes; begin Use(R); Use(R); end;', gcD10));
+  Check('D10 dropped multi-name duplicate ok',
+    CodeOk('procedure P; begin var A, B: TBytes; Use(A, B); var B: TBytes; Use(B); end;',
+           'procedure P; var A: TBytes; B: TBytes; begin Use(A, B); Use(B); end;', gcD10));
+  Check('D10 lost use of a declared name still rejected',
+    not CodeOk('procedure P; begin var R: TBytes; Use(R); var R: TBytes; Use(R); end;',
+               'procedure P; var R: TBytes; begin Use(R); Use(); end;', gcD10));
+  Check('D10 dropped declaration whose type is not declared elsewhere rejected',
+    not CodeOk('procedure P; begin var R: TBytes; Use(R); end;',
+               'procedure P; begin Use(R); end;', gcD10));
 end;
 
 procedure TestDirectiveWhitespaceKey;

@@ -1,0 +1,32 @@
+unit idem_nested_list_item;
+
+// Task 10: a bracketed list on a comma-first ITEM line (, Format(...)) was
+// laid out at the comma column; a re-indent (run when begin placement changed
+// anything in the file) moved it to the item column, so the result depended on
+// unrelated lines and the next format moved it back.
+
+interface
+
+procedure Report(ACount, ATotal: Integer; const AName, ACaption: string);
+
+implementation
+
+uses
+  System.SysUtils;
+
+procedure Send(ALevel: Integer; const AText: string);
+begin
+end;
+
+procedure Report(ACount, ATotal: Integer; const AName, ACaption: string);
+begin
+  if ACount > 0 then begin
+    ATotal:= ATotal + ACount;
+  end;
+  Send(
+    1,
+    Format( 'Report callback: Count=%d Total=%d Name=%s Caption=%s Length=%d and a little more text to overflow', [ACount, ATotal, AName, ACaption,
+        Length(AName) + Length(ACaption)]));
+end;
+
+end.

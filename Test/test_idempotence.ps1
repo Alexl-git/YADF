@@ -1,0 +1,47 @@
+# Idempotence + no-decline battery over Test\Cases\idem\*.pas (BACKLOG-ZERO task 10).
+# Each fixture reproduces one mechanism by which a second format changed the first
+# format's output (a list decided at the source column, a trailing operator left
+# alone on a line, a multi-line name list half split, a stale block-end label that
+# blocked a fold, a nested case arm split at a stale column). Every fixture is run
+# at three option sets -- default, packed (the ORM3 "packed" profile) and --d10 --
+# and must: not be declined, be a fixed point on the second run, and compile when
+# the fixture itself compiles. Exit 0 = pass, 1 = any fail.
+$ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'TestLib.ps1')
+$exe = Get-YadfExe
+$ini = Get-RepoIni
+Assert-ToolOrSkip 'idempotence' $exe
+$dir = Join-Path $PSScriptRoot 'Cases\idem'
+$sets = [ordered]@{
+  'default' = @()
+  'packed'  = @('--collapse-blocks', '--pack-statements', '--no-break-loop', '--no-break-with', '--no-break-if', '--no-case-arm-on-label')
+  'd10'     = @('--d10')
+}
+$files = @(Get-ChildItem $dir -Filter *.pas)
+if ($files.Count -lt 5) { Fail "expected at least 5 fixtures in $dir, found $($files.Count)" }
+foreach ($f in $files) {
+  $work = Join-Path $env:TEMP ('idem_' + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $work | Out-Null
+  try {
+    $dcu = Join-Path $work 'dcu'; New-Item -ItemType Directory -Path $dcu | Out-Null
+    $srcCompiles = Test-DccCompiles $f.FullName $f.DirectoryName $dcu
+    foreach ($k in $sets.Keys) {
+      $o1 = Join-Path $work ('p1_' + $k); New-Item -ItemType Directory -Path $o1 | Out-Null
+      $o2 = Join-Path $work ('p2_' + $k); New-Item -ItemType Directory -Path $o2 | Out-Null
+      $p1 = Join-Path $o1 $f.Name; $p2 = Join-Path $o2 $f.Name
+      if (-not (Invoke-Yadf $f.FullName $ini $p1 $sets[$k])) { continue }
+      if (-not (Invoke-Yadf $p1 $ini $p2 $sets[$k])) { continue }
+      if (-not (SameBytes $p1 $p2)) {
+        $d = @(& git -c core.autocrlf=false diff --no-index --no-color -U0 -- $p1 $p2 2>&1 | Select-Object -Skip 4 -First 8)
+        Fail "not idempotent [$k]: $($f.Name)`n    $($d -join "`n    ")"
+      }
+      # A --d10 "resolve manually" collision flag keeps the colliding inline var, which
+      # Delphi 13 rejects too (E2004, by design): no compile check for that output.
+      $manual = (Get-Content -LiteralPath $p1 -Raw) -match 'resolve manually'
+      if ($srcCompiles -and -not $manual -and -not (Test-DccCompiles $p1 $f.DirectoryName $dcu)) { Fail "output does not compile [$k]: $($f.Name)" }
+    }
+    if (-not $srcCompiles) { Fail "fixture does not compile standalone: $($f.Name)" }
+  }
+  finally { [IO.Directory]::Delete($work, $true) }
+}
+Finish 'idempotence'

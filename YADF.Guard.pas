@@ -73,12 +73,14 @@ type
   /// parameter `const A, B: T` as `const A: T; const B: T`); BOTH streams are put
   /// in that expanded canonical form first and must then be identical -- the
   /// expected transform, not a relaxation. gcD10: the Delphi10Compat hoist moves
-  /// `name: Type` out of the statements (deduplicating a same-type redeclaration),
-  /// so order is NOT asserted here (FormatSource checks order on the post-hoist
-  /// text instead); per conditional-compilation branch, every original token
-  /// outside a `: Type` annotation (ignoring commas and var/const) must occur in
-  /// the output at least as often, and every `: Type` annotation must still occur
-  /// in the SAME branch -- a declaration hoisted out of its {$IFDEF} declines.
+  /// `name: Type` out of the statements (deduplicating a same-type redeclaration);
+  /// per conditional-compilation branch, every original token outside a
+  /// declaration (ignoring commas, semicolons, var/const and the names a `var`
+  /// declares) must occur in the output at least as often, and every `: Type`
+  /// annotation must still occur in the SAME branch -- a declaration hoisted out
+  /// of its {$IFDEF} declines. Order: with the declarations taken out, the source
+  /// code stream must be a subsequence of the output's (task 10) -- the hoist adds
+  /// declarations but never reorders code.
   /// <!-- drag-lint:auto BEGIN -->
   /// <para>Used by: [YADF]declaration (YADF.Guard.pas), [YADF]YADF.Guard.CodeStreamReason (YADF.Guard.pas), [YADF]YADF.Guard.FormatPreservesContent/6 (YADF.Guard.pas), [YADF]YADF.Guard.FormatPreservesContent/7 (YADF.Guard.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas)</para>
   /// <!-- drag-lint:auto END -->
@@ -901,8 +903,8 @@ begin
 end;
 
 // Splits AList (gcD10) into, per conditional branch, a bag of plain tokens and
-// a set of `: Type` annotations. Commas and var/const are noise the hoist
-// legitimately moves or deletes.
+// a set of `: Type` annotations. Commas, semicolons, var/const and the names of
+// a `var` declaration are noise the hoist legitimately moves or deletes.
 procedure CollectD10(const AList: TCodeList; const ABags: TObjectDictionary<string, TDictionary<string, Integer>>; const ATypes: TObjectDictionary<string, THashSet<string>>);
 var
   Bag  : TDictionary<string, Integer>;
@@ -910,6 +912,8 @@ var
   Frag : string ;
   Nest : Integer;
   i    : Integer;
+  j    : Integer;
+  k    : Integer;
   C    : TCodeTok;
 begin
   i:= 0;
@@ -931,6 +935,17 @@ begin
       // Keyed WITH the declared name: `R: Integer` must survive as such -- a
       // parameter `N: Integer` elsewhere must not cover for it.
       Frag:= (if i > 0 then AList[i - 1].Key + ' ' else '') + ':';
+      // The names of a `var A, B: T` declaration are not counted in the bag: the
+      // hoist legitimately DROPS a second declaration of a name it already
+      // hoisted with the same type, names included (task 10). The `B : T`
+      // fragment still has to survive in the set below.
+      j:= i - 1;
+      while (j >= 0) and ((AList[j].Cls = ccIdent) or (AList[j].Key = ',')) and (AList[j].Key <> 'var') do
+        Dec(j);
+      if (j >= 0) and (j < i - 1) and (AList[j].Key = 'var') and (AList[j].Ctx = C.Ctx) then
+        for k:= j + 1 to i - 1 do
+          if AList[k].Cls = ccIdent then
+            Bump(Bag, AList[k].Key, -1);
       Nest:= 0;
       Inc(i);
       while (i < AList.Count) and ContinuesType(AList[i], Nest) do
@@ -941,11 +956,59 @@ begin
       Types.Add(Frag);
       Continue;
     end;
-    if (C.Key <> ',') and (C.Key <> 'var') and (C.Key <> 'const') and (C.Cls <> ccDirective) then
+    // ; is noise too: a dropped duplicate declaration takes its own ; along.
+    if (C.Key <> ',') and (C.Key <> ';') and (C.Key <> 'var') and (C.Key <> 'const') and (C.Cls <> ccDirective) then
       Bump(Bag, C.Key, 1);
     Inc(i);
   end; // while
 end; // procedure
+
+// gcD10 order stream (task 10): the code keys of AList in order, with what the
+// hoist legitimately moves, adds or drops taken out -- the `var` keyword and the
+// names it declares, every `: Type` annotation, a `const` declaration up to its
+// `;`, and commas / semicolons. The source stream must be a subsequence of the
+// output stream: the hoist adds declarations, but never reorders code.
+function D10OrderKeys(const AList: TCodeList): TList<string>;
+var
+  i   : Integer;
+  j   : Integer;
+  Nest: Integer;
+  C   : TCodeTok;
+begin
+  Result:= TList<string>.Create;
+  i:= 0;
+  while i < AList.Count do
+  begin
+    C:= AList[i];
+    if C.Key = 'var' then
+    begin
+      j:= i + 1;
+      while (j < AList.Count) and ((AList[j].Cls = ccIdent) or (AList[j].Key = ',')) do
+        Inc(j);
+      // `var A, B: T` -> continue at the `:`; `for var I:= 0` keeps `I`.
+      i:= if (j < AList.Count) and (AList[j].Key = ':') then j else i + 1;
+      Continue;
+    end;
+    if C.Key = 'const' then
+    begin
+      while (i < AList.Count) and (AList[i].Key <> ';') do
+        Inc(i);
+      Inc(i);
+      Continue;
+    end;
+    if C.Key = ':' then
+    begin
+      Nest:= 0;
+      Inc(i);
+      while (i < AList.Count) and ContinuesType(AList[i], Nest) do
+        Inc(i);
+      Continue;
+    end;
+    if (C.Key <> ',') and (C.Key <> ';') then
+      Result.Add(C.Key);
+    Inc(i);
+  end; // while
+end; // function
 
 // gcD10: see TGuardCodeMode.
 function D10Reason(const AOrig, AFmt: TCodeList): string;
@@ -961,9 +1024,11 @@ var
   CtxT  : TPair<string, THashSet<string>>;
   Frag  : string ;
   N     : Integer;
+  OrigKeys: TList<string>;
+  OutKeys : TList<string>;
 begin
   Result:= '';
-  OrigBags := TObjectDictionary<string, TDictionary<string, Integer>>.Create([doOwnsValues]);
+  OrigBags :=TObjectDictionary<string, TDictionary<string, Integer>>.Create([doOwnsValues]);
   OutBags := TObjectDictionary<string, TDictionary<string, Integer>>.Create([doOwnsValues]);
   OrigTypes:= TObjectDictionary<string, THashSet<string>>.Create([doOwnsValues]);
   OutTypes:= TObjectDictionary<string, THashSet<string>>.Create([doOwnsValues]);
@@ -991,6 +1056,15 @@ begin
         if (Types = nil) or not Types.Contains(Frag) then
           Exit('declared type lost or moved out of its conditional branch by the Delphi 10 transform: ' + Frag);
     end;
+    OrigKeys:= D10OrderKeys(AOrig);
+    OutKeys := D10OrderKeys(AFmt);
+    try
+      if not IsSubsequence(OrigKeys, OutKeys) then
+        Exit('code token reordered by the Delphi 10 transform near: ' + KeyPreview(FirstUnmatched(OrigKeys, OutKeys)));
+    finally
+      OutKeys.Free;
+      OrigKeys.Free;
+    end; // try
   finally
     OutTypes.Free;
     OrigTypes.Free;

@@ -1,0 +1,27 @@
+unit idem_list_tab_indent;
+
+// Task 10 mechanism A: the walker decided a bracketed list against the SOURCE
+// column (two tabs = 8 columns) instead of the column the line ends up at
+// (4 spaces), broke a list that fits, and the next format joined it again.
+
+interface
+
+function Describe(const AName, AUnit: string; ARange: Double; ADecimals: Integer): string;
+
+implementation
+
+uses
+  System.SysUtils
+  ;
+
+function Describe(const AName, AUnit: string; ARange: Double; ADecimals: Integer): string;
+begin
+  if ADecimals > 0 then
+  begin
+    Result:= Format('%s Tol %s %s xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', [AName, FloatToStrF(ARange, ffFixed, 9, ADecimals), LowerCase(AUnit), IntToStr(ADecimals)]);
+  end
+  else
+    Result:= '';
+end;
+
+end.

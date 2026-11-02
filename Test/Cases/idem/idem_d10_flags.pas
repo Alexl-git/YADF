@@ -1,0 +1,43 @@
+unit idem_d10_flags;
+
+// Task 10, --d10: (1) a for-var inside {$IFDEF} got its "not auto-hoisted" TODO
+// line again on every run; (2) the "already hoisted with a different type"
+// TODO after ar H: T:= nil; swallowed the statement sharing its line
+// (SetLength(H, N); became comment text -- the guard declined); (3) an
+// inferred ar F:= TFoo.Create; colliding that way was flagged again on the
+// next run, on a line of its own.
+
+interface
+
+uses
+  System.Classes;
+
+procedure Fill(N: Integer);
+
+implementation
+
+procedure Fill(N: Integer);
+begin
+  if N < 0 then
+  begin
+    var H: Integer:= N;
+    var F: TObject:= nil;
+    H:= H + 1;
+    if H > 0 then
+      F.Free;
+  end;
+  if N > 0 then
+  begin
+    var H: TArray<string>:= nil; SetLength(H, N);
+    H[0]:= 'x';
+    var F:= TStringList.Create;
+    F.Free;
+  end;
+  {$IFDEF DEBUG}
+  for var I:= 0 to N - 1 do
+    if I < 0 then
+      Exit;
+  {$ENDIF}
+end;
+
+end.

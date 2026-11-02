@@ -211,15 +211,35 @@ begin
     ExitCode:= EXIT_DECLINED;
 end;
 
+/// <summary>Writes a MESSAGE (a `wrote` / `declined` line, a `--- file ---`
+/// header, a FAIL line, the debug tree) to stdout.</summary>
+/// <param name="S">The message text; nothing is written when empty.</param>
+/// <remarks>Task 10: ANSI bytes turned a non-ANSI file name into `?`. On a console
+/// the text goes out as UTF-16 (WriteConsoleW), so every character shows. Redirected
+/// (a pipe or a file, e.g. drag-lint reading YADF's output) the bytes stay ANSI --
+/// what the existing consumers decode -- unless the text has a character the ANSI
+/// code page cannot hold; that text is written as UTF-8 instead of being damaged.
+/// Formatted source text never goes through here (WriteStdoutBytes, exact bytes).</remarks>
 procedure WriteStdoutRaw(const S: string);
 var
   Bytes  : TBytes;
   Written: DWORD ;
+  Mode   : DWORD ;
+  Handle : THandle;
 begin
   if S = '' then
     Exit;
+  Handle:= GetStdHandle(STD_OUTPUT_HANDLE);
+  if GetConsoleMode(Handle, Mode) then
+  begin
+    // A console that refuses the write falls through to the byte path.
+    if WriteConsoleW(Handle, PChar(S), Length(S), Written, nil) then
+      Exit;
+  end;
   Bytes:= TEncoding.ANSI.GetBytes(S);
-  WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), Bytes[0], Length(Bytes), Written, nil);
+  if TEncoding.ANSI.GetString(Bytes) <> S then
+    Bytes:= TEncoding.UTF8.GetBytes(S);
+  WriteFile(Handle, Bytes[0], Length(Bytes), Written, nil);  // dl:ok ignored-must-use-result@e5cb -- a failed stdout write (closed pipe) has no channel left to report on; same as WriteStdoutBytes
 end;
 
 procedure WriteStdoutBytes(const ABytes: TBytes);

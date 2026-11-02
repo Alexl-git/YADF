@@ -172,6 +172,24 @@ try {
       Fail "$($c.n): stdout BOM does not match the input file's"
     }
   }
+
+  # ----- 8. MESSAGES with a non-ANSI file name (task 10, TODO "stdout messages are
+  #       ANSI"): the `--- <file> ---` header of a multi-file --stdout run and the
+  #       in-place `wrote` line used to turn a Cyrillic name into `?`. Redirected,
+  #       such a message is written as UTF-8 (an ANSI-safe one stays ANSI). -----
+  $cyr = [string]::new([char[]](0x041F, 0x0440, 0x0438, 0x0432, 0x0435, 0x0442))
+  $plain = 'unit X;' + "`r`n" + 'interface' + "`r`n" + 'implementation' + "`r`n" + 'end.' + "`r`n"
+  $fA = Join-Path $tmpDir 'msg_ascii.pas'; [IO.File]::WriteAllText($fA, $plain)
+  $fC = Join-Path $tmpDir ("msg_$cyr.pas"); [IO.File]::WriteAllText($fC, $plain)
+  $mFile = Join-Path $tmpDir 'msg.stdout'
+  Start-Process -FilePath $exe -ArgumentList @('--ini', $ini, $fA, $fC, '--stdout') -RedirectStandardOutput $mFile -NoNewWindow -Wait
+  $mb = [IO.File]::ReadAllBytes($mFile)
+  if ((CountBytes $mb $u8.GetBytes("msg_$cyr.pas")) -ne 1) { Fail "msg: --stdout header does not carry the Cyrillic file name as UTF-8" }
+  if (BytesContain $mb ([Text.Encoding]::ASCII.GetBytes('msg_??????.pas'))) { Fail "msg: Cyrillic file name became '?'" }
+  if ((CountBytes $mb ([Text.Encoding]::ASCII.GetBytes('--- ' + $fA + ' ---'))) -ne 1) { Fail "msg: ANSI-safe header no longer plain ANSI" }
+  $wFile = Join-Path $tmpDir 'msg_wrote.stdout'
+  Start-Process -FilePath $exe -ArgumentList @('--ini', $ini, $fC) -RedirectStandardOutput $wFile -NoNewWindow -Wait
+  if ((CountBytes ([IO.File]::ReadAllBytes($wFile)) $u8.GetBytes("msg_$cyr.pas")) -ne 1) { Fail "msg: in-place message does not carry the Cyrillic file name as UTF-8" }
 }
 finally {
   Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue

@@ -1,0 +1,36 @@
+unit idem_nested_case_arm;
+
+// Task 10 mechanism F (CaseArmOnLabelLine OFF): an arm of a case nested inside
+// another arm's statement was split at a column measured before the outer arm
+// moved, cutting an identifier in two (Res ult); the guard declined the file.
+
+interface
+
+function Decode(const ARaw: string; I: Integer; C: Char): string;
+
+implementation
+
+function Decode(const ARaw: string; I: Integer; C: Char): string;
+begin
+  Result:= '';
+  case C of
+    '%':
+      if (I + 1 <= Length(ARaw)) and (ARaw[I + 1] = '%') then
+      begin
+        Inc(I, 2);
+        if I <= Length(ARaw) then
+        begin
+          case UpCase(ARaw[I]) of
+            'D' : Result:= Result + '~';
+            'P' : Result:= Result + 'q';
+            'O', 'U', 'V': Result:= Result + ' ';
+          end;
+        end;
+      end
+    else
+      Result:= Result + C;
+    else Result:= Result + C;
+  end; // case
+end; // function
+
+end.
