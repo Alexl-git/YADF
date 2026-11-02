@@ -546,6 +546,47 @@ $cases = @(
      In = 'CmM:= 3; (*b*)<NL>CmN:= 4; / CmM:= 5; // c<NL>CmN:= 6; / {$IFDEF}'; Want = 'packed up to the //'; Show = 'CmM:=|CmN:=|\{\$'
      Must = @('(?m)^\s*CmM:= 1; \{a\} CmN:= 2;( |\r?$)', '(?m)CmM:= 3; \(\*b\*\) CmN:= 4;', '(?m)CmM:= 5; // c\r?\n\s*CmN:= 6;\r?$',
               '(?m)^\s*\{\$IFDEF DEBUG\} CmM:= 7; \{\$ENDIF\}\r?$', '(?m)^\s*CmM:= 8;\r?\n\s*\{\$IFDEF DEBUG\}\r?\n\s*CmN:= 9;\r?\n\s*\{\$ENDIF\}\r?$') }
+  # --- Task 6 (SPEC-2026-11-01 reflow-round leftovers): fixed rules at the defaults ---
+  @{ Id = 'Rule: variant-record arms indent under their case, no ; padding, the case line ends the field colon run'; Fix = 'polarity_rules6'; Set = @{}
+     In = 'Name: string; case Kind: Integer of 0: (...); 1: (...); 22: (...);'; Want = 'arms one level under case'; Show = 'Name|case |^\s*(0|1|22|True|False)\s*:|Count'
+     Must = @('(?m)^    Name: string;\r?$', '(?m)^    case Kind: Integer of\r?$', '(?m)^      0 : \(Width, Height: Integer\);\r?$', '(?m)^      22: \(A: Byte; LongerName: Word\);\r?$',
+              '(?m)^      Count: Integer;\r?$', '(?m)^    case Roomy: Boolean of\r?$', '(?m)^      True : \(Big: Int64\);\r?$', '(?m)^      False: \(Small: Byte\);\r?$') }
+  @{ Id = 'Rule: AlignDeclSemicolons does not pad the ; of typed constants (the value ends the line)'; Fix = 'polarity_rules6'; Set = @{}
+     In = 'Box1: TRect = (...4); / Box22: TRect = (...400);'; Want = 'no blank before ;'; Show = 'Box\d'
+     Must = @('(?m)^  Box1 : TRect = \(Left: 1; Top: 2; Right: 3; Bottom: 4\);\r?$')
+     Not = @('(?m)^\s*Box\d+.*\) +;') }
+  @{ Id = 'Rule: an anonymous method assigned in a statement does not leak a routine level'; Fix = 'polarity_rules6'; Set = @{}
+     In = 'X := procedure begin After6; end; / X := procedure<NL>begin...end;'; Want = 'later statements and routines keep their indent'; Show = 'X:=|Alpha\.Beta|^\s*procedure After6|^\s*end\.'
+     Must = @('(?m)^  Alpha\.Beta', '(?m)^procedure After6;\r?$', '(?m)^end\.\s*$') }
+  @{ Id = 'Rule: a member . is never a shape-alignment anchor (Eta.Th stays one token)'; Fix = 'polarity_rules6'; Set = @{}
+     In = 'Alpha.Beta := 1; Gamma.Delta := 2; Eta.Th := 3;'; Want = 'only := aligned'; Show = 'Beta|Delta|Eta.*:='
+     Must = @('(?m)^\s*Eta\.Th +:= 3;\r?$', '(?m)^\s*Gamma\.Delta:= 2;\r?$')
+     Not = @('Eta +\.') }
+  @{ Id = 'Rule: a case label list holding a comment is not a colon-alignment peer'; Fix = 'polarity_rules6'; Set = @{}
+     In = '3: {three} D := 1; / 4, {four} 5: D := 2;'; Want = 'no padding from the comment'; Show = '\{three\}|\{four\}'
+     Must = @('(?m)^\s*3: \{three\} D:= 1;\r?$', '(?m)^\s*4, \{four\} 5: D:= 2;\r?$') }
+  @{ Id = 'BreakIfBody ON: the else body after an end goes on its own line (end else D := 3;)'; Fix = 'polarity_rules6'; Set = @{}
+     In = 'end else D := 3; / end else if D > 2 then D := 6;'; Want = 'end else / D:= 3;'; Show = 'end else|D:= [369];'
+     Must = @('(?m)^  end else\r?\n    D:= 3;\r?$', '(?m)^  end else if D > 2 then\r?\n    D:= 6;\r?$', '(?m)^\s+end else D:= 9;\r?$') }
+  @{ Id = 'BreakIfBody OFF: an if whose then part is a block keeps every body broken (end else D := 3;)'; Fix = 'polarity_rules6'; Set = @{ BreakIfBody = $F }
+     In = 'end else D := 3;'; Want = 'end else / D:= 3;'; Show = 'end else|D:= [369];'
+     Must = @('(?m)^  end else\r?\n    D:= 3;\r?$', '(?m)^\s+end else D:= 9;\r?$') }
+  @{ Id = 'Rule: a call held open by a // comment continues one level under its statement'; Fix = 'polarity_rules6'; Set = @{}
+     In = 'Writeln(Format(''%d %d'', [K, // keep<NL>D]));'; Want = 'D])); at statement + Indent'; Show = 'Writeln\(Format|^\s*D\]\)\);'
+     Must = @('(?m)^  Writeln\(Format\(''%d %d'', \[K, // keep\r?\n    D\]\)\);\r?$') }
+  @{ Id = 'TrimTrailing OFF: every trailing blank of a code line is kept'; Fix = 'polarity_rules6'; Set = @{ TrimTrailing = $F }
+     In = 'D := 0;   (three trailing blanks)'; Want = 'D:= 0;   '; Show = 'D:= 0;'
+     Must = @('(?m)^  D:= 0;   \r?$') }
+  @{ Id = 'BreakCaseLabels ON: a brace comment in the label list stays with the FIRST label (owner 2026-11-02)'; Fix = 'polarity_comments'; Set = @{ BreakCaseLabels = $T }
+     In = '4, {four}<NL>5: Inc(CmJ);'; Want = '4: {four} Inc(CmJ); / 5: Inc(CmJ);'; Show = '^\s*[4-7][,:]'
+     Must = @('(?m)^\s*4\s*: \{four\} Inc\(CmJ\);\r?\n\s*5\s*: Inc\(CmJ\);\r?$', '(?m)^\s*6, // six\r?\n\s*7\s*: Inc\(CmJ\);\r?$') }
+  @{ Id = 'PackStatements ON: an if / loop body line is never packed with the next statement'; Fix = 'polarity_stmts6'; Set = @{ PackStatements = $T }
+     In = 'if C then<NL>PsA:= 1;<NL>PsB:= 2;<NL>PsC:= 3;'; Want = 'body alone, the next two packed'; Show = 'PsA:=|PsB:=|PsC:='
+     Must = @('(?m)^\s*if C then\r?\n\s+PsA:= 1;\r?\n\s*PsB:= 2; PsC:= 3;\r?$', '(?m)^\s*for PsA:= 0 to 3 do\r?\n\s+PsB:= PsA;\r?\n\s*PsC:= 4;')
+     Not = @('PsA:= 1; PsB', 'PsB:= PsA; PsC') }
+  @{ Id = 'PackStatements ON + Break*Body OFF: a joined body line is never packed with the next statement'; Fix = 'polarity_stmts6'; Set = @{ PackStatements = $T; BreakIfBody = $F; BreakLoopBody = $F }
+     In = 'if C then<NL>PsA:= 1;<NL>PsB:= 2;'; Want = 'if C then PsA:= 1; alone'; Show = 'PsA:=|PsB:=|PsC:='
+     Must = @('(?m)^\s*if C then PsA:= 1;\r?$', '(?m)^\s*for PsA:= 0 to 3 do PsB:= PsA;\r?$') }
 )
 
 $questions = @()

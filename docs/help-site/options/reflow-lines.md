@@ -64,7 +64,7 @@ const
 function ShowReflow(const S: string): Boolean;
 begin
   Writeln(Format('%s %d',
-      [S, Length(S)]));
+    [S, Length(S)]));
 
   Result:= ((Length(S) > 10) and (Pos('alpha', S) > 0)) or ((Length(S) > 20) and (Pos('beta', S) > 0)) or ((Length(S) > 30) and (Pos('gamma', S) > 0)) or (S = 'delta') or (S = 'epsilon');
 end;

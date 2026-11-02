@@ -78,7 +78,7 @@ repeat {count down}
   Dec(K);
 until K <= 0;
 Writeln(Format('%d %d', [K, // keeps the line break
-      K]));
+  K]));
 ```
 
 ## Off = kept as written

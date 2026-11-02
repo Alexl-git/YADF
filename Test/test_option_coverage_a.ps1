@@ -50,9 +50,10 @@ Run-Case 'Indent' @{ Indent = 4 }; $o = $script:res
 MustMatch $o '(?m)^    Counter:= 1;'   'Indent=4: body statement at 4 spaces'
 MustMatch $o '(?m)^    TFoo = class'   'Indent=4: type member at 4 spaces'
 
-# TrimTrailing=false: the fixture line "Counter := 1;   " keeps trailing space.
+# TrimTrailing=false: the fixture line "Counter := 1;   " keeps ALL its trailing blanks
+# (task 6: the interior-space collapse used to cut them to one).
 Run-Case 'TrimTrailing' @{ TrimTrailing = 'false' }; $o = $script:res
-MustMatch $o '(?m)Counter:= 1; +\r?$' 'TrimTrailing=false keeps trailing blank'
+MustMatch $o '(?m)Counter:= 1;   \r?$' 'TrimTrailing=false keeps all three trailing blanks'
 
 # MaxBlankLines=3 (default 1): the 3 blank lines in the fixture survive.
 Run-Case 'MaxBlankLines' @{ MaxBlankLines = 3 }; $o = $script:res

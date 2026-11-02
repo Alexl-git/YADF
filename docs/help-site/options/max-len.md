@@ -44,9 +44,9 @@ end;
 procedure ShowMaxLen(const S: string);
 begin
   Writeln(Format(
-      '%s has %d characters, %d of them before the first "a", %d before the first "b" and %d before "c"'
-    , [S, Length(S), Pos('a', S), Pos('b', S), Pos('c', S)]
-    ));
+    '%s has %d characters, %d of them before the first "a", %d before the first "b" and %d before "c"'
+  , [S, Length(S), Pos('a', S), Pos('b', S), Pos('c', S)]
+  ));
 end;
 ```
 

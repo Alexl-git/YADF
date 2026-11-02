@@ -922,6 +922,7 @@ type
     Toks     : TArray<TArmTok> ;
     Arms     : TArray<TCaseArm>; // labelled arms + one-statement else parts (LabelStart = Colon = `else`)
     Elses    : TArray<Integer> ; // token index of EVERY case-statement `else` / `otherwise`
+    VarColons: TArray<Integer> ; // token index of the `:` of every arm of a record VARIANT part (task 6; never in Arms)
     HasCmt   : TArray<Boolean> ; // line holds a directive or (part of) a multi-line / shielded comment -- a closed one-line comment does not count (task 3)
     LineCmt  : TArray<Integer> ; // column of a `//` comment, 0 = none
     LineFirst: TArray<Integer> ; // first token on the line, -1 = none
@@ -1069,7 +1070,7 @@ end; // procedure
 // Walks AScan.Toks with a block stack and records every arm of every case
 // statement in AScan.Arms. A `case` whose enclosing block is a record (or
 // that sits outside any block) is a variant part and is skipped.
-procedure ParseCaseArms(var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@9bd6, cognitive-complexity@6869 -- one flat structure walk
+procedure ParseCaseArms(var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@48e8, cognitive-complexity@36d6 -- one flat structure walk
 type
   TFrameKind = (fkCode, fkCase, fkRecord, fkRepeat);
   TCaseState = (csHeader, csLabel, csBody, csElse);
@@ -1081,6 +1082,7 @@ type
     Semis   : Integer   ; // csElse: top-level `;` seen in the else part
     LastSemi: Integer   ; // csElse: token index of the last of them
     Arm     : TCaseArm  ;
+    Variant : Boolean   ; // fkRecord: its variant part has started (State: csHeader until `of`, then csLabel)
   end;
 var
   Stack : TArray<TFrame>;
@@ -1089,6 +1091,7 @@ var
   k     : Integer;
   NArms : Integer;
   NElses: Integer;
+  NVar  : Integer;
   W     : string ;
   Wd    : Boolean;
   InInit: Boolean;
@@ -1189,9 +1192,11 @@ var
 begin
   SetLength(AScan.Arms, 0);
   SetLength(AScan.Elses, 0);
+  SetLength(AScan.VarColons, 0);
   Sp    := 0;
   NArms := 0;
   NElses:= 0;
+  NVar  := 0;
   InInit:= False;
   k     := 0;
   while k < Length(AScan.Toks) do
@@ -1199,6 +1204,21 @@ begin
     W := AScan.Toks[k].Text;
     Wd:= AScan.Toks[k].IsWord;
     F := Sp - 1;
+    // A record's variant part: its arms' `:` (at the record's own depth, after
+    // the `of`) are recorded for the arm-line marks; the tag colon before the
+    // `of` and the field colons inside the arm parens are not.
+    if (F >= 0) and (Stack[F].Kind = fkRecord) and Stack[F].Variant and (AScan.Toks[k].Depth = Stack[F].Depth) then
+    begin
+      if Wd and (W = 'of') then
+        Stack[F].State:= csLabel
+      else if (Stack[F].State = csLabel) and not Wd and (W = ':') then
+      begin
+        if NVar = Length(AScan.VarColons) then
+          SetLength(AScan.VarColons, NVar * 2 + CASE_ARM_GROW);
+        AScan.VarColons[NVar]:= k;
+        Inc(NVar);
+      end;
+    end;
     if (F >= 0) and (Stack[F].Kind = fkCase) then
     begin
       case Stack[F].State of
@@ -1301,6 +1321,11 @@ begin
         begin
           Push(fkCase, AScan.Toks[k].Depth);
           Stack[Sp - 1].State:= csHeader;
+        end
+        else if (Sp > 0) and (AScan.Toks[k].Depth = Stack[Sp - 1].Depth) then
+        begin
+          Stack[Sp - 1].Variant:= True; // the record's own variant part (a nested one sits in parens)
+          Stack[Sp - 1].State  := csHeader;
         end;
       end
       else if W = 'record' then
@@ -1331,16 +1356,18 @@ begin
   end; // while
   SetLength(AScan.Arms, NArms);
   SetLength(AScan.Elses, NElses);
+  SetLength(AScan.VarColons, NVar);
 end; // procedure
 
 /// <summary>Marks the lines of S that a case STATEMENT owns as arm lines: the
-/// line of every arm's `label:` colon and every line that starts with the case
-/// `else` / `otherwise`.</summary>
+/// line of every arm's `label:` colon (record variant-part arms included, task 6)
+/// and every line that starts with the case `else` / `otherwise`.</summary>
 /// <param name="ALines">The text, one entry per line.</param>
 /// <param name="AArmLines">Out: True for a line holding an arm's colon.</param>
-/// <param name="AElseLines">Out: True for a line whose first token is a case `else`.</param>
-/// <remarks>Same scanner as LayoutCaseArms, so a record variant part, an `if`
-/// else inside an arm and a declaration are never marked. Pure.</remarks>
+/// <param name="AElseLines">Out: True for a line whose first token is a case
+/// `else`, or whose case `else` follows only an `end` (`end else X;`, task 6).</param>
+/// <remarks>Same scanner as LayoutCaseArms, so an `if` else inside an arm and a
+/// declaration are never marked. Pure.</remarks>
 procedure MarkCaseArmLines(ALines: TStringList; out AArmLines, AElseLines: TArray<Boolean>);
 var
   Scan: TCaseArmScan;
@@ -1358,11 +1385,14 @@ begin
   ParseCaseArms(Scan);
   for a:= 0 to High(Scan.Arms) do
     AArmLines[Scan.Toks[Scan.Arms[a].Colon].Line]:= True;
+  // Variant-record arms are arms too (no `;` padding, Q16 / task 6).
+  for a:= 0 to High(Scan.VarColons) do
+    AArmLines[Scan.Toks[Scan.VarColons[a]].Line]:= True;
   for a:= 0 to High(Scan.Elses) do
   begin
     L:= Scan.Toks[Scan.Elses[a]].Line;
     AArmLines[L]:= False;
-    if Scan.LineFirst[L] = Scan.Elses[a] then
+    if (Scan.LineFirst[L] = Scan.Elses[a]) or ((Scan.LineFirst[L] = Scan.Elses[a] - 1) and Scan.Toks[Scan.Elses[a] - 1].IsWord and (Scan.Toks[Scan.Elses[a] - 1].Text = 'end')) then
       AElseLines[L]:= True;
   end;
 end; // procedure
@@ -1757,11 +1787,12 @@ end; // function
 
 // True iff ALine starts with a structural keyword that breaks any
 // in-progress alignment run (begin/end/type/var/const/resourcestring/threadvar/procedure/
-// function/constructor/destructor/interface/implementation) or is
-// blank. The nested StartsKW helper ensures we match whole keywords
+// function/constructor/destructor/interface/implementation, and `case`:
+// a record variant part's arms are no colon peers of the fields above it,
+// task 6) or is blank. The nested StartsKW helper ensures we match whole keywords
 // rather than identifier prefixes (so `endpoint` is not detected as
 // `end`).
-function StartsBlockBoundary(const ALine: string): Boolean;  // dl:ok too-many-exit-points@ff8f
+function StartsBlockBoundary(const ALine: string): Boolean;  // dl:ok too-many-exit-points@b0e6
 var
   T: string;
 
@@ -1798,6 +1829,8 @@ begin
   if StartsKW('resourcestring') then
     Exit(True);
   if StartsKW('threadvar' ) then
+    Exit(True);
+  if StartsKW('case' ) then
     Exit(True);
   if StartsKW('procedure' ) then
     Exit(True);
@@ -1868,7 +1901,9 @@ begin
       if (T.Kind = ptSpace) and BlankBeforeColonOrSemi(i) then
         Continue;
       Sb.Append(T.Pre);
-      if (T.Kind = ptSpace) and (Length(T.Text) > 1) then
+      // Trailing blanks are not interior: TrimTrailing owns them (OFF = kept as
+      // written, task 6), so the last token of the line is copied verbatim.
+      if (T.Kind = ptSpace) and (Length(T.Text) > 1) and (i < Tokens.Count - 1) then
         Sb.Append(' ')
       else
         Sb.Append(T.Text);
@@ -2163,7 +2198,72 @@ begin
   Result:= (P > 0) and (T[1] = '[') and ((R = '') or (Copy(R, 1, 2) = '//'));
 end; // function
 
-function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@ac49, cognitive-complexity@5501
+/// <summary>Splits a declaration name list or a case label list (the text before
+/// its `:`) at its commas, comment-aware: a comma inside a `{ }` / `(* *)`
+/// comment or a string does not split.</summary>
+/// <param name="ANames">The name / label list, one line.</param>
+/// <param name="ARaw">Out: each name as written, trimmed, comments included.</param>
+/// <param name="AClean">Out: each name without its `{ }` / `(* *)` comments, trimmed.</param>
+/// <param name="AComments">Out: per name, its comments joined by one blank ('' = none).</param>
+/// <returns>True when any name carries such a comment.</returns>
+/// <remarks>Compiler directives are not comments here: they stay in AClean, so
+/// the caller's identifier check rejects the list. Pure.</remarks>
+function SplitNameList(const ANames: string; out ARaw, AClean, AComments: TArray<string>): Boolean;
+var
+  Tokens: TTokenList;
+  T     : TToken    ;
+  k     : Integer   ;
+  n     : Integer   ;
+  Raw   : string    ;
+  Clean : string    ;
+  Cmt   : string    ;
+
+  procedure Flush;
+  begin
+    SetLength(ARaw, n + 1);
+    SetLength(AClean, n + 1);
+    SetLength(AComments, n + 1);
+    ARaw[n]     := Trim(Raw);
+    AClean[n]   := Trim(Clean);
+    AComments[n]:= Trim(Cmt);
+    Inc(n);
+    Raw  := '';
+    Clean:= '';
+    Cmt  := '';
+  end;
+
+begin
+  Result:= False;
+  n     := 0;
+  Raw   := '';
+  Clean := '';
+  Cmt   := '';
+  Tokens:= LoadTokensFromString(ANames);
+  try
+    for k:= 0 to Tokens.Count - 1 do
+    begin
+      T:= Tokens[k];
+      if T.Kind = ptComma then
+      begin
+        Flush;
+        Continue;
+      end;
+      Raw:= Raw + T.Pre + T.Text;
+      if T.Kind in [ptBorComment, ptAnsiComment] then
+      begin
+        Cmt   := Cmt + ' ' + T.Text;
+        Result:= True;
+      end
+      else
+        Clean:= Clean + T.Pre + T.Text;
+    end;
+    Flush;
+  finally
+    Tokens.Free;
+  end; // try
+end; // function
+
+function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@9f04, cognitive-complexity@f3c5, too-many-locals@8588 -- one line walk; the locals are the parts of the line being split
 var
   Lines     : TStringList    ;
   OutVal      : TStringBuilder ;
@@ -2183,7 +2283,11 @@ var
   St        : TLineScanState ;
   SkipLine  : Boolean        ;
   Done      : Boolean        ;
-  NameTokens: TArray<string> ;
+  NameTokens: TArray<string> ; // the names / labels without comments
+  RawNames  : TArray<string> ; // the same, as written
+  CmtNames  : TArray<string> ; // per name, its comments
+  NameCmts  : Boolean        ; // some name carries a comment
+  Moved     : string         ; // label comments that ride on the first split line
   HasComma  : Boolean        ;
   DoSplit   : Boolean        ;
   IdentChars: set of AnsiChar;
@@ -2274,13 +2378,15 @@ begin
           // split with the `var`/`const` keyword dropped from every line but
           // the first -- producing uncompilable code. A real keyword prefix or
           // any embedded space now poisons the match, leaving such lines alone.
-          HasComma:= Pos(',', Names) > 0;
+          // Comment-aware (task 6): `1, {x} 2` -> labels 1 / 2, `{x}` belongs to
+          // the second. Only a case arm may carry comments into its split.
+          NameCmts:= SplitNameList(Names, RawNames, NameTokens, CmtNames);
+          HasComma:= Length(NameTokens) > 1;
           if HasComma then
           begin
-            NameTokens:= Names.Split([',']);
             for k:= 0 to High(NameTokens) do
             begin
-              Body:= Trim(NameTokens[k]);
+              Body:= NameTokens[k];
               if Body = '' then
               begin
                 HasComma:= False;
@@ -2303,11 +2409,13 @@ begin
           // A type that is anonymous-structured, or an enum `(A, B)` after
           // identifier names, is a DECLARATION even though CaseArmLikeBody sees a
           // `(`; classify it first.
-          if CaseArmLikeBody(Names, TypePart) and not TypePartIsAnonymousStructured(TypePart) and not TypePartIsEnum(Names, TypePart) then
+          if CaseArmLikeBody(string.Join(', ', NameTokens), TypePart) and not TypePartIsAnonymousStructured(TypePart) and not TypePartIsEnum(Names, TypePart) then
             DoSplit:= ASplitCaseLabels
           else
           begin
-            DoSplit:= ASplitDecls;
+            // A comment inside a declaration's name list has no defined home
+            // on the split lines: such a declaration stays whole.
+            DoSplit:= ASplitDecls and not NameCmts;
             // A genuine type never carries a top-level `;`. If TypePart does,
             // the line packs a SECOND declaration ("A, B: T1; C: T2;") -- the
             // scan ran the type to the last `;`, so splitting would duplicate
@@ -2345,18 +2453,24 @@ begin
             DoSplit:= False;
           if HasComma and (TypePart <> '') and DoSplit then
           begin
-            NameTokens:= Names.Split([','], TStringSplitOptions.ExcludeEmpty);
+            // Owner decision 2026-11-02 (task 6): a comment inside the label list
+            // stays with the FIRST label -- `1, {x} 2: S;` -> `1: {x} S;` / `2: S;`.
+            // The first name keeps its own comments where they were.
+            Moved:= '';
+            for k:= 1 to High(CmtNames) do
+              if CmtNames[k] <> '' then
+                Moved:= Moved + CmtNames[k] + ' ';
             for k:= 0 to High(NameTokens) do
             begin
               if k = 0 then
               begin
                 if Tail <> '' then
-                  OutVal.AppendLine(Indent + Trim(NameTokens[k]) + ': ' + TypePart + '; ' + Tail)
+                  OutVal.AppendLine(Indent + RawNames[k] + ': ' + Moved + TypePart + '; ' + Tail)
                 else
-                  OutVal.AppendLine(Indent + Trim(NameTokens[k]) + ': ' + TypePart + ';');
+                  OutVal.AppendLine(Indent + RawNames[k] + ': ' + Moved + TypePart + ';');
               end
               else
-                OutVal.AppendLine(Indent + Trim(NameTokens[k]) + ': ' + TypePart + ';');
+                OutVal.AppendLine(Indent + NameTokens[k] + ': ' + TypePart + ';');
             end; // for
             Continue; // line replaced
           end; // if
@@ -2440,13 +2554,15 @@ var
 
   function HasDeclShape(const ALine: string; out AColon, ASemi: Integer): Boolean;
   var
-    p   : Integer       ;
-    SCol: Integer       ;
-    St  : TLineScanState;
-    Done: Boolean       ;
+    p    : Integer       ;
+    SCol : Integer       ;
+    St   : TLineScanState;
+    Done : Boolean       ;
+    Typed: Boolean       ; // a top-level `=` after the colon: `Name: Type = Value;`
   begin
     AColon:= 0;
     ASemi:= 0;
+    Typed:= False;
     St.Reset;
     St.TrackAngle:= True;
     Done:= False;
@@ -2460,6 +2576,11 @@ var
         begin
           if AColon = 0 then
             AColon:= p;
+          Inc(p);
+        end
+        else if St.AtTopLevel and (AColon > 0) and (ALine[p] = '=') and not CharInSet(ALine[p - 1], ['<', '>', ':']) then
+        begin
+          Typed:= True;
           Inc(p);
         end
         else if St.AtTopLevel and (ALine[p] = ';') then
@@ -2476,7 +2597,10 @@ var
     // We also require that nothing non-whitespace follows the `;`
     // except an optional line comment.
     // Callers read AColon/ASemi directly, so a routine header must clear them.
-    if IsFieldRunRoutineHeader(ALine) then
+    // So must a typed constant / initialised variable (`Box: TRect = (...);`,
+    // task 6): its `;` ends the VALUE, not the type, and padding it to a longer
+    // value's `;` only parks a blank in front of it.
+    if IsFieldRunRoutineHeader(ALine) or Typed then
     begin
       AColon:= 0;
       ASemi := 0;
@@ -2601,6 +2725,31 @@ begin
   Result:= MatchStr(W, ['if', 'while', 'until', 'else', 'and', 'or', 'not', 'case']);
 end; // function
 
+/// <summary>True when the code fragment AText holds a `{...}` or `(*...*)`
+/// comment (string literals and `//` aside).</summary>
+/// <param name="AText">One line, or the part of it before an alignment anchor.</param>
+/// <returns>True when a brace / paren-star comment token is present.</returns>
+/// <remarks>Used by AlignByAnchor (task 6): a comment in front of the anchor
+/// (`4, {four} 5: X;`) would make the shared column depend on comment text, so
+/// such a line is no alignment peer.</remarks>
+function CodeHoldsComment(const AText: string): Boolean;
+var
+  Tokens: TTokenList;
+  k     : Integer   ;
+begin
+  Result:= False;
+  if not AText.Contains('{') and not AText.Contains('(*') then
+    Exit;
+  Tokens:= LoadTokensFromString(AText);
+  try
+    for k:= 0 to Tokens.Count - 1 do
+      if Tokens[k].Kind in [ptBorComment, ptAnsiComment] then
+        Exit(True);
+  finally
+    Tokens.Free;
+  end; // try
+end; // function
+
 function AlignByAnchor(const S, AAnchor: string; AMaxColumn: Integer): string;
 var
   Anchors : TArray<Integer>;
@@ -2631,7 +2780,7 @@ begin
     // were top-level const/var/type declarations.
     Depths:= ComputeLineStartDepths(Lines);
     for i:= 0 to Lines.Count - 1 do
-      if Depths[i] > 0 then
+      if (Depths[i] > 0) or ((Anchors[i] > 0) and CodeHoldsComment(Copy(Lines[i], 1, Anchors[i] - 1))) then
         Anchors[i]:= 0;
     OutVal:= TStringBuilder.Create;
     try
@@ -2703,8 +2852,9 @@ end; // function
 // have the same "shape" when their punctuation/operator tokens form
 // the same sequence -- so identifier names and literals are
 // interchangeable, but `a.b := c(d, e);` and `x.y := z(w, v);` count
-// as the same shape and get their `.`, `:=`, `(`, `,`, `)`, `;`
-// padded to a shared column run.
+// as the same shape and get their `:=`, `(`, `,`, `)`, `;`
+// padded to a shared column run. A member `.` takes part in the match but
+// is never padded (it belongs to the qualified name, task 6).
 //   Shape     - the sequence of structural token kinds (no idents,
 //               whitespace, strings, numbers, chars, or comments).
 //   Cols      - the 1-based column of each structural token on the
@@ -2885,7 +3035,7 @@ begin
     Result:= Length(ALine);
 end; // function
 
-function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@bf90, cognitive-complexity@ecc0
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@2d56, cognitive-complexity@6f63
 var
   AnyOver  : Boolean                ;
   ColCols  : TArray<Integer>        ;
@@ -3171,6 +3321,11 @@ begin
             // by more anchors) is still aligned, so grid-shaped const
             // arrays keep their columns.
             if (k = High(Info[i].Shape)) and (Info[i].Shape[k] = ptSemiColon) then
+              Continue;
+            // Nor a member `.`: it is tight by rule (TightenAnchorSpacingInLine),
+            // and padding it split a qualified name (`Eta  .Th:= 3`, task 6). The
+            // `:=` after it still lines up.
+            if Info[i].Shape[k] = ptPoint then
               Continue;
             for L:= 0 to (j - i) - 1 do
             begin
@@ -3973,7 +4128,7 @@ type
 /// <remarks>The case `else` part belongs to CaseArmOnLabelLine and is never split
 /// here (owner decision Q11). A `{ }` / `(* *)` comment right after then/do/else
 /// stays on the header line (Q18).</remarks>
-function BreakControlBodies(const S: string; ASplit, ASplitShort: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@a8d5, cognitive-complexity@3324 -- one segment walk per line
+function BreakControlBodies(const S: string; ASplit, ASplitShort: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@e08d, cognitive-complexity@a096 -- one segment walk per line
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -3991,7 +4146,8 @@ var
   Header: string         ;
   Body  : string         ;
   Segs  : TStringList    ;
-  IsElse: Boolean        ;
+  IsElse : Boolean       ;
+  EndElse: Boolean       ; // the line starts `end else`
   Cursor: Integer        ;
   k     : Integer        ;
   Ok    : Boolean        ;
@@ -4115,7 +4271,12 @@ begin
         end; // if
         // if / else: split after `then`, before/after each top-level `else`;
         // "else if ... then" stays glued as one header line.
-        IsElse:= CtlStartsWord(T, 'else');
+        // `end else X;` (task 6): the else part of an if whose then part is a
+        // block starts after the block's `end`; its body is split like any other
+        // (`end else` stays together, as the author wrote it). A case `else`
+        // after an arm's `end` is ElseL and left alone (Q11).
+        EndElse:= CtlStartsWord(T, 'end') and CtlStartsWord(Copy(T, Length('end') + 1, MaxInt), 'else');
+        IsElse := CtlStartsWord(T, 'else') or EndElse;
         if (not Lock[i]) and Wants(bkIf) and (CtlStartsWord(T, 'if') or IsElse) and not ElseL[i] then
         begin
           ScanControlWords(Cur, W, BefP, AftP, Disq);
@@ -4147,7 +4308,10 @@ begin
               end
               else if (Length(W) >= 1) and (W[0] = 'else') then
               begin
-                Segs.Add(Copy(Cur, BefP[0], AftP[0] - BefP[0])); // preserve source `else` casing
+                if EndElse then
+                  Segs.Add(Trim(Copy(Cur, 1, AftP[0] - 1))) // "end else"
+                else
+                  Segs.Add(Copy(Cur, BefP[0], AftP[0] - BefP[0])); // preserve source `else` casing
                 Cursor:= AftP[0];
                 k:= 1;
               end
@@ -6752,7 +6916,12 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@01d0, cyclomatic-complexity@9cda, cognitive-complexity@c518, deep-nesting@cf9e, too-many-locals@27b9 -- single-pass indent state machine; splitting would scatter shared mutable state
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@82c3, cyclomatic-complexity@2f6d, cognitive-complexity@ccf1, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
+const
+  // Stack entry for a record's variant part (`case Tag: T of` at the record's
+  // own paren level). `of` itself is never pushed, so the kind is free; the
+  // record's `end` pops both (task 6).
+  VARIANT_MARK = ptOf;
 var
   AfterCRLF         : Boolean            ;
   PendingCtrl       : Integer            ; // accumulated then/do/else/case-`:` body levels
@@ -6773,6 +6942,8 @@ var
   OpenProcRegions   : Integer            ;
   OutVal              : TStringBuilder     ;
   ParensDepth       : Integer            ;
+  ParenLines        : TList<Integer>     ; // line number of every open ( [ (parallel to ParensDepth)
+  LineNo            : Integer            ; // current line, 0-based
   AngleDepth        : Integer            ; // open generic `<...>` lists in a declaration (see GenericOpen)
   PendingProcStack  : TList<Boolean>     ;
   PendingWS         : string             ;
@@ -6934,7 +7105,7 @@ var
     k: Integer;
   begin
     k:= Stack.Count - 1;
-    while (k >= 0) and (Stack[k] in [ptType, ptVar, ptConst]) do
+    while (k >= 0) and (Stack[k] in [ptType, ptVar, ptConst, VARIANT_MARK]) do
       Dec(k);
     Result:= (k >= 0) and (Stack[k] in [ptRecord, ptObject]);
   end;
@@ -6968,6 +7139,57 @@ var
   // (`procedure|function|constructor|destructor`, optionally after `class`)
   // INSIDE a class/record while a var/const/type section is open: that routine
   // closes the section, so the line-start indent dedents one level (WP18).
+  // Keeps ParenLines one entry per open bracket after ParensDepth was lowered
+  // (a close, or a {$ELSE} restoring the {$IF}'s depth); a raise from a
+  // restore records the current line.
+  procedure SyncParenLines;
+  begin
+    while ParenLines.Count > ParensDepth do
+      ParenLines.Delete(ParenLines.Count - 1);
+    while ParenLines.Count < ParensDepth do
+      ParenLines.Add(LineNo);
+  end;
+
+  // Indent levels the open brackets give a line: one per distinct line that
+  // opened any of them (brackets opened on one line count once). ADropTop: the
+  // line starts with a closer, which goes back to the level of the line that
+  // opened its bracket -- so that line's brackets do not count (`Writeln(Format(`
+  // ... `));` closes at the statement's own column).
+  function ParenLevels(ADropTop: Boolean): Integer;
+  var
+    k, n, L: Integer;
+  begin
+    n:= ParenLines.Count;
+    if ADropTop and (n > 0) then
+    begin
+      L:= ParenLines[n - 1];
+      while (n > 0) and (ParenLines[n - 1] = L) do
+        Dec(n);
+    end;
+    Result:= 0;
+    for k:= 0 to n - 1 do
+      if (k = 0) or (ParenLines[k] <> ParenLines[k - 1]) then
+        Inc(Result);
+  end;
+
+  // True when a procedure/function keyword read now opens an ANONYMOUS method
+  // outside parens: right after `:=` (`X:= procedure begin ... end;`), or
+  // anywhere inside a statement block -- a real (nested) routine is declared
+  // before its owner's `begin`, never inside it. Its begin..end balances on its
+  // own; a pending-body marker pushed for it was never consumed, so every later
+  // line and routine indented one level deeper (task 6).
+  function AnonRoutineInStatement: Boolean;
+  var
+    k: Integer;
+  begin
+    if PrevNonKind = ptAssign then
+      Exit(True);
+    for k:= 0 to Stack.Count - 1 do
+      if Stack[k] in [ptBegin, ptCase, ptTry, ptAsm, ptRepeat] then
+        Exit(True);
+    Result:= False;
+  end;
+
   function IsRoutineAfterSection(AIdx: Integer): Boolean;
   const
     Routines = [ptProcedure, ptFunction, ptConstructor, ptDestructor];
@@ -7023,7 +7245,9 @@ begin
     DirMarks        := TList<TDirMark    >.Create;
     CtrlStack       := TList<Integer     >.Create;
     ClassHeaderOpen := TList<Boolean     >.Create;
+    ParenLines      := TList<Integer     >.Create;
     try
+      LineNo            := 0;
       PrevNonKind       := ptUnknown;
       InVisibility      := False;
       VisOnThisLine     := False;
@@ -7045,6 +7269,7 @@ begin
         if T.Kind in [ptCRLF, ptCRLFCo] then
         begin
           OutVal.Append(T.Text);
+          Inc(LineNo);
           AfterCRLF    := True;
           PendingWS    := '';
           VisOnThisLine:= False;
@@ -7116,15 +7341,21 @@ begin
         else if AfterCRLF then
         begin
           PendingWS:= '';
-          EffectiveDepth:= Stack.Count + ParensDepth;
-          if T.Kind in [ptRoundClose, ptSquareClose] then
-            EffectiveDepth:= Max(0, EffectiveDepth - 1);
+          // Open brackets indent one level per LINE that opened some (task 6):
+          // `Writeln(Format('%d', [K, // c` continues one level in, not three.
+          // A closer leading the line drops its own bracket first.
+          EffectiveDepth:= Stack.Count + ParenLevels(T.Kind in [ptRoundClose, ptSquareClose]);
           if T.Kind in [ptEnd, ptUntil] then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           // A class/record `end` that follows an open var/const/type section
           // implicitly closes that section, so dedent past it to align the `end`
           // with the class/record opener (sections have no `end` of their own).
-          if (T.Kind = ptEnd) and (StackTop in [ptType, ptVar, ptConst]) then
+          if (T.Kind = ptEnd) and (StackTop in [ptType, ptVar, ptConst, VARIANT_MARK]) then
+            EffectiveDepth:= Max(0, EffectiveDepth - 1);
+          // A record's variant part closes an open var/const/type section too
+          // (advanced record: `var Count: Integer; case Roomy: Boolean of`), so
+          // its case line sits at the record level, task 6.
+          if (T.Kind = ptCase) and (ParensDepth = 0) and (StackTop in [ptType, ptVar, ptConst]) and CaseIsVariantPart then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
           if T.Kind in [ptExcept, ptFinally] then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
@@ -7137,7 +7368,7 @@ begin
           // it sits at the section keyword's level, not under its fields.
           if IsRoutineAfterSection(i) then
             EffectiveDepth:= Max(0, EffectiveDepth - 1);
-          if (T.Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) and (not InClassOrRecord) and (ParensDepth = 0) then
+          if (T.Kind in [ptProcedure, ptFunction, ptConstructor, ptDestructor]) and (not InClassOrRecord) and (ParensDepth = 0) and not AnonRoutineInStatement then
             // ParensDepth = 0: only a REAL proc/function declaration snaps to the
             // proc-region column. An anonymous method inside an expression
             // (ParensDepth > 0, e.g. List.Sort(function ... end)) keeps the normal
@@ -7192,6 +7423,7 @@ begin
           begin
             EffectiveDepth:= DirMarks[DirMarks.Count - 1].Depth;
             ParensDepth   := DirMarks[DirMarks.Count - 1].Parens;
+            SyncParenLines;
             // Same for routine headers still waiting for their body.
             OpenProcRegions:= Min(OpenProcRegions, DirMarks[DirMarks.Count - 1].Procs);
             while PendingProcStack.Count > DirMarks[DirMarks.Count - 1].Pending do
@@ -7218,8 +7450,16 @@ begin
           // list at depth 1 (skipped), and the closing `;` back at depth 0.
           NoteClassHeaderToken(T.Kind);
           case T.Kind of
-            ptRoundOpen, ptSquareOpen  : Inc(ParensDepth)                        ;
-            ptRoundClose, ptSquareClose: if ParensDepth > 0 then Dec(ParensDepth);
+            ptRoundOpen, ptSquareOpen:
+            begin
+              Inc(ParensDepth);
+              ParenLines.Add(LineNo);
+            end;
+            ptRoundClose, ptSquareClose: if ParensDepth > 0 then
+            begin
+              Dec(ParensDepth);
+              SyncParenLines;
+            end;
             ptLower                    : if (AngleDepth > 0) or GenericOpen then Inc(AngleDepth);
             ptGreater                  : if AngleDepth > 0 then Dec(AngleDepth)        ;
             ptType, ptVar, ptConst, ptResourcestring, ptThreadvar: if (ParensDepth = 0) and (SectionKindOf(T.Kind) <> ptUnknown)
@@ -7239,7 +7479,7 @@ begin
                 InVisibility   := False;
               ExpectSectionDecl:= True;
             end; // if
-            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (ParensDepth = 0) and (AngleDepth = 0) and not (PrevNonKind in [ptEqual, ptTo, ptColon]) then
+            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (ParensDepth = 0) and (AngleDepth = 0) and (PrevNonKind not in [ptEqual, ptTo, ptColon]) and not AnonRoutineInStatement then
               // ParensDepth = 0 distinguishes a real procedure/function
               // declaration from an inline anonymous method expression
               // (e.g. CallSomething(procedure(X) begin ... end)). The
@@ -7310,8 +7550,15 @@ begin
               // nested, and the after-a-var-section (advanced record) position.
               // Like `end`, the variant part closes any open var/const/type
               // section: the case line dedents back to the record level.
+              // Its arms indent one level under the case line (task 6): a
+              // VARIANT_MARK entry gives them that level; the record's `end`
+              // pops it together with the record.
               if CaseIsVariantPart then
-                CloseSectionIfOpen
+              begin
+                CloseSectionIfOpen;
+                if ParensDepth = 0 then
+                  StackPush(VARIANT_MARK);
+              end
               else
                 StackPush(T.Kind);
               InVisibility:= False;
@@ -7357,6 +7604,8 @@ begin
             ptEnd:
             begin
               CloseSectionIfOpen; // an open var/const/type section is closed by this end
+              if StackTop = VARIANT_MARK then
+                StackPop; // the record's variant part ends with the record
               StackPop; // then pop the begin/class/record/... block itself
               InVisibility:= False;
             end;
@@ -7398,6 +7647,7 @@ begin
       Result:= OutVal.ToString;
     finally
       PendingProcStack.Free;
+      ParenLines.Free;
       IsProcBody.Free;
       DirMarks.Free;
       CtrlStack.Free;

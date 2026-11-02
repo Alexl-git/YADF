@@ -13,11 +13,11 @@ var
   P: TProc;
 begin
   P:= procedure
-    begin
-      var Z: Integer:= 3;
-      WriteLn(Z);
-    end;
-    P();
+  begin
+    var Z: Integer:= 3;
+    WriteLn(Z);
   end;
+  P();
+end;
 
 end.

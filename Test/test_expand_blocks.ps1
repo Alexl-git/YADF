@@ -31,8 +31,8 @@ MustMatch $off "(?m)^    S:= 'a; b begin end';\r?$" 'string literal kept whole'
 MustMatch $off '(?m)^  if C then\r\n  begin\r\n    Log\(5\); \{ keep \}\r\n    Y;\r\n  end;\r?$' 'comment block expanded, comment kept with Log(5)'
 # directive inside: left exactly as written
 MustMatch $off '(?m)^  if B then begin \{\$IFDEF DEBUG\} Log\(9\); \{\$ENDIF\} Y; end;\r?$' 'directive block untouched'
-# end else <stmt> keeps the else on the end line
-MustMatch $off '(?m)^  if B then\r\n  begin\r\n    Log\(6\);\r\n    Y;\r\n  end else Log\(7\);\r?$' 'end else stmt'
+# end else <stmt> keeps the else on the end line; its body goes under it (BreakIfBody, task 6)
+MustMatch $off '(?m)^  if B then\r\n  begin\r\n    Log\(6\);\r\n    Y;\r\n  end else\r\n    Log\(7\);\r?$' 'end else stmt'
 # begin on its own line after the header
 MustMatch $off '(?m)^  if C then\r\n  begin\r\n    Log\(8\);\r\n    Y;\r\n  end;\r?$' 'begin-led line expanded'
 

@@ -67,7 +67,8 @@ begin
   begin
     Log(6);
     Y;
-  end else Log(7);
+  end else
+    Log(7);
   if C then
   begin
     Log(8);
