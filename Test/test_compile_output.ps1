@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
 $exe   = Get-YadfExe
 $ini   = Get-RepoIni
-$dcc   = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc64.exe'
+$dcc   = Get-Dcc64
 
 Assert-ToolOrSkip 'compile_output' $exe
 # A missing compiler is a FAILURE, not a skip: a silent skip lets the gate rot.
@@ -59,8 +59,10 @@ finally {
 }
 
 # Floor: if most fixtures silently stop compiling standalone (e.g. a broken
-# toolchain), the gate would 'pass' vacuously. Current corpus: 58.
-$floor = 50
+# toolchain), the gate would 'pass' vacuously. Current corpus: 100 of 133
+# compile standalone (2026-11-02); the floor sits just under that so losing
+# more than a handful is a FAIL, not a quiet shrink.
+$floor = 95
 if ($compiled -lt $floor) { $fail++; Write-Output "FAIL [floor]: only $compiled fixtures compiled standalone (< $floor)" }
 
 Write-Output "compile_output: $changed output(s) differ from input"

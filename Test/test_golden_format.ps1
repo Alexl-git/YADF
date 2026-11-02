@@ -14,11 +14,17 @@
 # files (e.g. umlauts.pas) and encodings are handled exactly as YADF emits them.
 #
 # Usage:
-#   pwsh Test\test_golden_format.ps1            # verify: diff each file vs its golden
-#   pwsh Test\test_golden_format.ps1 -Capture   # (re)generate goldens from current exe
+#   pwsh Test\test_golden_format.ps1                    # verify: diff each file vs its golden
+#   pwsh Test\test_golden_format.ps1 -Capture           # write NEW goldens; show the diff of every
+#                                                       # CHANGED one and write none of them
+#   pwsh Test\test_golden_format.ps1 -Capture -Accept   # after reviewing that diff: bless the changes
 #
-# Exit 0 = all match / captured; 1 = mismatches.
-param([switch]$Capture)
+# No silent re-bless (review 2026-10-14 #9: a blind -Capture blessed corrupted
+# asm goldens): an existing golden is only overwritten with -Accept, and every
+# overwrite is preceded by its diff in the output.
+#
+# Exit 0 = all match / captured; 1 = mismatches, or changed goldens awaiting -Accept.
+param([switch]$Capture, [switch]$Accept)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
@@ -45,6 +51,21 @@ $files = Get-ChildItem (Join-Path $PSScriptRoot 'Cases'), (Join-Path $PSScriptRo
 # SameBytes comes from TestLib.ps1.
 $fail = 0
 $capFail = 0
+$capNew = 0       # goldens written for fixtures that had none
+$capPending = 0   # changed goldens shown but not written (no -Accept)
+$capBlessed = 0   # changed goldens overwritten under -Accept
+
+# Unified diff of an existing golden vs the new capture ('-' = golden, '+' = new),
+# via git's no-index diff. Capped so one rewritten file cannot flood the run.
+function Show-GoldenDiff([string]$goldPath, [string]$newPath, [string]$name) {
+  $maxLines = 60
+  $d = @(& git -c core.autocrlf=false diff --no-index --no-color --text -- $goldPath $newPath 2>&1 | ForEach-Object { "$_" })
+  Write-Output "CHANGED golden: $name"
+  foreach ($x in ($d | Select-Object -First $maxLines)) { Write-Output "  $x" }
+  if ($d.Count -gt $maxLines) { Write-Output "  ... $($d.Count - $maxLines) more diff line(s)" }
+}
+
+if ($Accept -and -not $Capture) { Write-Output 'golden_format: -Accept only applies with -Capture'; exit 1 }
 # Per-run scratch dir for the verify-mode outputs (no fixed temp names).
 $goldTmp = Join-Path $env:TEMP ('gold_' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $goldTmp | Out-Null
@@ -64,7 +85,11 @@ foreach ($f in $files) {
       if ((Test-DccCompiles $f.FullName $f.DirectoryName $dcu) -and -not (Test-DccCompiles $ctmp $f.DirectoryName $dcu)) {
         $capFail++; Write-Output "FAIL [capture refused: fixture compiles but new output does not]: $($f.Name)"; continue
       }
-      Copy-Item $ctmp $gold -Force
+      if (-not (Test-Path $gold)) { Copy-Item $ctmp $gold; $capNew++; Write-Output "NEW golden: $($f.Name)"; continue }
+      if (SameBytes $gold $ctmp) { continue }
+      Show-GoldenDiff $gold $ctmp $f.Name
+      if ($Accept) { Copy-Item $ctmp $gold -Force; $capBlessed++ }
+      else { $capPending++ }
     }
     finally { [IO.Directory]::Delete($cdir, $true) }
   }
@@ -96,7 +121,11 @@ if (-not $Capture) {
 
 if ($Capture) {
   if ($capFail -gt 0) { Write-Output "golden_format: capture REFUSED/failed for $capFail file(s)"; exit 1 }
-  Write-Output ("golden_format: captured {0} files" -f $files.Count); exit 0
+  if ($capPending -gt 0) {
+    Write-Output ("golden_format: {0} golden(s) CHANGED and NOT written ({1} new written) -- review the diffs above, then re-run with -Capture -Accept" -f $capPending, $capNew)
+    exit 1
+  }
+  Write-Output ("golden_format: captured -- {0} new, {1} changed and blessed, {2} unchanged" -f $capNew, $capBlessed, ($files.Count - $capNew - $capBlessed)); exit 0
 }
 if ($fail -eq 0) { Write-Output ("golden_format: PASS ({0} files unchanged + idempotent)" -f $files.Count); exit 0 }
 else { Write-Output "golden_format: $fail FAILURE(S)"; exit 1 }

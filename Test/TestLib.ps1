@@ -84,7 +84,9 @@ function New-TempOut([string]$ext = '.pas') { Join-Path $env:TEMP ("yt_" + [guid
 
 # dcc64 + standalone-compile helper shared by the compile gate and the golden
 # -Capture guard. $dcuDir must exist; $incDir is the fixture dir ({$I} files).
-function Get-Dcc64 { 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc64.exe' }
+# $env:YADF_TEST_DCC64 overrides the compiler (used to prove the compile gate
+# goes RED on a missing or broken dcc64 instead of skipping).
+function Get-Dcc64 { if ($env:YADF_TEST_DCC64) { $env:YADF_TEST_DCC64 } else { 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\dcc64.exe' } }
 function Test-DccCompiles([string]$pasFile, [string]$incDir, [string]$dcuDir) {
   $ns = 'System;System.Win;Winapi;Vcl;Data;Soap;Xml'
   & (Get-Dcc64) -Q "-NS$ns" "-N0$dcuDir" "-E$dcuDir" "-I$incDir" $pasFile *> $null

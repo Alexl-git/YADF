@@ -145,6 +145,33 @@ try {
       Fail "$($c.n): --stdout bytes differ from --o bytes (stdout $($sb.Length) vs o $($ob.Length))"
     }
   }
+
+  # ----- 7. --stdout keeps characters OUTSIDE the ANSI code page (review #5):
+  #       Cyrillic, accented Latin and an emoji (a surrogate pair) in string
+  #       literals of a BOM-less UTF-8 file and a UTF-8-with-BOM file must reach
+  #       stdout as their exact UTF-8 bytes, never as '?'. Proven red against a
+  #       stub that re-encodes stdout to the ANSI code page (the pre-WP9 path). -----
+  $u8 = New-Object Text.UTF8Encoding($false)
+  $lits = @(
+    ("'" + [string]::new([char[]](0x041F, 0x0440, 0x0438, 0x0432, 0x0435, 0x0442)) + "'"),   # Cyrillic
+    ("'" + [string]::new([char[]](0x00E9, 0x00FC, 0x00F1)) + "'"),                           # accented
+    ("'" + [char]::ConvertFromUtf32(0x1F600) + "'"))                                           # emoji
+  # The marker ends the `//` line and adds a const section with the three literals.
+  $wideMarker = $u8.GetBytes("wide`r`nconst`r`n  C1 = $($lits[0]);`r`n  C2 = $($lits[1]);`r`n  C3 = $($lits[2]);")
+  foreach ($c in @(@{ n = 'so_wide_nobom'; pre = [byte[]]@() }, @{ n = 'so_wide_bom'; pre = $utf8Bom })) {
+    $f = WriteCase ($c.n + '.pas') $wideMarker $c.pre
+    $sFile = Join-Path $tmpDir ($c.n + '.stdout')
+    Start-Process -FilePath $exe -ArgumentList @('--ini', $ini, $f, '--stdout') -RedirectStandardOutput $sFile -NoNewWindow -Wait
+    $sb = [IO.File]::ReadAllBytes($sFile)
+    MustBeFormatted $sb ($c.n + ' (--stdout)')
+    foreach ($l in $lits) {
+      if ((CountBytes $sb $u8.GetBytes($l)) -ne 1) { Fail "$($c.n): literal $l not on stdout as its exact UTF-8 bytes" }
+    }
+    if (BytesContain $sb ([Text.Encoding]::ASCII.GetBytes("'?"))) { Fail "$($c.n): non-ANSI characters became '?'" }
+    if (($c.pre.Length -gt 0) -ne ($sb.Length -ge 3 -and $sb[0] -eq 0xEF -and $sb[1] -eq 0xBB -and $sb[2] -eq 0xBF)) {
+      Fail "$($c.n): stdout BOM does not match the input file's"
+    }
+  }
 }
 finally {
   Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
