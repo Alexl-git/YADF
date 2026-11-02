@@ -1,7 +1,7 @@
 ---
 id: backup
 title: Backup before overwrite
-summary: Create a backup of every file before overwriting it.
+summary: Create a backup of every file before overwriting it, and of an edited preview sample (Sample.pas.bak) before a newer YADF replaces it.
 group: file-cli-no-preview-effect
 order: 10
 default: "false"
@@ -16,6 +16,9 @@ Backups are OPT-IN. With Backup=false (default), in-place formatting
 overwrites the source with no copy of the original. Set Backup=true
 (or pass --b on the command line) to write a backup before the
 in-place edit. Irrelevant when ResultDir is set.
+The same switch governs the preview sample: when a newer YADF
+replaces an edited %APPDATA%\YADF\Sample.pas, the old copy is kept as
+Sample.pas.bak only with Backup=true (one generation).
 
 ## Example
 

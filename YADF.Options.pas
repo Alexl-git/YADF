@@ -643,13 +643,14 @@ type
   /// <remarks>ssKeep: the copy stays as it is. ssSeed: there is no copy; the
   /// embedded sample is written. ssReseed: an unedited copy of an older sample
   /// is replaced. ssBackupAndReseed: an edited or unstamped copy is first saved
-  /// as Sample.pas.bak (replacing an older .bak), then replaced.</remarks>
+  /// as Sample.pas.bak (replacing an older .bak), then replaced -- only when the
+  /// user's Backup option is on; with it off such a copy is replaced (ssReseed).</remarks>
   TSampleSeedAction = (ssKeep, ssSeed, ssReseed, ssBackupAndReseed);
 
 const
   /// <summary>Start of the stamp on line 1 of Demo\Sample.pas:
-  /// `// YADF-Sample &lt;version&gt; &lt;md5&gt;` -- the YADF version that last
-  /// changed the sample and the SampleBodyHash of the sample as shipped.</summary>
+  /// `// YADF-Sample &lt;version&gt; &lt;md5&gt;` -- YADF_VERSION of the build
+  /// (sync_version.ps1 keeps it equal) and the SampleBodyHash of the sample as shipped.</summary>
   SAMPLE_STAMP_TAG = '// YADF-Sample ';
 
 /// <summary>Reads the version stamp on line 1 of a preview sample.</summary>
@@ -673,9 +674,10 @@ function SampleBodyHash(const AText: string): string;
 /// <param name="AUserText">The user's copy (ignored when AExists is False).</param>
 /// <param name="AEmbeddedText">The sample embedded in the running host.</param>
 /// <returns>ssSeed when there is no copy. ssKeep when the embedded sample has no
-/// stamp, when both stamps are equal, or when the copy's stamp version is newer
+/// stamp, when both stamps carry the same hash (the same shipped sample, whatever
+/// the version), or when the copy's stamp version is newer
 /// (an older YADF never downgrades it). Otherwise the embedded sample is newer
-/// (higher version, or the same version with another hash): ssReseed when the
+/// (another hash at a higher or the same version): ssReseed when the
 /// copy is unedited (its body hash equals the hash in its own stamp), else
 /// ssBackupAndReseed. A copy without a stamp gets ssBackupAndReseed: a
 /// pre-stamp shipped sample and the user's own file cannot be told apart.</returns>
@@ -686,13 +688,16 @@ function DecideSampleSeed(AExists: Boolean; const AUserText, AEmbeddedText: stri
 /// as DecideSampleSeed says.</summary>
 /// <param name="APath">The user's copy, normally %APPDATA%\YADF\Sample.pas.</param>
 /// <param name="AEmbedded">Bytes of the embedded sample, written verbatim.</param>
-/// <returns>The action taken.</returns>
+/// <param name="ABackup">The user's Backup option. True: an edited or unstamped copy
+/// is first saved as APath + '.bak'. False: it is replaced without a copy.</param>
+/// <returns>The action taken: ssBackupAndReseed only when ABackup is True; with
+/// ABackup False the same decision is carried out (and returned) as ssReseed.</returns>
 /// <exception cref="EInOutError">Raised (like the other System.IOUtils file
 /// errors) when the copy cannot be read, backed up or written.</exception>
 /// <remarks>A backup goes to APath + '.bak', replacing an existing one. Both
 /// files are decoded as UTF-8 (a BOM is ignored); an undecodable copy hashes
 /// differently and so is backed up, never lost. Not thread-safe per file.</remarks>
-function SyncSampleFile(const APath: string; const AEmbedded: TBytes): TSampleSeedAction;
+function SyncSampleFile(const APath: string; const AEmbedded: TBytes; ABackup: Boolean): TSampleSeedAction;
 
 implementation
 
@@ -1023,7 +1028,7 @@ begin
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Hoist inline vars (Delphi 10.2.3)',
       'Hoist inline var declarations into a var block so the code builds on Delphi 10.2.3. Best-effort.'  // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.'
       , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.Delphi10Compat end, procedure(var O: TYadfOptions; const V: Variant) begin O.Delphi10Compat:= V end),
-    MakeOpt('Backup', 'File & CLI (no preview effect)', 'Backup before overwrite', 'Create a backup of every file before overwriting it.', okBool, False,
+    MakeOpt('Backup', 'File & CLI (no preview effect)', 'Backup before overwrite', 'Create a backup of every file before overwriting it, and of an edited preview sample (Sample.pas.bak) before a newer YADF replaces it.', okBool, False,
       function(const O: TYadfOptions): Variant begin Result:= O.Backup end, procedure(var O: TYadfOptions; const V: Variant) begin O.Backup:= V end),
     MakeOpt('BackupDir', 'File & CLI (no preview effect)', 'Backup directory', 'Directory for backups (used when backup is on). Empty = next to the original file.', okString, False,
       function(const O: TYadfOptions): Variant begin Result:= O.BackupDir end, procedure(var O: TYadfOptions; const V: Variant) begin O.BackupDir:= VarToStr(V) end),
@@ -1579,12 +1584,13 @@ begin
   if not ParseSampleStamp(AUserText, UsrVer, UsrHash) then
     Exit(ssBackupAndReseed);
   Cmp:= CompareDottedVersion(EmbVer, UsrVer);
-  if (Cmp < 0) or ((Cmp = 0) and (EmbHash = UsrHash)) then
+  // Same shipped sample (task 11: the stamp version follows every bump): keep.
+  if (Cmp < 0) or (EmbHash = UsrHash) then
     Exit(ssKeep);
   Result:= if SampleBodyHash(AUserText) = UsrHash then ssReseed else ssBackupAndReseed;
 end; // function
 
-function SyncSampleFile(const APath: string; const AEmbedded: TBytes): TSampleSeedAction;
+function SyncSampleFile(const APath: string; const AEmbedded: TBytes; ABackup: Boolean): TSampleSeedAction;
 var
   Exists  : Boolean;
   UserText: string ;
@@ -1594,6 +1600,9 @@ begin
   Result  := DecideSampleSeed(Exists, UserText, SampleText(AEmbedded));
   if Result = ssKeep then
     Exit;
+  // Owner 2026-11-02: the .bak follows the Backup switch (CLI --b / INI Backup).
+  if (Result = ssBackupAndReseed) and not ABackup then
+    Result:= ssReseed;
   if Result = ssBackupAndReseed then
     TFile.Copy(APath, APath + '.bak', True);
   if not ForceDirectories(ExtractFilePath(APath)) then

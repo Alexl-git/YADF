@@ -282,7 +282,7 @@ type
       /// sample file. Line 1 of the sample carries a stamp (`// YADF-Sample
       /// version md5`); SyncSampleFile replaces a copy whose stamp is older than
       /// the embedded one, first saving an edited or unstamped copy as
-      /// Sample.pas.bak. A copy of the current sample is never overwritten, edited
+      /// Sample.pas.bak when the Backup option is on (replaced without a copy when off). A copy of the current sample is never overwritten, edited
       /// or not; deleting it re-seeds the shipped demo. If the seed cannot be
       /// written the memo is filled straight from the resource.
       /// <!-- drag-lint:auto BEGIN -->
@@ -1787,8 +1787,8 @@ begin
   Path:= TPath.Combine(ProfilesDir, 'Sample.pas');
   try
     // Seeds a missing copy and upgrades an older one (task 8c); an edited or
-    // unstamped older copy is saved as Sample.pas.bak first.
-    Action:= SyncSampleFile(Path, EmbeddedSample);
+    // unstamped older copy is saved as Sample.pas.bak first when Backup is on.
+    Action:= SyncSampleFile(Path, EmbeddedSample, FOpts.Backup);
     if TFile.GetSize(Path) > MAX_SAMPLE_BYTES then
     begin
       LoadBuiltIn(ExtractFileName(Path) + ' is larger than 256 KB');

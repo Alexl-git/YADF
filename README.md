@@ -36,7 +36,7 @@ what you change here is what `YADF.exe` and `YADFOT.bpl` use.
    written to `%APPDATA%\YADF\Sample.pas` and loaded, so you immediately see
    formatting at work. Edit that file to preview your own code; delete it to get
    the shipped demo back. When a newer YADF ships a newer demo it replaces the
-   file, saving an edited copy as `Sample.pas.bak` first.
+   file, saving an edited copy as `Sample.pas.bak` first when Backup is on.
 3. **First run creates the config.** If no `yadf.ini` exists yet, YADFSetup
    writes a fully-commented one to `%APPDATA%\YADF\yadf.ini` and starts editing
    it (see [Where the INI lives](#where-the-ini-lives)).

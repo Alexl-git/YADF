@@ -20,7 +20,10 @@ set YADF_MINOR=0
 set YADF_RELEASE=20
 set YADF_BUILD=0
 set YADF_VER=%YADF_MAJOR%.%YADF_MINOR%.%YADF_RELEASE%.%YADF_BUILD%
-rem NOTE: keep YADF.Version.inc YADF_VERSION in sync with the above.
+rem Bump with: pwsh sync_version.ps1 -Version N.N.N.N (rewrites the lines above).
+rem The call below syncs YADF.Version.inc, the Demo\Sample.pas stamp and
+rem YADFSample.RES to this version (Test\test_sample_resource.ps1 checks all three).
+pwsh -NoProfile -File "%~dp0sync_version.ps1" || goto :err
 
 call "C:\Program Files (x86)\Embarcadero\Studio\37.0\bin\rsvars.bat"
 

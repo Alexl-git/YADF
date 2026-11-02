@@ -406,25 +406,36 @@ begin
   Check('sample: older stamp (fewer parts) -> reseed', DecideSampleSeed(True, Stamped('1.0.9', BODY), Emb) = ssReseed);
   Check('sample: newer stamp (downgrade) -> keep', DecideSampleSeed(True, Stamped('1.0.100.0', BODY), Emb) = ssKeep);
   Check('sample: same version, other sample -> reseed', DecideSampleSeed(True, Stamped('1.0.21.0', BODY), Emb) = ssReseed);
+  // Task 11: the stamp follows every version bump, so a newer version with the SAME sample
+  // must not touch the copy -- an edited one would otherwise be replaced on every release.
+  Check('sample: newer version, same sample, edited -> keep', DecideSampleSeed(True, Stamped('1.0.20.0', BODY2) + '// mine'#13#10, Emb) = ssKeep);
+  Check('sample: newer version, same sample, unedited -> keep', DecideSampleSeed(True, Stamped('1.0.20.0', BODY2), Emb) = ssKeep);
   Check('sample: unstamped embedded sample -> keep', DecideSampleSeed(True, BODY, BODY2) = ssKeep);
 
   Dir:= TPath.Combine(TPath.GetTempPath, 'yadf_sample_' + IntToStr(GetCurrentProcessId));
   F  := TPath.Combine(Dir, 'Sample.pas');
   EmbB:= TEncoding.UTF8.GetBytes(Emb);
   try
-    Act:= SyncSampleFile(F, EmbB);
+    Act:= SyncSampleFile(F, EmbB, True);
     Check('sample file: missing -> seeded, folder created', (Act = ssSeed) and (TFile.ReadAllText(F) = Emb));
     TFile.WriteAllText(F, Emb + '// mine'#13#10);
-    Act:= SyncSampleFile(F, EmbB);
+    Act:= SyncSampleFile(F, EmbB, True);
     Check('sample file: edited copy of the same sample kept as is', (Act = ssKeep) and TFile.ReadAllText(F).EndsWith('// mine'#13#10) and not TFile.Exists(F + '.bak'));
     TFile.WriteAllText(F, Stamped('1.0.20.0', BODY) + '// mine'#13#10);
-    Act:= SyncSampleFile(F, EmbB);
+    Act:= SyncSampleFile(F, EmbB, True);
     Check('sample file: edited older copy -> .bak + reseeded', (Act = ssBackupAndReseed) and (TFile.ReadAllText(F) = Emb) and
       TFile.ReadAllText(F + '.bak').EndsWith('// mine'#13#10));
     TFile.Delete(F + '.bak');
     TFile.WriteAllText(F, Stamped('1.0.20.0', BODY));
-    Act:= SyncSampleFile(F, EmbB);
+    Act:= SyncSampleFile(F, EmbB, True);
     Check('sample file: unedited older copy -> reseeded, no .bak', (Act = ssReseed) and (TFile.ReadAllText(F) = Emb) and not TFile.Exists(F + '.bak'));
+    // Task 11 (owner 2026-11-02): the .bak follows the user's Backup switch.
+    TFile.WriteAllText(F, Stamped('1.0.20.0', BODY) + '// mine'#13#10);
+    Act:= SyncSampleFile(F, EmbB, False);
+    Check('sample file: backup off, edited older copy -> reseeded, no .bak', (Act = ssReseed) and (TFile.ReadAllText(F) = Emb) and not TFile.Exists(F + '.bak'));
+    TFile.WriteAllText(F, BODY);
+    Act:= SyncSampleFile(F, EmbB, False);
+    Check('sample file: backup off, unstamped copy -> reseeded, no .bak', (Act = ssReseed) and (TFile.ReadAllText(F) = Emb) and not TFile.Exists(F + '.bak'));
   finally
     if TDirectory.Exists(Dir) then
       TDirectory.Delete(Dir, True);
