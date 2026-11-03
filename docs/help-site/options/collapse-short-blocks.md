@@ -6,6 +6,19 @@ group: bodies-and-blocks
 order: 50
 default: "false"
 ini: CollapseShortBlocks
+cli: --collapse-blocks
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: collapse-short-blocks
+title: Fold short begin..end onto one line
+summary: Fold a short begin..end body of if/for/while/with, a case arm or the case else onto one line when it fits; off = expand such one-line blocks. Off by default.
+group: bodies-and-blocks
+order: 50
+default: "false"
+ini: CollapseShortBlocks
+cli: --collapse-blocks
 since: "1.0.0.0"
 status: "stable"
 ---

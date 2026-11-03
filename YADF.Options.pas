@@ -34,9 +34,9 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Layout.pas), [YADF]declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), [YADF]declaration (YadfMain.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParams (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.EnforceBlankLines (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/2 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.LayoutControlBodies (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Options.ApplyPackShortBodiesAlias (YADF.Options.pas), [YADF]YADF.Options.ClampOptions (YADF.Options.pas),
-  /// [YADF]YADF.Options.DefaultOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.CheckDir (YadfMain.pas), [YADF]YadfMain.CheckFile (YadfMain.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ExpandFileSpec (YadfMain.pas), [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.FormatToStdout (YadfMain.pas), [YADF]YadfMain.LoadFile (YadfMain.pas), [YADF]YadfMain.LoadIniDefaults (YadfMain.pas), [YADF]YadfMain.LogStartup (YadfMain.pas), [YADF]YadfMain.ParseDprojUnits (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.ParseFlags (YadfMain.pas), [YADF]YadfMain.ProcessFiles (YadfMain.pas), [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADF]YadfMain.RunYadf (YadfMain.pas),
-  /// [YADF]YadfMain.ShowUsage (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Layout.pas), [YADF]declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), [YADF]declaration (YadfMain.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParams (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParamsAndSplit (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.EnforceBlankLines (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/2 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.LayoutControlBodies (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Options.ApplyPackShortBodiesAlias (YADF.Options.pas),
+  /// [YADF]YADF.Options.ClampOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.ResolveOptions (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.CheckDir (YadfMain.pas), [YADF]YadfMain.CheckFile (YadfMain.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ExpandFileSpec (YadfMain.pas), [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.FormatToStdout (YadfMain.pas), [YADF]YadfMain.LoadFile (YadfMain.pas), [YADF]YadfMain.LoadIniDefaults (YadfMain.pas), [YADF]YadfMain.LogStartup (YadfMain.pas), [YADF]YadfMain.ParseDprojUnits (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas),
+  /// [YADF]YadfMain.ParseFlags (YadfMain.pas), [YADF]YadfMain.ProcessFiles (YadfMain.pas), [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADF]YadfMain.RunYadf (YadfMain.pas), [YADF]YadfMain.ShowUsage (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
   /// <para>Used in units: [YADF]YADF.Layout, [YADF]YADF.Options, [YADF]YadfMain, YADFOT.Wizard</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -121,7 +121,7 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.MakeOpt (YADF.Options.pas), [YADF]YADF.Options.OptionHelpId (YADF.Options.pas), [YADF]YADF.Options.OptionHint (YADF.Options.pas), [YADF]YADF.Options.OptionsHelpText (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.ClampOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.MakeOpt (YADF.Options.pas), [YADF]YADF.Options.OptionHelpId (YADF.Options.pas), [YADF]YADF.Options.OptionHint (YADF.Options.pas), [YADF]YADF.Options.OptionsHelpText (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)</para>
   /// <para>Used in units: YADF.Options</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -148,10 +148,11 @@ const
 /// CaseArmOnLabelLine ON.</summary>
 /// <param name="AOpts">Options to update in place.</param>
 /// <remarks>
-/// Used by the INI loader (PackShortBodies=true) and the CLI
-/// (--pack-bodies). PackShortBodies=false / --no-pack-bodies change nothing.
+/// Applied by ResolveOptions after every INI key and CLI flag was read, when
+/// PackShortBodies=true or --pack-bodies asked for it (and --no-pack-bodies did
+/// not cancel it); a Break*Body set explicitly anywhere keeps its value.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YadfMain.ParseFlags (YadfMain.pas)</para>
+/// <para>Called from: [YADF]YADF.Options.ResolveOptions (YADF.Options.pas)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure ApplyPackShortBodiesAlias(var AOpts: TYadfOptions);
@@ -171,7 +172,7 @@ function DefaultOptions: TYadfOptions;
 /// <returns>Observed: O.MaxLen end,; O.Indent end,; O.TabWidth end,; O.ReflowLines end,; O.TrimTrailing end,; O.MaxBlankLines end,.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YADF.Options.OptionsHelpText (YADF.Options.pas), YADF.Options.SaveOptionsToIni (YADF.Options.pas), YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)</para>
+/// <para>Called from: [YADF]YADF.Options.ClampOptions (YADF.Options.pas), [YADF]YADF.Options.OptionsHelpText (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)</para>
 /// <para>Calls: VarToStr, YADF.Options.EncodingToStr, YADF.Options.MakeOpt, YADF.Options.ParseEncoding</para>
 /// <para>Returns: GOptTable</para>
 /// <seealso cref="YADF.Options.EncodingToStr"/>
@@ -257,7 +258,7 @@ procedure DetectSourceEncoding(const ABytes: TBytes; out AEnc: TEncoding; out AP
 /// <returns>Observed: ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: [YADF]YADF.Options.LoadNativeFormatterFlag (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas)</para>
+/// <para>Called from: [YADF]YADF.Options.LoadNativeFormatterFlag (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas)</para>
 /// <para>Calls: LowerCase, YADF.Options.StripIniComment</para>
 /// <para>Returns: ADefault</para>
 /// <seealso cref="YADF.Options.StripIniComment"/>
@@ -282,7 +283,7 @@ function ReadBoolIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: B
 /// <returns>Observed: ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas)</para>
+/// <para>Called from: [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas)</para>
 /// <para>Calls: Pos, Trim, TryStrToInt</para>
 /// <para>Returns: ADefault</para>
 /// <!-- drag-lint:auto END -->
@@ -374,13 +375,11 @@ function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.LoadIniDefaults (YadfMain.pas), YADFOT.Wizard.LoadIniDefaults (YADFOT.Wizard.pas)</para>
-/// <para>Calls: FileExists, YADF.Options.ApplyPackShortBodiesAlias, YADF.Options.ClampOptions, YADF.Options.DefaultOptions, YADF.Options.OptionTable, YADF.Options.ReadBoolIni, YADF.Options.ReadIntIni, YADF.Options.StripIniComment</para>
+/// <para>Calls: Default, YADF.Options.DefaultOptions, YADF.Options.ReadOptionsFromIni, YADF.Options.ResolveOptions</para>
 /// <para>Returns: DefaultOptions</para>
-/// <seealso cref="YADF.Options.ApplyPackShortBodiesAlias"/>
-/// <seealso cref="YADF.Options.ClampOptions"/>
 /// <seealso cref="YADF.Options.DefaultOptions"/>
-/// <seealso cref="YADF.Options.OptionTable"/>
-/// <seealso cref="YADF.Options.ReadBoolIni"/>
+/// <seealso cref="YADF.Options.ReadOptionsFromIni"/>
+/// <seealso cref="YADF.Options.ResolveOptions"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 
@@ -398,13 +397,54 @@ function LoadOptionsFromIni(const APath: string): TYadfOptions;
 /// CLI after its flags. Before 2026-10-14 nothing was checked: Indent=-3 with
 /// MaxLen=0 produced zero-indented output with every operator on its own line.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)</para>
-/// <para>Calls: Format, StringReplace, YADF.Options.ClampOptions.Fix</para>
+/// <para>Called from: [YADF]YADF.Options.ResolveOptions (YADF.Options.pas)</para>
+/// <para>Calls: EnsureRange, Format, SameText, StringReplace, YADF.Options.OptionTable</para>
 /// <para>Returns: StringReplace(Changes.DelimitedText, ',', ', ', [rfReplaceAll])</para>
-/// <seealso cref="YADF.Options.ClampOptions.Fix"/>
+/// <seealso cref="YADF.Options.OptionTable"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function ClampOptions(var AOpts: TYadfOptions): string;
+
+/// <summary>The valid range of an integer option, the single table ClampOptions
+/// and the Options page spin edits both read.</summary>
+/// <param name="AIdent">Option identifier (INI key), e.g. 'MaxLen'.</param>
+/// <param name="AMin">Smallest valid value.</param>
+/// <param name="AMax">Largest valid value (MaxInt = unbounded).</param>
+/// <returns>False when AIdent has no range rule (AMin = 0, AMax = MaxInt).</returns>
+function OptionBounds(const AIdent: string; out AMin, AMax: Integer): Boolean;
+
+type
+  /// <summary>What phase 1 of option resolution saw besides the plain values:
+  /// the retired PackShortBodies alias and which Break*Body options were set
+  /// explicitly (INI key present or CLI flag given).</summary>
+  /// <remarks>REVIEW-2026-11-02 options M4 (owner decision): values are read from
+  /// the INI and the CLI first, derived rules are applied once afterwards by
+  /// ResolveOptions, so neither key nor argument order matters.</remarks>
+  TOptionOverrides = record
+    PackAlias   : Boolean; // PackShortBodies=true in the INI, or --pack-bodies
+    NoPackAlias : Boolean; // --no-pack-bodies: cancels the alias
+    ExplicitIf  : Boolean; // BreakIfBody set explicitly
+    ExplicitLoop: Boolean; // BreakLoopBody set explicitly
+    ExplicitWith: Boolean; // BreakWithBody set explicitly
+  end;
+
+/// <summary>Phase 1 for an INI file: overlays every [Format] value the file
+/// holds onto AOpts and records the alias / explicit keys in AOver. Applies no
+/// derived rule and no clamp.</summary>
+/// <param name="APath">INI path; a missing file changes nothing.</param>
+/// <param name="AOpts">Values to overlay (usually DefaultOptions).</param>
+/// <param name="AOver">Updated with what the file sets explicitly.</param>
+procedure ReadOptionsFromIni(const APath: string; var AOpts: TYadfOptions; var AOver: TOptionOverrides);
+
+/// <summary>Phase 2: applies the derived rules to fully read values -- the
+/// PackShortBodies alias (Break*Body OFF unless set explicitly anywhere,
+/// CaseArmOnLabelLine ON) -- then ClampOptions.</summary>
+/// <param name="AOpts">Options after every INI key and CLI flag was read.</param>
+/// <param name="AOver">Collected by ReadOptionsFromIni and the CLI parser.</param>
+/// <returns>ClampOptions' text: '' or the list of corrected values.</returns>
+/// <remarks>JoinRoutineHeaders=false implies BreakParamsOnePerLine where it is
+/// used (engine and Options page), so it needs no rewrite here.</remarks>
+function ResolveOptions(var AOpts: TYadfOptions; const AOver: TOptionOverrides): string;
 
 // Persist current values over the commented template (so comments survive).
 /// <summary><!-- drag-lint:auto sum -->Persist current values over the commented template
@@ -1012,11 +1052,11 @@ function OptionTable: TArray<TOptInfo>;
 begin
   if Length(GOptTable) > 0 then Exit(GOptTable);
   GOptTable:= [
-    MakeOpt('MaxLen', 'Line length & indentation', 'Max line length', 'Maximum line length in columns. Long lines are wrapped when "Reflow lines" is on.', okInt, True,
+    MakeOpt('MaxLen', 'Line length & indentation', 'Max line length', 'Maximum line length in columns (40 or more). Long lines are wrapped when "Reflow lines" is on.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.MaxLen end, procedure(var O: TYadfOptions; const V: Variant) begin O.MaxLen:= V end),
-    MakeOpt('Indent', 'Line length & indentation', 'Indent step', 'Indentation step in spaces (each nesting level adds this many).', okInt, True,
+    MakeOpt('Indent', 'Line length & indentation', 'Indent step', 'Indentation step in spaces, 0 to 16 (each nesting level adds this many).', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.Indent end, procedure(var O: TYadfOptions; const V: Variant) begin O.Indent:= V end),
-    MakeOpt('TabWidth', 'Line length & indentation', 'Tab width', 'Width assumed for an existing tab on input. YADF always emits spaces.', okInt, True,
+    MakeOpt('TabWidth', 'Line length & indentation', 'Tab width', 'Width assumed for an existing tab on input, 1 to 16. YADF always emits spaces.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.TabWidth end, procedure(var O: TYadfOptions; const V: Variant) begin O.TabWidth:= V end),
     MakeOpt('BreakIfBody', 'Bodies and blocks', 'Break if/then/else body onto its own line', 'On: the then/else bodies of an if go on their own indented lines. Off: the whole if ("if C then A else B;") goes on one line when it fits the max length, else every body on its own line.'
       , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakIfBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakIfBody:= V end),
@@ -1069,7 +1109,7 @@ begin
       function(const O: TYadfOptions): Variant begin Result:= O.AlignCommentMaxShift end, procedure(var O: TYadfOptions; const V: Variant) begin O.AlignCommentMaxShift:= V end),
     MakeOpt('LowercaseKeywords', 'Casing', 'Lowercase keywords', 'Lowercase Pascal keywords (begin, end, if, then ...).', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.LowercaseKeywords end, procedure(var O: TYadfOptions; const V: Variant) begin O.LowercaseKeywords:= V end),
-    MakeOpt('UpperHexNumbers', 'Casing', 'Uppercase hex', 'Uppercase hex digits in numeric literals ($AB not $ab).', okBool, True,
+    MakeOpt('UpperHexNumbers', 'Casing', 'Uppercase hex', 'Uppercase hex digits and the exponent letter in numeric literals ($AB not $ab, 1E5 not 1e5).', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.UpperHexNumbers end, procedure(var O: TYadfOptions; const V: Variant) begin O.UpperHexNumbers:= V end),
     MakeOpt('UpperDirectives', 'Casing', 'Uppercase directives', 'Uppercase compiler-directive keywords ({$IFDEF}, {$R+} ...).', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.UpperDirectives end, procedure(var O: TYadfOptions; const V: Variant) begin O.UpperDirectives:= V end),
@@ -1077,16 +1117,16 @@ begin
       function(const O: TYadfOptions): Variant begin Result:= O.FirstOccCasing end, procedure(var O: TYadfOptions; const V: Variant) begin O.FirstOccCasing:= V end),
     MakeOpt('IndentComments', 'Comments', 'Re-indent comment lines with the code', 'Re-indent comment-only lines to the surrounding code depth. A "//." comment keeps its indentation.'  //." always keeps its authored indentation even when this is on (an '
       , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.IndentComments end, procedure(var O: TYadfOptions; const V: Variant) begin O.IndentComments:= V end),
-    MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label the end of long blocks', 'Mark the end of long blocks with the block keyword: "end; // while".'  // while", "end; // procedure".'
+    MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label the end of long blocks', 'Mark the end of long blocks with the block keyword: "end; // while". On also removes such a label from a block that is no longer long; off = existing labels are kept as written. An asm block is never labelled.'  // while", "end; // procedure".'
       , okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.LabelLongBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelLongBlocks:= V end),
-    MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines', 'Minimum block length in lines before a long block gets an end label.', okInt, True,
+    MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines', 'Minimum block length in lines (1 or more) before a long block gets an end label.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.LabelMinLines end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelMinLines:= V end),
     MakeOpt('MarkUnclosed', 'Labels & markers', 'Mark unclosed blocks', 'Add a "// TODO -oYADF" marker where a begin/record/... has no matching end.'  // TODO -oYADF : ''begin'' on line N has no matching ''end''".'  // dl:ok duplicate-code@516b -- one MakeOpt row per option, the table is the spec
       , okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.MarkUnclosed end, procedure(var O: TYadfOptions; const V: Variant) begin O.MarkUnclosed:= V end),
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Hoist inline vars (Delphi 10.2.3)',
-      'Hoist inline var declarations into a var block so the code builds on Delphi 10.2.3. Best-effort.'  // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.'
+      'Hoist inline var declarations into a var block so the code builds on Delphi 10.2.3. Best-effort: every comment it adds (an inferred type to verify, a var it could not hoist) starts "// TODO -oYADF -cd10 :", and a run with this option off removes exactly those comments.'  // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.'
       , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.Delphi10Compat end, procedure(var O: TYadfOptions; const V: Variant) begin O.Delphi10Compat:= V end),
     MakeOpt('Backup', 'File & CLI (no preview effect)', 'Backup before overwrite', 'Create a backup of every file before overwriting it, and of an edited preview sample (Sample.pas.bak) before a newer YADF replaces it.', okBool, False,
       function(const O: TYadfOptions): Variant begin Result:= O.Backup end, procedure(var O: TYadfOptions; const V: Variant) begin O.Backup:= V end),
@@ -1102,40 +1142,70 @@ begin
   Result:= GOptTable;
 end; // function
 
-function ClampOptions(var AOpts: TYadfOptions): string;
+type
+  TOptBound = record
+    Ident: string ;
+    Min  : Integer;
+    Max  : Integer;
+  end;
+
 const
   MIN_MAX_LEN = 40;
   MAX_INDENT  = 16;
+  // The ranges of the integer options, in warning order (REVIEW-2026-11-02 M3).
+  OPT_BOUNDS: array[0..10] of TOptBound = (
+    (Ident: 'MaxLen'              ; Min: MIN_MAX_LEN; Max: MaxInt    ),
+    (Ident: 'Indent'              ; Min: 0          ; Max: MAX_INDENT),
+    (Ident: 'TabWidth'            ; Min: 1          ; Max: MAX_INDENT),
+    (Ident: 'LabelMinLines'       ; Min: 1          ; Max: MaxInt    ),
+    (Ident: 'MaxBlankLines'       ; Min: 0          ; Max: MaxInt    ),
+    (Ident: 'BlanksBeforeSection' ; Min: 0          ; Max: MaxInt    ),
+    (Ident: 'BlanksBeforeMethod'  ; Min: 0          ; Max: MaxInt    ),
+    (Ident: 'BlanksBeforeType'    ; Min: 0          ; Max: MaxInt    ),
+    (Ident: 'AlignMaxColumn'      ; Min: 0          ; Max: MaxInt    ),
+    (Ident: 'AlignShapeMinAnchors'; Min: 1          ; Max: MaxInt    ),
+    (Ident: 'AlignCommentMaxShift'; Min: 0          ; Max: MaxInt    ));
+
+function OptionBounds(const AIdent: string; out AMin, AMax: Integer): Boolean;
 var
-  Changes: TStringList;
-
-  procedure Fix(const AName: string; var AValue: Integer; AMin, AMax: Integer);
-  var
-    Was: Integer;
-  begin
-    Was:= AValue;
-    if AValue < AMin then
-      AValue:= AMin
-    else if AValue > AMax then
-      AValue:= AMax;
-    if AValue <> Was then
-      Changes.Add(Format('%s %d -> %d', [AName, Was, AValue]));
-  end;
-
+  B: TOptBound;
 begin
+  for B in OPT_BOUNDS do
+    if SameText(B.Ident, AIdent) then
+    begin
+      AMin:= B.Min;
+      AMax:= B.Max;
+      Exit(True);
+    end;
+  AMin  := 0;
+  AMax  := MaxInt;
+  Result:= False;
+end; // function
+
+function ClampOptions(var AOpts: TYadfOptions): string;
+var
+  Changes: TStringList     ;
+  T      : TArray<TOptInfo>;
+  B      : TOptBound       ;
+  i      : Integer         ;
+  Was    : Integer         ;
+  Val    : Integer         ;
+begin
+  T:= OptionTable;
   Changes:= TStringList.Create;
   try
-    Fix('MaxLen'              , AOpts.MaxLen              , MIN_MAX_LEN, MaxInt    );
-    Fix('Indent'              , AOpts.Indent              , 0          , MAX_INDENT);
-    Fix('TabWidth'            , AOpts.TabWidth            , 1          , MAX_INDENT);
-    Fix('LabelMinLines'       , AOpts.LabelMinLines       , 1          , MaxInt    );
-    Fix('MaxBlankLines'       , AOpts.MaxBlankLines       , 0          , MaxInt    );
-    Fix('BlanksBeforeSection' , AOpts.BlanksBeforeSection , 0          , MaxInt    );
-    Fix('BlanksBeforeMethod'  , AOpts.BlanksBeforeMethod  , 0          , MaxInt    );
-    Fix('BlanksBeforeType'    , AOpts.BlanksBeforeType    , 0          , MaxInt    );
-    Fix('AlignMaxColumn'      , AOpts.AlignMaxColumn      , 0          , MaxInt    );
-    Fix('AlignShapeMinAnchors', AOpts.AlignShapeMinAnchors, 1          , MaxInt    );
-    Fix('AlignCommentMaxShift', AOpts.AlignCommentMaxShift, 0          , MaxInt    );
+    for B in OPT_BOUNDS do
+      for i:= 0 to High(T) do
+        if (T[i].Kind = okInt) and SameText(T[i].Ident, B.Ident) then
+        begin
+          Was:= T[i].GetVal(AOpts);
+          Val:= EnsureRange(Was, B.Min, B.Max);
+          if Val <> Was then
+          begin
+            T[i].SetVal(AOpts, Val);
+            Changes.Add(Format('%s %d -> %d', [B.Ident, Was, Val]));
+          end;
+        end; // if
     Changes.Delimiter      := ',';
     Changes.StrictDelimiter:= True;
     Result:= StringReplace(Changes.DelimitedText, ',', ', ', [rfReplaceAll]);
@@ -1152,48 +1222,65 @@ begin
   AOpts.CaseArmOnLabelLine:= True;
 end;
 
-function LoadOptionsFromIni(const APath: string): TYadfOptions;
+procedure ReadOptionsFromIni(const APath: string; var AOpts: TYadfOptions; var AOver: TOptionOverrides);
 var
-  Ini     : TIniFile        ;
-  T       : TArray<TOptInfo>;
-  i       : Integer         ;
-  KeepIf  : Boolean         ;
-  KeepLoop: Boolean         ;
-  KeepWith: Boolean         ;
+  Ini: TIniFile        ;
+  T  : TArray<TOptInfo>;
+  i  : Integer         ;
 begin
-  Result:= DefaultOptions;
-  if (APath = '') or (not FileExists(APath)) then Exit;
+  if (APath = '') or (not FileExists(APath)) then
+    Exit;
   T:= OptionTable;
   Ini:= TIniFile.Create(APath);  // dl:ok taint-path-traversal@9f39 -- path comes from the local user's own INI / command line; no trust boundary is crossed
   try
     for i:= 0 to High(T) do
     case T[i].Kind of
       okInt:
-        T[i].SetVal(Result, ReadIntIni(Ini, 'Format', T[i].Ident, T[i].GetVal(Result)));
+        T[i].SetVal(AOpts, ReadIntIni(Ini, 'Format', T[i].Ident, T[i].GetVal(AOpts)));
       okBool:
-        T[i].SetVal(Result, ReadBoolIni(Ini, 'Format', T[i].Ident, T[i].GetVal(Result)));
+        T[i].SetVal(AOpts, ReadBoolIni(Ini, 'Format', T[i].Ident, T[i].GetVal(AOpts)));
       okString, okEnum:
         if Ini.ValueExists('Format', T[i].Ident) then
-          T[i].SetVal(Result, StripIniComment(Ini.ReadString('Format', T[i].Ident, '')));
+          T[i].SetVal(AOpts, StripIniComment(Ini.ReadString('Format', T[i].Ident, '')));
     end;
-    // Retired PackShortBodies (owner decision Q1, 2026-11-01): still honoured as a
-    // load-time alias. True = join every if/loop/with body and case arm, except that a
-    // Break*Body the same file sets to true explicitly keeps winning for its own
-    // construct (the old precedence), so an old INI formats exactly as before.
+    // Retired PackShortBodies (owner decision Q1, 2026-11-01): a load-time alias,
+    // applied by ResolveOptions; a Break*Body this file sets explicitly wins.
     if ReadBoolIni(Ini, 'Format', PACK_ALIAS_KEY, False) then
-    begin
-      KeepIf  := ReadBoolIni(Ini, 'Format', 'BreakIfBody'  , False);
-      KeepLoop:= ReadBoolIni(Ini, 'Format', 'BreakLoopBody', False);
-      KeepWith:= ReadBoolIni(Ini, 'Format', 'BreakWithBody', False);
-      ApplyPackShortBodiesAlias(Result);
-      Result.BreakIfBody  := KeepIf  ;
-      Result.BreakLoopBody:= KeepLoop;
-      Result.BreakWithBody:= KeepWith;
-    end;
+      AOver.PackAlias:= True;
+    AOver.ExplicitIf  := AOver.ExplicitIf   or Ini.ValueExists('Format', 'BreakIfBody'  );
+    AOver.ExplicitLoop:= AOver.ExplicitLoop or Ini.ValueExists('Format', 'BreakLoopBody');
+    AOver.ExplicitWith:= AOver.ExplicitWith or Ini.ValueExists('Format', 'BreakWithBody');
   finally
     Ini.Free;
   end; // try
-  ClampOptions(Result); // an INI value out of range is corrected, not obeyed
+end; // procedure
+
+function ResolveOptions(var AOpts: TYadfOptions; const AOver: TOptionOverrides): string;
+var
+  Opt: TYadfOptions;
+begin
+  if AOver.PackAlias and not AOver.NoPackAlias then
+  begin
+    Opt:= AOpts;
+    ApplyPackShortBodiesAlias(AOpts);
+    if AOver.ExplicitIf then
+      AOpts.BreakIfBody:= Opt.BreakIfBody;
+    if AOver.ExplicitLoop then
+      AOpts.BreakLoopBody:= Opt.BreakLoopBody;
+    if AOver.ExplicitWith then
+      AOpts.BreakWithBody:= Opt.BreakWithBody;
+  end;
+  Result:= ClampOptions(AOpts); // an out-of-range value is corrected, not obeyed
+end; // function
+
+function LoadOptionsFromIni(const APath: string): TYadfOptions;
+var
+  Over: TOptionOverrides;
+begin
+  Result:= DefaultOptions;
+  Over  := Default(TOptionOverrides);
+  ReadOptionsFromIni(APath, Result, Over);
+  ResolveOptions(Result, Over);
 end; // function
 
 procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);

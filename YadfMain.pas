@@ -169,13 +169,13 @@ type
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: main block (YADF.dpr)</para>
-/// <para>Calls: ExpandFileName, Format, LowerCase, ParamStr, Trim, Writeln, YADF.Options.ClampOptions, YADF.Options.DefaultOptions, YADF.Options.EnsureIniExists, YadfMain.BatchFormat (+15 more)</para>
-/// <para>Complexity: 29 (cyclomatic, outer body), 179 lines (full implementation)</para>
-/// <seealso cref="YADF.Options.ClampOptions"/>
+/// <para>Calls: Default, ExpandFileName, Format, LowerCase, ParamStr, Trim, Writeln, YADF.Options.DefaultOptions, YADF.Options.EnsureIniExists, YADF.Options.ReadOptionsFromIni (+17 more)</para>
+/// <para>Complexity: 29 (cyclomatic, outer body), 184 lines (full implementation)</para>
 /// <seealso cref="YADF.Options.DefaultOptions"/>
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
+/// <seealso cref="YADF.Options.ReadOptionsFromIni"/>
+/// <seealso cref="YADF.Options.ResolveOptions"/>
 /// <seealso cref="YadfMain.BatchFormat"/>
-/// <seealso cref="YadfMain.CheckDir"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure RunYadf;
@@ -922,14 +922,17 @@ begin
   WriteStdoutLine(Format('  --tab-width N         a leading tab = N spaces                         [%d]', [AOpts.TabWidth     ]));
   WriteStdoutLine(Format('  --max-blank-lines N   cap consecutive blank lines                      [%d]', [AOpts.MaxBlankLines]));
   WriteStdoutLine(Format('  --reflow|--no-reflow  reflow long lines / preserve source line breaks  [reflow=%s]', [OnOff(AOpts.ReflowLines)]));
-  WriteStdoutLine(Format('  --collapse-blocks     fold a short if/for/while begin..end body onto one line [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
-  WriteStdoutLine(Format('  --no-collapse-blocks  keep begin..end blocks expanded                  [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
+  WriteStdoutLine(Format('  --collapse-blocks     fold a short begin..end body (if/for/while/with, case arm, case else) onto one line [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
+  WriteStdoutLine(Format('  --no-collapse-blocks  expand one-line begin..end blocks                [collapse=%s]', [OnOff(AOpts.CollapseShortBlocks)]));
   WriteStdoutLine(Format('  --break-loop          break for/while body onto its own line             [loop=%s]', [OnOff(AOpts.BreakLoopBody)]));
   WriteStdoutLine(Format('  --no-break-loop       join a short loop body onto the do line         [loop=%s]', [OnOff(AOpts.BreakLoopBody)]));
   WriteStdoutLine(Format('  --break-with          break with..do body onto its own line              [with=%s]', [OnOff(AOpts.BreakWithBody)]));
   WriteStdoutLine(Format('  --no-break-with       join a short with body onto the do line         [with=%s]', [OnOff(AOpts.BreakWithBody)]));
   WriteStdoutLine(Format('  --break-if            break if then/else body onto its own line          [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine(Format('  --no-break-if         one-line if when it fits (if C then A else B;)  [if=%s]', [OnOff(AOpts.BreakIfBody)]));
+  WriteStdoutLine('  --pack-bodies         retired alias: --no-break-if/-loop/-with + --case-arm-on-label;');
+  WriteStdoutLine('                          an explicit --break-* flag or INI key still wins (any order)');
+  WriteStdoutLine('  --no-pack-bodies      cancel the alias (also an INI PackShortBodies=true)');
   WriteStdoutLine(Format('  --begin-on-header     begin on the then/do/else/label line (then begin) [begin=%s]', [OnOff(AOpts.BeginOnHeaderLine)]));
   WriteStdoutLine(Format('  --no-begin-on-header  begin on its own line; end / else / begin apart [begin=%s]', [OnOff(AOpts.BeginOnHeaderLine)]));
   WriteStdoutLine(Format('  --pack-statements     pack adjacent plain statements on one line     [pack=%s]', [OnOff(AOpts.PackStatements)]));
@@ -939,12 +942,12 @@ begin
   WriteStdoutLine(Format('  --join-headers        join split routine headers                       [join=%s]', [OnOff(AOpts.JoinRoutineHeaders)]));
   WriteStdoutLine(Format('  --no-join-headers     one parameter per line (implies --break-params)  [join=%s]', [OnOff(AOpts.JoinRoutineHeaders)]));
   WriteStdoutLine(Format('  --break-expr          break a long line one component per line             [expr=%s]', [OnOff(AOpts.BreakLongExpressions)]));
-  WriteStdoutLine('  --no-break-expr       use the greedy line breaker');
+  WriteStdoutLine(Format('  --no-break-expr       use the greedy line breaker                          [expr=%s]', [OnOff(AOpts.BreakLongExpressions)]));
   WriteStdoutLine(Format('  --[no-]trim-trailing  trim / keep trailing whitespace                  [trim=%s]', [OnOff(AOpts.TrimTrailing)]));
   WriteStdoutLine(''            );
   WriteStdoutLine('Uses clause:');
   WriteStdoutLine(Format('  --uses-break          always break uses one-per-line, comma-first      [break=%s]', [OnOff(AOpts.UsesAlwaysBreak)]));
-  WriteStdoutLine('  --no-uses-break       keep uses inline if it fits in MaxLen');
+  WriteStdoutLine(Format('  --no-uses-break       keep uses inline if it fits in MaxLen             [break=%s]', [OnOff(AOpts.UsesAlwaysBreak)]));
   WriteStdoutLine(''                                                             );
   WriteStdoutLine('Case statements:'                                             );
   WriteStdoutLine(Format('  --break-case          split multi-label case arms one per line          [break=%s]', [OnOff(AOpts.BreakCaseLabels)]));
@@ -1064,7 +1067,7 @@ begin
   end; // try
 end; // function
 
-procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);  // dl:ok cognitive-complexity@aea0 -- a flat else-if ladder of the flags that need their own code; the metric scores each else-if as one level deeper (drag-lint INBOX-cognitive-else-if-chain)
+procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; var AOver: TOptionOverrides; out AOutFile: string; out AStdoutMode: Boolean);
 var
   i     : Integer      ;
   OutVal: TList<string>;
@@ -1088,6 +1091,15 @@ var
       AField:= AArgs[i] = AOn;
       Inc(i);
     end;
+  end;
+
+  // BoolFlag for a Break*Body option: also records that it was set explicitly,
+  // so the --pack-bodies alias leaves it alone (options M4).
+  function BodyFlag(const AOn, AOff: string; var AField, AExplicit: Boolean): Boolean;
+  begin
+    Result:= BoolFlag(AOn, AOff, AField);
+    if Result then
+      AExplicit:= True;
   end;
 
   // AArgs[i] is AName: reads the integer after it into AField.
@@ -1126,9 +1138,9 @@ var
       or BoolFlag('--pack-statements', '--no-pack-statements', AOpts.PackStatements)
       or BoolFlag('--indent-comments', '--no-indent-comments', AOpts.IndentComments)
       or BoolFlag('--collapse-blocks', '--no-collapse-blocks', AOpts.CollapseShortBlocks)
-      or BoolFlag('--break-loop', '--no-break-loop', AOpts.BreakLoopBody)
-      or BoolFlag('--break-with', '--no-break-with', AOpts.BreakWithBody)
-      or BoolFlag('--break-if', '--no-break-if', AOpts.BreakIfBody)
+      or BodyFlag('--break-loop', '--no-break-loop', AOpts.BreakLoopBody, AOver.ExplicitLoop)
+      or BodyFlag('--break-with', '--no-break-with', AOpts.BreakWithBody, AOver.ExplicitWith)
+      or BodyFlag('--break-if', '--no-break-if', AOpts.BreakIfBody, AOver.ExplicitIf)
       or BoolFlag('--break-params', '--no-break-params', AOpts.BreakParamsOnePerLine)
       or BoolFlag('--join-headers', '--no-join-headers', AOpts.JoinRoutineHeaders)
       or BoolFlag('--break-expr', '--no-break-expr', AOpts.BreakLongExpressions);
@@ -1193,11 +1205,14 @@ begin
       end
       else if AArgs[i] = '--pack-bodies' then
       begin
-        ApplyPackShortBodiesAlias(AOpts); // retired option, kept as an alias
+        AOver.PackAlias:= True; // retired option, kept as an alias; applied by ResolveOptions
         Inc(i);
       end
       else if AArgs[i] = '--no-pack-bodies' then
-        Inc(i) // retired option: accepted, changes nothing
+      begin
+        AOver.NoPackAlias:= True; // cancels the alias wherever it was asked for
+        Inc(i);
+      end
       else if AArgs[i] = '--ini' then
         // ExtractIniPath already consumed every valid `--ini <path>` pair; a
         // bare `--ini` reaching this parser means the value was forgotten --
@@ -1264,6 +1279,7 @@ var
   Spec      : string        ;
   StdoutMode: Boolean       ;
   Clamped   : string        ;
+  Over      : TOptionOverrides;
   Dup       : string        ;
   Seen      : TDictionary<string, Boolean>;
 begin
@@ -1298,11 +1314,15 @@ begin
   // an existing file and load it normally.
   if EnsureIniExists(IniPath) then
     WriteStdoutLine('Created default config: ' + IniPath);
-  LoadIniDefaults(Opts, IniPath);
-  ParseFlags(Args, Opts, OutFile, StdoutMode);
-  // CLI values are range-checked like INI values. To stderr: in --stdout mode
-  // stdout carries the formatted source.
-  Clamped:= ClampOptions(Opts);
+  // Two phases (options M4): read every value from the INI, then the flags, and
+  // only then apply the derived rules (--pack-bodies / PackShortBodies alias) and
+  // the range clamp, so neither key nor argument order matters. Out-of-range INI
+  // and CLI values are both reported, to stderr (in --stdout mode stdout carries
+  // the formatted source).
+  Over:= Default(TOptionOverrides);
+  ReadOptionsFromIni(IniPath, Opts, Over);
+  ParseFlags(Args, Opts, Over, OutFile, StdoutMode);
+  Clamped:= ResolveOptions(Opts, Over);
   if Clamped <> '' then
     Writeln(ErrOutput, 'warning: out-of-range option(s) corrected: ' + Clamped);
   GLogEnabled:= Opts.Logging;

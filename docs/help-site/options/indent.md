@@ -1,7 +1,19 @@
 ---
 id: indent
 title: Indent step
-summary: Indentation step in spaces (each nesting level adds this many).
+summary: Indentation step in spaces, 0 to 16 (each nesting level adds this many).
+group: line-layout
+order: 20
+default: "2"
+ini: Indent
+cli: --indent
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: indent
+title: Indent step
+summary: Indentation step in spaces, 0 to 16 (each nesting level adds this many).
 group: line-layout
 order: 20
 default: "2"

@@ -6,6 +6,19 @@ group: file-cli-no-preview-effect
 order: 20
 default: ""
 ini: BackupDir
+cli: --b
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: backup-dir
+title: Backup directory
+summary: Directory for backups (used when backup is on). Empty = next to the original file.
+group: file-cli-no-preview-effect
+order: 20
+default: ""
+ini: BackupDir
+cli: --b
 since: "1.0.0.0"
 status: "stable"
 ---

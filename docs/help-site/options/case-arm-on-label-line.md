@@ -6,6 +6,19 @@ group: case-statements
 order: 10
 default: "true"
 ini: CaseArmOnLabelLine
+cli: --case-arm-on-label
+since: "1.0.21.0"
+status: "stable"
+---
+
+id: case-arm-on-label-line
+title: One-statement case arm on its label line
+summary: Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"), the case else part included ("else DoOther;"); off = the statement goes on its own line under the label.
+group: case-statements
+order: 10
+default: "true"
+ini: CaseArmOnLabelLine
+cli: --case-arm-on-label
 since: "1.0.21.0"
 status: "stable"
 ---

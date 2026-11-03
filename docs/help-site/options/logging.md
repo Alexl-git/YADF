@@ -6,6 +6,19 @@ group: file-cli-no-preview-effect
 order: 50
 default: "false"
 ini: Logging
+cli: --log
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: logging
+title: Logging
+summary: Write a log file with details of every option resolved and file processed.
+group: file-cli-no-preview-effect
+order: 50
+default: "false"
+ini: Logging
+cli: --log
 since: "1.0.0.0"
 status: "stable"
 ---

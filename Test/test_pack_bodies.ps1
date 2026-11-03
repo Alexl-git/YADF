@@ -7,8 +7,12 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'TestLib.ps1')
 $exe = Get-YadfExe
-$ini = Get-RepoIni   # pin config: personal %APPDATA% profile must not affect tests
 Assert-ToolOrSkip 'pack_bodies' $exe
+# Pin config (a personal %APPDATA% profile must not affect tests): the repo INI
+# WITHOUT the three Break*Body keys -- an explicit Break*Body wins over the alias
+# (REVIEW-2026-11-02 options M4), and the repo INI sets all three explicitly.
+$ini = New-TempOut '.ini'
+[IO.File]::WriteAllLines($ini, @([IO.File]::ReadAllLines((Get-RepoIni)) | Where-Object { $_ -notmatch '^\s*Break(If|Loop|With)Body\s*=' }))
 $src = Join-Path $PSScriptRoot 'Cases\pack_bodies.pas'
 
 function Fmt([string[]]$flags) {

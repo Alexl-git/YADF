@@ -6,6 +6,19 @@ group: expressions
 order: 20
 default: "true"
 ini: BreakLongExpressions
+cli: --break-expr
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: break-long-expressions
+title: Long expressions: one part per line
+summary: A statement over the max length gets one component per line, the operator or comma leading; a long bracketed list becomes a tree, one whole branch per line. Off = greedy packing, comma-last.
+group: expressions
+order: 20
+default: "true"
+ini: BreakLongExpressions
+cli: --break-expr
 since: "1.0.0.0"
 status: "stable"
 ---

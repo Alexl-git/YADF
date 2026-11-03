@@ -6,6 +6,19 @@ group: file-cli-no-preview-effect
 order: 30
 default: ""
 ini: ResultDir
+cli: --of
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: result-dir
+title: Result directory
+summary: Directory for formatted output. Empty = format in place.
+group: file-cli-no-preview-effect
+order: 30
+default: ""
+ini: ResultDir
+cli: --of
 since: "1.0.0.0"
 status: "stable"
 ---

@@ -1,7 +1,19 @@
 ---
 id: max-len
 title: Max line length
-summary: Maximum line length in columns. Long lines are wrapped when "Reflow lines" is on.
+summary: Maximum line length in columns (40 or more). Long lines are wrapped when "Reflow lines" is on.
+group: line-layout
+order: 10
+default: "180"
+ini: MaxLen
+cli: --max-len
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: max-len
+title: Max line length
+summary: Maximum line length in columns (40 or more). Long lines are wrapped when "Reflow lines" is on.
 group: line-layout
 order: 10
 default: "180"

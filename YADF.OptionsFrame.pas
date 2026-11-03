@@ -670,7 +670,9 @@ const
 implementation
 
 uses
-  Winapi.ShellAPI;
+  Winapi.ShellAPI
+  , System.Math
+  ;
 
 type
   /// <summary>Exposes the protected OnResize of TGroupBox to this unit.</summary>
@@ -1017,7 +1019,11 @@ begin
 end; // begin
 
 procedure TYadfOptionsFrame.BuildControls;
+const
+  SPIN_MAX = 100000; // upper end of an unbounded spin edit
 var
+  BMin  : Integer         ;
+  BMax  : Integer         ;
   T     : TArray<TOptInfo>;
   i     : Integer         ;
   y     : Integer         ;
@@ -1078,7 +1084,10 @@ begin
         Lbl.Caption:= T[i].Caption;
         Se:= TSpinEdit.Create(Self);
         Se.Parent:= Parent; Se.Left:= 200; Se.Top:= YIn; Se.Width:= 80;  // dl:ok large-magic-number@f1d9
-        Se.MinValue:= 0; Se.MaxValue:= 100000;  // dl:ok large-magic-number@8d21
+        // The same ranges ClampOptions enforces on every real run (options M3).
+        OptionBounds(T[i].Ident, BMin, BMax);
+        Se.MinValue:= BMin;
+        Se.MaxValue:= Min(BMax, SPIN_MAX);
         Se.Hint:= OptionHint(T[i]); Se.ShowHint:= True;
         Se.HelpKeyword:= OptionHelpId(T[i]);
         AddHelpButton(Self, Parent, OptionHelpId(T[i]), HelpButtonColumn, YIn + 2);
@@ -1108,7 +1117,7 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
         Cmb:= TComboBox.Create(Self);
-        Cmb.Parent:= Parent; Cmb.Left:= 200; Cmb.Top:= YIn; Cmb.Width:= 80;  // dl:ok large-magic-number@292a
+        Cmb.Parent:= Parent; Cmb.Left:= 200; Cmb.Top:= YIn; Cmb.Width:= 80;  // dl:ok large-magic-number@1c2d
         Cmb.Style:= csDropDownList;
         for var V in T[i].EnumValues do // value list lives in the descriptor
           Cmb.Items.Add(V);
@@ -1676,7 +1685,9 @@ end; // procedure
 
 procedure TYadfOptionsFrame.Reformat;
 var
-  Declined: string;
+  Declined: string      ;
+  Clamped : string      ;
+  Eff     : TYadfOptions;
 begin
   // Render the result memo from the current source + FOpts. A malformed paste
   // can raise inside FormatSource (DelphiAST lexer/parser); show it in the
@@ -1684,13 +1695,18 @@ begin
   if FResult = nil then
     Exit;
   try
-    FResult.Text:= FormatSource(FSource.Text, FOpts, Declined);
+    // Preview what a real run formats: the clamped values (options M3).
+    Eff     := FOpts;
+    Clamped := ClampOptions(Eff);
+    FResult.Text:= FormatSource(FSource.Text, Eff, Declined);
     // A guard decline returns the source unchanged -- say so instead of "OK"
     // (review 2026-10-14).
     if Declined <> '' then
       FResultStat.Caption:= 'declined: ' + Declined
     else
       FResultStat.Caption:= 'OK';
+    if Clamped <> '' then
+      FResultStat.Caption:= FResultStat.Caption + '  (out of range, formatted with: ' + Clamped + ')';
   except
     on E: Exception do
     begin

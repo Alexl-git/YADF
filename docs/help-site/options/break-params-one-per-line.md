@@ -6,6 +6,19 @@ group: declarations
 order: 20
 default: "false"
 ini: BreakParamsOnePerLine
+cli: --break-params
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: break-params-one-per-line
+title: Break parameters one per line
+summary: Lay out routine declarations with 2+ parameters one parameter per line. Off by default; always on while "Join routine headers split by hand" is off. The separator side follows "Put the separator last in broken lists".
+group: declarations
+order: 20
+default: "false"
+ini: BreakParamsOnePerLine
+cli: --break-params
 since: "1.0.0.0"
 status: "stable"
 ---

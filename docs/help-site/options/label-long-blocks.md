@@ -1,11 +1,24 @@
 ---
 id: label-long-blocks
 title: Label the end of long blocks
-summary: Mark the end of long blocks with the block keyword: "end; // while".
+summary: Mark the end of long blocks with the block keyword: "end; // while". On also removes such a label from a block that is no longer long; off = existing labels are kept as written. An asm block is never labelled.
 group: labels-markers
 order: 10
 default: "true"
 ini: LabelLongBlocks
+cli: --label-blocks
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: label-long-blocks
+title: Label the end of long blocks
+summary: Mark the end of long blocks with the block keyword: "end; // while". On also removes such a label from a block that is no longer long; off = existing labels are kept as written. An asm block is never labelled.
+group: labels-markers
+order: 10
+default: "true"
+ini: LabelLongBlocks
+cli: --label-blocks
 since: "1.0.0.0"
 status: "stable"
 ---

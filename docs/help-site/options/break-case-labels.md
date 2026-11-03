@@ -6,6 +6,19 @@ group: case-statements
 order: 20
 default: "false"
 ini: BreakCaseLabels
+cli: --break-case
+since: "1.0.0.0"
+status: "stable"
+---
+
+id: break-case-labels
+title: Break case labels one per line
+summary: Break a multi-label case arm ("a, b, c: Stmt;") into one label per line. Off by default.
+group: case-statements
+order: 20
+default: "false"
+ini: BreakCaseLabels
+cli: --break-case
 since: "1.0.0.0"
 status: "stable"
 ---
