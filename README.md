@@ -232,7 +232,7 @@ Each value is an INI *name* resolved under `%APPDATA%\YADF\` (an absolute path
 passes through unchanged). Resolution:
 
 - **CLI (`YADF.exe`)** ??? with no `--ini`, uses the **F** profile. `--ini <path>`
-  overrides it explicitly.
+  overrides it explicitly; `--no-ini` reads no INI at all (and creates none): compiled-in defaults plus CLI flags. `--ini` and `--no-ini` cannot be combined.
 - **YADFOT (IDE)** ??? **Ctrl+Shift+Alt+F** and the Tools-menu item use the **F**
   profile; **Ctrl+Shift+Alt+R** uses the **R** profile (if assigned).
 - **YADFSetup / IDE Options page** ??? always *edit* the F profile, and mirror it
@@ -436,7 +436,9 @@ above. Summary: the per-user `%APPDATA%\YADF\profiles.ini` names the active
 project-tree walk. No INI ships in the release zip ??? first run creates a
 fully-commented `%APPDATA%\YADF\yadf.ini` and pins `F=yadf.ini`. Edit it from
 **YADFSetup** or in-IDE via **Tools ??? Options ??? Third Party ??? YADF**. CLI
-flags override INI values; INI values override compiled-in defaults.
+flags override INI values; INI values override compiled-in defaults (`--no-ini`: CLI flags override defaults).
+
+**Short bodies.** `PackShortBodies` (CLI `--pack-bodies`, default off) is a preset over four independent rules (`BreakIfBody`, `BreakLoopBody`, `BreakWithBody` = false, `CaseArmOnLabelLine` = true), shown together in the Options page group *Short bodies*. A rule you set explicitly is kept over the preset within the same source (INI or CLI); the CLI beats the INI. See `docs/help-site/options/pack-short-bodies.md`.
 
 YADFOT (IDE wizard) reads the same `[Format]` keys with a different search
 order ??? see [YADFOT install](#yadfot-install) above.

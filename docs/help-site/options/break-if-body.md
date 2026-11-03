@@ -2,7 +2,7 @@
 id: break-if-body
 title: Break if/then/else body onto its own line
 summary: On: the then/else bodies of an if go on their own indented lines. Off: the whole if ("if C then A else B;") goes on one line when it fits the max length, else every body on its own line.
-group: bodies-and-blocks
+group: short-bodies
 order: 10
 default: "true"
 ini: BreakIfBody
@@ -16,7 +16,9 @@ Two-way (since 1.0.21.0). On (default): every simple then/else body goes on its 
 
 Never touched: a begin..end body (see Fold short begin..end onto one line), a body that is itself a control statement (if/for/while/with/case/repeat/try), a line holding a // comment. A body is never pulled onto a header that spans several lines. A { } comment right after then stays on the then line either way. The case else part (`else X;` inside a case statement) belongs to [One-statement case arm on its label line](case-arm-on-label-line.md), not to this option. Applies with Reflow lines on or off.
 
-The retired option "Pack short bodies" is still read from an INI as an alias: PackShortBodies = true turns this option (and Break loop/with body) off, unless the same INI sets it to true explicitly.
+## With Pack short bodies
+
+This rule is independent: it works on its own, whether or not [Pack short bodies onto their header line](pack-short-bodies.md) is used. Pack is only a preset -- checking it sets this rule to off (body joined onto the if line when it fits). If you then choose the other value for this rule yourself, your choice is respected (the Options page lists it under "Respected over Pack") and Pack does not override it.
 
 ## Example
 

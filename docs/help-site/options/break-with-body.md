@@ -2,7 +2,7 @@
 id: break-with-body
 title: Break with body onto its own line
 summary: On: the body of a with..do goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.
-group: bodies-and-blocks
+group: short-bodies
 order: 30
 default: "true"
 ini: BreakWithBody
@@ -12,7 +12,11 @@ status: "stable"
 
 # Break with body onto its own line
 
-Two-way (since 1.0.21.0), same rules as [Break loop body onto its own line](break-loop-body.md) for "with ... do". On (default): the body goes on its own indented line. Off: a short simple body is joined onto the do line when the whole fits the max length. The retired PackShortBodies = true (still read from an INI) turns this option off unless the same INI sets it to true.
+Two-way (since 1.0.21.0), same rules as [Break loop body onto its own line](break-loop-body.md) for "with ... do". On (default): the body goes on its own indented line. Off: a short simple body is joined onto the do line when the whole fits the max length.
+
+## With Pack short bodies
+
+This rule is independent: it works on its own, whether or not [Pack short bodies onto their header line](pack-short-bodies.md) is used. Pack is only a preset -- checking it sets this rule to off (body joined onto the with header when it fits). If you then choose the other value for this rule yourself, your choice is respected (the Options page lists it under "Respected over Pack") and Pack does not override it.
 
 ## Example
 

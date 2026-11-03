@@ -2,20 +2,8 @@
 id: case-arm-on-label-line
 title: One-statement case arm on its label line
 summary: Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"), the case else part included ("else DoOther;"); off = the statement goes on its own line under the label.
-group: case-statements
-order: 10
-default: "true"
-ini: CaseArmOnLabelLine
-cli: --case-arm-on-label
-since: "1.0.21.0"
-status: "stable"
----
-
-id: case-arm-on-label-line
-title: One-statement case arm on its label line
-summary: Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"), the case else part included ("else DoOther;"); off = the statement goes on its own line under the label.
-group: case-statements
-order: 10
+group: short-bodies
+order: 40
 default: "true"
 ini: CaseArmOnLabelLine
 cli: --case-arm-on-label
@@ -33,7 +21,9 @@ Never touched: arms whose body is a begin..end block, a nested case, try, asm or
 
 An arm whose statement is an if / for / while / with follows its Break*Body option exactly as elsewhere (since 1.0.21.0): when that option breaks the statement over several lines, the whole statement goes under the label (`5:` / `  if C then` / `    A` / `  else` / `    B;`), never half on the label line; when it stays one line, this option decides (`5: if C then A else B;` when on).
 
-The retired option "Pack short bodies" is still read from an INI as an alias: PackShortBodies = true turns this option on.
+## With Pack short bodies
+
+This rule is independent: it works on its own, whether or not [Pack short bodies onto their header line](pack-short-bodies.md) is used. Pack is only a preset -- checking it sets this rule to on (statement on the label line). If you then choose the other value for this rule yourself, your choice is respected (the Options page lists it under "Respected over Pack") and Pack does not override it.
 
 ## Example
 

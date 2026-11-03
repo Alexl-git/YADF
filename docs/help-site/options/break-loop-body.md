@@ -2,7 +2,7 @@
 id: break-loop-body
 title: Break loop body onto its own line
 summary: On: the body of a for/while loop goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.
-group: bodies-and-blocks
+group: short-bodies
 order: 20
 default: "true"
 ini: BreakLoopBody
@@ -14,7 +14,11 @@ status: "stable"
 
 Two-way (since 1.0.21.0). On (default): the body of a for/while loop goes on its own indented line. Off: a short simple body is joined onto the do line when the whole fits the max length. Unchecked means the opposite layout, not "leave as written".
 
-Never touched: a begin..end body, a body that is itself a control statement, a line holding a // comment, and a header that spans several lines. Applies with Reflow lines on or off. The retired PackShortBodies = true (still read from an INI) turns this option off unless the same INI sets it to true.
+Never touched: a begin..end body, a body that is itself a control statement, a line holding a // comment, and a header that spans several lines. Applies with Reflow lines on or off.
+
+## With Pack short bodies
+
+This rule is independent: it works on its own, whether or not [Pack short bodies onto their header line](pack-short-bodies.md) is used. Pack is only a preset -- checking it sets this rule to off (body joined onto the loop header when it fits). If you then choose the other value for this rule yourself, your choice is respected (the Options page lists it under "Respected over Pack") and Pack does not override it.
 
 ## Example
 
