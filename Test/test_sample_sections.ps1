@@ -47,6 +47,10 @@ $Global = @{
 # No block in the sample, with the reason.
 $NoBlock = @{
   MarkUnclosed = 'needs an unclosed begin/record, which cannot compile'
+  # SPEC-2026-11-03: a preset over BreakIfBody/BreakLoopBody/BreakWithBody/
+  # CaseArmOnLabelLine; a fully written INI sets those four explicitly, so the
+  # preset changes nothing there and its effect is exactly those four blocks.
+  PackShortBodies = 'preset over the four Short bodies rules; shown by their blocks'
 }
 
 $work = Join-Path $env:TEMP ('sample_sections_' + [guid]::NewGuid().ToString('N'))

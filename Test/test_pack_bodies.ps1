@@ -1,7 +1,7 @@
-# Retired PackShortBodies option, still accepted as an alias (--pack-bodies =
-# BreakIfBody/BreakLoopBody/BreakWithBody off + CaseArmOnLabelLine on;
-# --no-pack-bodies changes nothing, task 2d-1). The Break*Body defaults (on) keep
-# a loop/if body on its own line under the header; the alias pulls a SHORT simple
+# PackShortBodies option (SPEC-2026-11-03): a preset (--pack-bodies =
+# BreakIfBody/BreakLoopBody/BreakWithBody off + CaseArmOnLabelLine on, resolved
+# per layer, see the layers section below). The Break*Body defaults (on) keep
+# a loop/if body on its own line under the header; the preset pulls a SHORT simple
 # body onto the header line. A nested control header (if under for) is never pulled
 # up in either mode (no half-merge). Exit 0 = pass.
 $ErrorActionPreference = 'Stop'
@@ -9,8 +9,8 @@ $ErrorActionPreference = 'Stop'
 $exe = Get-YadfExe
 Assert-ToolOrSkip 'pack_bodies' $exe
 # Pin config (a personal %APPDATA% profile must not affect tests): the repo INI
-# WITHOUT the three Break*Body keys -- an explicit Break*Body wins over the alias
-# (REVIEW-2026-11-02 options M4), and the repo INI sets all three explicitly.
+# WITHOUT the three Break*Body keys, so the runs below show the compiled-in
+# defaults (the CLI preset would beat those keys anyway, SPEC-2026-11-03).
 $ini = New-TempOut '.ini'
 [IO.File]::WriteAllLines($ini, @([IO.File]::ReadAllLines((Get-RepoIni)) | Where-Object { $_ -notmatch '^\s*Break(If|Loop|With)Body\s*=' }))
 $src = Join-Path $PSScriptRoot 'Cases\pack_bodies.pas'
@@ -80,5 +80,82 @@ if (Invoke-Yadf $wpIn $ini $wpOut @('--pack-bodies', '--no-reflow')) {
   MustMatch    $wpText '(?m)^\s+DoTwo;'       'wp13: body stays on its own line'
 }
 Remove-Item $wpIn, $wpOut -Force -ErrorAction SilentlyContinue
+
+# ----- SPEC-2026-11-03 section 2: the layered pack rule, worked examples 1-9 -----
+# Layers: defaults < INI (PackShortBodies preset, then the INI's own explicit
+# rule keys) < CLI (--pack-bodies preset over the result, then the CLI's own
+# explicit rule switches). --no-pack-bodies cancels the preset in both layers.
+# Order of keys / switches inside one layer never matters.
+$lySrc = New-TempOut
+[IO.File]::WriteAllText($lySrc, (@(
+  'unit pack_layers;'
+  'interface'
+  'implementation'
+  'procedure P(K: Integer);'
+  'begin'
+  '  if Ok then'
+  '    Run;'
+  '  for I:= 0 to 9 do'
+  '    Inc(N);'
+  '  with R do'
+  '    Clear;'
+  '  case K of'
+  '    0:'
+  '      DoZero;'
+  '  end;'
+  'end;'
+  'end.'
+) -join "`r`n") + "`r`n")
+function LyIni([string]$body) { $p = New-TempOut '.ini'; [IO.File]::WriteAllText($p, "[Format]`r`n$body"); return $p }
+$lyBare    = LyIni ''
+$lyIf      = LyIni "BreakIfBody=true`r`n"
+$lyAll     = LyIni "BreakIfBody=true`r`nBreakLoopBody=true`r`nBreakWithBody=true`r`nCaseArmOnLabelLine=true`r`nPackShortBodies=false`r`n"
+$lyPackIf  = LyIni "PackShortBodies=true`r`nBreakIfBody=true`r`n"
+$lyPack    = LyIni "PackShortBodies=true`r`n"
+$lyPackArm = LyIni "CaseArmOnLabelLine=false`r`nPackShortBodies=true`r`n"
+# One run; '' = no --ini argument (used with --no-ini).
+function Ly([string]$iniPath, [string[]]$flags) {
+  $o = New-TempOut
+  if ($iniPath) { & $exe --ini $iniPath $lySrc @flags --o $o 2>&1 | Out-Null } else { & $exe $lySrc @flags --o $o 2>&1 | Out-Null }
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $o)) { Fail "layers: YADF exit $LASTEXITCODE for $($flags -join ' ')"; return '' }
+  $t = [IO.File]::ReadAllText($o); Remove-Item $o -Force -ErrorAction SilentlyContinue; return $t
+}
+# $want: four letters if/loop/with/arm -- J = joined onto the header, B = on its own line;
+# arm: J = on the label line, B = under the label.
+function LyExpect([string]$label, [string]$out, [string]$want) {
+  $rx = @(
+    @('if Ok then Run;',              '(?m)^\s*if Ok then\r?\n\s+Run;'),
+    @('for I:= 0 to 9 do Inc\(N\);', '(?m)^\s*for I:= 0 to 9 do\r?\n\s+Inc\(N\);'),
+    @('with R do Clear;',             '(?m)^\s*with R do\r?\n\s+Clear;'),
+    @('0: DoZero;',                   '(?m)^\s*0:\r?\n\s+DoZero;'))
+  $names = @('if', 'loop', 'with', 'arm')
+  for ($k = 0; $k -lt 4; $k++) {
+    $col = if ($want[$k] -eq 'J') { 0 } else { 1 }
+    MustMatch $out $rx[$k][$col] "layers ${label}: $($names[$k]) $(if ($col -eq 0) { 'joined' } else { 'broken' })"
+  }
+}
+LyExpect '#1 none + --pack-bodies'                       (Ly $lyBare @('--pack-bodies'))                               'JJJJ'
+LyExpect '#2 INI BreakIfBody=true + --pack-bodies'       (Ly $lyIf @('--pack-bodies'))                                 'JJJJ'
+LyExpect '#3 --break-loop --pack-bodies'                 (Ly $lyBare @('--break-loop', '--pack-bodies'))               'JBJJ'
+LyExpect '#3 --pack-bodies --break-loop'                 (Ly $lyBare @('--pack-bodies', '--break-loop'))               'JBJJ'
+LyExpect '#4 YADF-written INI + --pack-bodies'           (Ly $lyAll @('--pack-bodies'))                                'JJJJ'
+LyExpect '#5 --no-case-arm-on-label --pack-bodies'       (Ly $lyBare @('--no-case-arm-on-label', '--pack-bodies'))     'JJJB'
+LyExpect '#5 --pack-bodies --no-case-arm-on-label'       (Ly $lyBare @('--pack-bodies', '--no-case-arm-on-label'))     'JJJB'
+LyExpect '#6 INI Pack + --pack-bodies --no-pack-bodies'  (Ly $lyPack @('--pack-bodies', '--no-pack-bodies'))           'BBBJ'
+LyExpect '#6 INI Pack + --no-pack-bodies --pack-bodies'  (Ly $lyPack @('--no-pack-bodies', '--pack-bodies'))           'BBBJ'
+LyExpect '#6 INI arm=false + both'                       (Ly $lyPackArm @('--no-pack-bodies', '--pack-bodies'))        'BBBB'
+LyExpect '#7 INI Pack + BreakIfBody=true'                (Ly $lyPackIf @())                                            'BJJJ'
+LyExpect '#7b INI Pack + CaseArmOnLabelLine=false'       (Ly $lyPackArm @())                                           'JJJB'
+LyExpect '#8 INI Pack + --no-pack-bodies'                (Ly $lyPack @('--no-pack-bodies'))                            'BBBJ'
+LyExpect '#9 --no-ini --pack-bodies'                     (Ly '' @('--no-ini', '--pack-bodies'))                        'JJJJ'
+# --no-ini = compiled-in defaults + CLI switches: the same bytes as an empty INI.
+if ((Ly '' @('--no-ini')) -ne (Ly $lyBare @())) { Fail 'layers #9: --no-ini output differs from an empty INI (defaults)' }
+$lyErr = & $exe --ini $lyBare --no-ini $lySrc 2>&1 | Out-String
+if ($LASTEXITCODE -ne 2) { Fail "--ini + --no-ini: exit $LASTEXITCODE, want 2 (usage error)" }
+MustMatch $lyErr '--ini and --no-ini cannot be combined' '--ini + --no-ini: message'
+$lyHelp = & $exe --no-ini --help 2>&1 | Out-String
+MustMatch $lyHelp '(?m)^\s+--no-ini\s' '--help lists --no-ini'
+MustMatch $lyHelp ([regex]::Escape('Precedence: CLI flags > INI values > compiled-in defaults (--no-ini: CLI flags > defaults).')) '--help precedence line'
+Remove-Item $lySrc, $lyBare, $lyIf, $lyAll, $lyPackIf, $lyPack, $lyPackArm -Force -ErrorAction SilentlyContinue
 
 Finish 'pack_bodies'

@@ -59,9 +59,9 @@ $groupMap = [ordered]@{}
 $grpIdFix = @{ 'Line length & indentation' = 'line-layout' }
 $mainSrc  = [IO.File]::ReadAllText((Join-Path $root 'YadfMain.pas'))
 $perGroup = @{}
-# Ident -> flag, parsed from the ParseFlags table (BoolFlag/IntFlag rows) plus the hand-coded path flags.
-$flagMap = @{ Backup = '--b'; BackupDir = '--b'; ResultDir = '--of' }
-foreach ($m in [regex]::Matches($mainSrc, "(?:Bool|Int)Flag\('(--[a-z0-9-]+)'.*?AOpts\.(\w+)\)")) { $flagMap[$m.Groups[2].Value] = $m.Groups[1].Value }
+# Ident -> flag, parsed from the ParseFlags table (BoolFlag/IntFlag/BodyFlag rows) plus the hand-coded path flags.
+$flagMap = @{ Backup = '--b'; BackupDir = '--b'; ResultDir = '--of'; PackShortBodies = '--pack-bodies' }
+foreach ($m in [regex]::Matches($mainSrc, "(?:Bool|Int|Body)Flag\('(--[a-z0-9-]+)'.*?AOpts\.(\w+)[,)]")) { $flagMap[$m.Groups[2].Value] = $m.Groups[1].Value }
 foreach ($o in $opts) {
   if (-not $groupMap.Contains($o.Group)) { $groupMap[$o.Group] = $groupMap.Count + 1 }
   $o | Add-Member id (Get-Kebab $o.Ident)

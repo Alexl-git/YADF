@@ -118,6 +118,8 @@ type
       FScroll         : TScrollBox               ;
       FBanner         : TLabel                   ; // build identity of THIS binary
       FControls       : array of TControl        ; // index-aligned to OptionTable
+      FPackMsg        : TLabel                   ; // "Respected over Pack:" message, fixed height
+      FPackMarks      : array of TControl        ; // highlight bars beside the four preset rules
       FUpdating       : Boolean                  ; // True while pushing FOpts -> controls;
       // suppresses OptionChanged so programmatic
       // writes don't clobber FOpts mid-loop
@@ -672,6 +674,7 @@ implementation
 uses
   Winapi.ShellAPI
   , System.Math
+  , Vcl.Themes
   ;
 
 type
@@ -692,8 +695,26 @@ type
     property HelpId: string read FHelpId write FHelpId;
   end;
 
+  /// <summary>Thin bar beside a rule the Pack short bodies preset sets, shown
+  /// while Pack is checked.</summary>
+  /// <remarks>Theme-safe: painted in the ACTIVE style's highlight colour
+  /// (StyleServices.GetSystemColor(clHighlight) -- the IDE's light or dark theme,
+  /// or the Windows selection colour when no style is active), the colour each
+  /// theme picks to stand out against its own window background. Changing the
+  /// check box itself (font colour or style) is what vanishes or clips under a
+  /// dark theme, so the box is left alone.</remarks>
+  TYadfPackMark = class(TGraphicControl)
+  protected
+    procedure Paint; override;
+  end;
+
 const
   HelpButtonSize = 16;
+  PackMarkWidth  = 4;   // width of a TYadfPackMark bar
+  PackMsgLines   = 5;   // header + one line per rule: the message never needs more
+  PackMsgLeft    = 28;  // the message starts at the check-box text column
+  PackMsgLinePad = 3;   // leading between two message lines
+  PackGap        = 2;   // gap between the message / marker and its neighbour
   HelpButtonColumn = 288;   // left edge of the "?" column inside a group box (the 360 px host)
   HelpButtonBlue = TColor($00CC6600);   // RGB(0, 102, 204)
 
@@ -728,6 +749,12 @@ begin
   inherited Click;
   if FHelpId <> '' then
     ShellExecute(0, 'open', PChar(OptionHelpUrl(FHelpId)), nil, nil, SW_SHOWNORMAL);
+end;
+
+procedure TYadfPackMark.Paint;
+begin
+  Canvas.Brush.Color:= StyleServices(Self).GetSystemColor(clHighlight);
+  Canvas.FillRect(ClientRect);
 end;
 
 // Creates the "?" button at (ALeft, ATop) inside AParent.
@@ -1018,6 +1045,15 @@ begin
   FProfileList.OnKeyDown:= ProfileListKeyDown;
 end; // begin
 
+const
+  PACK_IDENT = 'PackShortBodies';   // the Pack short bodies row of OptionTable
+
+// True for the four rules the Pack short bodies preset sets.
+function IsPackRule(const AIdent: string): Boolean;
+begin
+  Result:= (AIdent = 'BreakIfBody') or (AIdent = 'BreakLoopBody') or (AIdent = 'BreakWithBody') or (AIdent = 'CaseArmOnLabelLine');
+end;
+
 procedure TYadfOptionsFrame.BuildControls;
 const
   SPIN_MAX = 100000; // upper end of an unbounded spin edit
@@ -1036,6 +1072,7 @@ var
   Ed    : TEdit           ;
   Cmb   : TComboBox       ;
   Lbl   : TLabel          ;
+  Mark  : TYadfPackMark   ;
 begin
   // One TGroupBox per TOptInfo.Group, one control per row keyed by Kind,
   // stored index-aligned in FControls.
@@ -1065,9 +1102,29 @@ begin
     case T[i].Kind of
       okBool:
       begin
+        if T[i].Ident = PACK_IDENT then
+        begin
+          // The message area sits between the four rules and Pack, at a fixed
+          // height so the group never jumps when a conflict appears (SPEC-2026-11-03 s.4).
+          FPackMsg:= TLabel.Create(Self);
+          FPackMsg.Parent  := Parent;
+          FPackMsg.AutoSize:= False;
+          FPackMsg.WordWrap:= False;
+          FPackMsg.SetBounds(PackMsgLeft, YIn, HelpButtonColumn - PackMsgLeft, PackMsgLines * (Abs(FPackMsg.Font.Height) + PackMsgLinePad));
+          FPackMsg.Caption := '';
+          Inc(YIn, FPackMsg.Height + PackGap);
+        end;
         Cb:= TCheckBox.Create(Self);
         Cb.Parent:= Parent;
         Cb.Left:= 10; Cb.Top:= YIn; Cb.Width:= HelpButtonColumn - 14;
+        if IsPackRule(T[i].Ident) then
+        begin
+          Mark:= TYadfPackMark.Create(Self);
+          Mark.Parent := Parent;
+          Mark.SetBounds(Cb.Left - PackMarkWidth - PackGap, YIn, PackMarkWidth, Cb.Height);
+          Mark.Visible:= False;
+          FPackMarks:= FPackMarks + [Mark];
+        end;
         Cb.Caption:= T[i].Caption;
         Cb.Hint:= OptionHint(T[i]); Cb.ShowHint:= True;
         Cb.HelpKeyword:= OptionHelpId(T[i]);
@@ -1305,6 +1362,12 @@ begin
       TCheckBox(FControls[ParamsIdx]).Enabled:= FOpts.JoinRoutineHeaders;
       TCheckBox(FControls[ParamsIdx]).Checked:= (not FOpts.JoinRoutineHeaders) or FOpts.BreakParamsOnePerLine;
     end;
+    // Pack short bodies: highlight the four rules it presets and list the ones
+    // the user moved away from the preset (PackConflictText).
+    for i:= 0 to High(FPackMarks) do
+      FPackMarks[i].Visible:= FOpts.PackShortBodies;
+    if FPackMsg <> nil then
+      FPackMsg.Caption:= PackConflictText(FOpts);
   finally
     FUpdating:= WasUpdating;
   end; // try
@@ -1382,11 +1445,17 @@ begin
   if FUpdating then
     Exit;
   ControlsToOptions;
+  T  := OptionTable;
+  Idx:= TControl(Sender).Tag;
+  // Checking Pack sets the four rules to the preset; unchecking leaves them.
+  if InRange(Idx, 0, High(T)) and (T[Idx].Ident = PACK_IDENT) and FOpts.PackShortBodies then
+  begin
+    ApplyPackPreset(FOpts);
+    OptionsToControls; // shows the preset (FUpdating keeps this from re-entering)
+  end;
   SyncDependentControls;
   if FPolicy.AutoSave then
     FPendingSave:= True;
-  T             := OptionTable;
-  Idx:= TControl(Sender).Tag;
   if not ((Idx >= 0) and (Idx <= High(T)) and not T[Idx].AffectsPreview) then
     FPendingReformat:= True;
   if FPendingSave or FPendingReformat then

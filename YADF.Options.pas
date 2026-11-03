@@ -34,9 +34,9 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Layout.pas), [YADF]declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), [YADF]declaration (YadfMain.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParams (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParamsAndSplit (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.EnforceBlankLines (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/2 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.LayoutControlBodies (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Options.ApplyPackShortBodiesAlias (YADF.Options.pas),
-  /// [YADF]YADF.Options.ClampOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.ResolveOptions (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.CheckDir (YadfMain.pas), [YADF]YadfMain.CheckFile (YadfMain.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ExpandFileSpec (YadfMain.pas), [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.FormatToStdout (YadfMain.pas), [YADF]YadfMain.LoadFile (YadfMain.pas), [YADF]YadfMain.LoadIniDefaults (YadfMain.pas), [YADF]YadfMain.LogStartup (YadfMain.pas), [YADF]YadfMain.ParseDprojUnits (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas),
-  /// [YADF]YadfMain.ParseFlags (YadfMain.pas), [YADF]YadfMain.ProcessFiles (YadfMain.pas), [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADF]YadfMain.RunYadf (YadfMain.pas), [YADF]YadfMain.ShowUsage (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Layout.pas), [YADF]declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), [YADF]declaration (YadfMain.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParams (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParamsAndSplit (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.EnforceBlankLines (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/2 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.LayoutControlBodies (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Options.ApplyPackPreset (YADF.Options.pas),
+  /// [YADF]YADF.Options.ClampOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.PackConflictText (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.ResolveOptions (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.CheckDir (YadfMain.pas), [YADF]YadfMain.CheckFile (YadfMain.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ExpandFileSpec (YadfMain.pas), [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.FormatToStdout (YadfMain.pas), [YADF]YadfMain.LoadFile (YadfMain.pas), [YADF]YadfMain.LoadIniDefaults (YadfMain.pas), [YADF]YadfMain.LogStartup (YadfMain.pas), [YADF]YadfMain.ParseDprojUnits (YadfMain.pas),
+  /// [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.ParseFlags (YadfMain.pas), [YADF]YadfMain.ProcessFiles (YadfMain.pas), [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADF]YadfMain.RunYadf (YadfMain.pas), [YADF]YadfMain.ShowUsage (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
   /// <para>Used in units: [YADF]YADF.Layout, [YADF]YADF.Options, [YADF]YadfMain, YADFOT.Wizard</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -81,6 +81,7 @@ type
     BreakLoopBody        : Boolean      ;
     BreakWithBody        : Boolean      ;
     BreakIfBody          : Boolean      ;
+    PackShortBodies      : Boolean      ; // preset over the four rules above; see ApplyPackPreset
     BreakParamsOnePerLine: Boolean      ;
     JoinRoutineHeaders   : Boolean      ;
     BreakLongExpressions : Boolean      ;
@@ -137,25 +138,33 @@ type
     SetVal        : TOptSetter    ;
   end; // record
 
-const
-  /// <summary>INI key of the retired PackShortBodies option (owner decision Q1,
-  /// 2026-11-01). Not in the option table any more; LoadOptionsFromIni still reads
-  /// it as a load-time alias and SaveOptionsToIni deletes it.</summary>
-  PACK_ALIAS_KEY = 'PackShortBodies';
-
-/// <summary>Applies the retired PackShortBodies option to AOpts: the three
-/// Break*Body options OFF (bodies joined onto their header when they fit) and
-/// CaseArmOnLabelLine ON.</summary>
+/// <summary>Applies the PackShortBodies preset to AOpts: the three Break*Body
+/// rules OFF (if/loop/with bodies joined onto their header when they fit) and
+/// CaseArmOnLabelLine ON. PackShortBodies itself is not touched.</summary>
 /// <param name="AOpts">Options to update in place.</param>
 /// <remarks>
-/// Applied by ResolveOptions after every INI key and CLI flag was read, when
-/// PackShortBodies=true or --pack-bodies asked for it (and --no-pack-bodies did
-/// not cancel it); a Break*Body set explicitly anywhere keeps its value.
+/// SPEC-2026-11-03: a preset, not a mode. ResolveOptions applies it per layer (INI,
+/// then CLI) and then puts back every one of the four rules that layer set
+/// explicitly; the Options page applies it when Pack is checked.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: [YADF]YADF.Options.ResolveOptions (YADF.Options.pas)</para>
+/// <para>Called from: YADF.Options.ResolveOptions (YADF.Options.pas)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
-procedure ApplyPackShortBodiesAlias(var AOpts: TYadfOptions);
+procedure ApplyPackPreset(var AOpts: TYadfOptions);
+
+/// <summary>The Options page message under the Short bodies rules: which of the
+/// four rules is respected over the Pack preset.</summary>
+/// <param name="AOpts">The values the page shows.</param>
+/// <returns>'' when PackShortBodies is off or all four rules hold their preset
+/// value; else 'Respected over Pack:' followed by one line per conflict, in the
+/// order if, loop, with, case arm, separated by sLineBreak (no trailing break).</returns>
+/// <remarks>
+/// Pure; unit-tested in Test\OptionsTest.dpr (TestPackConflictText).
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Returns: ''; Lines.Text.TrimRight</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
+function PackConflictText(const AOpts: TYadfOptions): string;
 
 /// <returns><!-- drag-lint:auto type -->TYadfOptions</returns>
 /// <remarks>
@@ -337,6 +346,12 @@ var
 /// <summary>Full URL of the help page for a help id ("max-len" -> base + "max-len/").</summary>
 /// <param name="AHelpId">A help id from OptionHelpId or one of the HelpId* constants; not checked.</param>
 /// <returns>YadfHelpBaseUrl + AHelpId + '/'.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Returns: YadfHelpBaseUrl + AHelpId + '/'</para>
+/// <para>Effect-free (proven)</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function OptionHelpUrl(const AHelpId: string): string;
 
 // True when ABytes are valid UTF-8 AND contain at least one multi-byte
@@ -411,39 +426,95 @@ function ClampOptions(var AOpts: TYadfOptions): string;
 /// <param name="AMin">Smallest valid value.</param>
 /// <param name="AMax">Largest valid value (MaxInt = unbounded).</param>
 /// <returns>False when AIdent has no range rule (AMin = 0, AMax = MaxInt).</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Calls: SameText</para>
+/// <para>Returns: True; False</para>
+/// <para>Mutates: AMin (out), AMax (out)</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function OptionBounds(const AIdent: string; out AMin, AMax: Integer): Boolean;
 
 type
-  /// <summary>What phase 1 of option resolution saw besides the plain values:
-  /// the retired PackShortBodies alias and which Break*Body options were set
-  /// explicitly (INI key present or CLI flag given).</summary>
-  /// <remarks>REVIEW-2026-11-02 options M4 (owner decision): values are read from
-  /// the INI and the CLI first, derived rules are applied once afterwards by
-  /// ResolveOptions, so neither key nor argument order matters.</remarks>
-  TOptionOverrides = record
-    PackAlias   : Boolean; // PackShortBodies=true in the INI, or --pack-bodies
-    NoPackAlias : Boolean; // --no-pack-bodies: cancels the alias
-    ExplicitIf  : Boolean; // BreakIfBody set explicitly
-    ExplicitLoop: Boolean; // BreakLoopBody set explicitly
-    ExplicitWith: Boolean; // BreakWithBody set explicitly
+  /// <summary>What ONE layer of option resolution (the INI file, or the CLI
+  /// arguments) asked for besides plain values: the Pack preset, and which of
+  /// the four rules it set explicitly (INI key present / CLI switch given).</summary>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// <para>Used by: declaration (YADF.Options.pas)</para>
+  /// <para>Used in units: YADF.Options</para>
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
+  TPackLayer = record
+    Pack        : Boolean; // PackShortBodies=true (INI) / --pack-bodies (CLI)
+    ExplicitIf  : Boolean; // BreakIfBody set explicitly in this layer
+    ExplicitLoop: Boolean; // BreakLoopBody set explicitly in this layer
+    ExplicitWith: Boolean; // BreakWithBody set explicitly in this layer
+    ExplicitArm : Boolean; // CaseArmOnLabelLine set explicitly in this layer
   end;
 
-/// <summary>Phase 1 for an INI file: overlays every [Format] value the file
-/// holds onto AOpts and records the alias / explicit keys in AOver. Applies no
-/// derived rule and no clamp.</summary>
-/// <param name="APath">INI path; a missing file changes nothing.</param>
+  /// <summary>Per-layer record of what the INI and the CLI asked for, collected
+  /// by ReadOptionsFromIni (Ini) and the CLI parser (Cli), consumed by
+  /// ResolveOptions.</summary>
+  /// <remarks>
+  /// SPEC-2026-11-03 (supersedes REVIEW-2026-11-02 options M4's
+  /// "explicit anywhere wins"): explicit rules are tracked PER LAYER, so a CLI
+  /// --pack-bodies beats an INI rule key, while inside a layer an explicit rule
+  /// beats that layer's preset. Order inside a layer never matters.
+  /// <!-- drag-lint:auto BEGIN -->
+  /// <para>Used by: declaration (YADF.Options.pas) ?, YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YADF.Options.ReadOptionsFromIni (YADF.Options.pas) ?, YADF.Options.ResolveOptions (YADF.Options.pas) ?, YadfMain.ParseFlags (YadfMain.pas) ?, YadfMain.RunYadf (YadfMain.pas)</para>
+  /// <para>Used in units: YADF.Options, YadfMain</para>
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
+  TOptionOverrides = record
+    Ini   : TPackLayer; // layer 2: the INI file
+    Cli   : TPackLayer; // layer 3: the command line
+    NoPack: Boolean   ; // --no-pack-bodies: cancels the preset in BOTH layers
+  end;
+
+/// <summary>Reads the INI layer: overlays every [Format] value the file holds
+/// onto AOpts and records in AOver.Ini whether PackShortBodies=true and which of
+/// the four rules the file sets explicitly. Applies no preset and no clamp.</summary>
+/// <param name="APath">INI path; '' or a missing file changes nothing.</param>
 /// <param name="AOpts">Values to overlay (usually DefaultOptions).</param>
-/// <param name="AOver">Updated with what the file sets explicitly.</param>
+/// <param name="AOver">Its Ini layer is updated with what the file sets.</param>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)</para>
+/// <para>Calls: FileExists, YADF.Options.OptionTable, YADF.Options.ReadBoolIni, YADF.Options.ReadIntIni, YADF.Options.StripIniComment</para>
+/// <seealso cref="YADF.Options.OptionTable"/>
+/// <seealso cref="YADF.Options.ReadBoolIni"/>
+/// <seealso cref="YADF.Options.ReadIntIni"/>
+/// <seealso cref="YADF.Options.StripIniComment"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 procedure ReadOptionsFromIni(const APath: string; var AOpts: TYadfOptions; var AOver: TOptionOverrides);
 
-/// <summary>Phase 2: applies the derived rules to fully read values -- the
-/// PackShortBodies alias (Break*Body OFF unless set explicitly anywhere,
-/// CaseArmOnLabelLine ON) -- then ClampOptions.</summary>
-/// <param name="AOpts">Options after every INI key and CLI flag was read.</param>
+/// <summary>Applies the Pack preset layer by layer to fully read values, then
+/// ClampOptions. For each of the four rules: a CLI switch wins; else the CLI
+/// preset (--pack-bodies) sets it; else an INI key wins; else the INI preset
+/// (PackShortBodies=true) sets it; else the compiled-in default stays.
+/// AOver.NoPack cancels both presets. PackShortBodies ends up True exactly when
+/// a preset was applied.</summary>
+/// <param name="AOpts">Options after every INI key and CLI switch was read: a
+/// rule set by a CLI switch holds the CLI value, any other the INI value or the
+/// default.</param>
 /// <param name="AOver">Collected by ReadOptionsFromIni and the CLI parser.</param>
 /// <returns>ClampOptions' text: '' or the list of corrected values.</returns>
-/// <remarks>JoinRoutineHeaders=false implies BreakParamsOnePerLine where it is
-/// used (engine and Options page), so it needs no rewrite here.</remarks>
+/// <remarks>
+/// SPEC-2026-11-03 section 2, worked examples 1-9 (OptionsTest
+/// TestPackLayers, Test\test_pack_bodies.ps1). JoinRoutineHeaders=false implies
+/// BreakParamsOnePerLine where it is used (engine and Options page), so it needs
+/// no rewrite here.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)</para>
+/// <para>Calls: YADF.Options.ApplyPackPreset, YADF.Options.ClampOptions, YADF.Options.ResolveOptions.Pick</para>
+/// <para>Returns: ClampOptions(AOpts)</para>
+/// <seealso cref="YADF.Options.ApplyPackPreset"/>
+/// <seealso cref="YADF.Options.ClampOptions"/>
+/// <seealso cref="YADF.Options.ResolveOptions.Pick"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function ResolveOptions(var AOpts: TYadfOptions; const AOver: TOptionOverrides): string;
 
 // Persist current values over the commented template (so comments survive).
@@ -477,7 +548,7 @@ procedure SaveOptionsToIni(const AOpts: TYadfOptions; const APath: string);
 /// <seealso cref="YADF.Options.OptionTable"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
-function OptionsHelpText: string;  // dl:ok unused-public-symbol@fb3f
+function OptionsHelpText: string;
 
 // Shared per-user fallback path used by YADF.exe, YADFOT.bpl, and YADFSetup.exe
 // when no project-local yadf.ini is found. Returns %APPDATA%\YADF\yadf.ini.
@@ -856,6 +927,7 @@ begin
   Result.BreakLoopBody        := True;
   Result.BreakWithBody        := True;
   Result.BreakIfBody          := True;
+  Result.PackShortBodies      := False;
   Result.BreakParamsOnePerLine:= False;
   Result.JoinRoutineHeaders   := True ;
   Result.BreakLongExpressions := True;
@@ -1058,14 +1130,16 @@ begin
       function(const O: TYadfOptions): Variant begin Result:= O.Indent end, procedure(var O: TYadfOptions; const V: Variant) begin O.Indent:= V end),
     MakeOpt('TabWidth', 'Line length & indentation', 'Tab width', 'Width assumed for an existing tab on input, 1 to 16. YADF always emits spaces.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.TabWidth end, procedure(var O: TYadfOptions; const V: Variant) begin O.TabWidth:= V end),
-    MakeOpt('BreakIfBody', 'Bodies and blocks', 'Break if/then/else body onto its own line', 'On: the then/else bodies of an if go on their own indented lines. Off: the whole if ("if C then A else B;") goes on one line when it fits the max length, else every body on its own line.'
-      , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakIfBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakIfBody:= V end),
-    MakeOpt('BreakLoopBody', 'Bodies and blocks', 'Break loop body onto its own line', 'On: the body of a for/while loop goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
-    MakeOpt('BreakWithBody', 'Bodies and blocks', 'Break with body onto its own line', 'On: the body of a with..do goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),
     MakeOpt('BeginOnHeaderLine', 'Bodies and blocks', 'Put begin on the same line as then / do / else', 'On: begin joins the line of its then / do / else, case label or case else ("if C then begin", "end else begin", "9: begin"). Off: begin goes on its own line, and "end" / "else" / "begin" on three lines. A block that "Fold short begin..end onto one line" folds onto one line is not affected. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BeginOnHeaderLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.BeginOnHeaderLine:= V end),
     MakeOpt('CollapseShortBlocks', 'Bodies and blocks', 'Fold short begin..end onto one line', 'Fold a short begin..end body of if/for/while/with, a case arm or the case else onto one line when it fits; off = expand such one-line blocks. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CollapseShortBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.CollapseShortBlocks:= V end),
     MakeOpt('PackStatements', 'Bodies and blocks', 'Pack several statements on one line', 'On: adjacent plain statements ("A:= 1; B:= 2;") are packed onto one line while it fits the max length. Off: one statement per line. Block keywords (begin, repeat, try, case, record, class) always start a line either way. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackStatements end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackStatements:= V end),
-    MakeOpt('CaseArmOnLabelLine', 'Case statements', 'One-statement case arm on its label line', 'Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"), the case else part included ("else DoOther;"); off = the statement goes on its own line under the label.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CaseArmOnLabelLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.CaseArmOnLabelLine:= V end),
+    MakeOpt('BreakIfBody', 'Short bodies', 'Break if/then/else body onto its own line', 'On: the then/else bodies of an if go on their own indented lines. Off: the whole if ("if C then A else B;") goes on one line when it fits the max length, else every body on its own line.'
+      , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakIfBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakIfBody:= V end),
+    MakeOpt('BreakLoopBody', 'Short bodies', 'Break loop body onto its own line', 'On: the body of a for/while loop goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
+    MakeOpt('BreakWithBody', 'Short bodies', 'Break with body onto its own line', 'On: the body of a with..do goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),
+    MakeOpt('CaseArmOnLabelLine', 'Short bodies', 'One-statement case arm on its label line', 'Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"), the case else part included ("else DoOther;"); off = the statement goes on its own line under the label.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CaseArmOnLabelLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.CaseArmOnLabelLine:= V end),
+    MakeOpt('PackShortBodies', 'Short bodies', 'Pack short bodies onto their header line', 'Preset for the four rules above: if/loop/with bodies are joined onto their header line when they fit, and a one-statement case arm goes on its label line. Each of the four stays its own rule: change one after checking Pack and that choice is kept (shown below the rules). Off by default.'
+      , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackShortBodies end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies:= V end),
     MakeOpt('BreakCaseLabels', 'Case statements', 'Break case labels one per line', 'Break a multi-label case arm ("a, b, c: Stmt;") into one label per line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakCaseLabels end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakCaseLabels:= V end),
     MakeOpt('ReflowLines', 'Expressions', 'Reflow lines (join and wrap)', 'Join a statement broken by hand when it fits the max line length and wrap longer lines. Off = the author''s line breaks are kept and long lines are left as-is.', okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.ReflowLines end, procedure(var O: TYadfOptions; const V: Variant) begin O.ReflowLines:= V end),
@@ -1214,13 +1288,40 @@ begin
   end;
 end; // function
 
-procedure ApplyPackShortBodiesAlias(var AOpts: TYadfOptions);
+procedure ApplyPackPreset(var AOpts: TYadfOptions);
 begin
   AOpts.BreakIfBody       := False;
   AOpts.BreakLoopBody     := False;
   AOpts.BreakWithBody     := False;
   AOpts.CaseArmOnLabelLine:= True;
 end;
+
+function PackConflictText(const AOpts: TYadfOptions): string;
+var
+  Lines: TStringList;
+begin
+  Result:= '';
+  if not AOpts.PackShortBodies then
+    Exit;
+  Lines:= TStringList.Create;
+  try
+    if AOpts.BreakIfBody then
+      Lines.Add('- if bodies stay on their own line');
+    if AOpts.BreakLoopBody then
+      Lines.Add('- loop bodies stay on their own line');
+    if AOpts.BreakWithBody then
+      Lines.Add('- with bodies stay on their own line');
+    if not AOpts.CaseArmOnLabelLine then
+      Lines.Add('- case arm statements stay under their label');
+    if Lines.Count > 0 then
+    begin
+      Lines.Insert(0, 'Respected over Pack:');
+      Result:= Lines.Text.TrimRight;
+    end;
+  finally
+    Lines.Free;
+  end; // try
+end; // function
 
 procedure ReadOptionsFromIni(const APath: string; var AOpts: TYadfOptions; var AOver: TOptionOverrides);
 var
@@ -1243,13 +1344,13 @@ begin
         if Ini.ValueExists('Format', T[i].Ident) then
           T[i].SetVal(AOpts, StripIniComment(Ini.ReadString('Format', T[i].Ident, '')));
     end;
-    // Retired PackShortBodies (owner decision Q1, 2026-11-01): a load-time alias,
-    // applied by ResolveOptions; a Break*Body this file sets explicitly wins.
-    if ReadBoolIni(Ini, 'Format', PACK_ALIAS_KEY, False) then
-      AOver.PackAlias:= True;
-    AOver.ExplicitIf  := AOver.ExplicitIf   or Ini.ValueExists('Format', 'BreakIfBody'  );
-    AOver.ExplicitLoop:= AOver.ExplicitLoop or Ini.ValueExists('Format', 'BreakLoopBody');
-    AOver.ExplicitWith:= AOver.ExplicitWith or Ini.ValueExists('Format', 'BreakWithBody');
+    // The INI layer of the Pack preset (SPEC-2026-11-03): ResolveOptions applies
+    // it, then puts back the rules this file sets explicitly.
+    AOver.Ini.Pack        := AOpts.PackShortBodies;
+    AOver.Ini.ExplicitIf  := Ini.ValueExists('Format', 'BreakIfBody'       );
+    AOver.Ini.ExplicitLoop:= Ini.ValueExists('Format', 'BreakLoopBody'     );
+    AOver.Ini.ExplicitWith:= Ini.ValueExists('Format', 'BreakWithBody'     );
+    AOver.Ini.ExplicitArm := Ini.ValueExists('Format', 'CaseArmOnLabelLine');
   finally
     Ini.Free;
   end; // try
@@ -1257,19 +1358,29 @@ end; // procedure
 
 function ResolveOptions(var AOpts: TYadfOptions; const AOver: TOptionOverrides): string;
 var
-  Opt: TYadfOptions;
-begin
-  if AOver.PackAlias and not AOver.NoPackAlias then
+  Preset : TYadfOptions;
+  IniPack: Boolean     ;
+  CliPack: Boolean     ;
+
+  // One rule: the CLI switch, else the CLI preset, else the INI key, else the INI preset.
+  procedure Pick(var AField: Boolean; APreset, ACliExplicit, AIniExplicit: Boolean);
   begin
-    Opt:= AOpts;
-    ApplyPackShortBodiesAlias(AOpts);
-    if AOver.ExplicitIf then
-      AOpts.BreakIfBody:= Opt.BreakIfBody;
-    if AOver.ExplicitLoop then
-      AOpts.BreakLoopBody:= Opt.BreakLoopBody;
-    if AOver.ExplicitWith then
-      AOpts.BreakWithBody:= Opt.BreakWithBody;
+    if ACliExplicit then
+      Exit;
+    if CliPack or (IniPack and not AIniExplicit) then
+      AField:= APreset;
   end;
+
+begin
+  IniPack:= AOver.Ini.Pack and not AOver.NoPack;
+  CliPack:= AOver.Cli.Pack and not AOver.NoPack;
+  Preset := AOpts;
+  ApplyPackPreset(Preset);
+  Pick(AOpts.BreakIfBody       , Preset.BreakIfBody       , AOver.Cli.ExplicitIf  , AOver.Ini.ExplicitIf  );
+  Pick(AOpts.BreakLoopBody     , Preset.BreakLoopBody     , AOver.Cli.ExplicitLoop, AOver.Ini.ExplicitLoop);
+  Pick(AOpts.BreakWithBody     , Preset.BreakWithBody     , AOver.Cli.ExplicitWith, AOver.Ini.ExplicitWith);
+  Pick(AOpts.CaseArmOnLabelLine, Preset.CaseArmOnLabelLine, AOver.Cli.ExplicitArm , AOver.Ini.ExplicitArm );
+  AOpts.PackShortBodies:= IniPack or CliPack;
   Result:= ClampOptions(AOpts); // an out-of-range value is corrected, not obeyed
 end; // function
 
@@ -1312,9 +1423,6 @@ begin
       okString, okEnum:
         Ini.WriteString('Format', T[i].Ident, VarToStr(T[i].GetVal(AOpts)));
     end; // case
-    // The retired alias key is folded into the Break* values above; drop it so it
-    // cannot override them on the next load.
-    Ini.DeleteKey('Format', PACK_ALIAS_KEY);
     Ini.UpdateFile;
   finally
     Ini.Free;

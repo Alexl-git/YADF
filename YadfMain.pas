@@ -159,18 +159,18 @@ type
   /// "internal error" style report.</summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: declaration (YADF.dpr) ?, YadfMain.ExpandFileSpec (YadfMain.pas), YadfMain.ParseFlags (YadfMain.pas), YadfMain.ParseFlags.NextValue (YadfMain.pas)</para>
+  /// <para>Used by: declaration (YADF.dpr) ?, YadfMain.ExpandFileSpec (YadfMain.pas), YadfMain.ExtractIniPath (YadfMain.pas), YadfMain.ParseFlags (YadfMain.pas), YadfMain.ParseFlags.NextValue (YadfMain.pas)</para>
   /// <para>Used in units: YADF, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   EYadfUsage = class(Exception);
 
-/// <exception cref="EYadfUsage"><!-- drag-lint:auto exc -->via YadfMain.ExpandFileSpec: Directory not found:; via YadfMain.ParseFlags; via YadfMain.ParseFlags: --encoding requires ansi|utf8|utf16 (+3 more)</exception>
+/// <exception cref="EYadfUsage"><!-- drag-lint:auto exc -->via YadfMain.ExpandFileSpec: Directory not found:; via YadfMain.ExtractIniPath: --ini and --no-ini cannot be combined; via YadfMain.ParseFlags (+4 more)</exception>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: main block (YADF.dpr)</para>
 /// <para>Calls: Default, ExpandFileName, Format, LowerCase, ParamStr, Trim, Writeln, YADF.Options.DefaultOptions, YADF.Options.EnsureIniExists, YADF.Options.ReadOptionsFromIni (+17 more)</para>
-/// <para>Complexity: 29 (cyclomatic, outer body), 184 lines (full implementation)</para>
+/// <para>Complexity: 29 (cyclomatic, outer body), 185 lines (full implementation)</para>
 /// <seealso cref="YADF.Options.DefaultOptions"/>
 /// <seealso cref="YADF.Options.EnsureIniExists"/>
 /// <seealso cref="YADF.Options.ReadOptionsFromIni"/>
@@ -913,6 +913,7 @@ begin
   WriteStdoutLine('  --ini <file>          explicit INI file (overrides the F profile below)'            );
   WriteStdoutLine('                          default: the F profile named in %APPDATA%\YADF\profiles.ini');
   WriteStdoutLine('                          (F=yadf.ini out of the box; created on first run if absent)');
+  WriteStdoutLine('  --no-ini              read no INI and create none: compiled-in defaults + these flags');
   WriteStdoutLine(Format('  --log / --no-log      append %%APPDATA%%\YADF\yadf-startup.log + OutputDebugString  [Logging=%s]', [OnOff(AOpts.Logging)]));
   WriteStdoutLine(Format('  --d10 / --no-d10      downgrade inline vars for Delphi 10.2.3 (best-effort)        [Delphi10Compat=%s]', [OnOff(AOpts.Delphi10Compat)]));
   WriteStdoutLine(''                              );
@@ -930,9 +931,9 @@ begin
   WriteStdoutLine(Format('  --no-break-with       join a short with body onto the do line         [with=%s]', [OnOff(AOpts.BreakWithBody)]));
   WriteStdoutLine(Format('  --break-if            break if then/else body onto its own line          [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine(Format('  --no-break-if         one-line if when it fits (if C then A else B;)  [if=%s]', [OnOff(AOpts.BreakIfBody)]));
-  WriteStdoutLine('  --pack-bodies         retired alias: --no-break-if/-loop/-with + --case-arm-on-label;');
-  WriteStdoutLine('                          an explicit --break-* flag or INI key still wins (any order)');
-  WriteStdoutLine('  --no-pack-bodies      cancel the alias (also an INI PackShortBodies=true)');
+  WriteStdoutLine(Format('  --pack-bodies         preset: --no-break-if/-loop/-with + --case-arm-on-label;  [PackShortBodies=%s]', [OnOff(AOpts.PackShortBodies)]));
+  WriteStdoutLine('                          an explicit switch for one of those four wins (any order); beats the INI');
+  WriteStdoutLine('  --no-pack-bodies      cancel the preset (--pack-bodies and an INI PackShortBodies=true)');
   WriteStdoutLine(Format('  --begin-on-header     begin on the then/do/else/label line (then begin) [begin=%s]', [OnOff(AOpts.BeginOnHeaderLine)]));
   WriteStdoutLine(Format('  --no-begin-on-header  begin on its own line; end / else / begin apart [begin=%s]', [OnOff(AOpts.BeginOnHeaderLine)]));
   WriteStdoutLine(Format('  --pack-statements     pack adjacent plain statements on one line     [pack=%s]', [OnOff(AOpts.PackStatements)]));
@@ -983,7 +984,7 @@ begin
   WriteStdoutLine(Format('  AlignMatchingShapes=%s  AlignShapeMinAnchors=%d  AlignCommentMaxShift=%d  AlignMaxColumn=%d', [OnOff(AOpts.AlignMatchingShapes), AOpts.AlignShapeMinAnchors, AOpts.AlignCommentMaxShift, AOpts.AlignMaxColumn]));
   WriteStdoutLine(Format('  UsesCommaLast=%s  SplitMultiVarDecls=%s', [OnOff(AOpts.UsesCommaLast), OnOff(AOpts.SplitMultiVarDecls)]));
   WriteStdoutLine(''                                                          );
-  WriteStdoutLine('Precedence: CLI flags > INI values > compiled-in defaults.');
+  WriteStdoutLine('Precedence: CLI flags > INI values > compiled-in defaults (--no-ini: CLI flags > defaults).');
 end; // begin
 
 // ParseEncoding now lives in YADF.Options (shared by CLI, wizard, GUI).
@@ -1039,13 +1040,31 @@ function ExtractIniPath(var AArgs: TArray<string>): string;
 var
   Filtered: TList<string>;
   i       : Integer      ;
+  NoIni   : Boolean      ;
+  HasIni  : Boolean      ;
 begin
-  Result:= DefaultIniPath;
+  // --no-ini (SPEC-2026-11-03): no INI is read and none is created -- not even
+  // the F profile's, so DefaultIniPath (which materialises it) must not run.
+  NoIni := False;
+  HasIni:= False;
+  for i:= 0 to High(AArgs) do
+    if AArgs[i] = '--no-ini' then
+      NoIni:= True
+    else if AArgs[i] = '--ini' then
+      HasIni:= True;
+  if NoIni and HasIni then
+    raise EYadfUsage.Create('--ini and --no-ini cannot be combined');
+  Result:= if NoIni then '' else DefaultIniPath;
   Filtered:= TList<string>.Create;
   try
     i:= 0;
     while i <= High(AArgs) do
     begin
+      if AArgs[i] = '--no-ini' then
+      begin
+        Inc(i);
+        Continue;
+      end;
       // A help arg is never an INI path. Without this guard `yadf --ini --help`
       // would consume '--help' as the path -- suppressing the help it asked for
       // and creating a file literally named '--help'. Leaving '--ini' unconsumed
@@ -1093,8 +1112,8 @@ var
     end;
   end;
 
-  // BoolFlag for a Break*Body option: also records that it was set explicitly,
-  // so the --pack-bodies alias leaves it alone (options M4).
+  // BoolFlag for one of the four rules --pack-bodies presets: also records that
+  // the CLI layer set it explicitly, so the CLI preset leaves it alone (SPEC-2026-11-03).
   function BodyFlag(const AOn, AOff: string; var AField, AExplicit: Boolean): Boolean;
   begin
     Result:= BoolFlag(AOn, AOff, AField);
@@ -1133,14 +1152,14 @@ var
       or BoolFlag('--log', '--no-log', AOpts.Logging)
       or BoolFlag('--uses-break', '--no-uses-break', AOpts.UsesAlwaysBreak)
       or BoolFlag('--break-case', '--no-break-case', AOpts.BreakCaseLabels)
-      or BoolFlag('--case-arm-on-label', '--no-case-arm-on-label', AOpts.CaseArmOnLabelLine)
+      or BodyFlag('--case-arm-on-label', '--no-case-arm-on-label', AOpts.CaseArmOnLabelLine, AOver.Cli.ExplicitArm)
       or BoolFlag('--begin-on-header', '--no-begin-on-header', AOpts.BeginOnHeaderLine)
       or BoolFlag('--pack-statements', '--no-pack-statements', AOpts.PackStatements)
       or BoolFlag('--indent-comments', '--no-indent-comments', AOpts.IndentComments)
       or BoolFlag('--collapse-blocks', '--no-collapse-blocks', AOpts.CollapseShortBlocks)
-      or BodyFlag('--break-loop', '--no-break-loop', AOpts.BreakLoopBody, AOver.ExplicitLoop)
-      or BodyFlag('--break-with', '--no-break-with', AOpts.BreakWithBody, AOver.ExplicitWith)
-      or BodyFlag('--break-if', '--no-break-if', AOpts.BreakIfBody, AOver.ExplicitIf)
+      or BodyFlag('--break-loop', '--no-break-loop', AOpts.BreakLoopBody, AOver.Cli.ExplicitLoop)
+      or BodyFlag('--break-with', '--no-break-with', AOpts.BreakWithBody, AOver.Cli.ExplicitWith)
+      or BodyFlag('--break-if', '--no-break-if', AOpts.BreakIfBody, AOver.Cli.ExplicitIf)
       or BoolFlag('--break-params', '--no-break-params', AOpts.BreakParamsOnePerLine)
       or BoolFlag('--join-headers', '--no-join-headers', AOpts.JoinRoutineHeaders)
       or BoolFlag('--break-expr', '--no-break-expr', AOpts.BreakLongExpressions);
@@ -1205,12 +1224,12 @@ begin
       end
       else if AArgs[i] = '--pack-bodies' then
       begin
-        AOver.PackAlias:= True; // retired option, kept as an alias; applied by ResolveOptions
+        AOver.Cli.Pack:= True; // the CLI layer's preset; applied by ResolveOptions
         Inc(i);
       end
       else if AArgs[i] = '--no-pack-bodies' then
       begin
-        AOver.NoPackAlias:= True; // cancels the alias wherever it was asked for
+        AOver.NoPack:= True; // cancels the preset in the INI and the CLI layer
         Inc(i);
       end
       else if AArgs[i] = '--ini' then
@@ -1314,11 +1333,12 @@ begin
   // an existing file and load it normally.
   if EnsureIniExists(IniPath) then
     WriteStdoutLine('Created default config: ' + IniPath);
-  // Two phases (options M4): read every value from the INI, then the flags, and
-  // only then apply the derived rules (--pack-bodies / PackShortBodies alias) and
-  // the range clamp, so neither key nor argument order matters. Out-of-range INI
-  // and CLI values are both reported, to stderr (in --stdout mode stdout carries
-  // the formatted source).
+  // Layers (SPEC-2026-11-03): read every value from the INI, then the flags,
+  // recording per layer what each asked for; only then apply the Pack preset of
+  // each layer (CLI over INI; inside a layer an explicit rule beats the preset)
+  // and the range clamp, so neither key nor argument order matters. Out-of-range
+  // INI and CLI values are both reported, to stderr (in --stdout mode stdout
+  // carries the formatted source). --no-ini leaves IniPath '' (nothing read).
   Over:= Default(TOptionOverrides);
   ReadOptionsFromIni(IniPath, Opts, Over);
   ParseFlags(Args, Opts, Over, OutFile, StdoutMode);

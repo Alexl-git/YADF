@@ -69,9 +69,9 @@ $cases = @(
      In = 'Delta:= <195-char sum on one line>'; Want = 'line unchanged'; Show = '^\s*(Alpha,|Beta,?|\);)\s*$|^\s*Delta:='
      Must = @('(?m)^\s*Delta:= Sum3\(Alpha, Beta, Gamma\) \+ [^\r\n]* \+ Sum3\(Alpha, Beta, Beta\);\r?$') }
 
-  # PackShortBodies is RETIRED (owner decision Q1, SPEC-2026-11-01 task 2d-1): no
-  # longer an option, but PackShortBodies=true in an INI is a load-time alias for
-  # BreakIfBody/BreakLoopBody/BreakWithBody = false + CaseArmOnLabelLine = true.
+  # PackShortBodies (SPEC-2026-11-03): a saved option and a preset for
+  # BreakIfBody/BreakLoopBody/BreakWithBody = false + CaseArmOnLabelLine = true;
+  # a rule key the same INI sets explicitly beats it.
   @{ Id = 'PackShortBodies=true alias: for body packed'; Fix = 'polarity_pack'; Set = @{ PackShortBodies = $T }
      In = 'for I:= 0 to N do<NL>Inc(PkA);'; Want = 'one line'
      Must = @('(?m)^\s*for I:= 0 to N do Inc\(PkA\);\r?$') }
@@ -387,7 +387,12 @@ $cases = @(
   @{ Id = 'CaseArmOnLabelLine ON: an operator-leading hand break in an arm joins when it fits (Q6)'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T }
      In = '6: CaB:= CaA + CaC + CaD + CaA<NL>         + CaC + CaD;'; Want = 'one line'
      Must = @('(?m)^\s*6: CaB:= CaA \+ CaC \+ CaD \+ CaA \+ CaC \+ CaD;\r?$') }
-  @{ Id = 'CaseArmOnLabelLine OFF + PackShortBodies ON: Pack implies ON'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; PackShortBodies = $T }
+  # SPEC-2026-11-03: an explicit INI key beats the INI Pack preset, for the case
+  # arm exactly like the three Break*Body rules (it used to be forced ON).
+  @{ Id = 'CaseArmOnLabelLine OFF + PackShortBodies ON: the explicit key is respected'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $F; PackShortBodies = $T }
+     In = '0:<NL>Inc(CaA); / 1: Inc(CaB);'; Want = 'both under the label'
+     Must = @('(?m)^\s*0:\r?\n\s+Inc\(CaA\);\r?$', '(?m)^\s*1:\r?\n\s+Inc\(CaB\);\r?$') }
+  @{ Id = 'CaseArmOnLabelLine unset + PackShortBodies ON: Pack sets ON'; Fix = 'polarity_casearm'; Set = @{ PackShortBodies = $T }
      In = '0:<NL>Inc(CaA); / 1: Inc(CaB);'; Want = 'both on the label line'
      Must = @('(?m)^\s*0: Inc\(CaA\);\r?$', '(?m)^\s*1: Inc\(CaB\);\r?$') }
   @{ Id = 'CaseArmOnLabelLine ON + ReflowLines OFF: arm still joined'; Fix = 'polarity_casearm'; Set = @{ CaseArmOnLabelLine = $T; ReflowLines = $F }

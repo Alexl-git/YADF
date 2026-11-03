@@ -134,10 +134,12 @@ $a2 = Txt $bare @('--break-if', '--pack-bodies') 'm4b'
 if ($a1 -ne $a2) { Fail 'options M4: --pack-bodies --break-if differs from --break-if --pack-bodies' }
 MustMatch $a1 '(?m)^\s+DoIt;' 'options M4: explicit --break-if wins over --pack-bodies'
 MustMatch $a1 'for I:= 0 to N do Inc\(N\);' 'options M4: --pack-bodies still packs the loop body'
+# SPEC-2026-11-03 replaced "explicit anywhere wins" with layers: the CLI preset
+# beats an INI rule key; inside the INI an explicit key beats the INI preset.
 $b1 = Txt $keepIf @('--pack-bodies') 'm4c'
 $b2 = Txt $aliasIf @() 'm4d'
-if ($b1 -ne $b2) { Fail 'options M4: --pack-bodies + INI BreakIfBody=true differs from INI PackShortBodies=true + BreakIfBody=true' }
-MustMatch $b1 '(?m)^\s+DoIt;' 'options M4: INI BreakIfBody=true wins over --pack-bodies'
+MustMatch $b1 'if X then DoIt;' 'layers: --pack-bodies beats INI BreakIfBody=true'
+MustMatch $b2 '(?m)^\s+DoIt;' 'layers: INI BreakIfBody=true beats INI PackShortBodies=true'
 $c1 = Txt $aliasNo @('--no-pack-bodies') 'm4e'
 $c2 = Txt $bare @() 'm4f'
 if ($c1 -ne $c2) { Fail 'options M4: --no-pack-bodies does not cancel INI PackShortBodies=true' }

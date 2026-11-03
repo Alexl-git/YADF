@@ -8,6 +8,19 @@ predate the scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed -- Pack short bodies is an option again, resolved layer by layer
+
+- **`PackShortBodies` is a visible, saved option** (INI key `PackShortBodies`, default off): a preset that turns `BreakIfBody`, `BreakLoopBody` and `BreakWithBody` off and `CaseArmOnLabelLine` on. The four stay independent rules.
+- **Layered resolution:** compiled-in defaults, then the INI (its `PackShortBodies=true` preset, then every rule key the INI sets), then the CLI (`--pack-bodies` over that result, then every rule switch given). The CLI beats the INI; inside one layer an explicit rule beats the preset; order never matters. `--no-pack-bodies` cancels the preset in both layers. This replaces the 2026-11-02 "explicit anywhere wins" rule: `--pack-bodies` now beats an INI `BreakIfBody=true`.
+- **`CaseArmOnLabelLine` is respected like the three Break rules:** `PackShortBodies=true` with `CaseArmOnLabelLine=false` in the same INI (or `--no-case-arm-on-label --pack-bodies`) keeps the arm under its label; Pack used to force it on.
+- **Options page (IDE and YADFSetup):** new group "Short bodies" with the four rules and "Pack short bodies onto their header line". Checking Pack sets the four to the preset and marks them; a rule moved away from the preset is kept and listed under the rules ("Respected over Pack: ...").
+
+### Added
+
+- **`--no-ini`:** read no INI file and create none; compiled-in defaults plus the CLI switches. `--ini` together with `--no-ini` is a usage error (exit 2).
+
 ## [1.0.20.0] - 2026-10-19
 
 This release closes the backlog from the 2026-10-14 software review: more ways

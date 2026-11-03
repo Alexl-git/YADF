@@ -27,7 +27,7 @@ end;
 
 // Count of fields in TYadfOptions; the descriptor table must match exactly.
 const
-  EXPECTED_OPTION_COUNT = 48;
+  EXPECTED_OPTION_COUNT = 49;
 
 procedure TestDescriptorCompleteness;
 var
@@ -195,34 +195,122 @@ begin
   end;
 end;
 
-// Owner decision Q1 (SPEC-2026-11-01 task 2d-1): PackShortBodies left the option
-// table but its INI key is a load-time alias; Break*Body default to ON.
-procedure TestPackShortBodiesAlias;
+// SPEC-2026-11-03 section 1-2: PackShortBodies is a saved option and a PRESET over
+// BreakIfBody/BreakLoopBody/BreakWithBody (off) and CaseArmOnLabelLine (on). The
+// INI layer applies it first, then puts back the rules the INI sets explicitly;
+// the CLI layer (simulated here through TOptionOverrides.Cli) applies it over that
+// result, then puts back the rules set by a CLI switch. --no-pack-bodies cancels
+// the preset in both layers. The CLI rows of the spec table run end to end in
+// Test\test_pack_bodies.ps1.
+procedure TestPackLayers;
 var
   Path: string;
   O   : TYadfOptions;
+  Over: TOptionOverrides;
+
+  procedure LoadIni(const ABody: string);
+  begin
+    TFile.WriteAllText(Path, '[Format]' + sLineBreak + ABody);
+    O   := DefaultOptions;
+    Over:= Default(TOptionOverrides);
+    ReadOptionsFromIni(Path, O, Over);
+  end;
+
+  // if/loop/with/arm as four letters: B = own line (rule on), J = joined.
+  function Shape: string;
+  const
+    CH: array[Boolean] of Char = ('J', 'B');
+  begin
+    Result:= CH[O.BreakIfBody] + CH[O.BreakLoopBody] + CH[O.BreakWithBody] + CH[not O.CaseArmOnLabelLine];
+  end;
+
 begin
   O:= DefaultOptions;
-  Check('Break*Body default ON', O.BreakIfBody and O.BreakLoopBody and O.BreakWithBody);
-  Path:= TPath.Combine(TPath.GetTempPath, 'yadf_packalias_test.ini');
+  Check('defaults: Pack off, Break*Body on, arm on', (not O.PackShortBodies) and (Shape = 'BBBJ'));
+  Path:= TPath.Combine(TPath.GetTempPath, 'yadf_packlayers_test.ini');
   try
+    // #1 none + --pack-bodies
+    LoadIni('');
+    Over.Cli.Pack:= True;
+    ResolveOptions(O, Over);
+    Check('#1 --pack-bodies: JJJJ', Shape = 'JJJJ');
+    // #2 INI BreakIfBody=true + --pack-bodies: CLI beats INI
+    LoadIni('BreakIfBody=true' + sLineBreak);
+    Over.Cli.Pack:= True;
+    ResolveOptions(O, Over);
+    Check('#2 INI BreakIfBody + --pack-bodies: JJJJ (CLI beats INI)', Shape = 'JJJJ');
+    // #3 --break-loop --pack-bodies: an explicit CLI rule beats the CLI preset
+    LoadIni('');
+    O.BreakLoopBody:= True; Over.Cli.ExplicitLoop:= True;
+    Over.Cli.Pack:= True;
+    ResolveOptions(O, Over);
+    Check('#3 --break-loop --pack-bodies: JBJJ', Shape = 'JBJJ');
+    // #5 --no-case-arm-on-label --pack-bodies
+    LoadIni('');
+    O.CaseArmOnLabelLine:= False; Over.Cli.ExplicitArm:= True;
+    Over.Cli.Pack:= True;
+    ResolveOptions(O, Over);
+    Check('#5 --no-case-arm-on-label --pack-bodies: JJJB', Shape = 'JJJB');
+    // #6 / #8 --no-pack-bodies cancels the preset of both layers
+    LoadIni('PackShortBodies=true' + sLineBreak);
+    Over.Cli.Pack:= True; Over.NoPack:= True;
+    ResolveOptions(O, Over);
+    Check('#6 INI Pack + --pack-bodies --no-pack-bodies: defaults', Shape = 'BBBJ');
+    Check('#6 PackShortBodies resolves off', not O.PackShortBodies);
+    // #7 INI Pack + BreakIfBody=true: the INI key beats the INI preset
+    LoadIni('BreakIfBody=true' + sLineBreak + 'PackShortBodies=true' + sLineBreak);
+    ResolveOptions(O, Over);
+    Check('#7 INI Pack + BreakIfBody: BJJJ', Shape = 'BJJJ');
+    Check('#7 PackShortBodies stays on', O.PackShortBodies);
+    // #7b the case-arm rule is respected exactly like the Break*Body rules
+    O:= LoadOptionsFromIni(Path);
     TFile.WriteAllText(Path, '[Format]' + sLineBreak + 'PackShortBodies=true' + sLineBreak + 'CaseArmOnLabelLine=false' + sLineBreak);
     O:= LoadOptionsFromIni(Path);
-    Check('Pack alias: Break*Body OFF', not (O.BreakIfBody or O.BreakLoopBody or O.BreakWithBody));
-    Check('Pack alias: CaseArmOnLabelLine ON', O.CaseArmOnLabelLine);
-    TFile.WriteAllText(Path, '[Format]' + sLineBreak + 'PackShortBodies=true' + sLineBreak + 'BreakIfBody=true' + sLineBreak);
-    O:= LoadOptionsFromIni(Path);
-    Check('Pack alias: an explicit BreakIfBody=true still wins', O.BreakIfBody and not O.BreakLoopBody);
+    Check('#7b INI Pack + CaseArmOnLabelLine=false: JJJB', Shape = 'JJJB');
+    // #8 INI Pack + --no-pack-bodies
+    LoadIni('PackShortBodies=true' + sLineBreak);
+    Over.NoPack:= True;
+    ResolveOptions(O, Over);
+    Check('#8 INI Pack + --no-pack-bodies: defaults', Shape = 'BBBJ');
+    // Save writes PackShortBodies plus all four rule keys; the reload is identical.
+    O:= DefaultOptions;
+    ApplyPackPreset(O);
+    O.PackShortBodies:= True;
+    O.BreakWithBody  := True;
     SaveOptionsToIni(O, Path);
-    Check('save drops the alias key', Pos('PackShortBodies', TFile.ReadAllText(Path)) = 0);
+    Check('save writes PackShortBodies=true', TFile.ReadAllText(Path).Contains('PackShortBodies=true'));
     O:= LoadOptionsFromIni(Path);
-    Check('saved values round-trip without the alias', O.BreakIfBody and not O.BreakLoopBody and not O.BreakWithBody);
+    Check('saved Pack + a respected rule round-trips', O.PackShortBodies and (Shape = 'JJBJ'));
     TFile.WriteAllText(Path, '[Format]' + sLineBreak + 'PackShortBodies=false' + sLineBreak);
     O:= LoadOptionsFromIni(Path);
-    Check('PackShortBodies=false changes nothing', O.BreakIfBody and O.BreakLoopBody and O.BreakWithBody);
+    Check('PackShortBodies=false changes nothing', Shape = 'BBBJ');
   finally
     TFile.Delete(Path);
   end;
+end;
+
+// SPEC-2026-11-03 section 4: the Options page message under the Short bodies
+// rules, built without the UI.
+procedure TestPackConflictText;
+var
+  O: TYadfOptions;
+begin
+  O:= DefaultOptions;
+  Check('conflict text: Pack off -> empty', PackConflictText(O) = '');
+  ApplyPackPreset(O);
+  O.PackShortBodies:= True;
+  Check('conflict text: Pack on, preset values -> empty', PackConflictText(O) = '');
+  O.BreakIfBody       := True;
+  O.CaseArmOnLabelLine:= False;
+  Check('conflict text: if + arm, in order', PackConflictText(O) =
+    'Respected over Pack:' + sLineBreak + '- if bodies stay on their own line' + sLineBreak + '- case arm statements stay under their label');
+  O.BreakLoopBody:= True;
+  O.BreakWithBody:= True;
+  Check('conflict text: all four', PackConflictText(O) =
+    'Respected over Pack:' + sLineBreak + '- if bodies stay on their own line' + sLineBreak + '- loop bodies stay on their own line' + sLineBreak +
+    '- with bodies stay on their own line' + sLineBreak + '- case arm statements stay under their label');
+  O.PackShortBodies:= False;
+  Check('conflict text: Pack off hides conflicts', PackConflictText(O) = '');
 end;
 // Review 2026-10-14: integers were never range-checked -- Indent=-3 with
 // MaxLen=0 produced zero-indented output with every operator on its own line.
@@ -455,7 +543,8 @@ begin
     TestLooksLikeUtf8;
     TestSaveFileReplaceFailure;
     TestHelpIds;
-    TestPackShortBodiesAlias;
+    TestPackLayers;
+    TestPackConflictText;
     TestSampleSeed;
     Writeln('');
     if GFailures = 0 then
