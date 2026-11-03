@@ -17,7 +17,7 @@ rem ========================================================================
 rem ==== Single source of truth for the release version =================
 set YADF_MAJOR=1
 set YADF_MINOR=0
-set YADF_RELEASE=20
+set YADF_RELEASE=21
 set YADF_BUILD=0
 set YADF_VER=%YADF_MAJOR%.%YADF_MINOR%.%YADF_RELEASE%.%YADF_BUILD%
 rem Bump with: pwsh sync_version.ps1 -Version N.N.N.N (rewrites the lines above).

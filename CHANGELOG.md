@@ -8,7 +8,26 @@ predate the scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.0.21.0] - 2026-11-03
+
+This release reworks the layout engine (one-run idempotence, two-way short
+bodies, a regrouped Options page), adds online help behind "?" buttons,
+registers YADF as the Delphi 13.2 code formatter (opt-in), and closes the
+2026-11-02 review round.
+
+### Fixed -- review round (2026-11-02)
+
+- **`--d10`:** literal types are right, including `Cardinal` for 2^31..2^32-1; inline-var name collisions are case-insensitive; hoisted inline vars continue an existing simple `var` section; `--d10` TODO flags carry a marker and a run without `--d10` removes exactly those.
+- **Idempotence:** a second run no longer changes the first run's output (comma-first lists, trailing operators, multi-line name lists, stale labels, nested case arms, anon-method depth, variant arms, `end else`, label comments, continuation indent).
+- **Options page:** values are clamped to their valid range; `--pack-bodies` and the INI preset resolve consistently.
+- **Content guard:** strict code-token stream with exact spelling; fewer false declines under `--d10`; Unicode messages.
+- A comment inside a declaration name list no longer blocks `SplitMultiVarDecls`.
+
+### Changed -- layout engine
+
+- **Short bodies:** `BreakIfBody`, `BreakLoopBody`, `BreakWithBody` are two-way (default on); new `CaseArmOnLabelLine`, `JoinRoutineHeaders`, `BeginOnHeaderLine` and `PackStatements` options; block keywords start a line; tight parens; plain `Name: Type;` with the align options off. `CollapseShortBlocks` off now expands one-line `begin..end` control blocks.
+- **`AlignMatchingShapes`** treats a member `.` as an ordinary anchor.
+- **Comments** keep their place across the join and split passes.
 
 ### Changed -- Pack short bodies is an option again, resolved layer by layer
 
@@ -19,6 +38,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Online help:** every option has a help page (with real-output examples) on the help site; the Options page (IDE and YADFSetup) has a "?" button per option that opens it. Options are regrouped by construct.
+- **Delphi 13.2 code formatter (opt-in):** YADFOT can register YADF as the IDE's code formatter (Options page check box, IDE only).
+- **Preview sample** is version-stamped; an older copy in %APPDATA% is upgraded (an edited one is kept as `Sample.pas.bak`).
+- **Internal:** the drag-lint findings of the code base are at zero.
 - **`--no-ini`:** read no INI file and create none; compiled-in defaults plus the CLI switches. `--ini` together with `--no-ini` is a usage error (exit 2).
 
 ## [1.0.20.0] - 2026-10-19
