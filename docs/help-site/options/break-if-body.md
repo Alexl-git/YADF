@@ -6,6 +6,7 @@ group: short-bodies
 order: 10
 default: "true"
 ini: BreakIfBody
+cli: --break-if
 since: "1.0.0.0"
 status: "stable"
 ---

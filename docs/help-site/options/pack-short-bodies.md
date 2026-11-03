@@ -1,7 +1,7 @@
 ---
 id: pack-short-bodies
 title: Pack short bodies onto their header line
-summary: "Preset for the four rules above: if/loop/with bodies are joined onto their header line when they fit, and a one-statement case arm goes on its label line. Each of the four stays its own rule: change one after checking Pack and that choice is kept (shown below the rules). Off by default."
+summary: Preset for the four rules above: if/loop/with bodies are joined onto their header line when they fit, and a one-statement case arm goes on its label line. Each of the four stays its own rule: change one after checking Pack and that choice is kept (shown below the rules). Off by default.
 group: short-bodies
 order: 50
 default: "false"

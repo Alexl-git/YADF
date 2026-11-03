@@ -6,6 +6,7 @@ group: short-bodies
 order: 20
 default: "true"
 ini: BreakLoopBody
+cli: --break-loop
 since: "1.0.0.0"
 status: "stable"
 ---

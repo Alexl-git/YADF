@@ -6,6 +6,7 @@ group: short-bodies
 order: 30
 default: "true"
 ini: BreakWithBody
+cli: --break-with
 since: "1.0.0.0"
 status: "stable"
 ---

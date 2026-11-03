@@ -3,7 +3,7 @@ id: begin-on-header-line
 title: Put begin on the same line as then / do / else
 summary: On: begin joins the line of its then / do / else, case label or case else ("if C then begin", "end else begin", "9: begin"). Off: begin goes on its own line, and "end" / "else" / "begin" on three lines. A block that "Fold short begin..end onto one line" folds onto one line is not affected. Off by default.
 group: bodies-and-blocks
-order: 40
+order: 10
 default: "false"
 ini: BeginOnHeaderLine
 cli: --begin-on-header

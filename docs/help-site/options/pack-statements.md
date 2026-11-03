@@ -3,7 +3,7 @@ id: pack-statements
 title: Pack several statements on one line
 summary: On: adjacent plain statements ("A:= 1; B:= 2;") are packed onto one line while it fits the max length. Off: one statement per line. Block keywords (begin, repeat, try, case, record, class) always start a line either way. Off by default.
 group: bodies-and-blocks
-order: 60
+order: 30
 default: "false"
 ini: PackStatements
 cli: --pack-statements
