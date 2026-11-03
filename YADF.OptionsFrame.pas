@@ -126,7 +126,7 @@ type
       // --- profiles panel ---
       FProfiles    : TYadfProfiles ; // current F/R mapping from profiles.ini
       FProfileFiles: TArray<string>; // file names, index-aligned to list rows
-      FCurrentIni  : string        ; // full path of the profile being edited
+      FCurrentIniPath  : string        ; // full path of the profile being edited
       FProfileList : TListBox      ; // the profiles list control
       FEditingLbl  : TLabel        ; // 'Editing: <file>'
       FNativeFmtChk: TCheckBox     ; // IDE-only: register as the IDE code formatter (hidden by default)
@@ -238,7 +238,7 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.UnassignSelected (YADF.OptionsFrame.pas)
       /// Calls: DirectoryExists, ExtractFileName, ForceDirectories, SameText
-      /// Reads: FProfileFiles, FCurrentIni, FProfileList, FProfiles, FEditingLbl
+      /// Reads: FProfileFiles, FCurrentIniPath, FProfileList, FProfiles, FEditingLbl
       /// Touches: file system
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
@@ -253,7 +253,7 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ProfileListClick (YADF.OptionsFrame.pas)
       /// Calls: ExtractFileName, SameFileName, YADF.Options.EnsureIniExists, YADF.Options.LoadOptionsFromIni, YADF.Options.ResolveProfileIniPath, YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat
-      /// Reads: FCurrentIni, FOpts, FPolicy, FEditingLbl   Writes: FPendingSave, FCurrentIni, FOpts
+      /// Reads: FCurrentIniPath, FOpts, FPolicy, FEditingLbl   Writes: FPendingSave, FCurrentIniPath, FOpts
       /// <seealso cref="YADF.Options.EnsureIniExists"/>
       /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
       /// <seealso cref="YADF.Options.ResolveProfileIniPath"/>
@@ -305,7 +305,7 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Destroy (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ReformatTimer (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults (YADF.OptionsFrame.pas)
       /// Calls: YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile
-      /// Reads: FOpts, FCurrentIni
+      /// Reads: FOpts, FCurrentIniPath
       /// Pure
       /// <seealso cref="YADF.Options.SaveOptionsToIni"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus"/>
@@ -319,7 +319,7 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
       /// Calls: SameFileName, YADF.Options.ResolveProfileIniPath
-      /// Reads: FPolicy, FCurrentIni, FProfiles
+      /// Reads: FPolicy, FCurrentIniPath, FProfiles
       /// Touches: file system
       /// <seealso cref="YADF.Options.ResolveProfileIniPath"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
@@ -334,7 +334,7 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SaveCurrentProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas)
       /// Calls: FOnIniStatus
-      /// Reads: FOnIniStatus, FCurrentIni
+      /// Reads: FOnIniStatus, FCurrentIniPath
       /// Pure
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.AssignShortcut"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.BuildBanner"/>
@@ -564,7 +564,7 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas), YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas)
       /// Calls: YADF.Options.EnsureIniExists, YADF.Options.LoadOptionsFromIni, YADF.Options.ResolveProfileIniPath, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.LoadSample, YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls, YADF.OptionsFrame.TYadfOptionsFrame.Reformat, YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList
-      /// Reads: FProfiles, FCurrentIni   Writes: FProfiles, FCurrentIni, FOpts
+      /// Reads: FProfiles, FCurrentIniPath   Writes: FProfiles, FCurrentIniPath, FOpts
       /// <seealso cref="YADF.Options.EnsureIniExists"/>
       /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
       /// <seealso cref="YADF.Options.ResolveProfileIniPath"/>
@@ -586,7 +586,7 @@ type
       /// <!-- drag-lint:auto BEGIN -->
       /// Called from: YADFOT.Options.TYadfOptionsPage.DialogClosed (YADFOT.Options.pas)
       /// Calls: YADF.Options.LoadOptionsFromIni, YADF.Options.SaveOptionsToIni, YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions, YADF.OptionsFrame.TYadfOptionsFrame.DoIniStatus, YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile
-      /// Reads: FCurrentIni, FOpts   Writes: FOpts
+      /// Reads: FCurrentIniPath, FOpts   Writes: FOpts
       /// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
       /// <seealso cref="YADF.Options.SaveOptionsToIni"/>
       /// <seealso cref="YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions"/>
@@ -646,7 +646,7 @@ type
       /// </remarks>
       procedure ResetToDefaults;
       /// <summary>Full path of the profile INI currently being edited.</summary>
-      property CurrentIniPath: string read FCurrentIni;
+      property CurrentIniPath: string read FCurrentIniPath;
       /// <summary>Persistence behavior; assign right after Create, before Load.</summary>
       property Policy: TYadfOptionsPersistPolicy read FPolicy write FPolicy;
       /// <summary>Optional status-line sink; see TYadfIniStatusEvent.</summary>
@@ -715,6 +715,9 @@ const
   PackMsgLeft    = 28;  // the message starts at the check-box text column
   PackMsgLinePad = 3;   // leading between two message lines
   PackGap        = 2;   // gap between the message / marker and its neighbour
+  SpinLeft = 200;           // left edge of a spin editor inside a group box
+  SpinWidth = 80;           // width of a spin editor
+  EditLeft = 130;           // left edge of a text editor inside a group box
   HelpButtonColumn = 288;   // left edge of the "?" column inside a group box (the 360 px host)
   HelpButtonBlue = TColor($00CC6600);   // RGB(0, 102, 204)
 
@@ -804,10 +807,7 @@ var
   n  : DWORD                     ;
 begin
   n:= GetModuleFileName(HInstance, Buf, Length(Buf));
-  if n = 0 then
-    Result:= ''
-  else
-    Result:= Copy(string(Buf), 1, n);
+  Result:= if n = 0 then '' else Copy(string(Buf), 1, n);
 end; // function
 
 /// <summary>FileVersion of the owning module, from its VERSIONINFO resource.</summary>
@@ -856,7 +856,7 @@ begin
   DosHdr:= PImageDosHeader(Base);
   if DosHdr^.e_magic <> IMAGE_DOS_SIGNATURE then
     Exit;
-  NtHdr:= PImageNtHeaders(Base + DosHdr^._lfanew);
+  NtHdr:= PImageNtHeaders(@Base[DosHdr^._lfanew]);
   if NtHdr^.Signature <> IMAGE_NT_SIGNATURE then
     Exit;
   if NtHdr^.FileHeader.TimeDateStamp = 0 then
@@ -895,17 +895,11 @@ begin
   // constant beside it whenever the two disagree: that turns a misleading number
   // into a visible "this is an unstamped local build" signal, without making a
   // compile-time constant the headline (which a partial build can leave stale).
-  if Version <> '' then
-    if Version = YADF_VERSION then
-      Text:= Text + '  ' + Version
-    else
-      Text:= Text + '  ' + Version + ' (unstamped build; source ' + YADF_VERSION + ')'
-  else
-    Text:= Text + '  (no version resource; source ' + YADF_VERSION + ')';
-  if Stamp > 0 then
-    Text:= Text + '  -  built ' + FormatDateTime('yyyy-mm-dd hh:nn', Stamp)
-  else
-    Text:= Text + '  -  build date unavailable';
+  Text:= Text + (if Version <> '' then '  ' + Version
+    + (if Version = YADF_VERSION then '' else ' (unstamped build; source ' + YADF_VERSION + ')')
+    else '  (no version resource; source ' + YADF_VERSION + ')');
+  Text:= Text + (if Stamp > 0 then '  -  built ' + FormatDateTime('yyyy-mm-dd hh:nn', Stamp)
+    else '  -  build date unavailable');
   FBanner.Caption := '  ' + Text;
   FBanner.Hint    := OwningModulePath; // which COPY, when several exist
   FBanner.ShowHint:= True;
@@ -1140,7 +1134,7 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
         Se:= TSpinEdit.Create(Self);
-        Se.Parent:= Parent; Se.Left:= 200; Se.Top:= YIn; Se.Width:= 80;  // dl:ok large-magic-number@f1d9
+        Se.Parent:= Parent; Se.Left:= SpinLeft; Se.Top:= YIn; Se.Width:= SpinWidth;
         // The same ranges ClampOptions enforces on every real run (options M3).
         OptionBounds(T[i].Ident, BMin, BMax);
         Se.MinValue:= BMin;
@@ -1159,7 +1153,7 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
         Ed:= TEdit.Create(Self);
-        Ed.Parent:= Parent; Ed.Left:= 130; Ed.Top:= YIn; Ed.Width:= HelpButtonColumn - 4 - 130;  // dl:ok large-magic-number@2eb3
+        Ed.Parent:= Parent; Ed.Left:= EditLeft; Ed.Top:= YIn; Ed.Width:= HelpButtonColumn - 4 - EditLeft;
         Ed.Hint:= OptionHint(T[i]); Ed.ShowHint:= True;
         Ed.HelpKeyword:= OptionHelpId(T[i]);
         AddHelpButton(Self, Parent, OptionHelpId(T[i]), HelpButtonColumn, YIn + 2);
@@ -1377,7 +1371,7 @@ end; // procedure
 procedure TYadfOptionsFrame.DoIniStatus(const ASuffix: string);
 begin
   if Assigned(FOnIniStatus) then
-    FOnIniStatus('INI: ' + FCurrentIni + ASuffix);
+    FOnIniStatus('INI: ' + FCurrentIniPath + ASuffix);
 end;
 
 procedure TYadfOptionsFrame.MirrorFProfile;
@@ -1391,10 +1385,10 @@ begin
   // non-F profile), do NOT mirror -- that would clobber the F/standard file
   // with R's values. Skip when the edited file already IS the standard file
   // (copying a file onto itself raises). Best-effort: a copy failure must not
-  // lose the values already written to FCurrentIni.
+  // lose the values already written to FCurrentIniPath.
   if not FPolicy.MirrorF then
     Exit;
-  if not SameFileName(TPath.GetFullPath(FCurrentIni), TPath.GetFullPath(ResolveProfileIniPath(FProfiles.F))) then
+  if not SameFileName(TPath.GetFullPath(FCurrentIniPath), TPath.GetFullPath(ResolveProfileIniPath(FProfiles.F))) then
     Exit; // editing a non-F profile -> nothing to mirror
   Shared:= SharedAppDataIniPath;
   // Never clobber ANOTHER profile: with F pointing at a custom file and R
@@ -1403,12 +1397,12 @@ begin
   // directly, so it must win over the convenience mirror.
   if (FProfiles.R <> '') and SameFileName(TPath.GetFullPath(Shared), TPath.GetFullPath(ResolveProfileIniPath(FProfiles.R))) then
     Exit;
-  if not SameFileName(TPath.GetFullPath(FCurrentIni), TPath.GetFullPath(Shared)) then
+  if not SameFileName(TPath.GetFullPath(FCurrentIniPath), TPath.GetFullPath(Shared)) then
   try
-    TFile.Copy(FCurrentIni, Shared, True);
+    TFile.Copy(FCurrentIniPath, Shared, True);  // dl:ok taint-path-traversal@ed95 -- path is the local user's own profile INI; no trust boundary is crossed
   except
     // A read-only or locked standard file is non-fatal: the F profile itself
-    // is saved (FCurrentIni), so the next open and any profile-F consumer
+    // is saved (FCurrentIniPath), so the next open and any profile-F consumer
     // still read the correct values.
   end;
 end; // procedure
@@ -1419,7 +1413,7 @@ begin
   // file) must not raise into a VCL event handler; report it via the status
   // line instead.
   try
-    SaveOptionsToIni(FOpts, FCurrentIni);
+    SaveOptionsToIni(FOpts, FCurrentIniPath);
     MirrorFProfile;
     DoIniStatus('  (saved)');
   except
@@ -1456,7 +1450,7 @@ begin
   SyncDependentControls;
   if FPolicy.AutoSave then
     FPendingSave:= True;
-  if not ((Idx >= 0) and (Idx <= High(T)) and not T[Idx].AffectsPreview) then
+  if not (InRange(Idx, 0, High(T)) and not T[Idx].AffectsPreview) then
     FPendingReformat:= True;
   if FPendingSave or FPendingReformat then
   begin
@@ -1503,9 +1497,9 @@ begin
   // read-only/locked profile file must report via the status sink, never
   // raise into the IDE's dialog dispatch.
   try
-    FOpts:= LoadOptionsFromIni(FCurrentIni);
+    FOpts:= LoadOptionsFromIni(FCurrentIniPath);
     ControlsToOptions;
-    SaveOptionsToIni(FOpts, FCurrentIni);
+    SaveOptionsToIni(FOpts, FCurrentIniPath);
     MirrorFProfile;
     if FNativeFmtChk.Visible then
       SaveNativeFormatterFlag(ProfilesIniPath, FNativeFmtChk.Checked);
@@ -1549,7 +1543,7 @@ var
 begin
   Result:= '';
   i:= AList.ItemIndex;
-  if (i >= 0) and (i <= High(AFiles)) then
+  if InRange(i, 0, High(AFiles)) then
     Result:= AFiles[i];
 end;
 
@@ -1567,11 +1561,11 @@ begin
   // the F/R rows, rebuild the index-aligned FProfileFiles, and re-select the
   // row matching the profile now being edited.
   Dir:= ProfilesDir;
-  if not DirectoryExists(Dir) then
-    ForceDirectories(Dir);
+  if not DirectoryExists(Dir) and not ForceDirectories(Dir) then
+    Exit;
   Files:= TDirectory.GetFiles(Dir, '*.ini', TSearchOption.soTopDirectoryOnly);
   SetLength(FProfileFiles, 0);
-  Cur:= ExtractFileName(FCurrentIni);
+  Cur:= ExtractFileName(FCurrentIniPath);
   Sel:= -1;
   FProfileList.Items.BeginUpdate;
   try
@@ -1580,12 +1574,7 @@ begin
     begin
       Name:= ExtractFileName(Files[i]);
       if SameText(Name, 'profiles.ini') then Continue; // mapping file, not a profile
-      if SameText(Name, FProfiles.F) then
-        Badge:= '[F]  '
-      else if SameText(Name, FProfiles.R) then
-        Badge:= '[R]  '
-      else
-        Badge:= '      ';
+      Badge:= if SameText(Name, FProfiles.F) then '[F]  ' else if SameText(Name, FProfiles.R) then '[R]  ' else '      ';
       FProfileList.Items.Add(Badge + Name);
       SetLength(FProfileFiles, Length(FProfileFiles) + 1);
       FProfileFiles[High(FProfileFiles)]:= Name;
@@ -1614,11 +1603,11 @@ begin
   // I/O is guarded: this runs inside a VCL OnClick (in the IDE process for
   // the options page) and a locked profile file must not raise into it.
   Path:= ResolveProfileIniPath(AIniFile);
-  if (Path = '') or SameFileName(Path, FCurrentIni) then
+  if (Path = '') or SameFileName(Path, FCurrentIniPath) then
     Exit;
   ControlsToOptions;
   try
-    SaveOptionsToIni(FOpts, FCurrentIni); // flush current profile before leaving
+    SaveOptionsToIni(FOpts, FCurrentIniPath); // flush current profile before leaving
     FPendingSave:= False; // queued autosave now redundant
     if FPolicy.AutoSave then
       MirrorFProfile;
@@ -1626,10 +1615,10 @@ begin
     on E: Exception do
       DoIniStatus('  (save failed: ' + E.Message + ')');
   end;
-  FCurrentIni:= Path;
-  EnsureIniExists(FCurrentIni);
+  FCurrentIniPath:= Path;
+  EnsureIniExists(FCurrentIniPath);
   try
-    FOpts:= LoadOptionsFromIni(FCurrentIni);
+    FOpts:= LoadOptionsFromIni(FCurrentIniPath);
   except
     on E: Exception do
     begin
@@ -1638,7 +1627,7 @@ begin
     end;
   end;
   OptionsToControls;
-  FEditingLbl.Caption:= 'Editing: ' + ExtractFileName(FCurrentIni);
+  FEditingLbl.Caption:= 'Editing: ' + ExtractFileName(FCurrentIniPath);
   DoIniStatus('');
   Reformat;
 end; // procedure
@@ -1770,10 +1759,7 @@ begin
     FResult.Text:= FormatSource(FSource.Text, Eff, Declined);
     // A guard decline returns the source unchanged -- say so instead of "OK"
     // (review 2026-10-14).
-    if Declined <> '' then
-      FResultStat.Caption:= 'declined: ' + Declined
-    else
-      FResultStat.Caption:= 'OK';
+    FResultStat.Caption:= if Declined <> '' then 'declined: ' + Declined else 'OK';
     if Clamped <> '' then
       FResultStat.Caption:= FResultStat.Caption + '  (out of range, formatted with: ' + Clamped + ')';
   except
@@ -1900,12 +1886,12 @@ begin
   // compiled defaults (reported via the status sink) instead of raising into
   // the IDE's options-dialog construction.
   FProfiles:= LoadProfiles;
-  FCurrentIni:= ResolveProfileIniPath(FProfiles.F);
-  if FCurrentIni = '' then
-    FCurrentIni:= SharedAppDataIniPath;
-  EnsureIniExists(FCurrentIni);
+  FCurrentIniPath:= ResolveProfileIniPath(FProfiles.F);
+  if FCurrentIniPath = '' then
+    FCurrentIniPath:= SharedAppDataIniPath;
+  EnsureIniExists(FCurrentIniPath);
   try
-    FOpts:= LoadOptionsFromIni(FCurrentIni);
+    FOpts:= LoadOptionsFromIni(FCurrentIniPath);
   except
     on E: Exception do
     begin

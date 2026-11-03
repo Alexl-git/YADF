@@ -5,7 +5,6 @@ interface
 uses
   Winapi.Windows
   , System.SysUtils
-  , System.Classes
   , System.UITypes
   , Vcl.Controls
   , Vcl.Forms
@@ -24,8 +23,8 @@ type
   /// under SetupPersistPolicy (autosave on every change; no OK/Cancel).</summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// Used by: declaration (YADFSetup.dpr), declaration (uYADFSetupMain.pas)
-  /// Used in units: uYADFSetupMain, YADFSetup
+  /// <para>Used by: declaration (uYADFSetupMain.pas) ?, declaration (YADFSetup.dpr)</para>
+  /// <para>Used in units: uYADFSetupMain, YADFSetup</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TfrmMain = class(TForm)
@@ -136,8 +135,8 @@ begin
   if Sz = 0 then
     Exit;
   SetLength(Buf, Sz);
-  if GetFileVersionInfo(PChar(Application.ExeName), 0, Sz, Pointer(Buf)) then
-    if VerQueryValue(Pointer(Buf), '\', Pointer(Fixed), Len) and (Fixed <> nil) then
+  if GetFileVersionInfo(PChar(Application.ExeName), 0, Sz, Pointer(Buf))
+    and VerQueryValue(Pointer(Buf), '\', Pointer(Fixed), Len) and (Fixed <> nil) then
       Result:= Format('%d.%d.%d.%d', [HiWord(Fixed.dwFileVersionMS), LoWord(Fixed.dwFileVersionMS), HiWord(Fixed.dwFileVersionLS), LoWord(Fixed.dwFileVersionLS)]);
 end;
 

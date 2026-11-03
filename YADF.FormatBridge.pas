@@ -42,12 +42,12 @@ function IsPascalSourceFile(const AFileName: string): Boolean;
 /// <summary>Decodes IDE UTF-8 content to a Delphi string without touching a BOM.</summary>
 /// <param name="AContent">UTF-8 bytes as the IDE passes them.</param>
 /// <returns>The decoded text; '' for empty input.</returns>
-function Utf8ToText(const AContent: UTF8String): string;
+function Utf8ToText(const AContent: UTF8String): string;  // dl:ok unused-public-symbol@8568 -- public for FormatBridgeTest
 
 /// <summary>Encodes text to UTF-8 bytes (surrogate pairs preserved), never adding a BOM.</summary>
 /// <param name="AText">Delphi string.</param>
 /// <returns>The UTF-8 bytes; empty for empty input.</returns>
-function TextToUtf8(const AText: string): UTF8String;
+function TextToUtf8(const AText: string): UTF8String;  // dl:ok unused-public-symbol@e2b7 -- public for FormatBridgeTest
 
 /// <summary>Formats IDE content with the YADF engine, all-or-nothing.</summary>
 /// <param name="AContent">UTF-8 unit content from the IDE.</param>
@@ -59,7 +59,7 @@ function TextToUtf8(const AText: string): UTF8String;
 /// <remarks>Never raises. A decline or exception can therefore never hand the IDE partial or
 /// corrupt text: the original bytes come back and the reason is reported. Not thread-safe
 /// (the engine keeps unit-level state); call from the IDE main thread.</remarks>
-function FormatUtf8Content(const AContent: UTF8String; const AOpts: TYadfOptions; out AFormatted: UTF8String;  // dl:ok unused-public-symbol@0851
+function FormatUtf8Content(const AContent: UTF8String; const AOpts: TYadfOptions; out AFormatted: UTF8String;
   out ADeclined: string; AFormat: TYadfFormatFunc = nil): Boolean;
 
 /// <summary>Expands a byte range to the whole lines that contain it.</summary>
@@ -70,7 +70,7 @@ function FormatUtf8Content(const AContent: UTF8String; const AOpts: TYadfOptions
 /// <param name="ALineEnd">Byte offset just past the last covered line's line break (or the content length).</param>
 /// <returns>False when the range is invalid (negative, or reaching past the content).</returns>
 /// <remarks>A selection that ends exactly at the start of a line does not include that line.</remarks>
-function ExpandToWholeLines(const AContent: UTF8String; AOffset, ALen: Integer; out ALineStart, ALineEnd: Integer): Boolean;
+function ExpandToWholeLines(const AContent: UTF8String; AOffset, ALen: Integer; out ALineStart, ALineEnd: Integer): Boolean;  // dl:ok unused-public-symbol@cf4d -- public for FormatBridgeTest
 
 /// <summary>True when the selection, expanded to whole lines, is the entire non-empty content
 /// (e.g. Select All). The adapter treats such a selection as a whole-file format.</summary>
@@ -78,7 +78,7 @@ function ExpandToWholeLines(const AContent: UTF8String; AOffset, ALen: Integer; 
 /// <param name="AOffset">0-based byte offset of the selection start.</param>
 /// <param name="ALen">Selection length in bytes.</param>
 /// <returns>False for an invalid range, empty content or a partial selection.</returns>
-function SelectionCoversWholeContent(const AContent: UTF8String; AOffset, ALen: Integer): Boolean;  // dl:ok unused-public-symbol@ce90
+function SelectionCoversWholeContent(const AContent: UTF8String; AOffset, ALen: Integer): Boolean;
 
 /// <summary>Maps a caret byte offset from the original to the formatted text by (line, column).</summary>
 /// <param name="AOriginal">Content before formatting.</param>
@@ -88,12 +88,13 @@ function SelectionCoversWholeContent(const AContent: UTF8String; AOffset, ALen: 
 /// exists, never inside a multi-byte UTF-8 character; 0 for empty AFormatted.</returns>
 /// <remarks>Formatting can change line counts, so this is a best-effort caret restore, not offset
 /// remapping (the adapter reports SupportsOffsetRemapping = False).</remarks>
-function RemapCursorOffset(const AOriginal, AFormatted: UTF8String; AOffset: Integer): Integer;  // dl:ok unused-public-symbol@8e93
+function RemapCursorOffset(const AOriginal, AFormatted: UTF8String; AOffset: Integer): Integer;
 
 /// <summary>Options of the F profile, resolved exactly as the Ctrl+Shift+Alt+F command does.</summary>
 /// <returns>%APPDATA%\YADF\profiles.ini [Profiles]F (default yadf.ini), materialised with the
 /// commented template when absent, then loaded over DefaultOptions.</returns>
-/// <exception cref="EIniFileException">Raised if profiles/INI cannot be read.</exception>
+/// <remarks>Does not raise on a missing or unreadable INI (defaults apply); only the template write of
+/// EnsureIniExists can fail, with the RTL stream error of the failed file create.</remarks>
 function ResolveFProfileOptions: TYadfOptions;
 
 implementation

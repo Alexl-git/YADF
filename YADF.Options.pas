@@ -1332,7 +1332,7 @@ begin
   if (APath = '') or (not FileExists(APath)) then
     Exit;
   T:= OptionTable;
-  Ini:= TIniFile.Create(APath);  // dl:ok taint-path-traversal@9f39 -- path comes from the local user's own INI / command line; no trust boundary is crossed
+  Ini:= TIniFile.Create(APath);  // dl:ok taint-path-traversal@9f39 -- path comes from the local user's own INI / command line; no trust boundary is crossed -- path comes from the local user's own INI / command line; no trust boundary is crossed
   try
     for i:= 0 to High(T) do
     case T[i].Kind of
@@ -1406,7 +1406,7 @@ begin
   // values in place and leave the ';' comment lines intact.
   EnsureIniExists(APath);
   T:= OptionTable;
-  Ini:= TIniFile.Create(APath);
+  Ini:= TIniFile.Create(APath);  // dl:ok taint-path-traversal@9f39 -- path comes from the local user's own INI / command line; no trust boundary is crossed
   try
     for i:= 0 to High(T) do
     case T[i].Kind of
