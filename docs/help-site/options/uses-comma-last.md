@@ -26,6 +26,8 @@ The same choice applies to a parameter list broken by
 [Break parameters one per line](break-params-one-per-line.md):
 "; B: Integer" leading (off) or "const A: string;" ending each line (on).
 
+This option does NOT govern the comma-first lists produced by [Break long expressions](break-long-expressions.md) (long bracketed lists such as array constants). Those are always comma-first, so one file can legitimately contain both comma styles.
+
 ## Example
 
 Real YADF output for the "UsesAlwaysBreak + UsesCommaLast" block of the preview sample (Demo\Sample.pas), all other options at their defaults:

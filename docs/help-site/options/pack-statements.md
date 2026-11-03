@@ -50,6 +50,6 @@ end;
 
 ## Related
 
-- [Reflow lines (join and wrap)](reflow-lines.md) - Reflow lines that exceed the max line length. Off = long lines are left as-is.
+- [Reflow lines (join and wrap)](reflow-lines.md) - Join a statement broken by hand when it fits the max line length and wrap longer lines. Off = the author's line breaks are kept and long lines are left as-is.
 - [Trim trailing spaces](trim-trailing.md) - Trim trailing whitespace from every output line.
 - [Max blank lines](max-blank-lines.md) - Maximum consecutive blank lines kept in output. Excess blanks are collapsed.
