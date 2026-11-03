@@ -1020,9 +1020,9 @@ begin
     MakeOpt('LabelLongBlocks', 'Labels & markers', 'Label the end of long blocks', 'Mark the end of long blocks with the block keyword: "end; // while".'  // while", "end; // procedure".'
       , okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.LabelLongBlocks end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelLongBlocks:= V end),
-    MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines', 'Minimum block length in lines before a long block gets an end label.', okInt, True,  // dl:ok duplicate-code@2f84
+    MakeOpt('LabelMinLines', 'Labels & markers', 'Label min lines', 'Minimum block length in lines before a long block gets an end label.', okInt, True,
       function(const O: TYadfOptions): Variant begin Result:= O.LabelMinLines end, procedure(var O: TYadfOptions; const V: Variant) begin O.LabelMinLines:= V end),
-    MakeOpt('MarkUnclosed', 'Labels & markers', 'Mark unclosed blocks', 'Add a "// TODO -oYADF" marker where a begin/record/... has no matching end.'  // TODO -oYADF : ''begin'' on line N has no matching ''end''".'
+    MakeOpt('MarkUnclosed', 'Labels & markers', 'Mark unclosed blocks', 'Add a "// TODO -oYADF" marker where a begin/record/... has no matching end.'  // TODO -oYADF : ''begin'' on line N has no matching ''end''".'  // dl:ok duplicate-code@516b -- one MakeOpt row per option, the table is the spec
       , okBool, True,
       function(const O: TYadfOptions): Variant begin Result:= O.MarkUnclosed end, procedure(var O: TYadfOptions; const V: Variant) begin O.MarkUnclosed:= V end),
     MakeOpt('Delphi10Compat', 'Delphi 10 compatibility', 'Hoist inline vars (Delphi 10.2.3)',

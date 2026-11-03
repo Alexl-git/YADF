@@ -66,6 +66,7 @@ Writeln(Format('%d', [1]));
 - A `//` comment pins its line: it stays at the end of its line, and a `//` anywhere in a span -- the last line included -- blocks every join of that span (reflow, routine headers, if / loop / with bodies, case arms and labels, Collapse, Pack several statements). A join would put code after it or make it impossible to undo.
 - A one-line `{...}` or `(*...*)` comment inside code travels with the token next to it (`if A {+ B} > C then` keeps the commented-out code where it was). When a line is split at the comment, it goes to the end of the earlier piece.
 - Multi-line comments and compiler directives pin, like `//`.
+- YADF never removes a comment, with one exception: the `// TODO -oYADF -cd10 :` flags that [Hoist inline vars (Delphi 10.2.3)](delphi10-compat.md) adds are YADF's own and are removed by a run with that option off. A TODO you wrote yourself (even `// TODO -oYADF : ...`) is never touched.
 
 ```pascal
 // input

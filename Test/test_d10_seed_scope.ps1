@@ -72,5 +72,46 @@ MustMatch    $out '(?m)^\s*X\s*:= 2;\r?$'            'same-type duplicate: assig
 # inline `var Y: string` is hoisted, not flagged as a different-type collision.
 MustMatch    $out '(?m)^\s*Y\s*:\s*string\s*;'        'outer Y hoisted'
 MustNotMatch $out "name 'Y' already hoisted"          'nested local Y not seen as an outer name'
+# Task 11: a local record type with a VARIANT part ends with one `end` for both
+# the record and its `case`. BlockOpener took the variant `case` as the block's
+# opener, so the scan resumed INSIDE the record and seeded its field names (A)
+# as the routine's own: an inline `var A: string` got a TODO instead of a hoist.
+$text2 = @"
+unit $unit;
+
+interface
+
+function Outer2(N: Integer): Integer;
+
+implementation
+
+function Outer2(N: Integer): Integer;
+type
+  TVar = record
+    A: Integer;
+    case Tag: Byte of
+      0: (I: Integer);
+      1: (D: Double);
+  end;
+var
+  V: TVar;
+begin
+  V.A:= N;
+  if N > 0 then
+  begin
+    var A: string:= 'a';
+    Result:= Length(A) + V.A;
+  end
+  else
+    Result:= V.A;
+end;
+
+end.
+"@ -replace "`r?`n", "`r`n"
+[IO.File]::WriteAllText($src, $text2)
+$out = & $exe --ini $ini --d10 --stdout $src 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0) { Fail "d10_seed_scope variant: exit $LASTEXITCODE -- $out" }
+MustMatch    $out '(?m)^\s*A\s*:\s*string\s*;'        'variant record: inline A hoisted'
+MustNotMatch $out 'already (declared|hoisted)'        'variant record: field A not seen as a routine name'
 Remove-Item $src, $ini -Force -ErrorAction SilentlyContinue
 Finish 'd10_seed_scope'

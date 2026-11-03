@@ -494,6 +494,22 @@ end;
 
 // --- integration: FormatSource must still format normal code --------------
 
+// Task 11 (owner 2026-11-02): YADF's own --d10 flags (D10_TODO_MARKER) may be
+// removed by a plain run; any other comment -- a look-alike user TODO too -- may not.
+procedure TestD10TodoRemoval;
+var
+  R: string;
+begin
+  Check('d10 flag: removing a marked trailing flag passes',
+    FormatPreservesContent('begin X:= 1; ' + D10_TODO_MARKER + ' fix' + CRLF + 'end.', 'begin X:= 1;' + CRLF + 'end.', False, False, R));
+  Check('d10 flag: removing a marked own-line flag passes',
+    FormatPreservesContent('begin' + CRLF + D10_TODO_MARKER + ' loop' + CRLF + 'X:= 1;' + CRLF + 'end.', 'begin' + CRLF + 'X:= 1;' + CRLF + 'end.', False, False, R));
+  Check('d10 flag: removing an unmarked YADF TODO is declined',
+    not FormatPreservesContent('begin X:= 1; // TODO -oYADF : mine' + CRLF + 'end.', 'begin X:= 1;' + CRLF + 'end.', False, False, R));
+  Check('d10 flag: removing a -cd10 TODO without -oYADF is declined',
+    not FormatPreservesContent('begin X:= 1; // TODO -cd10 : mine' + CRLF + 'end.', 'begin X:= 1;' + CRLF + 'end.', False, False, R));
+end;
+
 procedure TestFormatSourceStillFormats;
 const
   Src =
@@ -738,6 +754,7 @@ begin
     TestCodeTokenStream;
     TestCodeTokenSplitAndD10;
     TestDirectiveWhitespaceKey;
+  TestD10TodoRemoval;
     TestFormatSourceStillFormats;
     TestShieldPrefixAvoidsUserText;
     TestReviewCorruptionClasses;

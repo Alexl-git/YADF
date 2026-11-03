@@ -28,7 +28,7 @@ function D10([string]$body) {
 $diff = D10 ("  if K > 0 then`r`n  begin`r`n    var DcR: Integer:= K;`r`n    Result:= DcR;`r`n  end`r`n  else`r`n  begin`r`n" +
              "    var dcr: string:= 'x';`r`n    Result:= Length(dcr);`r`n  end;")
 MustMatch    $diff '(?m)^\s*DcR: Integer;\r?$' 'diff type: first name hoisted'
-MustMatch    $diff "(?m-i)^\s*var dcr: string:= 'x'; // TODO -oYADF : name 'dcr' already hoisted with a different type" 'diff type: second kept inline + TODO'
+MustMatch    $diff "(?m-i)^\s*var dcr: string:= 'x'; // TODO -oYADF -cd10 : name 'dcr' already hoisted with a different type" 'diff type: second kept inline + TODO'
 MustNotMatch $diff '(?m-i)^\s*dcr\s*: string\s*;' 'diff type: second NOT hoisted'
 
 # Same type: one declaration, both assignments kept.

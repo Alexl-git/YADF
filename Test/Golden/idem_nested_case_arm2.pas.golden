@@ -1,0 +1,40 @@
+unit idem_nested_case_arm2;
+
+// Task 11: a case nested TWO levels inside moved arms (CaseArmOnLabelLine OFF).
+// Each enclosing arm moves its statement, so the innermost arm relies on the
+// Shift accumulated over both enclosing arms (one level: idem_nested_case_arm).
+
+interface
+
+function Decode2(const ARaw: string; I: Integer; C: Char): string;
+
+implementation
+
+function Decode2(const ARaw: string; I: Integer; C: Char): string;
+begin
+  Result:= '';
+  case C of
+    '%':
+      if (I + 1 <= Length(ARaw)) and (ARaw[I + 1] = '%') then
+      begin
+        Inc(I, 2);
+        case UpCase(ARaw[I]) of
+          'D':
+            if I < Length(ARaw) then
+            begin
+              case ARaw[I + 1] of
+                'a' : Result:= Result + 'alpha-first-letter';
+                'b' : Result:= Result + 'bravo-second-letter';
+                'c', 'd', 'e': Result:= Result + 'charlie-delta-echo';
+              end;
+            end;
+          'P': Result:= Result + 'q';
+        end;
+      end
+    else
+      Result:= Result + C;
+    else Result:= Result + C;
+  end; // case
+end; // function
+
+end.

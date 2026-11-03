@@ -12,7 +12,7 @@ status: "stable"
 
 # Hoist inline vars (Delphi 10.2.3)
 
-Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest get a // TODO -oYADF marker. Best-effort, unverified on a real Tokyo toolchain.
+Hoist inline var declarations into a top-of-routine var block so the code builds on Delphi 10.2.3. Explicit types and simple literals are converted; the rest stay in place with a "// TODO -oYADF -cd10 :" flag to resolve by hand. A run with Delphi10Compat = false removes exactly those flags (never another comment). Best-effort, unverified on a real Tokyo toolchain.
 
 ## Example
 

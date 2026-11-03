@@ -36,6 +36,14 @@ unit YADF.Guard;   // dl:shared YADF, YADFOT, YADFSetup
 
 interface
 
+const
+  /// <summary>Start of every `//` TODO the --d10 path (Delphi10Compat) inserts:
+  /// `// TODO -oYADF -cd10 : ...` (owner decision 2026-11-02, task 11).</summary>
+  /// <remarks>YADF owns these flags: a run without --d10 removes exactly the comments
+  /// that start with this text, and FormatPreservesContent ignores them on the
+  /// original side, so that removal -- and no other comment loss -- passes.</remarks>
+  D10_TODO_MARKER = '// TODO -oYADF -cd10 :';
+
 /// <summary>Verifies that AFormatted preserves all user content of AOriginal:
 /// every string literal byte-exact and in order, every comment present
 /// unaltered and in order (formatter-added comments are allowed), and every
@@ -152,7 +160,7 @@ function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStrin
 /// must occur in the output at least as often as in the original.
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Guard.FormatPreservesContent/6 (YADF.Guard.pas), YADF.Layout.FormatSourceOnce (YADF.Layout.pas)</para>
-/// <para>Calls: YADF.Guard.CodeStreamReason, YADF.Guard.CountOccurrences, YADF.Guard.DropFlagged, YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence</para>
+/// <para>Calls: YADF.Guard.CodeStreamReason, YADF.Guard.CountOccurrences, YADF.Guard.DropD10Todos, YADF.Guard.DropFlagged, YADF.Guard.ExtractContent, YADF.Guard.FirstUnmatched, YADF.Guard.IsSubsequence, YADF.Guard.SameSequence</para>
 /// <para>Returns: False; AReason = ''</para>
 /// <para>Overload 3 of 4</para>
 /// <para>Catches: Exception (swallowed)</para>
@@ -160,9 +168,9 @@ function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStrin
 /// <para>Directives: overload</para>
 /// <seealso cref="YADF.Guard.CodeStreamReason"/>
 /// <seealso cref="YADF.Guard.CountOccurrences"/>
+/// <seealso cref="YADF.Guard.DropD10Todos"/>
 /// <seealso cref="YADF.Guard.DropFlagged"/>
 /// <seealso cref="YADF.Guard.ExtractContent"/>
-/// <seealso cref="YADF.Guard.FirstUnmatched"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStringDuplication, AAllowLabelRemoval: Boolean; ACodeMode: TGuardCodeMode; ACasing: TGuardCasing;
@@ -597,6 +605,16 @@ var
 begin
   for i:= AList.Count - 1 downto 0 do
     if AFlags[i] then
+      AList.Delete(i);
+end;
+
+// Drops the comments that are YADF's own --d10 flags (D10_TODO_MARKER).
+procedure DropD10Todos(const AList: TList<string>);
+var
+  i: Integer;
+begin
+  for i:= AList.Count - 1 downto 0 do
+    if AList[i].StartsWith(D10_TODO_MARKER) then
       AList.Delete(i);
 end;
 
@@ -1178,6 +1196,8 @@ begin
         ExtractContent(AOriginal , OrigStr, OrigCom, OrigDir, nil, OrigAsm, OrigCod);
         ExtractContent(AFormatted, FmtStr , FmtCom , FmtDir , nil, FmtAsm , FmtCod );
       end;
+      // YADF's own --d10 flags may be removed (a run without --d10 strips them).
+      DropD10Todos(OrigCom);
       // Directives stay STRICT even under duplication-tolerant mode: a
       // duplicated {$IFDEF}/{$ENDIF} inside a duplicated case arm would
       // unbalance conditional compilation -- that must decline.

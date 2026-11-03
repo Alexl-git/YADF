@@ -53,9 +53,9 @@ MustMatch    $o '(?ms)Buf\s*: array\[0\.\.1\] of Integer;\s+var\s+Y\s*: Integer;
 
 # --- d10_flag: non-inferable residuals get a TODO; nothing silently downgraded ---
 $o = Fmt 'd10_flag.pas'
-MustMatch $o '// TODO -oYADF : inline loop var cannot be type-inferred' 'flag: for-in flagged'
+MustMatch $o '// TODO -oYADF -cd10 : inline loop var cannot be type-inferred' 'flag: for-in flagged'
 MustMatch $o '(?m)^\s*for var X in Coll do' 'flag: for-in left in place on its own line'
-MustMatch $o 'const Local = 5; // TODO -oYADF : inline const inside an anonymous method' 'flag: anon const flagged'
+MustMatch $o 'const Local = 5; // TODO -oYADF -cd10 : inline const inside an anonymous method' 'flag: anon const flagged'
 
 # --- d10_multiname ---
 $o = Fmt 'd10_multiname.pas'
@@ -81,19 +81,19 @@ MustMatch $o 'N:= 5;' 'infer: int assignment kept'
 
 # --- d10_fallback ---
 $o = Fmt 'd10_fallback.pas'
-MustContain $o "var X:= AInput.GetThing; // TODO -oYADF : add an explicit type to hoist for Delphi 10 -- was: var X:= AInput.GetThing;" 'fallback: left + TODO'
+MustContain $o "var X:= AInput.GetThing; // TODO -oYADF -cd10 : add an explicit type to hoist for Delphi 10 -- was: var X:= AInput.GetThing;" 'fallback: left + TODO'
 
 # --- d10_collision ---
 $o = Fmt 'd10_collision.pas'
 MustContain $o "var`r`n  I: Integer;" 'collision: first hoisted'
-MustContain $o "var I: string:= 'x'; // TODO -oYADF : name 'I' already hoisted with a different type; resolve manually for Delphi 10 -- was: var I: string:= 'x';" 'collision: second flagged'
+MustContain $o "var I: string:= 'x'; // TODO -oYADF -cd10 : name 'I' already hoisted with a different type; resolve manually for Delphi 10 -- was: var I: string:= 'x';" 'collision: second flagged'
 
 # --- d10_nested ---
 $o = Fmt 'd10_nested.pas'
 MustContain $o "  procedure Inner;`r`n  var`r`n    K: Integer;`r`n  begin" 'nested: hoisted to Inner'
 # --- d10_anon ---
 $o = Fmt 'd10_anon.pas'
-MustContain $o "var Z: Integer:= 3; // TODO -oYADF : inline var inside an anonymous method is not auto-hoisted for Delphi 10 -- was: var Z: Integer:= 3;" 'anon: flagged'
+MustContain $o "var Z: Integer:= 3; // TODO -oYADF -cd10 : inline var inside an anonymous method is not auto-hoisted for Delphi 10 -- was: var Z: Integer:= 3;" 'anon: flagged'
 
 # --- consolidated guards: idempotency + transformed round-trip over every fixture ---
 Get-ChildItem $casesDir -Filter 'd10_*.pas' | ForEach-Object {

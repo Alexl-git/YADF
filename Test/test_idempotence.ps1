@@ -3,7 +3,7 @@
 # format's output (a list decided at the source column, a trailing operator left
 # alone on a line, a multi-line name list half split, a stale block-end label that
 # blocked a fold, a nested case arm split at a stale column). Every fixture is run
-# at three option sets -- default, packed (the ORM3 "packed" profile) and --d10 --
+# at six option sets -- default, packed (the ORM3 "packed" profile), --d10 greedy (--no-break-expr), --no-reflow and --no-trim-trailing --
 # and must: not be declined, be a fixed point on the second run, and compile when
 # the fixture itself compiles. Exit 0 = pass, 1 = any fail.
 $ErrorActionPreference = 'Stop'
@@ -16,6 +16,14 @@ $sets = [ordered]@{
   'default' = @()
   'packed'  = @('--collapse-blocks', '--pack-statements', '--no-break-loop', '--no-break-with', '--no-break-if', '--no-case-arm-on-label')
   'd10'     = @('--d10')
+  # Task 11: the greedy breaker (BreakLongExpressions OFF) decided lists at the source
+  # column too (idem_list_tab_indent was not a fixed point with it).
+  'greedy'  = @('--no-break-expr')
+  # Task 11 battery: a name list written over THREE lines and kept multi-line (no
+  # reflow) was split once per line of it -- duplicate declarations, guard decline.
+  'noreflow' = @('--no-reflow')
+  # Task 11 battery: a block-end label appended after the trailing blanks it keeps.
+  'notrim'   = @('--no-trim-trailing')
 }
 $files = @(Get-ChildItem $dir -Filter *.pas)
 if ($files.Count -lt 5) { Fail "expected at least 5 fixtures in $dir, found $($files.Count)" }

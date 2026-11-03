@@ -145,7 +145,7 @@ uses
   , SimpleParser.Lexer
   , SimpleParser.Lexer.Types
   , YADF.Groups
-  , YADF.Guard
+  , YADF.Guard  // dl:unit YADF.Guard accepted -- D10_TODO_MARKER: the --d10 flag text the guard must recognise
   , YADF.LineScan
   ;
 
@@ -2203,7 +2203,7 @@ begin
   Result:= True;
 end;
 
-function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@332f, cognitive-complexity@1ca7, too-many-locals@8588 -- one line walk over the parts of the line being split (26 locals: JoinedTo carries the multi-line name list join across iterations)
+function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@549d, cognitive-complexity@ccbd, too-many-locals@8588 -- one line walk over the parts of the line being split (26 locals: JoinedTo carries the multi-line name list join across iterations)
 var
   Lines     : TStringList    ;
   OutVal      : TStringBuilder ;
@@ -2290,6 +2290,13 @@ begin
           OutVal.Append(CRLF);
           Continue;
         end;
+
+        // A line an earlier name-list join already consumed. Checked BEFORE the
+        // join below: a middle line (`B,` of `A,` / `B,` / `C: T;`) is a name-list
+        // line too and was joined and split a second time (duplicate declarations,
+        // guard decline -- task 11 battery, ReflowLines OFF / small MaxLen).
+        if i <= JoinedTo then
+          Continue;
 
         // A name list written across lines (`A, B,` / `C, D: T;`) is split as ONE
         // declaration: splitting only its last line left `A, B,` for the next
@@ -8290,8 +8297,10 @@ var
     Bare: string;
   begin
     Result:= ALine;
+    // TrimRight: blanks a TrimTrailing=false run kept on the line go before the
+    // marker, which the strip below removes with them (task 11: idempotence).
     if Adds.TryGetValue(ALineNo, Lbl) then
-      Result:= Result + Lbl
+      Result:= TrimRight(Result) + Lbl
     else if Drops.TryGetValue(ALineNo, Lbl) then
     begin
       Bare:= TrimRight(Result);
@@ -8411,6 +8420,32 @@ const
 begin
   Result:= (ALeft <> '') and (ARight <> '') and CharInSet(ALeft[Length(ALeft)], WORD_CHARS) and CharInSet(ARight[1], WORD_CHARS);
 end;
+
+// Delphi10Compat OFF (owner decision 2026-11-02, task 11): removes the
+// "resolve manually" flags an earlier --d10 run inserted -- exactly the `//`
+// comments that start with D10_TODO_MARKER, never another comment. A trailing
+// flag goes with the blanks before it; a flag on a line of its own goes with
+// its indent and line break. The guard accepts only this removal
+// (FormatPreservesContent drops marked comments from the original side).
+procedure StripD10Todos(const ATokens: TTokenList);
+var
+  i    : Integer;
+  First: Integer;
+  Last : Integer;
+begin
+  for i:= ATokens.Count - 1 downto 0 do
+    if (ATokens[i].Kind = ptSlashesComment) and ATokens[i].Text.StartsWith(D10_TODO_MARKER) then
+    begin
+      First:= i;
+      while (First > 0) and (ATokens[First - 1].Kind = ptSpace) do
+        Dec(First);
+      Last:= i;
+      // Own line (start of text or a line break before it): take the line break after it too.
+      if ((First = 0) or (ATokens[First - 1].Kind in [ptCRLF, ptCRLFCo])) and (Last + 1 < ATokens.Count) and (ATokens[Last + 1].Kind in [ptCRLF, ptCRLFCo]) then
+        Inc(Last);
+      ATokens.DeleteRange(First, Last - First + 1);
+    end; // if
+end; // procedure
 
 // Renders the token list back to text for the Delphi10Compat hoist snapshot.
 // Two glued tokens (the hoist synthesises some with no Pre-whitespace) get one
@@ -8667,8 +8702,39 @@ var
     n : Integer;
     Ty: string ;
 
+    function BlockOpener(AEnd: Integer): Integer; forward;
+
+    // True when the `case` at ACase is the variant part of a record: it has no
+    // `end` of its own (the record's `end` closes both). Its nearest unclosed
+    // opener scanning back is the record (or an enclosing variant `case`).
+    function IsVariantCase(ACase: Integer): Boolean;
+    var
+      k: Integer;
+    begin
+      k:= ACase - 1;
+      while k >= 0 do
+      begin
+        case ATokens[k].Kind of
+          ptEnd:
+            begin
+              k:= BlockOpener(k);
+              if k < 0 then
+                Exit(False);
+            end;
+          ptRecord:
+            Exit(True);
+          ptCase:
+            Exit(IsVariantCase(k));
+          ptBegin, ptTry, ptAsm, ptImplementation, ptProcedure, ptFunction, ptConstructor, ptDestructor, ptOperator:
+            Exit(False);
+        end; // case
+        Dec(k);
+      end; // while
+      Result:= False;
+    end; // function
+
     // Index of the opener (begin / try / case / record / asm) of the block whose
-    // `end` is at AEnd, or -1.
+    // `end` is at AEnd, or -1. A variant-record `case` opens no block (task 11).
     function BlockOpener(AEnd: Integer): Integer;
     var
       Depth: Integer;
@@ -8679,7 +8745,8 @@ var
       begin
         if ATokens[Result].Kind = ptEnd then
           Inc(Depth)
-        else if ATokens[Result].Kind in [ptBegin, ptTry, ptCase, ptRecord, ptAsm] then
+        else if (ATokens[Result].Kind in [ptBegin, ptTry, ptCase, ptRecord, ptAsm])
+          and not ((ATokens[Result].Kind = ptCase) and IsVariantCase(Result)) then
         begin
           Dec(Depth);
           if Depth = 0 then
@@ -9001,7 +9068,7 @@ var
       else
       begin
         ARec.Kind:= ikFallbackTodo;
-        ARec.Comment:= ' // TODO -oYADF : uninitialised inline var in a loop body is not auto-hoisted for Delphi 10 (it must be reset on every pass) -- was: ' + Trim(InlineRenderRange(ATokens, AVar, Semi));
+        ARec.Comment:= ' ' + D10_TODO_MARKER + ' uninitialised inline var in a loop body is not auto-hoisted for Delphi 10 (it must be reset on every pass) -- was: ' + Trim(InlineRenderRange(ATokens, AVar, Semi));
         SetLength(ARec.DeclLines, 0);
         SetLength(ARec.Names    , 0);
         ARec.TypeStr:= '';
@@ -9199,7 +9266,7 @@ var
       SetLength(ARec.DeclLines, 0);
       SetLength(ARec.Names    , 0);
       ARec.TypeStr:= '';
-      ARec.Comment:= ' // TODO -oYADF : add an explicit type to hoist for Delphi 10 -- was: ' + OrigLine;
+      ARec.Comment:= ' ' + D10_TODO_MARKER + ' add an explicit type to hoist for Delphi 10 -- was: ' + OrigLine;
     end;
     Result:= True;
   end; // function
@@ -9254,7 +9321,7 @@ var
           Break;
         end;
       ARec.Kind:= ikFallbackTodo;
-      ARec.Comment:= ' // TODO -oYADF : name ''' + Cname + ''' already hoisted with a different type; resolve manually for Delphi 10 -- was: ' + OrigLine;
+      ARec.Comment:= ' ' + D10_TODO_MARKER + ' name ''' + Cname + ''' already hoisted with a different type; resolve manually for Delphi 10 -- was: ' + OrigLine;
       Inlines.Add(AVarIdx, ARec);
       Exit;
     end; // if
@@ -9267,7 +9334,7 @@ var
       ForIdx:= PrevSig(AVarIdx - 1);
       Above := PrevSig(ForIdx - 1);
       if not ForTodos.ContainsKey(ForIdx) and not ((Above >= 0) and (ATokens[Above].Kind = ptSlashesComment) and ATokens[Above].Text.Contains('YADF')) then
-        ForTodos.Add(ForIdx, '// TODO -oYADF : loop variable ''' + ARec.Names[0] + ''' is already declared with a different type; resolve manually for Delphi 10');
+        ForTodos.Add(ForIdx, D10_TODO_MARKER + ' loop variable ''' + ARec.Names[0] + ''' is already declared with a different type; resolve manually for Delphi 10');
       Exit;
     end; // if
     Inlines.Add(AVarIdx, ARec);
@@ -9304,7 +9371,7 @@ var
     SetLength(ARec.DeclLines, 0);
     SetLength(ARec.Names    , 0);
     ARec.TypeStr:= '';
-    ARec.Comment:= ' // TODO -oYADF : inline var ' + AWhere + ' is not auto-hoisted for Delphi 10 -- was: ' + OrigLine;
+    ARec.Comment:= ' ' + D10_TODO_MARKER + ' inline var ' + AWhere + ' is not auto-hoisted for Delphi 10 -- was: ' + OrigLine;
     Result:= True;
   end; // function
 
@@ -9370,7 +9437,7 @@ var
     SetLength(ARec.DeclLines, 0);
     SetLength(ARec.Names    , 0);
     ARec.TypeStr:= '';
-    ARec.Comment:= ' // TODO -oYADF : inline const ' + AWhere + ' is not auto-hoisted for Delphi 10 -- was: ' + OrigLine;
+    ARec.Comment:= ' ' + D10_TODO_MARKER + ' inline const ' + AWhere + ' is not auto-hoisted for Delphi 10 -- was: ' + OrigLine;
     Result:= True;
   end; // function
 
@@ -9500,7 +9567,7 @@ begin
             begin
               k:= PrevSig(Pv - 1);
               if not ((k >= 0) and (ATokens[k].Kind = ptSlashesComment) and ATokens[k].Text.Contains('YADF')) then
-                ForTodos.Add(Pv, '// TODO -oYADF : inline loop var inside a conditional-compilation block is not auto-hoisted for Delphi 10');
+                ForTodos.Add(Pv, D10_TODO_MARKER + ' inline loop var inside a conditional-compilation block is not auto-hoisted for Delphi 10');
             end;
           end
           else if AnonCount > 0 then
@@ -9527,7 +9594,7 @@ begin
             begin
               k:= PrevSig(Pv - 1);
               if not ((k >= 0) and (ATokens[k].Kind = ptSlashesComment) and (Pos('YADF', ATokens[k].Text) > 0)) then
-                ForTodos.Add(Pv, '// TODO -oYADF : inline loop var cannot be type-inferred for Delphi 10 -- declare a classic var and use a plain for');
+                ForTodos.Add(Pv, D10_TODO_MARKER + ' inline loop var cannot be type-inferred for Delphi 10 -- declare a classic var and use a plain for');
             end;
           end // if
           else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
@@ -9765,7 +9832,7 @@ begin
 end; // function
 
 // One run of the pipeline; FormatSource below is the public entry.
-function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@3f91, method-too-long@1792 -- the stage list reads top to bottom as the pipeline diagram
+function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@f3fe, method-too-long@8fe1 -- the stage list reads top to bottom as the pipeline diagram
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -10102,7 +10169,7 @@ var
         // a statement that later moves), so the next format decided it again
         // (task 10). The structural walk emits it inline; the re-walk of one
         // over-long line (ListPass) takes the branches below.
-        else if AOpts.BreakLongExpressions and not ListPass and (Length(CollectParensItems(Tokens, Child.OpenIdx, Child.CloseIdx)) > 1)
+        else if not ListPass and (Length(CollectParensItems(Tokens, Child.OpenIdx, Child.CloseIdx)) > 1)
                 and not RangeHasMultiLineToken(Tokens, Child.OpenIdx, Child.CloseIdx) then
         begin
           EmitText(InlineRenderRange(Tokens, Child.OpenIdx, Child.CloseIdx));
@@ -10520,7 +10587,10 @@ var
             Lines[i]:= BreakComponents(Lines[i], HeadWS, 0, 0);
         end // if
         else
-          Lines[i]:= BreakLineByOperators(Lines[i]);
+        begin
+          Body:= BreakListsInLine(Lines[i]);
+          Lines[i]:= if Body <> Lines[i] then Body else BreakLineByOperators(Lines[i]);
+        end;
       Result:= Lines.Text;
     finally
       Lines.Free;
@@ -10549,6 +10619,9 @@ begin
   MLMap:= TStringList.Create;
   AsmMap:= TStringList.Create;
   try
+    // A plain run removes the flags an earlier --d10 run inserted (task 11).
+    if not AOpts.Delphi10Compat then
+      StripD10Todos(Tokens);
     // Stage 0: hide asm bodies from every pass, Stage 1 included -- casing and
     // operator spacing would otherwise rewrite BASM mnemonics and operands.
     ShieldAsmBodies(Tokens, AsmMap);
