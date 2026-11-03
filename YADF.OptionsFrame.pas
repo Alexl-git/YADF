@@ -48,7 +48,7 @@ uses
   , Vcl.Dialogs
   , Vcl.Samples.Spin
   , Vcl.Clipbrd
-  , YADF.Options
+  , YADF.Options  // dl:unit YADF.Options accepted -- the options UI shares the option model and help ids by design
   , YADF.Layout
   ;
 
