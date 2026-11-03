@@ -159,16 +159,16 @@ type
   /// "internal error" style report.</summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: declaration (YADF.dpr), YadfMain.ExpandFileSpec (YadfMain.pas), YadfMain.ParseFlags (YadfMain.pas)</para>
+  /// <para>Used by: declaration (YADF.dpr) ?, YadfMain.ExpandFileSpec (YadfMain.pas), YadfMain.ParseFlags (YadfMain.pas), YadfMain.ParseFlags.NextValue (YadfMain.pas)</para>
   /// <para>Used in units: YADF, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   EYadfUsage = class(Exception);
 
-/// <exception cref="EYadfUsage"><!-- drag-lint:auto exc -->via YadfMain.ExpandFileSpec: Directory not found:; via YadfMain.ParseFlags: --blanks-before-method requires a value; via YadfMain.ParseFlags: --blanks-before-section requires a value (+12 more)</exception>
+/// <exception cref="EYadfUsage"><!-- drag-lint:auto exc -->via YadfMain.ExpandFileSpec: Directory not found:; via YadfMain.ParseFlags; via YadfMain.ParseFlags: --encoding requires ansi|utf8|utf16 (+3 more)</exception>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: declaration (YADF.dpr)</para>
+/// <para>Called from: main block (YADF.dpr)</para>
 /// <para>Calls: ExpandFileName, Format, LowerCase, ParamStr, Trim, Writeln, YADF.Options.ClampOptions, YADF.Options.DefaultOptions, YADF.Options.EnsureIniExists, YadfMain.BatchFormat (+15 more)</para>
 /// <para>Complexity: 29 (cyclomatic, outer body), 179 lines (full implementation)</para>
 /// <seealso cref="YADF.Options.ClampOptions"/>
@@ -186,8 +186,8 @@ uses
   Winapi.Windows
   , System.Classes
   , System.IOUtils
-  , System      .Generics.Collections
-  , SimpleParser.Lexer   .Types
+  , System.Generics.Collections
+  , SimpleParser.Lexer.Types
   , YADF.Tokens
   , YADF.Options
   , YADF.Groups
@@ -248,7 +248,7 @@ var
 begin
   if Length(ABytes) = 0 then
     Exit;
-  WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), ABytes[0], Length(ABytes), Written, nil);
+  WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), ABytes[0], Length(ABytes), Written, nil);  // dl:ok ignored-must-use-result@51a4 -- a failed stdout write (closed pipe) has no channel left to report on; same as WriteStdoutRaw
 end;
 
 procedure WriteStdoutLine(const S: string);
@@ -278,7 +278,7 @@ begin
   Line:= FormatDateTime('hh:nn:ss.zzz ', Now) + S;
   OutputDebugString(PChar('[YADF] ' + Line));  // dl:ok outputdebugstring@70fb
   try
-    ForceDirectories(ExtractFilePath(LogFilePath));
+    ForceDirectories(ExtractFilePath(LogFilePath));  // dl:ok ignored-must-use-result@7caf -- a folder that cannot be made fails the AppendAllText below, which the except mirrors to OutputDebugString
     TFile.AppendAllText(LogFilePath, Line + sLineBreak, TEncoding.ANSI);
   except
     on E: Exception do
@@ -304,10 +304,7 @@ procedure LogStartup(const AArgs: TArray<string>; const AOpts: TYadfOptions; con
 
   function BoolStr(B: Boolean): string;
   begin
-    if B then
-      Result:= 'true'
-    else
-      Result:= 'false';
+    Result:= if B then 'true' else 'false';
   end;
 
 var
@@ -526,7 +523,7 @@ const
 var
   Ext: string;
 begin
-  if (Pos('*', AArg) > 0) or (Pos('?', AArg) > 0) then
+  if AArg.Contains('*') or AArg.Contains('?') then
     Exit(True);
   Ext:= ExtractFileExt(AArg);
   for var S in SOURCE_EXTS do
@@ -661,10 +658,7 @@ begin
         ptStringConst: if InInClause then
         begin
           Raw:= T.Text;
-          if (Length(Raw) >= 2) and (Raw[1] = '''') and (Raw[Length(Raw)] = '''') then
-            FilePath:= Copy(Raw, 2, Length(Raw) - 2)
-          else
-            FilePath:= Raw;
+          FilePath:= if (Length(Raw) >= 2) and (Raw[1] = '''') and (Raw[Length(Raw)] = '''') then Copy(Raw, 2, Length(Raw) - 2) else Raw;
         end;
         ptComma, ptSemiColon:
         begin
@@ -742,7 +736,7 @@ var
   Ext: string;
   Pat: string;
 begin
-  if (Pos('*', ASpec) > 0) or (Pos('?', ASpec) > 0) then
+  if ASpec.Contains('*') or ASpec.Contains('?') then
   begin
     Dir:= ExtractFilePath(ASpec);
     if Dir = '' then
@@ -873,18 +867,12 @@ procedure ShowUsage(const AOpts: TYadfOptions);
 
   function OnOff(B: Boolean): string;
   begin
-    if B then
-      Result:= 'on'
-    else
-      Result:= 'off';
+    Result:= if B then 'on' else 'off';
   end;
 
   function Quoted(const S: string): string;
   begin
-    if S = '' then
-      Result:= '(none)'
-    else
-      Result:= S;
+    Result:= if S = '' then '(none)' else S;
   end;
 
 begin
@@ -1076,10 +1064,76 @@ begin
   end; // try
 end; // function
 
-procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);  // dl:ok method-too-long@b788, cyclomatic-complexity@0d78, cognitive-complexity@f879
+procedure ParseFlags(var AArgs: TArray<string>; var AOpts: TYadfOptions; out AOutFile: string; out AStdoutMode: Boolean);  // dl:ok cognitive-complexity@aea0 -- a flat else-if ladder of the flags that need their own code; the metric scores each else-if as one level deeper (drag-lint INBOX-cognitive-else-if-chain)
 var
-  i   : Integer      ;
+  i     : Integer      ;
   OutVal: TList<string>;
+
+  // The argument after the flag at i; steps i past both. Raises AMissing
+  // when the flag is the last argument.
+  function NextValue(const AMissing: string): string;
+  begin
+    if i + 1 > High(AArgs) then
+      raise EYadfUsage.Create(AMissing);
+    Result:= AArgs[i + 1];
+    Inc(i, 2);
+  end;
+
+  // AArgs[i] is AOn or AOff: sets AField (True for AOn) and steps past it.
+  function BoolFlag(const AOn, AOff: string; var AField: Boolean): Boolean;
+  begin
+    Result:= (AArgs[i] = AOn) or (AArgs[i] = AOff);
+    if Result then
+    begin
+      AField:= AArgs[i] = AOn;
+      Inc(i);
+    end;
+  end;
+
+  // AArgs[i] is AName: reads the integer after it into AField.
+  function IntFlag(const AName: string; var AField: Integer): Boolean;
+  begin
+    Result:= AArgs[i] = AName;
+    if Result then
+      AField:= StrToInt(NextValue(AName + ' requires a value'));
+  end;
+
+  // Every flag that only sets one option field: True when AArgs[i] was one.
+  function TableFlag: Boolean;  // dl:ok cyclomatic-complexity@7ecc -- each "or" is one row of the flag table, not a decision; splitting it would only bring back the repetition
+  begin
+    Result:= IntFlag('--max-len', AOpts.MaxLen)  // dl:ok boolean-expression-complexity@89ee -- the expression IS the flag table, one row per line
+      or IntFlag('--indent', AOpts.Indent)
+      or IntFlag('--tab-width', AOpts.TabWidth)
+      or IntFlag('--label-min-lines', AOpts.LabelMinLines)
+      or IntFlag('--max-blank-lines', AOpts.MaxBlankLines)
+      or IntFlag('--blanks-before-section', AOpts.BlanksBeforeSection)
+      or IntFlag('--blanks-before-method', AOpts.BlanksBeforeMethod)
+      or IntFlag('--blanks-before-type', AOpts.BlanksBeforeType)
+      or BoolFlag('--mark-unclosed', '--no-mark-unclosed', AOpts.MarkUnclosed)
+      or BoolFlag('--label-blocks', '--no-label-blocks', AOpts.LabelLongBlocks)
+      or BoolFlag('--trim-trailing', '--no-trim-trailing', AOpts.TrimTrailing)
+      or BoolFlag('--reflow', '--no-reflow', AOpts.ReflowLines)
+      or BoolFlag('--lowercase-keywords', '--no-lowercase-keywords', AOpts.LowercaseKeywords)
+      or BoolFlag('--upper-hex', '--no-upper-hex', AOpts.UpperHexNumbers)
+      or BoolFlag('--upper-directives', '--no-upper-directives', AOpts.UpperDirectives)
+      or BoolFlag('--first-occ', '--no-first-occ', AOpts.FirstOccCasing)
+      or BoolFlag('--d10', '--no-d10', AOpts.Delphi10Compat)
+      or BoolFlag('--log', '--no-log', AOpts.Logging)
+      or BoolFlag('--uses-break', '--no-uses-break', AOpts.UsesAlwaysBreak)
+      or BoolFlag('--break-case', '--no-break-case', AOpts.BreakCaseLabels)
+      or BoolFlag('--case-arm-on-label', '--no-case-arm-on-label', AOpts.CaseArmOnLabelLine)
+      or BoolFlag('--begin-on-header', '--no-begin-on-header', AOpts.BeginOnHeaderLine)
+      or BoolFlag('--pack-statements', '--no-pack-statements', AOpts.PackStatements)
+      or BoolFlag('--indent-comments', '--no-indent-comments', AOpts.IndentComments)
+      or BoolFlag('--collapse-blocks', '--no-collapse-blocks', AOpts.CollapseShortBlocks)
+      or BoolFlag('--break-loop', '--no-break-loop', AOpts.BreakLoopBody)
+      or BoolFlag('--break-with', '--no-break-with', AOpts.BreakWithBody)
+      or BoolFlag('--break-if', '--no-break-if', AOpts.BreakIfBody)
+      or BoolFlag('--break-params', '--no-break-params', AOpts.BreakParamsOnePerLine)
+      or BoolFlag('--join-headers', '--no-join-headers', AOpts.JoinRoutineHeaders)
+      or BoolFlag('--break-expr', '--no-break-expr', AOpts.BreakLongExpressions);
+  end;
+
 begin
   AOutFile   := '';
   AStdoutMode:= False;
@@ -1088,41 +1142,12 @@ begin
     i:= 0;
     while i <= High(AArgs) do
     begin
-      if AArgs[i] = '--max-len' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--max-len requires a value');
-        AOpts.MaxLen:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);
-      end
-      else if AArgs[i] = '--indent' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--indent requires a value');
-        AOpts.Indent:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);
-      end
-      else if AArgs[i] = '--tab-width' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--tab-width requires a value');
-        AOpts.TabWidth:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);
-      end
-      else if AArgs[i] = '--o' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--o requires a file path');
-        AOutFile:= AArgs[i + 1];
-        Inc(i, 2);
-      end
+      if TableFlag then
+        Continue;
+      if AArgs[i] = '--o' then
+        AOutFile:= NextValue('--o requires a file path')
       else if AArgs[i] = '--of' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--of requires a folder path');
-        AOpts.ResultDir:= AArgs[i + 1];
-        Inc(i, 2);
-      end
+        AOpts.ResultDir:= NextValue('--of requires a folder path')
       else if AArgs[i] = '--no-o' then
       begin
         AOpts.ResultDir:= '';
@@ -1138,10 +1163,7 @@ begin
         // format nothing (review 2026-10-14).
         if (i + 1 <= High(AArgs)) and not AArgs[i + 1].StartsWith('--')
           and (TDirectory.Exists(AArgs[i + 1]) or not LooksLikeSourceSpec(AArgs[i + 1])) then
-        begin
-          AOpts.BackupDir:= AArgs[i + 1];
-          Inc(i, 2);
-        end
+          AOpts.BackupDir:= NextValue('')
         else
         begin
           AOpts.BackupDir:= '';
@@ -1153,134 +1175,9 @@ begin
         AOpts.Backup:= False;
         Inc(i);
       end
-      else if AArgs[i] = '--mark-unclosed' then
-      begin
-        AOpts.MarkUnclosed:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-mark-unclosed' then
-      begin
-        AOpts.MarkUnclosed:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--label-blocks' then
-      begin
-        AOpts.LabelLongBlocks:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-label-blocks' then
-      begin
-        AOpts.LabelLongBlocks:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--label-min-lines' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--label-min-lines requires a value');
-        AOpts.LabelMinLines:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);
-      end
-      else if AArgs[i] = '--max-blank-lines' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--max-blank-lines requires a value');
-        AOpts.MaxBlankLines:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);
-      end
-      else if AArgs[i] = '--trim-trailing' then
-      begin
-        AOpts.TrimTrailing:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
-      end
-      else if AArgs[i] = '--no-trim-trailing' then
-      begin
-        AOpts.TrimTrailing:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--reflow' then
-      begin
-        AOpts.ReflowLines:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-reflow' then
-      begin
-        AOpts.ReflowLines:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--lowercase-keywords' then
-      begin
-        AOpts.LowercaseKeywords:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
-      end
-      else if AArgs[i] = '--no-lowercase-keywords' then
-      begin
-        AOpts.LowercaseKeywords:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--upper-hex' then
-      begin
-        AOpts.UpperHexNumbers:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-upper-hex' then
-      begin
-        AOpts.UpperHexNumbers:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--upper-directives' then
-      begin
-        AOpts.UpperDirectives:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-upper-directives' then
-      begin
-        AOpts.UpperDirectives:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--first-occ' then
-      begin
-        AOpts.FirstOccCasing:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-first-occ' then
-      begin
-        AOpts.FirstOccCasing:= False;
-        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
-      end
-      else if AArgs[i] = '--blanks-before-section' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--blanks-before-section requires a value');
-        AOpts.BlanksBeforeSection:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);  // dl:ok duplicate-code@cbc9 -- one arm of the flat switch ladder in ParseFlags; value-taking arms differ only in the target option
-      end
-      else if AArgs[i] = '--blanks-before-method' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--blanks-before-method requires a value');
-        AOpts.BlanksBeforeMethod:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);
-      end
-      else if AArgs[i] = '--blanks-before-type' then
-      begin
-        if i + 1 > High(AArgs) then
-          raise EYadfUsage.Create('--blanks-before-type requires a value');
-        AOpts.BlanksBeforeType:= StrToInt(AArgs[i + 1]);
-        Inc(i, 2);
-      end
       else if AArgs[i] = '--stdout' then
       begin
         AStdoutMode:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--d10' then
-      begin
-        AOpts.Delphi10Compat:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-d10' then
-      begin
-        AOpts.Delphi10Compat:= False;
         Inc(i);
       end
       else if AArgs[i] = '--encoding' then
@@ -1294,155 +1191,13 @@ begin
         AOpts.Encoding:= ParseEncoding(AArgs[i + 1], AOpts.Encoding);
         Inc(i, 2);
       end
-      else if AArgs[i] = '--log' then
-      begin
-        AOpts.Logging:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
-      end
-      else if AArgs[i] = '--no-log' then
-      begin
-        AOpts.Logging:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--uses-break' then
-      begin
-        AOpts.UsesAlwaysBreak:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-uses-break' then
-      begin
-        AOpts.UsesAlwaysBreak:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--break-case' then
-      begin
-        AOpts.BreakCaseLabels:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
-      end
-      else if AArgs[i] = '--no-break-case' then
-      begin
-        AOpts.BreakCaseLabels:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--case-arm-on-label' then
-      begin
-        AOpts.CaseArmOnLabelLine:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-case-arm-on-label' then
-      begin
-        AOpts.CaseArmOnLabelLine:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--begin-on-header' then
-      begin
-        AOpts.BeginOnHeaderLine:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-begin-on-header' then
-      begin
-        AOpts.BeginOnHeaderLine:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--pack-statements' then
-      begin
-        AOpts.PackStatements:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-pack-statements' then
-      begin
-        AOpts.PackStatements:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--indent-comments' then
-      begin
-        AOpts.IndentComments:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-indent-comments' then
-      begin
-        AOpts.IndentComments:= False;
-        Inc(i);
-      end
       else if AArgs[i] = '--pack-bodies' then
       begin
         ApplyPackShortBodiesAlias(AOpts); // retired option, kept as an alias
         Inc(i);
       end
       else if AArgs[i] = '--no-pack-bodies' then
-      begin
-        Inc(i); // retired option: accepted, changes nothing
-      end
-      else if AArgs[i] = '--collapse-blocks' then
-      begin
-        AOpts.CollapseShortBlocks:= True;
-        Inc(i);  // dl:ok duplicate-code@44c4 -- one arm of the flat switch ladder in ParseFlags; each arm sets its own option, only the cursor advance repeats
-      end
-      else if AArgs[i] = '--no-collapse-blocks' then
-      begin
-        AOpts.CollapseShortBlocks:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--break-loop' then
-      begin
-        AOpts.BreakLoopBody:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-break-loop' then
-      begin
-        AOpts.BreakLoopBody:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--break-with' then
-      begin
-        AOpts.BreakWithBody:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-break-with' then
-      begin
-        AOpts.BreakWithBody:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--break-if' then
-      begin
-        AOpts.BreakIfBody:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-break-if' then
-      begin
-        AOpts.BreakIfBody:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--break-params' then
-      begin
-        AOpts.BreakParamsOnePerLine:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-break-params' then
-      begin
-        AOpts.BreakParamsOnePerLine:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--join-headers' then
-      begin
-        AOpts.JoinRoutineHeaders:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-join-headers' then
-      begin
-        AOpts.JoinRoutineHeaders:= False;
-        Inc(i);
-      end
-      else if AArgs[i] = '--break-expr' then
-      begin
-        AOpts.BreakLongExpressions:= True;
-        Inc(i);
-      end
-      else if AArgs[i] = '--no-break-expr' then
-      begin
-        AOpts.BreakLongExpressions:= False;
-        Inc(i);
-      end
+        Inc(i) // retired option: accepted, changes nothing
       else if AArgs[i] = '--ini' then
         // ExtractIniPath already consumed every valid `--ini <path>` pair; a
         // bare `--ini` reaching this parser means the value was forgotten --

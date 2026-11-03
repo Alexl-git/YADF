@@ -4575,9 +4575,8 @@ begin
     i:= 1;
     while True do
     case St.SkipNonCode(AText, i) of
-      seEndOfLine  : Break;
-      seLineComment: Break;
-      seCode       :
+      seEndOfLine, seLineComment: Break;
+      seCode                    :
       begin
         if (AText[i] = ASep) and (St.Depth = 0) then
           Res.Add(i);
