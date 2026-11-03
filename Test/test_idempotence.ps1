@@ -3,7 +3,7 @@
 # format's output (a list decided at the source column, a trailing operator left
 # alone on a line, a multi-line name list half split, a stale block-end label that
 # blocked a fold, a nested case arm split at a stale column). Every fixture is run
-# at six option sets -- default, packed (the ORM3 "packed" profile), --d10 greedy (--no-break-expr), --no-reflow and --no-trim-trailing --
+# at nine option sets -- default, packed (the ORM3 "packed" profile), --d10, greedy (--no-break-expr), --no-reflow, --no-trim-trailing and Indent 3 / 4 / 4+TabWidth 8 --
 # and must: not be declined, be a fixed point on the second run, and compile when
 # the fixture itself compiles. Exit 0 = pass, 1 = any fail.
 $ErrorActionPreference = 'Stop'
@@ -24,6 +24,12 @@ $sets = [ordered]@{
   'noreflow' = @('--no-reflow')
   # Task 11 battery: a block-end label appended after the trailing blanks it keeps.
   'notrim'   = @('--no-trim-trailing')
+  # A comma-first list laid out by the list walker nested its items Length(', ') past
+  # the item column; ReindentByDepth (run when begin placement changed the file) uses
+  # one Indent step, so any Indent other than 2 moved on the next format.
+  'indent3'  = @('--indent', '3')
+  'indent4'  = @('--indent', '4')
+  'indent4tab8' = @('--indent', '4', '--tab-width', '8', '--max-len', '100')
 }
 $files = @(Get-ChildItem $dir -Filter *.pas)
 if ($files.Count -lt 5) { Fail "expected at least 5 fixtures in $dir, found $($files.Count)" }

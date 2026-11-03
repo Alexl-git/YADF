@@ -2263,9 +2263,8 @@ begin
         Done:= False;
         while not Done do
         case St.SkipNonCode(Line, Col) of
-          seEndOfLine  : Done:= True;
-          seLineComment: Done:= True;
-          seCode       :
+          seEndOfLine, seLineComment: Done:= True;
+          seCode                    :
           begin
             C:= Line[Col];
             if St.AtTopLevel and (C = ':') and not ((Col < Length(Line)) and (Line[Col + 1] = '=')) then
@@ -9948,14 +9947,18 @@ var
 // comma-first tree layout instead -- the linking comma LEADS the line, as in
 // uses clauses and and/or chains:
 //     Header(
-//       item1                   <- items at ABase + 2
-//     , item2                   <- commas at ABase
+//         item1                 <- items at ABase + Indent
+//       , item2                 <- commas Length(', ') left of the items
 //     );                        <- close at ABase
-// A nested group that does not fit is broken the same way with its own items at
-// the column of the item it is (ABase + 2), so whole branches go on one line and
-// only a branch that overflows is split one level down. ABase is the leading
-// whitespace of the header line for the outermost group, the item column of the
-// parent for a nested one (the leading whitespace of the line it starts on).
+// These are the columns ReindentByDepth derives (one Indent step per opening
+// line, the comma hanging left of the item column): the walk runs after the last
+// re-indent, and the one that follows when begin placement changes the file must
+// not move the list (Indent <> 2 did, so the next format moved it back).
+// A nested group that does not fit is broken the same way, its ABase being the
+// column of the item it is, so whole branches go on one line and only a branch
+// that overflows is split one level down. ABase is the leading whitespace of the
+// header line for the outermost group, the item column of the parent for a
+// nested one (the leading whitespace of the line it starts on).
   procedure RenderParensBroken(G: TGroup; const ABase: string);
   var
     Items    : TArray<TItemRange>;
@@ -9973,13 +9976,13 @@ var
     // Tabs expanded (as DetabLeadingWhitespace will): a `\t, ` comma line would
     // otherwise detab to a different offset from its `\t  ` item lines.
     LineWS:= StringReplace(ABase, #9, StringOfChar(' ', AOpts.TabWidth), [rfReplaceAll]);
-    Indent:= if CommaLead then LineWS + StringOfChar(' ', Length(LIST_SEP)) else LineWS + StringOfChar(' ', AOpts.Indent * 2);
+    Indent:= if CommaLead then LineWS + StringOfChar(' ', AOpts.Indent) else LineWS + StringOfChar(' ', AOpts.Indent * 2);
     EmitText(Tokens[G.OpenIdx].Text);
     for i:= 0 to High(Items) do
     begin
       EmitText(CRLF);
       if CommaLead and (i > 0) then
-        EmitText(LineWS + LIST_SEP)
+        EmitText(LineWS + StringOfChar(' ', Max(0, AOpts.Indent - Length(LIST_SEP))) + LIST_SEP)
       else
         EmitText(Indent);
       // An item that itself contains a `//`/`///` line comment cannot
