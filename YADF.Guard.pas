@@ -409,7 +409,7 @@ var
     S: string;
   begin
     S:= Trim(Line);
-    while Pos('  ', S) > 0 do
+    while S.Contains('  ') do
       S:= StringReplace(S, '  ', ' ', [rfReplaceAll]);
     if S <> '' then
       AAsmLines.Add(S);
@@ -1201,10 +1201,7 @@ begin
       // Directives stay STRICT even under duplication-tolerant mode: a
       // duplicated {$IFDEF}/{$ENDIF} inside a duplicated case arm would
       // unbalance conditional compilation -- that must decline.
-      if AAllowStringDuplication then
-        StrOk:= IsSubsequence(OrigStr, FmtStr)
-      else
-        StrOk:= SameSequence(OrigStr, FmtStr);
+      StrOk:= if AAllowStringDuplication then IsSubsequence(OrigStr, FmtStr) else SameSequence(OrigStr, FmtStr);
       if not StrOk then
         AReason:= 'string literal lost or altered: ' + FirstUnmatched(OrigStr, FmtStr)
       else if not SameSequence(OrigDir, FmtDir) then

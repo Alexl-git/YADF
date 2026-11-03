@@ -27,15 +27,16 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YadfMain.EncName (YadfMain.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.EncodingOf (YADF.Options.pas), [YADF]YADF.Options.EncodingToStr (YADF.Options.pas), [YADF]YADF.Options.ParseEncoding (YADF.Options.pas), [YADF]YadfMain.EncName (YadfMain.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfEncoding = (encANSI, encUTF8BOM, encUTF16BOM);
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Layout.pas), [YADF]declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), [YADF]declaration (YadfMain.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.BreakControlBodies (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParams (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.EnforceBlankLines (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.CheckDir (YadfMain.pas), [YADF]YadfMain.CheckFile (YadfMain.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ExpandFileSpec (YadfMain.pas),
-  /// [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.FormatToStdout (YadfMain.pas), [YADF]YadfMain.LoadFile (YadfMain.pas), [YADF]YadfMain.LoadIniDefaults (YadfMain.pas), [YADF]YadfMain.LogStartup (YadfMain.pas), [YADF]YadfMain.ParseDprojUnits (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.ParseFlags (YadfMain.pas), [YADF]YadfMain.ProcessFiles (YadfMain.pas), [YADF]YadfMain.RunYadf (YadfMain.pas), [YADF]YadfMain.ShowUsage (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Layout.pas), [YADF]declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), [YADF]declaration (YadfMain.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParams (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.EnforceBlankLines (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/2 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.LayoutControlBodies (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Options.ApplyPackShortBodiesAlias (YADF.Options.pas), [YADF]YADF.Options.ClampOptions (YADF.Options.pas),
+  /// [YADF]YADF.Options.DefaultOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.CheckDir (YadfMain.pas), [YADF]YadfMain.CheckFile (YadfMain.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ExpandFileSpec (YadfMain.pas), [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.FormatToStdout (YadfMain.pas), [YADF]YadfMain.LoadFile (YadfMain.pas), [YADF]YadfMain.LoadIniDefaults (YadfMain.pas), [YADF]YadfMain.LogStartup (YadfMain.pas), [YADF]YadfMain.ParseDprojUnits (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.ParseFlags (YadfMain.pas), [YADF]YadfMain.ProcessFiles (YadfMain.pas), [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADF]YadfMain.RunYadf (YadfMain.pas),
+  /// [YADF]YadfMain.ShowUsage (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
   /// <para>Used in units: [YADF]YADF.Layout, [YADF]YADF.Options, [YADF]YadfMain, YADFOT.Wizard</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -120,7 +121,7 @@ type
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.MakeOpt (YADF.Options.pas), [YADF]YADF.Options.OptionsHelpText (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.MakeOpt (YADF.Options.pas), [YADF]YADF.Options.OptionHelpId (YADF.Options.pas), [YADF]YADF.Options.OptionHint (YADF.Options.pas), [YADF]YADF.Options.OptionsHelpText (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)</para>
   /// <para>Used in units: YADF.Options</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -146,14 +147,20 @@ const
 /// Break*Body options OFF (bodies joined onto their header when they fit) and
 /// CaseArmOnLabelLine ON.</summary>
 /// <param name="AOpts">Options to update in place.</param>
-/// <remarks>Used by the INI loader (PackShortBodies=true) and the CLI
-/// (--pack-bodies). PackShortBodies=false / --no-pack-bodies change nothing.</remarks>
+/// <remarks>
+/// Used by the INI loader (PackShortBodies=true) and the CLI
+/// (--pack-bodies). PackShortBodies=false / --no-pack-bodies change nothing.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YadfMain.ParseFlags (YadfMain.pas)</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 procedure ApplyPackShortBodiesAlias(var AOpts: TYadfOptions);
 
 /// <returns><!-- drag-lint:auto type -->TYadfOptions</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Options.DefaultValueStr (YADF.Options.pas), YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)</para>
+/// <para>Effect-free (proven)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function DefaultOptions: TYadfOptions;
@@ -184,8 +191,7 @@ function OptionTable: TArray<TOptInfo>;
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Options.OptionTable (YADF.Options.pas), YadfMain.ParseFlags (YadfMain.pas)</para>
 /// <para>Calls: Trim, UpperCase</para>
-/// <para>Returns: encUTF8BOM; encUTF16BOM; encANSI; ADefault</para>
-/// <para>Complexity: 11 (cyclomatic, outer body), 13 lines (full implementation)</para>
+/// <para>Returns: if (L = 'UTF-8') or (L = 'UTF8') or (L = 'UTF-8-BOM') or (L = 'UTF8BOM') then encUTF8BOM</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function ParseEncoding(const S: string; const ADefault: TYadfEncoding): TYadfEncoding;
@@ -233,7 +239,7 @@ function EncodingOf(const E: TYadfEncoding): TEncoding;
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YadfMain.LoadFile (YadfMain.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
 /// <para>Calls: YADF.Options.LooksLikeUtf8</para>
-/// <para>Complexity: 12 (cyclomatic, outer body), 25 lines (full implementation)</para>
+/// <para>Complexity: 11 (cyclomatic, outer body), 22 lines (full implementation)</para>
 /// <para>Mutates: AEnc (out), APreambleLen (out)</para>
 /// <seealso cref="YADF.Options.LooksLikeUtf8"/>
 /// <!-- drag-lint:auto END -->
@@ -251,7 +257,7 @@ procedure DetectSourceEncoding(const ABytes: TBytes; out AEnc: TEncoding; out AP
 /// <returns>Observed: ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.LoadOptionsFromIni (YADF.Options.pas)</para>
+/// <para>Called from: [YADF]YADF.Options.LoadNativeFormatterFlag (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas)</para>
 /// <para>Calls: LowerCase, YADF.Options.StripIniComment</para>
 /// <para>Returns: ADefault</para>
 /// <seealso cref="YADF.Options.StripIniComment"/>
@@ -310,10 +316,16 @@ const
   HelpIdIdeCodeFormatter = 'ide-code-formatter';
 
 /// <summary>Stable help id of an option: the kebab-case of its INI key ("MaxLen" -> "max-len").</summary>
+/// <param name="AInfo">The option-table row whose Ident is converted.</param>
 /// <returns>Lowercase a-z 0-9 and hyphen; equals the leaf file name in docs\help-site\options and the
 /// URL slug on the web help. Ids are permanent once published -- never rename an option's Ident
 /// without keeping a redirect. Stored in TControl.HelpKeyword by the options frame.</returns>
-/// <remarks>Must stay identical to Get-Kebab in Test\gen_help_site.ps1 (test_help_site + OptionsTest guard it).</remarks>
+/// <remarks>
+/// Must stay identical to Get-Kebab in Test\gen_help_site.ps1 (test_help_site + OptionsTest guard it).
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Calls: CharInSet, LowerCase</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function OptionHelpId(const AInfo: TOptInfo): string;
 
 var
@@ -322,6 +334,8 @@ var
   YadfHelpBaseUrl: string = 'https://www.delphi-rag-lint.com/help/yadf/options/';
 
 /// <summary>Full URL of the help page for a help id ("max-len" -> base + "max-len/").</summary>
+/// <param name="AHelpId">A help id from OptionHelpId or one of the HelpId* constants; not checked.</param>
+/// <returns>YadfHelpBaseUrl + AHelpId + '/'.</returns>
 function OptionHelpUrl(const AHelpId: string): string;
 
 // True when ABytes are valid UTF-8 AND contain at least one multi-byte
@@ -343,8 +357,9 @@ function OptionHelpUrl(const AHelpId: string): string;
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Options.DetectSourceEncoding (YADF.Options.pas)</para>
+/// <para>Calls: InRange</para>
 /// <para>Returns: False; HasMulti</para>
-/// <para>Complexity: 22 (cyclomatic, outer body), 56 lines (full implementation)</para>
+/// <para>Complexity: 18 (cyclomatic, outer body), 56 lines (full implementation)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function LooksLikeUtf8(const ABytes: TBytes): Boolean;
@@ -359,13 +374,13 @@ function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.LoadIniDefaults (YadfMain.pas), YADFOT.Wizard.LoadIniDefaults (YADFOT.Wizard.pas)</para>
-/// <para>Calls: FileExists, YADF.Options.ClampOptions, YADF.Options.DefaultOptions, YADF.Options.OptionTable, YADF.Options.ReadBoolIni, YADF.Options.ReadIntIni, YADF.Options.StripIniComment</para>
+/// <para>Calls: FileExists, YADF.Options.ApplyPackShortBodiesAlias, YADF.Options.ClampOptions, YADF.Options.DefaultOptions, YADF.Options.OptionTable, YADF.Options.ReadBoolIni, YADF.Options.ReadIntIni, YADF.Options.StripIniComment</para>
 /// <para>Returns: DefaultOptions</para>
+/// <seealso cref="YADF.Options.ApplyPackShortBodiesAlias"/>
 /// <seealso cref="YADF.Options.ClampOptions"/>
 /// <seealso cref="YADF.Options.DefaultOptions"/>
 /// <seealso cref="YADF.Options.OptionTable"/>
 /// <seealso cref="YADF.Options.ReadBoolIni"/>
-/// <seealso cref="YADF.Options.ReadIntIni"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 
@@ -483,7 +498,7 @@ function EnsureIniExists(const APath: string): Boolean;
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas)</para>
+  /// <para>Used by: [YADF]declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), [YADF]YADF.Options.LoadProfiles (YADF.Options.pas), [YADF]YADF.Options.SaveProfiles (YADF.Options.pas), [YADF]YadfMain.DefaultIniPath (YadfMain.pas)</para>
   /// <para>Used in units: [YADF]YADF.Options, [YADF]YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -562,7 +577,7 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas)</para>
 /// <para>Calls: Trim, YADF.Options.ProfilesDir</para>
-/// <para>Returns: AFileName; TPath.Combine(ProfilesDir, AFileName)</para>
+/// <para>Returns: if TPath.IsPathRooted(AFileName) then AFileName</para>
 /// <para>Touches: file system</para>
 /// <seealso cref="YADF.Options.ProfilesDir"/>
 /// <!-- drag-lint:auto END -->
@@ -575,16 +590,28 @@ function ResolveProfileIniPath(const AFileName: string): string;
 /// <param name="AProfilesIni">Full path of profiles.ini (see ProfilesIniPath).</param>
 /// <returns>False when the file or key is missing or unparsable (default OFF: registering
 /// replaces the IDE's own Format Source, so it is opt-in); otherwise the stored value.</returns>
-/// <remarks>Accepts 1/0/true/false/yes/no/on/off like every other YADF boolean. The CLI and
-/// the formatting engine never read this key.</remarks>
+/// <remarks>
+/// Accepts 1/0/true/false/yes/no/on/off like every other YADF boolean. The CLI and
+/// the formatting engine never read this key.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Calls: FileExists, YADF.Options.ReadBoolIni</para>
+/// <para>Returns: False; ReadBoolIni(Ini, 'IDE', 'NativeFormatter', False)</para>
+/// <seealso cref="YADF.Options.ReadBoolIni"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function LoadNativeFormatterFlag(const AProfilesIni: string): Boolean;
 
 /// <summary>Persists the [IDE] NativeFormatter switch into AProfilesIni (creates the folder
 /// and file as needed; other keys and sections are left untouched).</summary>
 /// <param name="AProfilesIni">Full path of profiles.ini (see ProfilesIniPath).</param>
 /// <param name="AValue">True to register YADFOT as the IDE code formatter at next package load.</param>
-/// <exception cref="EIniFileException">Raised when the file cannot be written.</exception>
-procedure SaveNativeFormatterFlag(const AProfilesIni: string; AValue: Boolean);
+/// <exception cref="EIniFileException">Propagated from TIniFile.WriteString when the file cannot be written.</exception>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Calls: DirectoryExists, ExtractFilePath, ForceDirectories, IfThen</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
+procedure SaveNativeFormatterFlag(const AProfilesIni: string; AValue: Boolean);  // dl:ok doc-drift@9cef -- the exception is raised by TIniFile.WriteString (System.IniFiles, on a failed WritePrivateProfileString) and propagates uncaught; the rule sees only a direct raise
 
 type
   /// <summary>Signature of the replace step SaveFile runs when the target already exists.</summary>
@@ -640,11 +667,16 @@ procedure SaveFile(const AFileName, AContent: string; AEnc: TEncoding; AWithBOM:
 type
   /// <summary>What SyncSampleFile does with the per-user preview sample
   /// (%APPDATA%\YADF\Sample.pas) against the sample embedded in the host.</summary>
-  /// <remarks>ssKeep: the copy stays as it is. ssSeed: there is no copy; the
+  /// <remarks>
+  /// ssKeep: the copy stays as it is. ssSeed: there is no copy; the
   /// embedded sample is written. ssReseed: an unedited copy of an older sample
   /// is replaced. ssBackupAndReseed: an edited or unstamped copy is first saved
   /// as Sample.pas.bak (replacing an older .bak), then replaced -- only when the
-  /// user's Backup option is on; with it off such a copy is replaced (ssReseed).</remarks>
+  /// user's Backup option is on; with it off such a copy is replaced (ssReseed).
+  /// <!-- drag-lint:auto BEGIN -->
+  /// <para>Used by: declaration (YADF.Options.pas), YADF.Options.DecideSampleSeed (YADF.Options.pas), YADF.Options.SyncSampleFile (YADF.Options.pas)</para>
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TSampleSeedAction = (ssKeep, ssSeed, ssReseed, ssBackupAndReseed);
 
 const
@@ -658,15 +690,30 @@ const
 /// <param name="AVersion">Dotted numeric version of the stamp ('' when there is none).</param>
 /// <param name="AHash">Lowercase SampleBodyHash recorded in the stamp ('' when there is none).</param>
 /// <returns>True when line 1 is `// YADF-Sample &lt;version&gt; &lt;32 hex digits&gt;`.</returns>
-/// <remarks>Pure.</remarks>
+/// <remarks>
+/// Pure.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.Options.DecideSampleSeed (YADF.Options.pas)</para>
+/// <para>Calls: CharInSet, Copy, LowerCase, Pos, TrimRight, TryStrToInt</para>
+/// <para>Returns: False; True</para>
+/// <para>Mutates: AVersion (out), AHash (out)</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function ParseSampleStamp(const AText: string; out AVersion, AHash: string): Boolean;
 
 /// <summary>Content hash of a preview sample: lowercase-hex MD5 of the UTF-8
 /// text AFTER its first line, CRLF normalised to LF.</summary>
 /// <param name="AText">Whole sample text, stamp line included.</param>
 /// <returns>32 lowercase hex digits.</returns>
-/// <remarks>Line 1 is left out so the stamp can carry the hash of the rest; an
-/// editor that only changed the line endings does not count as an edit. Pure.</remarks>
+/// <remarks>
+/// Line 1 is left out so the stamp can carry the hash of the rest; an
+/// editor that only changed the line endings does not count as an edit. Pure.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.Options.DecideSampleSeed (YADF.Options.pas)</para>
+/// <para>Calls: Copy, Pos</para>
+/// <para>Returns: THashMD5.GetHashString(if p &gt; 0 then Copy(AText, p + 1, MaxInt).Replace(#13#10, #10) else '')</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function SampleBodyHash(const AText: string): string;
 
 /// <summary>Decides what happens to the user's copy of the preview sample.</summary>
@@ -681,7 +728,17 @@ function SampleBodyHash(const AText: string): string;
 /// copy is unedited (its body hash equals the hash in its own stamp), else
 /// ssBackupAndReseed. A copy without a stamp gets ssBackupAndReseed: a
 /// pre-stamp shipped sample and the user's own file cannot be told apart.</returns>
-/// <remarks>Pure.</remarks>
+/// <remarks>
+/// Pure.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.Options.SyncSampleFile (YADF.Options.pas)</para>
+/// <para>Calls: YADF.Options.CompareDottedVersion, YADF.Options.ParseSampleStamp, YADF.Options.SampleBodyHash</para>
+/// <para>Returns: ssSeed; ssKeep; ssBackupAndReseed; if SampleBodyHash(AUserText) = UsrHash then ssReseed</para>
+/// <seealso cref="YADF.Options.CompareDottedVersion"/>
+/// <seealso cref="YADF.Options.ParseSampleStamp"/>
+/// <seealso cref="YADF.Options.SampleBodyHash"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function DecideSampleSeed(AExists: Boolean; const AUserText, AEmbeddedText: string): TSampleSeedAction;
 
 /// <summary>Brings the user's preview sample file in line with the embedded one,
@@ -694,15 +751,25 @@ function DecideSampleSeed(AExists: Boolean; const AUserText, AEmbeddedText: stri
 /// ABackup False the same decision is carried out (and returned) as ssReseed.</returns>
 /// <exception cref="EInOutError">Raised (like the other System.IOUtils file
 /// errors) when the copy cannot be read, backed up or written.</exception>
-/// <remarks>A backup goes to APath + '.bak', replacing an existing one. Both
+/// <remarks>
+/// A backup goes to APath + '.bak', replacing an existing one. Both
 /// files are decoded as UTF-8 (a BOM is ignored); an undecodable copy hashes
-/// differently and so is backed up, never lost. Not thread-safe per file.</remarks>
+/// differently and so is backed up, never lost. Not thread-safe per file.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Calls: ExtractFilePath, ForceDirectories, YADF.Options.DecideSampleSeed, YADF.Options.SampleText</para>
+/// <para>Returns: DecideSampleSeed(Exists, UserText, SampleText(AEmbedded)); ssReseed</para>
+/// <para>Touches: file system</para>
+/// <seealso cref="YADF.Options.DecideSampleSeed"/>
+/// <seealso cref="YADF.Options.SampleText"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function SyncSampleFile(const APath: string; const AEmbedded: TBytes; ABackup: Boolean): TSampleSeedAction;
 
 implementation
 
 uses
-  System.StrUtils
+  System.Math
+  , System.StrUtils
   , System.Hash
   , Winapi.Windows
   , Winapi.ShlObj
@@ -765,14 +832,10 @@ var
   L: string;
 begin
   L:= UpperCase(Trim(S));
-  if (L = 'UTF-8') or (L = 'UTF8') or (L = 'UTF-8-BOM') or (L = 'UTF8BOM') then
-    Result:= encUTF8BOM
-  else if (L = 'UTF-16') or (L = 'UTF16') or (L = 'UTF-16-BOM') or (L = 'UTF16BOM') or (L = 'UTF-16-LE') then
-    Result:= encUTF16BOM
-  else if (L = 'ANSI') then
-    Result:= encANSI
-  else
-    Result:= ADefault;
+  Result:= if (L = 'UTF-8') or (L = 'UTF8') or (L = 'UTF-8-BOM') or (L = 'UTF8BOM') then encUTF8BOM
+            else if (L = 'UTF-16') or (L = 'UTF16') or (L = 'UTF-16-BOM') or (L = 'UTF16BOM') or (L = 'UTF-16-LE') then encUTF16BOM
+            else if L = 'ANSI' then encANSI
+            else ADefault;
 end; // function
 
 function EncodingToStr(const E: TYadfEncoding): string;
@@ -868,10 +931,7 @@ begin
   end
   else
   begin
-    if LooksLikeUtf8(ABytes) then
-      AEnc:= TEncoding.UTF8
-    else
-      AEnc:= TEncoding.ANSI;
+    AEnc:= if LooksLikeUtf8(ABytes) then TEncoding.UTF8 else TEncoding.ANSI;
     APreambleLen:= 0;
   end;
 end; // procedure
@@ -913,19 +973,19 @@ begin
       Continue;
     end;
     // Lead byte -> continuation count + minimum code point (overlong check).
-    if (B >= $C2) and (B <= $DF) then  // dl:ok magic-literal@6617
+    if InRange(B, $C2, $DF) then  // dl:ok magic-literal@9e72 -- UTF-8 lead-byte range from RFC 3629
     begin
       Need:= 1;
       Cp:= B and $1F;  // dl:ok magic-literal@b2fd
       MinCp:= $80;  // dl:ok magic-literal@651b
     end
-    else if (B >= $E0) and (B <= $EF) then  // dl:ok magic-literal@af16
+    else if InRange(B, $E0, $EF) then  // dl:ok magic-literal@193d -- UTF-8 lead-byte range from RFC 3629
     begin
       Need:= 2;
       Cp:= B and $0F;  // dl:ok magic-literal@5946
       MinCp:= $800;  // dl:ok magic-literal@8ac7
     end
-    else if (B >= $F0) and (B <= $F4) then  // dl:ok magic-literal@cde8
+    else if InRange(B, $F0, $F4) then  // dl:ok magic-literal@1e2d -- UTF-8 lead-byte range from RFC 3629
     begin
       Need:= 3;  // dl:ok magic-literal@090c
       Cp:= B and $07;  // dl:ok magic-literal@f882
@@ -940,7 +1000,7 @@ begin
       if (B and $C0) <> $80 then Exit(False);  // dl:ok magic-literal@6d20
       Cp:= (Cp shl 6) or (B and $3F);  // dl:ok magic-literal@83e2
     end;
-    if (Cp < MinCp) or (Cp > $10FFFF) or ((Cp >= $D800) and (Cp <= $DFFF)) then  // dl:ok magic-literal@0613
+    if (Cp < MinCp) or (Cp > $10FFFF) or (InRange(Cp, $D800, $DFFF)) then  // dl:ok magic-literal@c3e6 -- Unicode max code point and the UTF-16 surrogate range (RFC 3629)
       Exit(False);
     HasMulti:= True;
     Inc(i, Need + 1);
@@ -1104,7 +1164,7 @@ begin
   Result:= DefaultOptions;
   if (APath = '') or (not FileExists(APath)) then Exit;
   T:= OptionTable;
-  Ini:= TIniFile.Create(APath);
+  Ini:= TIniFile.Create(APath);  // dl:ok taint-path-traversal@9f39 -- path comes from the local user's own INI / command line; no trust boundary is crossed
   try
     for i:= 0 to High(T) do
     case T[i].Kind of
@@ -1192,7 +1252,7 @@ begin
     okBool:
     begin
       BVal:= AInfo.GetVal(D);
-      Result:= IfThen(BVal, 'true', 'false');
+      Result:= if BVal then 'true' else 'false';
     end;
     else
       Result:= VarToStr(AInfo.GetVal(D));
@@ -1218,8 +1278,8 @@ begin
   begin
     C:= AInfo.Ident[i];
     if (i > 1) and CharInSet(C, ['A'..'Z']) and CharInSet(AInfo.Ident[i - 1], ['a'..'z', '0'..'9']) then
-      Result:= Result + '-';
-    Result:= Result + LowerCase(C);
+      Result:= Result + '-';  // dl:ok concat-in-loop@e461 -- loop runs over one short option identifier (under 30 chars); a builder would cost more than it saves
+    Result:= Result + LowerCase(C);  // dl:ok concat-in-loop@451d -- loop runs over one short option identifier (under 30 chars); a builder would cost more than it saves
   end;
 end;
 
@@ -1238,7 +1298,7 @@ var
 begin
   DirName:= ExtractFilePath(APath);
   if (DirName <> '') and (not DirectoryExists(DirName)) then
-    ForceDirectories(DirName);
+    ForceDirectories(DirName);  // dl:ok ignored-must-use-result@eb92, taint-path-traversal@eb92 -- a failed ForceDirectories surfaces as the exception of the write that follows; path is the local user's own, no trust boundary
   T:= OptionTable;
   L:= TStringList.Create;
   try
@@ -1261,7 +1321,7 @@ begin
       L.Add('; ' + OptionHint(T[i]));
       L.Add(T[i].Ident + ' = ' + DefaultValueStr(T[i]));
     end; // for
-    L.SaveToFile(APath, TEncoding.ANSI);
+    L.SaveToFile(APath, TEncoding.ANSI);  // dl:ok taint-path-traversal@1388 -- path comes from the local user's own INI / command line; no trust boundary is crossed
   finally
     L.Free;
   end; // try
@@ -1344,7 +1404,7 @@ var
 begin
   DirName:= ProfilesDir;
   if (DirName <> '') and (not DirectoryExists(DirName)) then
-    ForceDirectories(DirName);
+    ForceDirectories(DirName);  // dl:ok ignored-must-use-result@eb92 -- a failed ForceDirectories surfaces as the EIniFileException / EFCreateError of the write that follows
   Ini:= TIniFile.Create(ProfilesIniPath);
   try
     Ini.WriteString('Profiles', 'F', AProfiles.F);
@@ -1376,7 +1436,7 @@ var
 begin
   DirName:= ExtractFilePath(AProfilesIni);
   if (DirName <> '') and (not DirectoryExists(DirName)) then
-    ForceDirectories(DirName);
+    ForceDirectories(DirName);  // dl:ok ignored-must-use-result@eb92 -- a failed ForceDirectories surfaces as the EIniFileException / EFCreateError of the write that follows
   Ini:= TIniFile.Create(AProfilesIni);
   try
     Ini.WriteString('IDE', 'NativeFormatter', IfThen(AValue, '1', '0'));
@@ -1389,10 +1449,7 @@ end; // procedure
 function ResolveProfileIniPath(const AFileName: string): string;
 begin
   if Trim(AFileName) = '' then Exit('');
-  if TPath.IsPathRooted(AFileName) then
-    Result:= AFileName
-  else
-    Result:= TPath.Combine(ProfilesDir, AFileName);
+  Result:= if TPath.IsPathRooted(AFileName) then AFileName else TPath.Combine(ProfilesDir, AFileName);
 end;
 
 function EncodeForSave(const AContent: string; AEnc: TEncoding; AWithBOM: Boolean): TBytes;
@@ -1400,10 +1457,7 @@ var
   Bytes   : TBytes;
   Preamble: TBytes;
 begin
-  if AWithBOM then
-    Preamble:= AEnc.GetPreamble
-  else
-    Preamble:= nil;
+  Preamble:= if AWithBOM then AEnc.GetPreamble else nil;
   Bytes:= AEnc.GetBytes(AContent);
   SetLength(Result, Length(Preamble) + Length(Bytes));
   if Length(Preamble) > 0 then
@@ -1472,10 +1526,8 @@ begin
   else
   begin
     // ReplaceFileW keeps the target's attributes, ACL and alternate data streams.
-    if Assigned(gSaveReplaceHook) then
-      Replaced:= gSaveReplaceHook(AFileName, Tmp)
-    else
-      Replaced:= ReplaceFileW(PWideChar(AFileName), PWideChar(Tmp), nil, 0, nil, nil);
+    Replaced:= if Assigned(gSaveReplaceHook) then gSaveReplaceHook(AFileName, Tmp)
+                else ReplaceFileW(PWideChar(AFileName), PWideChar(Tmp), nil, 0, nil, nil);
     if not Replaced then
     begin
       Err:= GetLastError;

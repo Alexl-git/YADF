@@ -88,10 +88,8 @@ begin
   Indent:= StringOfChar(' ', ADepth * 2);
   StartTok:= G.OpenIdx;
   EndTok  := G.CloseIdx;
-  if G.Kind = gkRoot then
-    Line:= Indent + Format('%s [tokens 0..%d]', [KindName(G.Kind), EndTok])
-  else
-    Line:= Indent + Format('%s [%d..%d]  %s', [ KindName(G.Kind), StartTok, EndTok, PreviewSpan(ATokens, StartTok, EndTok)]);
+  Line:= if G.Kind = gkRoot then Indent + Format('%s [tokens 0..%d]', [KindName(G.Kind), EndTok])
+         else Indent + Format('%s [%d..%d]  %s', [ KindName(G.Kind), StartTok, EndTok, PreviewSpan(ATokens, StartTok, EndTok)]);
   if G.ForceClosed then
     Line:= Line + '  <FORCE-CLOSED at EOF>';
   ALines.Add(Line);

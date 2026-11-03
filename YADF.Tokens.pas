@@ -20,7 +20,6 @@ uses
   System.Classes
   , System.SysUtils
   , System.Generics.Collections
-  , SimpleParser.Lexer
   , SimpleParser.Lexer.Types
   ;
 
@@ -45,7 +44,7 @@ type
   /// <!-- drag-lint:auto BEGIN -->
   /// <para>Used by: [YADF]declaration (YADF.Debug.pas), [YADF]declaration (YADF.Groups.pas), [YADF]declaration (YADF.Tokens.pas), [YADF]YADF.Debug.PreviewSpan (YADF.Debug.pas), [YADF]YADF.Debug.RenderGroupTree (YADF.Debug.pas) ?, [YADF]YADF.Debug.WalkGroup (YADF.Debug.pas), [YADF]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas) ?, [YADF]YADF.Groups.FindBlockLabel (YADF.Groups.pas) ?, [YADF]YADF.Groups.IsRecordConstraint (YADF.Groups.pas), [YADF]YADF.Groups.ParseGroups (YADF.Groups.pas) ?, [YADF]YADF.Groups.PrevSignificantIdx (YADF.Groups.pas), [YADF]YADF.Guard.AddAsmLines (YADF.Guard.pas), [YADF]YADF.Guard.ExtractContent (YADF.Guard.pas), [YADF]YADF.Guard.IsSplitExponent (YADF.Guard.pas) ?, [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.CodeHoldsComment (YADF.Layout.pas) ?, [YADF]YADF.Layout.CollapseInteriorSpacesInLine (YADF.Layout.pas), [YADF]YADF.Layout.CollectParensItems (YADF.Layout.pas),
   /// [YADF]YADF.Layout.CollectUsesItems (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas) ?, [YADF]YADF.Layout.FormatSourceOnce.BreakListsInLine (YADF.Layout.pas) ?, [YADF]YADF.Layout.InlineRenderRange (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeOperatorSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasConditionalDirective (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasLineBreak (YADF.Layout.pas) ?, [YADF]YADF.Layout.RangeHasLineComment (YADF.Layout.pas), [YADF]YADF.Layout.RangeHasMultiLineToken (YADF.Layout.pas), [YADF]YADF.Layout.ReindentByDepth (YADF.Layout.pas), [YADF]YADF.Layout.RenderTokensForGuard (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YADF.Layout.ShieldAsmBodies (YADF.Layout.pas), [YADF]YADF.Layout.ShieldMultilineTokens (YADF.Layout.pas), [YADF]YADF.Layout.SplitNameList (YADF.Layout.pas) ?,
-  /// [YADF]YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), [YADF]YADF.Layout.TightenParenSpacing (YADF.Layout.pas) ?, [YADF]YADF.Tokens.EmitTokens (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.IsAsmBlockEnd (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), [YADF]YADF.Tokens.MarkEnumMembers (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.MarkExternalName (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.SpellingSensitiveIdents (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.TokIs (YADF.Tokens.pas) ?, [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.RoundTrip (YadfMain.pas)</para>
+  /// [YADF]YADF.Layout.StripD10Todos (YADF.Layout.pas) ?, [YADF]YADF.Layout.TightenAnchorSpacingInLine (YADF.Layout.pas), [YADF]YADF.Layout.TightenParenSpacing (YADF.Layout.pas) ?, [YADF]YADF.Tokens.EmitTokens (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.IsAsmBlockEnd (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.LoadTokensFromString (YADF.Tokens.pas), [YADF]YADF.Tokens.MarkEnumMembers (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.MarkExternalName (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.SpellingSensitiveIdents (YADF.Tokens.pas) ?, [YADF]YADF.Tokens.TokIs (YADF.Tokens.pas) ?, [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.RoundTrip (YadfMain.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TTokenList = TList<TToken>;
@@ -113,6 +112,10 @@ function IsAsmBlockEnd(const ATokens: TTokenList; AIdx: Integer): Boolean;
 function SpellingSensitiveIdents(const ATokens: TTokenList): TArray<Boolean>;
 
 implementation
+
+uses
+  SimpleParser.Lexer
+  ;
 
 function IsAsmBlockEnd(const ATokens: TTokenList; AIdx: Integer): Boolean;
 var
@@ -260,10 +263,10 @@ const
   // TCharacter.IsLetter) to match the lexer's directive-word grammar.
 function IsAsciiAlpha(C: Char): Boolean;
 begin
-  Result:= ((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z'));
+  Result:= CharInSet(C, ['A'..'Z', 'a'..'z']);
 end;
 
-function ShieldIncludeDirectives(const ASource: string): string;  // dl:ok deep-nesting@4396, cyclomatic-complexity@fc29, cognitive-complexity@0679
+function ShieldIncludeDirectives(const ASource: string): string;  // dl:ok deep-nesting@4396, cyclomatic-complexity@2620, cognitive-complexity@3538 -- one linear scanner over the source; every branch is a lexical state (string, comment, directive), splitting it would scatter the state machine
 var
   i      : Integer       ;
   n      : Integer       ;
@@ -376,10 +379,7 @@ begin
           while (WordEnd <= n) and IsAsciiAlpha(ASource[WordEnd]) do
             Inc(WordEnd);
           Wrd:= Copy(ASource, i + 2, WordEnd - (i + 2));
-          if WordEnd <= n then
-            NextCh:= ASource[WordEnd]
-          else
-            NextCh:= '}';
+          NextCh:= if WordEnd <= n then ASource[WordEnd] else '}';
           // Include form: `{$INCLUDE ...}` always; `{$I ...}` only when
           // the char after the word is NOT `+`/`-`/`}` (those are the
           // IOCHECKS toggle, not an include).
@@ -463,10 +463,7 @@ begin
       while Lex.TokenID <> ptNull do
       begin
         CurStart:= Lex.TokenPos;
-        if CurStart > PrevEnd then
-          T.Pre:= Copy(Src, PrevEnd + 1, CurStart - PrevEnd)
-        else
-          T.Pre:= '';
+        T.Pre:= if CurStart > PrevEnd then Copy(Src, PrevEnd + 1, CurStart - PrevEnd) else '';
         T.Kind:= Lex.TokenID;
         T.ExID:= Lex.ExID;
         T.Text:= Lex.Token;
