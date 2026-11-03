@@ -30,7 +30,7 @@ unit YADFOT.CodeFormatter;
 interface
 
 uses
-  ToolsAPI;  // dl:ok unused-unit-in-uses@0152 -- DECLARED(IOTACodeFormatter) in the .inc resolves against it
+  ToolsAPI;
 
 {$I YADFOT.CodeFormatter.inc}
 
@@ -207,14 +207,14 @@ var
 begin
   if GFormatter = nil then Exit;
   if Supports(BorlandIDEServices, IOTACodeFormatterServices, Svc) then
-    try Svc.RemoveFormatter(GFormatter); except end;  // dl:ok empty-except@cf01
+    try Svc.RemoveFormatter(GFormatter); except end;  // dl:ok empty-except@2ec1 -- OTA/IDE shutdown/startup path: an exception must never escape into the IDE
   GFormatter:= nil;
 end;
 
 initialization
 
 finalization
-  try UnregisterYadfCodeFormatter; except end;  // dl:ok empty-except@cf02
+  try UnregisterYadfCodeFormatter; except end;  // dl:ok empty-except@9238 -- OTA/IDE shutdown/startup path: an exception must never escape into the IDE
 
 {$ELSE}
 

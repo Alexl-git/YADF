@@ -40,8 +40,9 @@ uses
 /// tolerating an absent service instead of failing registration.</summary>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Calls: Supports, YADFOT.Options.RegisterYADFOptions, YADFOT.Wizard.RegisterYadfotAbout</para>
+/// <para>Calls: Supports, YADFOT.CodeFormatter.RegisterYadfCodeFormatter, YADFOT.Options.RegisterYADFOptions, YADFOT.Wizard.RegisterYadfotAbout</para>
 /// <para>Catches: Exception (empty)</para>
+/// <seealso cref="YADFOT.CodeFormatter.RegisterYadfCodeFormatter"/>
 /// <seealso cref="YADFOT.Options.RegisterYADFOptions"/>
 /// <seealso cref="YADFOT.Wizard.RegisterYadfotAbout"/>
 /// <!-- drag-lint:auto END -->
@@ -54,7 +55,6 @@ uses
   System.SysUtils
   , System.Classes
   , System.IOUtils
-  , System.IniFiles
   , System.UITypes
   , Winapi.Windows        // LoadImage / HICON for the splash bitmap
   , Vcl.Dialogs
@@ -627,7 +627,7 @@ begin
   // before the code segment is dropped); the finalization below is a backstop.
   try UnregisterYadfotAbout;  except end;  // dl:ok empty-except@0e7a, try-except-swallowed@0e7a
   // Hand the IDE code formatter back (Delphi 13.2+; a no-op elsewhere).
-  try UnregisterYadfCodeFormatter; except end;  // dl:ok empty-except@cf03, try-except-swallowed@cf03
+  try UnregisterYadfCodeFormatter; except end;  // dl:ok empty-except@9238, try-except-swallowed@9238 -- OTA/IDE shutdown/startup path: an exception must never escape into the IDE
 end;
 
 // --- IOTAKeyboardBinding (Ctrl+Shift+Alt+F) ----------------------------
@@ -768,7 +768,7 @@ begin
   // missing splash/about service never aborts the whole registration.
   try RegisterYadfotAbout; except end;  // dl:ok empty-except@0bdf, try-except-swallowed@0bdf
   // Opt-in IDE code formatter (Delphi 13.2+ and [IDE] NativeFormatter=1; else a no-op).
-  try RegisterYadfCodeFormatter; except end;  // dl:ok empty-except@cf04, try-except-swallowed@cf04
+  try RegisterYadfCodeFormatter; except end;  // dl:ok empty-except@c0ca, try-except-swallowed@c0ca -- OTA/IDE shutdown/startup path: an exception must never escape into the IDE
 end;
 
 // Hand back the wizard slot and keyboard binding. Called from finalization;
