@@ -1,0 +1,15 @@
+unit review1102_l2c_anon_wrap;
+// REVIEW-2026-11-02 corruption L2c (--max-len 60): a one-line anonymous method
+// wrapped by the breaker had its "end;" split off only by the next format.
+interface
+procedure P;
+implementation
+uses System.SysUtils;
+procedure P;
+var
+  F: TFunc<Integer, Integer, Integer>;
+begin
+  F := function(A, B: Integer): Integer begin Result := A * 1000 + B; end;
+  Writeln(F(1, 2));
+end;
+end.

@@ -122,11 +122,12 @@ function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 /// is needed (task 10 removed the task-5a re-run).
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)</para>
-/// <para>Calls: YADF.Layout.FormatSourceOnce</para>
-/// <para>Returns: FormatSourceOnce(ASource, AOpts, ADeclineReason)</para>
+/// <para>Calls: CharInSet, Copy, YADF.Layout.FormatSourceOnce, YADF.Layout.OffsetAfterFinalEnd, YADF.Layout.TextHasNonComment</para>
 /// <para>Overload 2 of 2</para>
 /// <para>Directives: overload</para>
 /// <seealso cref="YADF.Layout.FormatSourceOnce"/>
+/// <seealso cref="YADF.Layout.OffsetAfterFinalEnd"/>
+/// <seealso cref="YADF.Layout.TextHasNonComment"/>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string; overload;
@@ -862,7 +863,7 @@ type
   end;
 
 // Lexes ALines into AScan.Toks plus the per-line comment / first / last tables.
-procedure LexCaseArmLines(ALines: TStringList; var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@41d8, cognitive-complexity@724a -- one flat hand lexer
+procedure LexCaseArmLines(ALines: TStringList; var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@41d8, cognitive-complexity@99fd -- one flat hand lexer
 var
   n      : Integer;
   i      : Integer;
@@ -1002,7 +1003,7 @@ end; // procedure
 // Walks AScan.Toks with a block stack and records every arm of every case
 // statement in AScan.Arms. A `case` whose enclosing block is a record (or
 // that sits outside any block) is a variant part and is skipped.
-procedure ParseCaseArms(var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@48e8, cognitive-complexity@36d6 -- one flat structure walk
+procedure ParseCaseArms(var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@48e8, cognitive-complexity@3673 -- one flat structure walk
 type
   TFrameKind = (fkCode, fkCase, fkRecord, fkRepeat);
   TCaseState = (csHeader, csLabel, csBody, csElse);
@@ -1361,7 +1362,7 @@ end;
 /// it stays on the label line); a `//` comment blocks a join across it, and a
 /// trailing `//` on the statement line rides along. A span holding a directive
 /// or a multi-line comment is left alone. Idempotent.</remarks>
-function LayoutCaseArms(const S: string; AJoinLabels: Boolean; ABodies: TCaseArmBodies; AIndent, AMaxLen: Integer): string;  // dl:ok deep-nesting@a3f5, cyclomatic-complexity@7637, cognitive-complexity@ed4e -- plan pass + emit pass over one line table
+function LayoutCaseArms(const S: string; AJoinLabels: Boolean; ABodies: TCaseArmBodies; AIndent, AMaxLen: Integer): string;  // dl:ok deep-nesting@a3f5, cyclomatic-complexity@7637, cognitive-complexity@fd19 -- plan pass + emit pass over one line table
 var
   Lines    : TStringList   ;
   Scan     : TCaseArmScan  ;
@@ -2235,7 +2236,7 @@ begin
   Result:= True;
 end;
 
-function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@332f, cognitive-complexity@ccbd, too-many-locals@8588 -- re-reviewed 2026-11-02 (cyclomatic 56 is the per-part case analysis of one declaration line; shape unchanged); one line walk over the parts of the line being split (26 locals: JoinedTo carries the multi-line name list join across iterations)
+function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@332f, cognitive-complexity@d73c, too-many-locals@8588 -- re-reviewed 2026-11-02 (cyclomatic 56 is the per-part case analysis of one declaration line; shape unchanged); one line walk over the parts of the line being split (26 locals: JoinedTo carries the multi-line name list join across iterations)
 var
   Lines     : TStringList    ;
   OutVal      : TStringBuilder ;
@@ -3032,7 +3033,7 @@ begin
   Result:= if c > 0 then Length(TrimRight(Copy(ALine, 1, c - 1))) else Length(ALine);
 end; // function
 
-function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@bf90, cognitive-complexity@ecc0
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@bf90, cognitive-complexity@7327
 var
   AnyOver  : Boolean                ;
   ColCols  : TArray<Integer>        ;
@@ -3463,7 +3464,7 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; AKeepComponentBreak
 // forbids merging the next line into this one -- a line comment
 // would swallow it, and an open block makes "where does this end"
 // ambiguous.
-  function HasLineCommentOrOpenBlock(const ALine: string): Boolean;  // dl:ok function-result-not-set@0cb9 -- false positive: while True loop leaves only through Exit(...), every Exit sets Result (C:\Projects\Delphi-RAG-lint\docs\INBOX-function-result-while-true-exit.md)
+  function HasLineCommentOrOpenBlock(const ALine: string): Boolean;
   var
     St: TLineScanState;
     i : Integer       ;
@@ -4083,7 +4084,7 @@ type
 /// <remarks>The case `else` part belongs to CaseArmOnLabelLine and is never split
 /// here (owner decision Q11). A `{ }` / `(* *)` comment right after then/do/else
 /// stays on the header line (Q18).</remarks>
-function BreakControlBodies(const S: string; ASplit, ASplitShort: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@e08d, cognitive-complexity@a096 -- one segment walk per line
+function BreakControlBodies(const S: string; ASplit, ASplitShort: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@e08d, cognitive-complexity@5743 -- one segment walk per line
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -5704,7 +5705,7 @@ end;
 /// <param name="AHasCmt">True when the line ends with a `//` comment.</param>
 /// <returns>False when the line ends inside a string or a block comment, or
 /// holds a compiler directive -- such a line is never touched.</returns>
-function ScanExpandLine(const L: string; out ATok: TArray<TXTok>; out AHasCmt: Boolean): Boolean;  // dl:ok cognitive-complexity@e7c1
+function ScanExpandLine(const L: string; out ATok: TArray<TXTok>; out AHasCmt: Boolean): Boolean;
 var
   p  : Integer;
   n  : Integer;
@@ -6207,6 +6208,47 @@ end;
 /// body (`TFoo = class end;`) and a visibility word with its nested type /
 /// const / var section (`public type`). Idempotent: no output line has a split
 /// point left.</remarks>
+// Net ( / [ minus ) / ] count of the code on one line: string literals, `//`,
+// `{ }` (directives included) and `(* *)` skipped. A comment left open runs to
+// the end of the line.
+function LineParenDelta(const L: string): Integer;
+var
+  k: Integer;
+begin
+  Result:= 0;
+  k:= 1;
+  while k <= Length(L) do
+  begin
+    case L[k] of
+      '''':
+        repeat
+          Inc(k);
+        until (k > Length(L)) or (L[k] = '''');
+      '{':
+        while (k <= Length(L)) and (L[k] <> '}') do
+          Inc(k);
+      '/':
+        if (k < Length(L)) and (L[k + 1] = '/') then
+          Exit;
+      '(':
+        if (k < Length(L)) and (L[k + 1] = '*') then
+        begin
+          k:= Pos('*)', L, k + 2);
+          if k = 0 then
+            Exit;
+          Inc(k);
+        end
+        else
+          Inc(Result);
+      '[':
+        Inc(Result);
+      ')', ']':
+        Dec(Result);
+    end; // case
+    Inc(k);
+  end; // while
+end; // function
+
 function SplitStatementLines(const S: string; AKeepControlBlocks: Boolean): string;
 var
   Lines  : TStringList    ;
@@ -6224,6 +6266,9 @@ var
   HdrEnd : Integer        ; // index of the last token of a record / class header
   PrevHdr: Boolean        ;
   Changed: Boolean        ;
+  Rest   : Integer        ; // -1 = BlockEndFrom found its end, else the levels left open past the line
+  AnonOpen : Integer      ; // 1 + open levels of an anonymous routine running past this line, 0 = none
+  AnonCarry: Integer      ; // ... carried into the next line (a continuation line)
 
   function W(AIdx: Integer): string;
   begin
@@ -6269,6 +6314,7 @@ var
     D: Integer;
   begin
     D:= ADepth;
+    Rest:= -1;
     for m:= AFrom to High(T) do
       if MatchStr(T[m].W, AOpen) then
         Inc(D)
@@ -6278,6 +6324,7 @@ var
         if D = 0 then
           Exit(m);
       end;
+    Rest  := D;
     Result:= High(T);
   end;
 
@@ -6384,7 +6431,10 @@ var
         else if AK > Skip then
         begin
           if IsAnonRoutine(AK) then
-            Skip:= BlockEndFrom(AK + 1, 0, ['begin', 'case', 'try', 'asm'])
+          begin
+            Skip    := BlockEndFrom(AK + 1, 0, ['begin', 'case', 'try', 'asm']);
+            AnonOpen:= Rest + 1;
+          end
           else if (T[AK].W = 'record') and IsSym(AK - 1, ':') then
             Skip:= BlockEndFrom(AK + 1, 1, ['record']) // an anonymous record type is kept whole
           else if (T[AK].W = 'begin') and AKeepControlBlocks then
@@ -6434,6 +6484,14 @@ var
     OfIdx := -1;
     Skip  := -1;
     HdrEnd:= -1;
+    AnonOpen:= 0;
+    // The rest of a one-line anonymous routine a breaker wrapped (`... begin
+    // Result:= A` / `+ B; end;`) is kept like its first line (corruption L2c).
+    if AnonCarry > 0 then
+    begin
+      Skip    := BlockEndFrom(0, AnonCarry - 1, ['begin', 'case', 'try', 'asm']);
+      AnonOpen:= Rest + 1;
+    end;
     Touch := not Untouchable;
     for k:= 0 to High(T) do
     begin
@@ -6444,6 +6502,8 @@ var
         Cut[k]:= CutBefore(k);
       NoteToken(k);
     end;
+    // Carried only into a continuation line: this one ends mid-statement.
+    AnonCarry:= if (AnonOpen > 0) and (Length(T) > 0) and not IsSym(High(T), ';') and (T[High(T)].W <> 'begin') then AnonOpen else 0;
     EmitPieces(Lines[i]);
   end;
 
@@ -6459,10 +6519,18 @@ begin
     Lock   := ComputeBlockCommentLock(Lines);
     PD     := 0;
     PrevHdr:= False;
+    AnonCarry:= 0;
     for i:= 0 to Lines.Count - 1 do
     begin
       if Lock[i] or Lines[i].Contains(ShieldPrefix) or not ScanExpandLine(Lines[i], T, Cmt) or (Length(T) = 0) then
-        OutL.Add(Lines[i])
+      begin
+        OutL.Add(Lines[i]);
+        // A line left alone still opens / closes brackets: a parameter list whose
+        // `)` sits on a `{$IFDEF}` line otherwise left PD > 0 for the rest of the
+        // file, and no later line was split (REVIEW-2026-11-02 corruption L2a).
+        if not Lock[i] then
+          PD:= Max(PD + LineParenDelta(Lines[i]), 0);
+      end
       else
       begin
         SplitLine;
@@ -6816,7 +6884,7 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@82c3, cyclomatic-complexity@2f6d, cognitive-complexity@ccf1, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@82c3, cyclomatic-complexity@2f6d, cognitive-complexity@5523, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
 const
   // Stack entry for a record's variant part (`case Tag: T of` at the record's
   // own paren level). `of` itself is never pushed, so the kind is free; the
@@ -8185,7 +8253,10 @@ var
       Visit(Child);
       if (Child.Kind <> gkBlock) or Child.ForceClosed or (Child.CloseIdx <= Child.OpenIdx) then
         Continue;
-      if EndLineTailIsMultiline(Child) then
+      // An asm body is shielded verbatim on the next run, so a label on its `end`
+      // would become text inside the asm stream that the strip pass then edits
+      // (REVIEW-2026-11-02 options M1: second run declined). Never label it.
+      if EndLineTailIsMultiline(Child) or (Tokens[Child.OpenIdx].Kind = ptAsm) then
       begin
         Adds .Remove(Tokens[Child.CloseIdx].Line);
         Drops.Remove(Tokens[Child.CloseIdx].Line);
@@ -8342,6 +8413,64 @@ const
 begin
   Result:= (ALeft <> '') and (ARight <> '') and CharInSet(ALeft[Length(ALeft)], WORD_CHARS) and CharInSet(ARight[1], WORD_CHARS);
 end;
+
+// The type Delphi infers for an untyped inline var initialised by ONE
+// ptIntegerConst token (REVIEW-2026-11-02 H1/M1): the smallest of Integer,
+// Cardinal and Int64 that holds the value -- decimal, `$` hex, `%` binary,
+// `_` digit separators -- or 'Extended' for the dot-less exponent form `1e3`
+// (the lexer classifies it as an integer constant). '' (not inferable) when
+// the value exceeds High(Int64) or the text is not a literal this parser knows.
+function IntLiteralInferredType(const AText: string): string;
+const
+  BASE_DEC = 10;
+  BASE_HEX = 16;
+  BASE_BIN = 2;
+  HEX_LETTER_BASE = 10; // value of digit 'A'
+var
+  S    : string ;
+  V    : UInt64 ;
+  Base : Cardinal;
+  Digit: Cardinal;
+  k    : Integer;
+begin
+  Result:= '';
+  S:= AText.Replace('_', '');
+  if S = '' then
+    Exit;
+  if (S[1] <> '$') and (S.Contains('E') or S.Contains('e')) then
+    Exit('Extended');
+  Base:= BASE_DEC;
+  k:= 1;
+  if S[1] = '$' then
+    Base:= BASE_HEX
+  else if S[1] = '%' then
+    Base:= BASE_BIN;
+  if Base <> BASE_DEC then
+    k:= 2;
+  if k > Length(S) then
+    Exit;
+  V:= 0;
+  while k <= Length(S) do
+  begin
+    case S[k] of
+      '0'..'9': Digit:= Ord(S[k]) - Ord('0');
+      'A'..'F': Digit:= Ord(S[k]) - Ord('A') + HEX_LETTER_BASE;
+      'a'..'f': Digit:= Ord(S[k]) - Ord('a') + HEX_LETTER_BASE;
+    else
+      Exit;
+    end;
+    if (Digit >= Base) or (V > (High(UInt64) - Digit) div Base) then
+      Exit;
+    V:= V * Base + Digit;
+    Inc(k);
+  end; // while
+  if V <= UInt64(High(Integer)) then
+    Result:= 'Integer'
+  else if V <= UInt64(High(Cardinal)) then
+    Result:= 'Cardinal'
+  else if V <= UInt64(High(Int64)) then
+    Result:= 'Int64';
+end; // function
 
 // Delphi10Compat OFF (owner decision 2026-11-02, task 11): removes the
 // "resolve manually" flags an earlier --d10 run inserted -- exactly the `//`
@@ -8547,7 +8676,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@1aca, cognitive-complexity@077c, method-too-long@d2c7 -- 335 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@1aca, cognitive-complexity@a348, method-too-long@d2c7 -- 335 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -9081,9 +9210,11 @@ var
       Exit;
     if ATokens[Sep].Kind <> ptAssign then Exit; // `in` form -> not inferable
     Lo:= NextSig(Sep + 1);
-    if (Lo < ATokens.Count) and (ATokens[Lo].Kind = ptIntegerConst) then
-      Ty:= 'Integer'
-    else Exit; // non-literal bound -> leave as-is
+    // An integer literal bound, Integer or Cardinal by magnitude; a non-literal,
+    // Int64, real or unparsed bound is left as-is.
+    Ty:= if (Lo < ATokens.Count) and (ATokens[Lo].Kind = ptIntegerConst) then IntLiteralInferredType(ATokens[Lo].Text) else '';
+    if not MatchStr(Ty, ['Integer', 'Cardinal']) then
+      Exit;
     ARec.Kind   := ikForExplicit; // reuse the for rewrite (strip `var`)
     ARec.NameIdx:= Ni;
     ARec.AssignIdx:= -1;
@@ -9091,7 +9222,7 @@ var
     ARec.Sep    := Sep;
     ARec.SepIsIn:= False;
     SetLength(ARec.DeclLines, 1);
-    ARec.DeclLines[0]:= ATokens[Ni].Text + ': ' + Ty + '; // YADF Delphi10: inferred loop type, verify';
+    ARec.DeclLines[0]:= ATokens[Ni].Text + ': ' + Ty + '; ' + D10_TODO_MARKER + ' inferred loop type, verify for Delphi 10';
     SetLength(ARec.Names, 1);
     ARec.Names[0]:= ATokens[Ni].Text;
     ARec.TypeStr:= Ty;
@@ -9118,7 +9249,7 @@ var
     if S = e then
     begin
       case ATokens[S].Kind of
-        ptIntegerConst                : Exit('Integer') ;
+        ptIntegerConst                : Exit(IntLiteralInferredType(ATokens[S].Text));
         ptFloat                       : Exit('Extended');
         ptStringConst, ptStringDQConst: Exit('string')  ;
       end;
@@ -9173,7 +9304,7 @@ var
     begin
       ARec.Kind:= ikExplicitInit;
       SetLength(ARec.DeclLines, 1);
-      ARec.DeclLines[0]:= ATokens[Ni].Text + ': ' + Ty + '; // YADF Delphi10: inferred type, verify -- was: ' + OrigLine;
+      ARec.DeclLines[0]:= ATokens[Ni].Text + ': ' + Ty + '; ' + D10_TODO_MARKER + ' inferred type, verify for Delphi 10 -- was: ' + OrigLine;
       SetLength(ARec.Names, 1);
       ARec.Names[0]:= ATokens[Ni].Text;
       ARec.TypeStr:= Ty;
@@ -9754,8 +9885,48 @@ begin
   end; // try
 end; // function
 
+// BreakRoutineParams (when on), then the statement split once more on the settled
+// text. A directive line is never split, so a routine header carrying a {$IFDEF}
+// keeps its body on its line (`) begin X; end;`); once a breaker cuts that line,
+// the body sits on a line of its own, which the next format split (REVIEW-2026-11-02
+// corruption L2, fx_hdr under --max-len 60 --break-params).
+function BreakRoutineParamsAndSplit(const S: string; const AOpts: TYadfOptions): string;
+var
+  Split: string;
+begin
+  Result:= if AOpts.BreakParamsOnePerLine or not AOpts.JoinRoutineHeaders then BreakRoutineParams(S, AOpts) else S;
+  Split:= SplitStatementLines(Result, AOpts.CollapseShortBlocks);
+  if Split = Result then
+    Exit;
+  // Re-indent the split pieces, then lay the routine headers out again on the
+  // re-indented text, as the next format does.
+  Result:= JoinRoutineHeaders(ReindentByDepth(Split, AOpts.Indent, AOpts.IndentComments), AOpts);
+  if AOpts.BreakParamsOnePerLine or not AOpts.JoinRoutineHeaders then
+    Result:= BreakRoutineParams(Result, AOpts);
+end; // function
+
+// CollapseShortBlocks repeated until it changes nothing (at most 8 rounds):
+// folding one block of an `if .. else if ..` chain changes the line the next
+// block's header sits on (REVIEW-2026-11-02 corruption L2b).
+function CollapseShortBlocksToFixedPoint(const S: string; AMaxLen: Integer): string;
+const
+  MAX_ROUNDS = 8;
+var
+  Round: Integer;
+  Prev : string ;
+begin
+  Result:= S;
+  for Round:= 1 to MAX_ROUNDS do
+  begin
+    Prev  := Result;
+    Result:= CollapseShortBlocks(Result, AMaxLen);
+    if Result = Prev then
+      Break;
+  end;
+end; // function
+
 // One run of the pipeline; FormatSource below is the public entry.
-function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@f3fe, method-too-long@8fe1 -- the stage list reads top to bottom as the pipeline diagram
+function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@834e, method-too-long@2d84 -- the stage list reads top to bottom as the pipeline diagram
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -9965,7 +10136,7 @@ var
   var
     Done     : Boolean       ;
     i        : Integer       ;
-    Positions: TList<Integer>;  // dl:ok duplicate-code@e75d
+    Positions: TList<Integer>;
     St       : TLineScanState;
     procedure AddIfWordAtDepth(Idx, Wlen: Integer; const W: string);
     begin
@@ -10148,6 +10319,7 @@ var
     i        : Integer       ;
     St       : TLineScanState;
     Done     : Boolean       ;
+    SqDepth  : Integer       ;
     procedure AddIfWord(Idx, Wlen: Integer; const W: string);
     begin
       if (Idx + Wlen - 1 > Length(Line)) then
@@ -10164,8 +10336,9 @@ var
     Positions:= TList<Integer>.Create;
     try
       St.Reset;
-      Done:= False;
-      i   := 1;
+      Done   := False;
+      SqDepth:= 0;
+      i      := 1;
       while not Done do
       case St.SkipNonCode(Line, i) of
         seEndOfLine, seLineComment: Done:= True;
@@ -10173,7 +10346,18 @@ var
         begin
           if CharInSet(Line[i], ['(', '[', ')', ']']) then
           begin
+            if Line[i] = '[' then
+              Inc(SqDepth)
+            else if (Line[i] = ']') and (SqDepth > 0) then
+              Dec(SqDepth);
             St.StepCode(Line, i);
+            Continue;
+          end;
+          // An index / set group `[...]` is one component (REVIEW-2026-11-02 options H1):
+          // never break inside it, like the BreakLongExpressions tree.
+          if SqDepth > 0 then
+          begin
+            Inc(i);
             Continue;
           end;
           if (i > 1) and (Line[i - 1] = ' ') then
@@ -10476,6 +10660,18 @@ var
       Exit;
     Last:= Bounds[High(Bounds)];
     Op  := TrimRight(Copy(ALines[AIdx], Last, MaxInt));
+    // A binary operator ending the line is no component boundary of its own
+    // (nothing follows it): find it directly, at bracket depth 0, else it stayed
+    // behind and the next format joined the two lines (REVIEW-2026-11-02 L2d).
+    if Op.Contains(' ') and (LineParenDelta(ALines[AIdx]) = 0) then
+    begin
+      Last:= Length(TrimRight(ALines[AIdx]));
+      while (Last > 1) and (ALines[AIdx][Last - 1] <> ' ') do
+        Dec(Last);
+      Op:= TrimRight(Copy(ALines[AIdx], Last, MaxInt));
+      if not MatchText(Op, ['+', '-', '*', '/', 'and', 'or', 'xor', 'div', 'mod', 'shl', 'shr']) then
+        Exit;
+    end;
     if (Last < Length(LeadingIndent(ALines[AIdx])) + 2) or Op.Contains(' ') then
       Exit;
     ALines[AIdx    ]:= TrimRight(Copy(ALines[AIdx], 1, Last - 1));
@@ -10611,13 +10807,24 @@ begin
         Result:= SplitStatementLines(Result, AOpts.CollapseShortBlocks);
         Result:= ReindentByDepth (Result, AOpts.Indent, AOpts.IndentComments);
         Result:= EnforceBlankLines(Result, AOpts);
+        if AOpts.ReflowLines and not AOpts.BreakLongExpressions then
+        begin
+          // The greedy breaker wraps here, before the reflow. An if / for / while / with
+          // on a case-arm label line moves under the label later (cabSplitCtl, below);
+          // wrapped on the label line first, its continuation landed at a column the
+          // next format changed (REVIEW-2026-11-02 options H1). Move it, and re-indent, first;
+          // the same for a then / do / else body LayoutControlBodies moves (fixture
+          // polarity_breakbody at MaxLen 50).
+          Result:= LayoutCaseArms(Result, False, cabSplitCtl, AOpts.Indent, AOpts.MaxLen);
+          Result:= LayoutControlBodies(Result, AOpts);
+          Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
+          Result:= BreakLongLines(Result);
+        end;
         // BreakLongExpressions defers overflow handling until AFTER the reflow
         // block: ReflowLineBreaks re-packs lines to fill MaxLen and would undo
         // one-component-per-line. The greedy breaker keeps its historic slot so
         // the option-off path is byte-identical. ReflowLines OFF means "long
         // lines are left as-is", so neither breaker runs then.
-        if AOpts.ReflowLines and not AOpts.BreakLongExpressions then
-          Result:= BreakLongLines(Result);
         // CaseArmOnLabelLine OFF: move arm statements under their label BEFORE the
         // reflow too (task 2d-4a), so the Q6 "does the whole statement fit" test
         // sees the column the statement ends up at; deciding it on the label line
@@ -10671,8 +10878,7 @@ begin
         // in AlignTypeColon. Emits its own indentation; no re-indent needed.
         // JoinRoutineHeaders OFF implies BreakParamsOnePerLine ON (owner 2026-11-01): the
         // split lines are first normalised by the join above, then laid out one per line.
-        if AOpts.BreakParamsOnePerLine or not AOpts.JoinRoutineHeaders then
-          Result:= BreakRoutineParams(Result, AOpts);
+        Result:= BreakRoutineParamsAndSplit(Result, AOpts);
         EffMaxBlanks:= AOpts.MaxBlankLines;
         if AOpts.BlanksBeforeSection > EffMaxBlanks then
           EffMaxBlanks:= AOpts.BlanksBeforeSection;
@@ -10717,8 +10923,11 @@ begin
         // anyway, so aligning them already now keeps the formatter idempotent
         // (`9 : begin X; end;` under `10: begin Y; end;`). Still before unshield,
         // so multi-line string sentinels are single-line and can be skipped.
+        // To a fixed point: folding one block of an `if .. else if ..` chain changes
+        // the line the next block's header sits on, and the next format folded that
+        // one (REVIEW-2026-11-02 corruption L2b).
         if AOpts.CollapseShortBlocks then
-          Result:= CollapseShortBlocks(Result, AOpts.MaxLen);
+          Result:= CollapseShortBlocksToFixedPoint(Result, AOpts.MaxLen);
         // Unconditional (owner decision Q13, task 2d-4b): with every align option off
         // the output is plain `Name: Type;`, never the author's padding.
         Result:= CollapseInteriorSpaces(Result);
@@ -10797,6 +11006,57 @@ begin
   end; // try
 end; // begin
 
+// True when AText lexes to anything but blanks, line breaks and comments.
+function TextHasNonComment(const AText: string): Boolean;
+var
+  Toks: TTokenList;
+  i   : Integer   ;
+begin
+  Result:= False;
+  Toks:= LoadTokensFromString(AText);
+  try
+    for i:= 0 to Toks.Count - 1 do
+      if (Trim(Toks[i].Text) <> '') and (Toks[i].Kind not in [ptSlashesComment, ptBorComment, ptAnsiComment]) then
+        Exit(True);
+  finally
+    Toks.Free;
+  end; // try
+end; // function
+
+// 1-based offset of the first character after the `.` of the first `end.` in
+// ASource (the end of the unit / program / library), or 0 when there is none.
+function OffsetAfterFinalEnd(const ASource: string): Integer;
+var
+  Toks: TTokenList;
+  i   : Integer   ;
+  j   : Integer   ;
+  k   : Integer   ;
+  Off : Integer   ;
+begin
+  Result:= 0;
+  Toks:= LoadTokensFromString(ASource);
+  try
+    Off:= 1;
+    for i:= 0 to Toks.Count - 1 do
+    begin
+      Inc(Off, Length(Toks[i].Pre) + Length(Toks[i].Text));
+      if Toks[i].Kind <> ptEnd then
+        Continue;
+      j:= i + 1;
+      while (j < Toks.Count) and (Toks[j].Kind in [ptSpace, ptCRLF, ptCRLFCo]) do
+        Inc(j);
+      if (j < Toks.Count) and (Toks[j].Kind = ptPoint) then
+      begin
+        for k:= i + 1 to j do
+          Inc(Off, Length(Toks[k].Pre) + Length(Toks[k].Text));
+        Exit(Off);
+      end;
+    end; // for
+  finally
+    Toks.Free;
+  end; // try
+end; // function
+
 // ===== FormatSource =====
 // Top-level orchestrator. Runs the pipeline described in the unit
 // header comment. The first stage is token-level (capitalisation,
@@ -10823,8 +11083,30 @@ end; // begin
 // after the line shape settles (BreakListsInLine), so no second run is needed
 // (task 10 removed the task-5a re-run).
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
+var
+  Cut : Integer;
+  Head: string ;
 begin
-  Result:= FormatSourceOnce(ASource, AOpts, ADeclineReason);
+  // The compiler ignores everything after the final `end.`; so does the
+  // formatter (REVIEW-2026-11-02 corruption L1: reflow joined such a tail and
+  // the guard declined the whole file). The tail is appended verbatim.
+  // The rest of the `end.` line (a block-end label, a comment) stays with the
+  // code: the tail starts at the line break.
+  Cut:= OffsetAfterFinalEnd(ASource);
+  while (Cut > 0) and (Cut <= Length(ASource)) and not CharInSet(ASource[Cut], [#10, #13]) do
+    Inc(Cut);
+  // Only a tail holding text other than comments needs it: comments (YADF's own
+  // MarkUnclosed flags included) keep going through the pipeline as before.
+  if (Cut = 0) or not TextHasNonComment(Copy(ASource, Cut, MaxInt)) then
+    Exit(FormatSourceOnce(ASource, AOpts, ADeclineReason));
+  Head  := Copy(ASource, 1, Cut - 1);
+  Result:= FormatSourceOnce(Head, AOpts, ADeclineReason);
+  if ADeclineReason <> '' then
+    Exit(ASource);
+  // The formatter ends its text with a line break the head did not have.
+  if Result.EndsWith(CRLF) then
+    SetLength(Result, Length(Result) - Length(CRLF));
+  Result:= Result + Copy(ASource, Cut, MaxInt);
 end;
 function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 var

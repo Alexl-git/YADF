@@ -30,7 +30,7 @@ MustNotMatch $o 'for\s+var\s+L' 'for_typed: no inline loop var'
 
 # --- d10_for_untyped: untyped `for var K := 0 to N` -> Integer inference ---
 $o = Fmt 'd10_for_untyped.pas'
-MustMatch    $o 'K: Integer; // YADF Delphi10: inferred loop type' 'for_untyped: hoisted K: Integer + verify note'
+MustMatch    $o 'K: Integer; // TODO -oYADF -cd10 : inferred loop type' 'for_untyped: hoisted K: Integer + verify note'
 MustContain  $o 'for K:= 0 to N do' 'for_untyped: loop downgraded'
 MustNotMatch $o 'for\s+var\s+K' 'for_untyped: no inline for-var left'
 
@@ -46,7 +46,7 @@ MustNotMatch $o '(?ms)\bbegin\b.*\bconst\s+Factor' 'inline_const: no inline cons
 $o = Fmt 'd10_existing_var.pas'
 MustMatch    $o '(?ms)A\s*: Integer;\s+B\s*: Integer;\s+X\s*: Integer;' 'existing_var: A,B,X in ONE var section (merged)'
 MustNotMatch $o '(?ms)procedure Demo;\s+var\r?$(?:(?!^begin).)*^\s*var\r?$' 'existing_var: no second var section'
-MustMatch    $o 'X\s*: Integer; // YADF Delphi10: inferred type' 'existing_var: X hoisted with verify note'
+MustMatch    $o 'X\s*: Integer; // TODO -oYADF -cd10 : inferred type' 'existing_var: X hoisted with verify note'
 MustMatch    $o '(?m)^const\r?$' 'existing_var: const section for the hoisted const'
 MustMatch    $o '(?ms)A\s*: Integer;\s+const\s+N = 3;\s+var\s+Arr\s*: array\[0\.\.N\] of Integer;' 'existing_var: a var naming a hoisted const keeps const-then-var order'
 MustMatch    $o '(?ms)Buf\s*: array\[0\.\.1\] of Integer;\s+var\s+Y\s*: Integer;' 'existing_var: a non-simple section gets a fresh var block'
@@ -72,11 +72,11 @@ MustNotMatch $o 'var\s+Acc\s*:\s*Integer\s*:=' 'novarsection: inline removed'
 
 # --- d10_infer ---
 $o = Fmt 'd10_infer.pas'
-MustMatch $o 'N: Integer\s*; // YADF Delphi10: inferred type, verify -- was: var N:= 5;' 'infer: int'
-MustMatch $o 'R: Extended\s*; // YADF Delphi10: inferred type, verify -- was: var R:= 1\.5;' 'infer: real'
-MustMatch $o "S: string\s*; // YADF Delphi10: inferred type, verify -- was: var S:= 'hi';" 'infer: string'
-MustMatch $o 'B: Boolean\s*; // YADF Delphi10: inferred type, verify -- was: var B:= True;' 'infer: bool'
-MustMatch $o 'L: TStringList; // YADF Delphi10: inferred type, verify -- was: var L:= TStringList\.Create;' 'infer: ctor'
+MustMatch $o 'N: Integer\s*; // TODO -oYADF -cd10 : inferred type, verify for Delphi 10 -- was: var N:= 5;' 'infer: int'
+MustMatch $o 'R: Extended\s*; // TODO -oYADF -cd10 : inferred type, verify for Delphi 10 -- was: var R:= 1\.5;' 'infer: real'
+MustMatch $o "S: string\s*; // TODO -oYADF -cd10 : inferred type, verify for Delphi 10 -- was: var S:= 'hi';" 'infer: string'
+MustMatch $o 'B: Boolean\s*; // TODO -oYADF -cd10 : inferred type, verify for Delphi 10 -- was: var B:= True;' 'infer: bool'
+MustMatch $o 'L: TStringList; // TODO -oYADF -cd10 : inferred type, verify for Delphi 10 -- was: var L:= TStringList\.Create;' 'infer: ctor'
 MustMatch $o 'N:= 5;' 'infer: int assignment kept'
 
 # --- d10_fallback ---

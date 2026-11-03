@@ -406,8 +406,9 @@ What it does:
   block is created if the routine has none. Multi-name declarations
   (`var A, B: Integer;`) hoist each name.
 - **Inferred** initializers with a literal RHS get a best-effort type from the
-  literal (`Integer`, `Extended`, `string`, `Boolean`, and `T.Create` -> `T`), with a
-  `// YADF Delphi10: inferred type, verify` comment so you can confirm the guess.
+  literal (`Integer` / `Cardinal` / `Int64` by magnitude, `Extended`, `string`, `Boolean`, and `T.Create` -> `T`),
+  with a `// TODO -oYADF -cd10 : inferred type, verify` comment so you can confirm the guess
+  (a run without `--d10` removes it).
 - Anything whose type **cannot** be determined, a **name collision** with a
   different type, or an inline var inside an **anonymous method** is left in place
   with a `// TODO -oYADF : ...` marker (visible in the IDE To-Do list) quoting the

@@ -38,7 +38,7 @@ foreach ($k in $def.Keys) {
 $ints = [ordered]@{
   MaxLen = 60, 80, 100, 140; Indent = 4, 3; TabWidth = 2, 8; MaxBlankLines = 0, 2; BlanksBeforeSection = 1
   BlanksBeforeMethod = 1, 2; BlanksBeforeType = 1; AlignMaxColumn = 60; AlignShapeMinAnchors = 2
-  AlignCommentMaxShift = 0, 40; LabelMinLines = 3
+  AlignCommentMaxShift = 0, 40; LabelMinLines = 1, 3
 }
 foreach ($k in $ints.Keys) { foreach ($v in $ints[$k]) { $all["$k=$v"] = @{ $k = "$v" } } }
 $packed = @{ CollapseShortBlocks = 'true'; PackStatements = 'true'; BreakLoopBody = 'false'; BreakWithBody = 'false'; BreakIfBody = 'false'; CaseArmOnLabelLine = 'false' }
@@ -47,6 +47,10 @@ $all['packed+d10']       = $packed + @{ Delphi10Compat = 'true' }
 $all['d10+MaxLen=80']    = @{ Delphi10Compat = 'true'; MaxLen = '80' }
 $all['greedy+MaxLen=80'] = @{ BreakLongExpressions = 'false'; MaxLen = '80' }
 $all['greedy+MaxLen=120']= @{ BreakLongExpressions = 'false'; MaxLen = '120' }
+# REVIEW-2026-11-02 options H1: the greedy breaker at a small MaxLen (case-arm moves)
+$all['greedy+MaxLen=60'] = @{ BreakLongExpressions = 'false'; MaxLen = '60' }
+$all['greedy+MaxLen=50'] = @{ BreakLongExpressions = 'false'; MaxLen = '50' }
+$all['collapse+labels1'] = @{ CollapseShortBlocks = 'true'; LabelMinLines = '1' }
 $all['noreflow+MaxLen=80'] = @{ ReflowLines = 'false'; MaxLen = '80' }
 $all['caselabels+armsplit']  = @{ BreakCaseLabels = 'true'; CaseArmOnLabelLine = 'false' }
 $all['begin-on-header+packed'] = $packed + @{ BeginOnHeaderLine = 'true' }
