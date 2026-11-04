@@ -17,8 +17,8 @@ uses
 function Check(const AName, AUnit: string; AValue: Int64; AState: Integer): Boolean;
 begin
   Result:= False;
-  if (AState = 2) and (AValue > 0) and
-    ((Length(AName) > 3) or (Pos('ABC', UpperCase(AName)) > 0) or (Pos('DEF', UpperCase(AName)) > 0) or (Pos('GHI', UpperCase(AName)) > 0) or (Length(AUnit) > 4) or (AValue > 100))
+  if (AState = 2) and (AValue > 0)
+    and ((Length(AName) > 3) or (Pos('ABC', UpperCase(AName)) > 0) or (Pos('DEF', UpperCase(AName)) > 0) or (Pos('GHI', UpperCase(AName)) > 0) or (Length(AUnit) > 4) or (AValue > 100))
     and (AState <> 3) then
     Result:= True;
 end;

@@ -10964,6 +10964,11 @@ var
           // The keyword moves whenever the FULL line overflows, even if the
           // body alone would fit: moving it is what brings the line under
           // MaxLen, and BreakComponents no-ops on a body that already fits.
+          // A continuation of a line that FITS but ends in a binary operator
+          // (review 2026-11-03 L3): that operator leads this line, as it would
+          // after an over-long line, before this line is broken.
+          if (i > 0) and not Locked[i - 1] then
+            MoveTrailingOperator(Lines, Locked, i - 1);
           HeadWS:= LeadingIndent(Lines[i]);
           MoveTrailingOperator(Lines, Locked, i);
           if LineWidth(Lines[i]) <= AOpts.MaxLen then
