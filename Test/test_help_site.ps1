@@ -16,6 +16,7 @@ foreach ($o in $idx.options) {
   if (-not (Test-Path $f)) { Fail "index entry $($o.id): missing file $($o.file)"; continue }
   $t = [IO.File]::ReadAllText($f)
   if ($t -notmatch "(?m)^id: $([regex]::Escape($o.id))\s*$") { Fail "$($o.file): front matter id != $($o.id)" }
+  if ([regex]::Matches($t, '(?m)^id: ').Count -ne 1) { Fail "$($o.file): front matter repeated (gen_help_site stacked it)" }
   if ($t -notmatch "(?m)^summary: $([regex]::Escape($o.summary))\s*$") { Fail "$($o.file): summary differs from index.json" }
   if ($o.group -notin $gids) { Fail "$($o.id): group $($o.group) not in groups list" }
   if ($o.id -notmatch '^[a-z0-9-]{1,60}$') { Fail "$($o.id): bad slug" }

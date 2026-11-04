@@ -11,18 +11,6 @@ since: "1.0.21.0"
 status: "stable"
 ---
 
-id: join-routine-headers
-title: Join routine headers split by hand
-summary: Join a routine header the author split across lines back onto one line, wrapping it at the max length. Off = one parameter per line instead (implies "Break parameters one per line"). On by default.
-group: declarations
-order: 10
-default: "true"
-ini: JoinRoutineHeaders
-cli: --join-headers
-since: "1.0.21.0"
-status: "stable"
----
-
 # Join routine headers split by hand
 
 A routine header the author split across lines is joined back onto one line; when the joined line is longer than the max length it is re-wrapped after the rightmost ';' or ',' that fits, continuing one indent step in. On by default (this is the standard behaviour).

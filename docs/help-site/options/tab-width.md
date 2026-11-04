@@ -11,18 +11,6 @@ since: "1.0.0.0"
 status: "stable"
 ---
 
-id: tab-width
-title: Tab width
-summary: Width assumed for an existing tab on input, 1 to 16. YADF always emits spaces.
-group: line-layout
-order: 30
-default: "4"
-ini: TabWidth
-cli: --tab-width
-since: "1.0.0.0"
-status: "stable"
----
-
 # Tab width
 
 How many spaces a leading TAB character expands to when YADF

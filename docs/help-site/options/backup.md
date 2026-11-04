@@ -11,18 +11,6 @@ since: "1.0.0.0"
 status: "stable"
 ---
 
-id: backup
-title: Backup before overwrite
-summary: Create a backup of every file before overwriting it, and of an edited preview sample (Sample.pas.bak) before a newer YADF replaces it.
-group: file-cli-no-preview-effect
-order: 10
-default: "false"
-ini: Backup
-cli: --b
-since: "1.0.0.0"
-status: "stable"
----
-
 # Backup before overwrite
 
 Backups are OPT-IN. With Backup=false (default), in-place formatting

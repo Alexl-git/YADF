@@ -11,18 +11,6 @@ since: "1.0.0.0"
 status: "stable"
 ---
 
-id: upper-hex-numbers
-title: Uppercase hex
-summary: Uppercase hex digits and the exponent letter in numeric literals ($AB not $ab, 1E5 not 1e5).
-group: casing
-order: 20
-default: "true"
-ini: UpperHexNumbers
-cli: --upper-hex
-since: "1.0.0.0"
-status: "stable"
----
-
 # Uppercase hex
 
 Uppercase hex digits in $NN literals and the exponent letter

@@ -11,18 +11,6 @@ since: "1.0.0.0"
 status: "stable"
 ---
 
-id: uses-always-break
-title: Break uses clauses, one unit per line
-summary: Always break uses clauses one unit per line.
-group: uses-clauses
-order: 10
-default: "true"
-ini: UsesAlwaysBreak
-cli: --uses-break
-since: "1.0.0.0"
-status: "stable"
----
-
 # Break uses clauses, one unit per line
 
 When true (default), every uses-style clause is rendered

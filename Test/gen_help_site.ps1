@@ -87,11 +87,15 @@ foreach ($o in $opts) {
   $p = Join-Path $optDir ($o.id + '.md')
   $body = $null
   if (Test-Path $p) {
-    $old = [IO.File]::ReadAllText($p)
+    # a leaf saved with CRLF must not hide its closing --- (IndexOf -1 kept the old
+    # front matter as body, so every regeneration stacked one more copy)
+    $old = [IO.File]::ReadAllText($p) -replace "`r`n", "`n"
     if ($old -match '(?m)^manual: true') { continue }
     $sinceKeep = [regex]::Match($old, '(?m)^since: ("[^"]*")').Groups[1].Value
     if ($sinceKeep) { $fm = $fm -replace ('since: "' + [regex]::Escape($Since) + '"'), "since: $sinceKeep" }
-    $body = $old.Substring($old.IndexOf("`n---`n", 4) + 5)
+    $fmEnd = $old.IndexOf("`n---`n", 4)
+    if (-not $old.StartsWith("---`n") -or $fmEnd -lt 0) { throw "$p`: no front matter" }
+    $body = $old.Substring($fmEnd + 5)
   } else {
     $long = if ($desc.ContainsKey($o.Ident)) { $desc[$o.Ident] } else { $o.Hint }
     $body = "`n# $($o.Caption)`n`n$long`n"

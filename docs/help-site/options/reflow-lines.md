@@ -11,18 +11,6 @@ since: "1.0.0.0"
 status: "stable"
 ---
 
-id: reflow-lines
-title: Reflow lines (join and wrap)
-summary: Join a statement broken by hand when it fits the max line length and wrap longer lines. Off = the author's line breaks are kept and long lines are left as-is.
-group: expressions
-order: 10
-default: "true"
-ini: ReflowLines
-cli: --reflow
-since: "1.0.0.0"
-status: "stable"
----
-
 # Reflow lines (join and wrap)
 
 YADF treats each statement as one long string and breaks it according to the settings.

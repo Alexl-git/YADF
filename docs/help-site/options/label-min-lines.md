@@ -11,18 +11,6 @@ since: "1.0.0.0"
 status: "stable"
 ---
 
-id: label-min-lines
-title: Label min lines
-summary: Minimum block length in lines (1 or more) before a long block gets an end label.
-group: labels-markers
-order: 20
-default: "15"
-ini: LabelMinLines
-cli: --label-min-lines
-since: "1.0.0.0"
-status: "stable"
----
-
 # Label min lines
 
 Minimum block size, in output lines, before LabelLongBlocks adds

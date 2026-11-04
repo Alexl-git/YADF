@@ -11,18 +11,6 @@ since: "1.0.0.0"
 status: "stable"
 ---
 
-id: first-occ-casing
-title: First-occurrence casing
-summary: Cascade casing from the first occurrence of each identifier to all later uses.
-group: casing
-order: 40
-default: "true"
-ini: FirstOccCasing
-cli: --first-occ
-since: "1.0.0.0"
-status: "stable"
----
-
 # First-occurrence casing
 
 Normalize identifier casing to the first occurrence in the
