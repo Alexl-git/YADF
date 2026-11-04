@@ -85,8 +85,9 @@ MustContain $o "var X:= AInput.GetThing; // TODO -oYADF -cd10 : add an explicit 
 
 # --- d10_collision ---
 $o = Fmt 'd10_collision.pas'
-MustContain $o "var`r`n  I: Integer;" 'collision: first hoisted'
-MustContain $o "var I: string:= 'x'; // TODO -oYADF -cd10 : name 'I' already hoisted with a different type; resolve manually for Delphi 10 -- was: var I: string:= 'x';" 'collision: second flagged'
+MustNotMatch $o '(?m)^\s+I: (Integer|string);' 'collision: neither hoisted (E2004 in Delphi 13 otherwise)'
+MustContain $o "var I: Integer:= 1; // TODO -oYADF -cd10 : name 'I' is declared with different types in this routine; resolve manually for Delphi 10 -- was: var I: Integer:= 1;" 'collision: first flagged'
+MustContain $o "var I: string:= 'x'; // TODO -oYADF -cd10 : name 'I' is declared with different types in this routine; resolve manually for Delphi 10 -- was: var I: string:= 'x';" 'collision: second flagged'
 
 # --- d10_nested ---
 $o = Fmt 'd10_nested.pas'

@@ -6884,7 +6884,7 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@82c3, cyclomatic-complexity@2f6d, cognitive-complexity@5523, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@6871, cyclomatic-complexity@7d9c, cognitive-complexity@0fc5, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
 const
   // Stack entry for a record's variant part (`case Tag: T of` at the record's
   // own paren level). `of` itself is never pushed, so the kind is free; the
@@ -6919,6 +6919,12 @@ var
   Stack             : TList<TptTokenKind>;
   T                 : TToken             ;
   Tokens            : TTokenList         ;
+  CurLineDepth      : Integer            ; // indent level the current line got (or keeps, for a verbatim line)
+  AnonHdrPending    : Boolean            ; // an anonymous method header read inside ()/[] waits for its begin
+  AnonHdrDepth      : Integer            ; // ... and the level of the line that holds that header
+  AnonAt            : TList<Integer>     ; // Stack.Count right after each open anonymous-method begin inside ()/[]
+  AnonSaved         : TList<Integer>     ; // per AnonAt entry: ParensDepth, PendingCtrl (two entries each)
+  AnonSavedLines    : TList<TArray<Integer>>; // per AnonAt entry: the ParenLines it hid
 
   function StackContainsCaseAtTop: Boolean;
   var
@@ -7022,6 +7028,45 @@ var
     if StackTop in [ptType, ptVar, ptConst] then
       StackPop;
   end;
+
+// The begin of an anonymous method inside ()/[]: its body is laid out as a block
+// of its own, based on the header line's level (AnonHdrDepth) -- the open
+// brackets and a pending then/do/else of the call's statement are set aside until
+// its end (PopAnonBegin), so `;` inside the body ends a controlled statement and
+// every statement sits one level in, `end` back at the header level.
+  procedure PushAnonBegin;
+  var
+    Base: Integer;
+  begin
+    AnonSaved.Add(ParensDepth);
+    AnonSaved.Add(PendingCtrl);
+    AnonSavedLines.Add(ParenLines.ToArray);
+    ParensDepth:= 0;
+    ParenLines.Clear;
+    PendingCtrl:= 0;
+    StackPushBegin;
+    AnonAt.Add(Stack.Count);
+    // The level a body line gets without a carry; the carry makes it header + 1.
+    Base:= Stack.Count + CtrlCarried + (if OpenProcRegions > 1 then OpenProcRegions - 1 else 0);
+    CtrlStack[CtrlStack.Count - 1]:= CtrlStack[CtrlStack.Count - 1] + Max(0, AnonHdrDepth + 1 - Base);
+    Inc(CtrlCarried, Max(0, AnonHdrDepth + 1 - Base));
+  end; // procedure
+
+// The end of that block: pops it and restores what PushAnonBegin set aside.
+  procedure PopAnonBegin;
+  var
+    L: Integer;
+  begin
+    StackPop;
+    AnonAt.Delete(AnonAt.Count - 1);
+    PendingCtrl:= AnonSaved[AnonSaved.Count - 1];
+    ParensDepth:= AnonSaved[AnonSaved.Count - 2];
+    AnonSaved.DeleteRange(AnonSaved.Count - 2, 2);
+    ParenLines.Clear;
+    for L in AnonSavedLines[AnonSavedLines.Count - 1] do
+      ParenLines.Add(L);
+    AnonSavedLines.Delete(AnonSavedLines.Count - 1);
+  end; // procedure
 
 // A class/object/interface block is normally closed by `end`. The BODYLESS
 // forms have no `end` at all -- they finish at their own `;`:
@@ -7210,7 +7255,13 @@ begin
     CtrlStack       := TList<Integer     >.Create;
     ClassHeaderOpen := TList<Boolean     >.Create;
     ParenLines      := TList<Integer     >.Create;
+    AnonAt          := TList<Integer     >.Create;
+    AnonSaved       := TList<Integer     >.Create;
+    AnonSavedLines  := TList<TArray<Integer>>.Create;
     try
+      CurLineDepth      := 0;
+      AnonHdrPending    := False;
+      AnonHdrDepth      := 0;
       LineNo            := 0;
       PrevNonKind       := ptUnknown;
       InVisibility      := False;
@@ -7289,6 +7340,7 @@ begin
               ptDotDot, ptPoint, ptThen, ptDo, ptOf, ptTo, ptDownto])) then
         begin
           OutVal.Append(PendingWS);
+          CurLineDepth:= Length(PendingWS) div Max(1, AIndent);
           PendingWS:= '';
           AfterCRLF:= False;
         end
@@ -7398,6 +7450,12 @@ begin
             EffectiveDepth:= DirMarks[DirMarks.Count - 1].Depth;
             DirMarks.Delete(DirMarks.Count - 1);
           end;
+          // Owner rule (2026-11-03): the begin of an anonymous method inside a call
+          // sits at the level of its header LINE (`Run(procedure` / `begin`), as it
+          // does for `X:= procedure` -- not one level in for the open bracket.
+          if (T.Kind = ptBegin) and AnonHdrPending and (ParensDepth > 0) then
+            EffectiveDepth:= AnonHdrDepth;
+          CurLineDepth:= EffectiveDepth;
           if CommaLeadLine then
             OutVal.Append(StringOfChar(' ', Max(0, EffectiveDepth * AIndent - Length(', '))))
           else
@@ -7443,7 +7501,13 @@ begin
                 InVisibility   := False;
               ExpectSectionDecl:= True;
             end; // if
-            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (ParensDepth = 0) and (AngleDepth = 0) and (PrevNonKind not in [ptEqual, ptTo, ptColon]) and not AnonRoutineInStatement then
+            ptProcedure, ptFunction, ptConstructor, ptDestructor: if (ParensDepth > 0) and (T.Kind in [ptProcedure, ptFunction]) and (PrevNonKind not in [ptEqual, ptTo, ptColon]) then
+            begin
+              // An anonymous method passed inside ()/[]: its begin goes to this line's level.
+              AnonHdrPending:= True;
+              AnonHdrDepth  := CurLineDepth;
+            end
+            else if (ParensDepth = 0) and (AngleDepth = 0) and (PrevNonKind not in [ptEqual, ptTo, ptColon]) and not AnonRoutineInStatement then
               // ParensDepth = 0 distinguishes a real procedure/function
               // declaration from an inline anonymous method expression
               // (e.g. CallSomething(procedure(X) begin ... end)). The
@@ -7484,8 +7548,12 @@ begin
             begin
               if (not InClassOrRecord) then
                 CloseSectionIfOpen;
-              StackPushBegin;
-              InVisibility:= False;
+              if AnonHdrPending and (ParensDepth > 0) then
+                PushAnonBegin
+              else
+                StackPushBegin;
+              AnonHdrPending:= False;
+              InVisibility  := False;
             end;
             ptAsm:
             begin
@@ -7570,7 +7638,10 @@ begin
               CloseSectionIfOpen; // an open var/const/type section is closed by this end
               if StackTop = VARIANT_MARK then
                 StackPop; // the record's variant part ends with the record
-              StackPop; // then pop the begin/class/record/... block itself
+              if (AnonAt.Count > 0) and (AnonAt[AnonAt.Count - 1] = Stack.Count) then
+                PopAnonBegin
+              else
+                StackPop; // then pop the begin/class/record/... block itself
               InVisibility:= False;
             end;
             ptPrivate, ptPublic, ptProtected, ptPublished:
@@ -7612,6 +7683,9 @@ begin
     finally
       PendingProcStack.Free;
       ParenLines.Free;
+      AnonAt.Free;
+      AnonSaved.Free;
+      AnonSavedLines.Free;
       IsProcBody.Free;
       DirMarks.Free;
       CtrlStack.Free;
@@ -8676,7 +8750,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@1aca, cognitive-complexity@a348, method-too-long@d2c7 -- 335 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@fba9, cognitive-complexity@f829, method-too-long@513b -- 368 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -8700,6 +8774,9 @@ var
   BodyConst  : TObjectDictionary<Integer, TStringList>; // hoisted inline-CONST decls per routine `begin`
   ForTodos   : TDictionary<Integer, string>           ; // non-inferable for-var -> TODO before the `for`  // dl:ok compiler-magic-comments@6f4e
   RNames     : TDictionary<string, string>            ; // per-routine name (case-insensitive) -> hoisted type
+  Seeded     : TDictionary<string, Boolean>           ; // per-routine names the SOURCE declares (SeedDeclaredNames)
+  Poisoned   : TDictionary<string, Boolean>           ; // per-routine names inline-declared with different types: never hoisted
+  PoisonGrew : Boolean                                ; // the routine scan poisoned a new name: roll it back and scan again
   BlkAnon    : TList<Boolean>                         ; // open blocks in body; True = anon-method body
   BlkKind    : TList<TptTokenKind>                    ; // opener kinds, index-aligned to BlkAnon
   BlkLoop    : TList<Boolean>                         ; // index-aligned to BlkAnon; True = `begin` body of a for/while loop
@@ -8719,6 +8796,8 @@ var
   FlagTok    : TToken                                 ;
   MergeVars  : Boolean                                ;
   HoistList  : TStringList                            ;
+  Pk         : string                                 ;
+  RollIdx        : Integer                                ;
 
   function NextSig(AFrom: Integer): Integer;
   begin
@@ -9324,6 +9403,45 @@ var
     Result:= True;
   end; // function
 
+// A name inline-declared with different types in this routine (found by an
+// earlier scan of it): no declaration of it is hoisted -- every one stays inline
+// with a TODO, so the routine compiles in Delphi 13 as the source did. The other  // dl:ok compiler-magic-comments@e3b0
+// names of the statement stay with it, so they are poisoned too. True when ARec
+// names a poisoned name (and was recorded as left in place).
+  function CommitPoisoned(AVarIdx: Integer; var ARec: TInlineRec): Boolean;
+  var
+    M       : Integer;
+    Nm      : string ;
+    OrigLine: string ;
+    ForIdx  : Integer;
+    Above   : Integer;
+  begin
+    Result:= False;
+    for M:= 0 to High(ARec.Names) do
+      if Poisoned.ContainsKey(ARec.Names[M]) then
+      begin
+        for Nm in ARec.Names do
+          if Poisoned.TryAdd(Nm, True) then
+            PoisonGrew:= True;
+        if ARec.Kind = ikForExplicit then
+        begin
+          ForIdx:= PrevSig(AVarIdx - 1);
+          Above := PrevSig(ForIdx - 1);
+          if not ForTodos.ContainsKey(ForIdx) and not ((Above >= 0) and (ATokens[Above].Kind = ptSlashesComment) and ATokens[Above].Text.Contains('YADF')) then
+            ForTodos.Add(ForIdx, D10_TODO_MARKER + ' loop variable ''' + ARec.Names[M] + ''' is declared with different types in this routine; resolve manually for Delphi 10');
+          Exit(True);
+        end;
+        if AlreadyFlagged(ARec.SemiIdx) then
+          Exit(True);
+        OrigLine:= Trim(InlineRenderRange(ATokens, AVarIdx, ARec.SemiIdx));
+        ARec.Kind   := ikFallbackTodo;
+        ARec.ReInit := False;
+        ARec.Comment:= ' ' + D10_TODO_MARKER + ' name ''' + ARec.Names[M] + ''' is declared with different types in this routine; resolve manually for Delphi 10 -- was: ' + OrigLine;
+        Inlines.Add(AVarIdx, ARec);
+        Exit(True);
+      end; // if
+  end; // function
+
 // Record an inline-var action, applying the per-routine name-collision guard:
 // a name already hoisted with the SAME type drops its duplicate declaration; a
 // name hoisted with a DIFFERENT type converts a statement var to a leave-in-place
@@ -9341,6 +9459,10 @@ var
     Above   : Integer       ;
     PrevType: string        ;
   begin
+    // A statement a previous run flagged is the user's to resolve: an inferred one
+    // (`var X:= TFoo.Create;`) reaches here without TryParseExplicit's check.
+    if ((ARec.Kind in [ikExplicitInit, ikExplicitNoInit]) and AlreadyFlagged(ARec.SemiIdx)) or CommitPoisoned(AVarIdx, ARec) then
+      Exit;
     Collide:= False;
     SetLength(Keep, 0);
     for M:= 0 to High(ARec.Names) do
@@ -9348,6 +9470,12 @@ var
       Nm:= ARec.Names[M];
       if RNames.TryGetValue(Nm, PrevType) then
       begin
+        // Hoisted by THIS pass with another type: hoisting either one redeclares
+        // the name next to the other (E2004 in Delphi 13 as well) -- poison it and
+        // let the routine be scanned again. A name the source declares keeps the
+        // single TODO below.  // dl:ok compiler-magic-comments@e3b0
+        if not SameText(PrevType, ARec.TypeStr) and not Seeded.ContainsKey(Nm) and Poisoned.TryAdd(Nm, True) then
+          PoisonGrew:= True;
         if not SameText(PrevType, ARec.TypeStr) then
           Collide:= True;
         // same-type duplicate: omit the second declaration, keep the assignment
@@ -9503,6 +9631,8 @@ begin
   ForTodos:= TDictionary<Integer, string>.Create;
   // Delphi identifiers are case-insensitive: DcR and dcr are one name.
   RNames:= TDictionary<string, string>.Create(TIStringComparer.Ordinal);
+  Seeded  := TDictionary<string, Boolean>.Create(TIStringComparer.Ordinal);
+  Poisoned:= TDictionary<string, Boolean>.Create(TIStringComparer.Ordinal);
   BlkAnon:= TList<Boolean     >.Create;
   BlkKind:= TList<TptTokenKind>.Create;
   BlkLoop:= TList<Boolean     >.Create;
@@ -9517,187 +9647,216 @@ begin
         Continue;
       if G.CloseIdx <= G.OpenIdx then
         Continue;
-      RNames.Clear; // names are scoped per routine
-      SeedDeclaredNames(G.OpenIdx);
-      BlkAnon.Clear;
-      BlkKind.Clear;
-      BlkLoop.Clear;
-      RepeatDepth:= 0;
-      AnonCount  := 0;
-      CondDepth  := 0;
-      PendingAnon:= False;
-      i:= G.OpenIdx + 1;
-      while i < G.CloseIdx do
-      begin
-        Ki:= ATokens[i].Kind;
-        // Hoisting moves a declaration to the routine's top var/const block,
-        // i.e. OUT of any enclosing conditional -- a type or name that exists
-        // only under the symbol then breaks the build (review 2026-10-14).
-        if Ki in [ptIfDefDirect, ptIfNDefDirect, ptIfDirect, ptIfOptDirect] then
-          Inc(CondDepth)
-        else if (Ki in [ptEndIfDirect, ptIfEndDirect]) and (CondDepth > 0) then
-          Dec(CondDepth);
-        // A procedure/function keyword inside a body opens an anonymous method
-        // (named nested routines live in the decl section, before `begin`).
-        if Ki in [ptProcedure, ptFunction] then
+      Poisoned.Clear;
+      repeat
+        PoisonGrew:= False;
+        RNames.Clear; // names are scoped per routine
+        SeedDeclaredNames(G.OpenIdx);
+        Seeded.Clear;
+        for Pk in RNames.Keys do
+          Seeded.Add(Pk, True);
+        BlkAnon.Clear;
+        BlkKind.Clear;
+        BlkLoop.Clear;
+        RepeatDepth:= 0;
+        AnonCount  := 0;
+        CondDepth  := 0;
+        PendingAnon:= False;
+        i:= G.OpenIdx + 1;
+        while i < G.CloseIdx do
         begin
-          PendingAnon:= True;
-          Inc(i);
-          Continue;
-        end;
-        if Ki in [ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject] then
-        begin
-          // `of object` (method-pointer type in an inline var) is a modifier,
-          // not a block opener -- same exclusion ParseGroups applies. Without
-          // it, `var P: procedure of object;` would push a dangling entry
-          // that both mis-pairs the next `end` and makes the variant-part
-          // guard below swallow a genuine `case` statement.
-          if Ki = ptObject then
+          Ki:= ATokens[i].Kind;
+          // Hoisting moves a declaration to the routine's top var/const block,
+          // i.e. OUT of any enclosing conditional -- a type or name that exists
+          // only under the symbol then breaks the build (review 2026-10-14).
+          if Ki in [ptIfDefDirect, ptIfNDefDirect, ptIfDirect, ptIfOptDirect] then
+            Inc(CondDepth)
+          else if (Ki in [ptEndIfDirect, ptIfEndDirect]) and (CondDepth > 0) then
+            Dec(CondDepth);
+          // A procedure/function keyword inside a body opens an anonymous method
+          // (named nested routines live in the decl section, before `begin`).
+          if Ki in [ptProcedure, ptFunction] then
           begin
-            Pv:= PrevSig(i - 1);
-            if (Pv >= 0) and (ATokens[Pv].Kind = ptOf) then
+            PendingAnon:= True;
+            Inc(i);
+            Continue;
+          end;
+          if Ki in [ptBegin, ptRecord, ptCase, ptTry, ptAsm, ptObject] then
+          begin
+            // `of object` (method-pointer type in an inline var) is a modifier,
+            // not a block opener -- same exclusion ParseGroups applies. Without
+            // it, `var P: procedure of object;` would push a dangling entry
+            // that both mis-pairs the next `end` and makes the variant-part
+            // guard below swallow a genuine `case` statement.
+            if Ki = ptObject then
+            begin
+              Pv:= PrevSig(i - 1);
+              if (Pv >= 0) and (ATokens[Pv].Kind = ptOf) then
+              begin
+                Inc(i);
+                Continue;
+              end;
+            end;
+            // Variant-part `case` inside a local record/object declaration
+            // shares the record's end -- pushing an entry for it would leave the
+            // record's entry dangling and skew the anon accounting for the rest
+            // of the body (same rule as ReindentByDepth / ParseGroups).
+            if (Ki = ptCase) and (BlkKind.Count > 0) and (BlkKind[BlkKind.Count - 1] in [ptRecord, ptObject]) then
             begin
               Inc(i);
               Continue;
             end;
-          end;
-          // Variant-part `case` inside a local record/object declaration
-          // shares the record's end -- pushing an entry for it would leave the
-          // record's entry dangling and skew the anon accounting for the rest
-          // of the body (same rule as ReindentByDepth / ParseGroups).
-          if (Ki = ptCase) and (BlkKind.Count > 0) and (BlkKind[BlkKind.Count - 1] in [ptRecord, ptObject]) then
-          begin
+            IsAnon:= PendingAnon and (Ki = ptBegin);
+            BlkAnon.Add(IsAnon);
+            BlkKind.Add(Ki    );
+            BlkLoop.Add((Ki = ptBegin) and IsLoopBegin(i, G.OpenIdx));
+            if IsAnon then
+              Inc(AnonCount);
+            PendingAnon:= False;
             Inc(i);
             Continue;
-          end;
-          IsAnon:= PendingAnon and (Ki = ptBegin);
-          BlkAnon.Add(IsAnon);
-          BlkKind.Add(Ki    );
-          BlkLoop.Add((Ki = ptBegin) and IsLoopBegin(i, G.OpenIdx));
-          if IsAnon then
-            Inc(AnonCount);
-          PendingAnon:= False;
-          Inc(i);
-          Continue;
-        end; // if
-        if Ki = ptEnd then
-        begin
-          if BlkAnon.Count > 0 then
+          end; // if
+          if Ki = ptEnd then
           begin
-            if BlkAnon[BlkAnon.Count - 1] then
-              Dec(AnonCount);
-            BlkAnon.Delete(BlkAnon.Count - 1);
-            BlkKind.Delete(BlkKind.Count - 1);
-            BlkLoop.Delete(BlkLoop.Count - 1);
-          end;
-          Inc(i);
-          Continue;
-        end;
-        if Ki = ptRepeat then
-          Inc(RepeatDepth)
-        else if (Ki = ptUntil) and (RepeatDepth > 0) then
-          Dec(RepeatDepth);
-        if Ki = ptVar then
-        begin
-          // A `var` in an anon method's own decl section (seen before its begin)
-          // is a classic var section, not an inline var -- leave it.
-          if PendingAnon then
-          begin
-            Inc(i);
-            Continue;
-          end;
-          Pv:= PrevSig(i - 1);
-          if (CondDepth > 0) and (AnonCount = 0) then
-          begin
-            if ((Pv < 0) or (ATokens[Pv].Kind <> ptFor)) and TryAnonFallback(i, Rec, 'inside a conditional-compilation block') then
+            if BlkAnon.Count > 0 then
             begin
-              Inlines.Add(i, Rec);
-              i:= Rec.SemiIdx + 1;
+              if BlkAnon[BlkAnon.Count - 1] then
+                Dec(AnonCount);
+              BlkAnon.Delete(BlkAnon.Count - 1);
+              BlkKind.Delete(BlkKind.Count - 1);
+              BlkLoop.Delete(BlkLoop.Count - 1);
+            end;
+            Inc(i);
+            Continue;
+          end;
+          if Ki = ptRepeat then
+            Inc(RepeatDepth)
+          else if (Ki = ptUntil) and (RepeatDepth > 0) then
+            Dec(RepeatDepth);
+          if Ki = ptVar then
+          begin
+            // A `var` in an anon method's own decl section (seen before its begin)
+            // is a classic var section, not an inline var -- leave it.
+            if PendingAnon then
+            begin
+              Inc(i);
               Continue;
             end;
-            // Idempotent like the other for-var flags (task 10): not again when the
-            // line above already carries a YADF flag.
-            if (Pv >= 0) and (ATokens[Pv].Kind = ptFor) and not ForTodos.ContainsKey(Pv) then
+            Pv:= PrevSig(i - 1);
+            if (CondDepth > 0) and (AnonCount = 0) then
             begin
+              if ((Pv < 0) or (ATokens[Pv].Kind <> ptFor)) and TryAnonFallback(i, Rec, 'inside a conditional-compilation block') then
+              begin
+                Inlines.Add(i, Rec);
+                i:= Rec.SemiIdx + 1;
+                Continue;
+              end;
+              // Idempotent like the other for-var flags (task 10): not again when the
+              // line above already carries a YADF flag.
+              if (Pv >= 0) and (ATokens[Pv].Kind = ptFor) and not ForTodos.ContainsKey(Pv) then
+              begin
+                k:= PrevSig(Pv - 1);
+                if not ((k >= 0) and (ATokens[k].Kind = ptSlashesComment) and ATokens[k].Text.Contains('YADF')) then
+                  ForTodos.Add(Pv, D10_TODO_MARKER + ' inline loop var inside a conditional-compilation block is not auto-hoisted for Delphi 10');
+              end;
+            end
+            else if AnonCount > 0 then
+            begin
+              if ((Pv < 0) or (ATokens[Pv].Kind <> ptFor)) and TryAnonFallback(i, Rec) then
+              begin
+                Inlines.Add(i, Rec);
+                i:= Rec.SemiIdx + 1;
+                Continue;
+              end;
+            end
+            else if (Pv >= 0) and (ATokens[Pv].Kind = ptFor) then
+            begin
+              // A loop var a previous run flagged (`// TODO -oYADF ... loop variable`  // dl:ok compiler-magic-comments@e3b0
+              // on the line above the `for`) is left for the user, like a flagged
+              // statement var (AlreadyFlagged): hoisting it now would undo the flag.
               k:= PrevSig(Pv - 1);
-              if not ((k >= 0) and (ATokens[k].Kind = ptSlashesComment) and ATokens[k].Text.Contains('YADF')) then
-                ForTodos.Add(Pv, D10_TODO_MARKER + ' inline loop var inside a conditional-compilation block is not auto-hoisted for Delphi 10');
-            end;
-          end
-          else if AnonCount > 0 then
-          begin
-            if ((Pv < 0) or (ATokens[Pv].Kind <> ptFor)) and TryAnonFallback(i, Rec) then
-            begin
-              Inlines.Add(i, Rec);
-              i:= Rec.SemiIdx + 1;
-              Continue;
-            end;
-          end
-          else if (Pv >= 0) and (ATokens[Pv].Kind = ptFor) then
-          begin
-            if TryParseForExplicit(i, Rec) or TryParseForInferred(i, Rec) then
+              if (k >= 0) and (ATokens[k].Kind = ptSlashesComment) and ATokens[k].Text.Contains('YADF') and ATokens[k].Text.Contains('loop variable') then
+              begin
+                Inc(i);
+                Continue;
+              end;
+              if TryParseForExplicit(i, Rec) or TryParseForInferred(i, Rec) then
+              begin
+                CommitInline(G.OpenIdx, i, Rec);
+                i:= Rec.Sep + 1;
+                Continue;
+              end;
+              // Non-inferable inline loop var (e.g. `for var X in Coll`): can't
+              // downgrade without the element/bound type. Flag a TODO before the  // dl:ok compiler-magic-comments@e3b0
+              // `for`. Idempotent: skip if the line above is already a YADF flag.
+              if not ForTodos.ContainsKey(Pv) then
+              begin
+                k:= PrevSig(Pv - 1);
+                if not ((k >= 0) and (ATokens[k].Kind = ptSlashesComment) and ATokens[k].Text.Contains('YADF')) then
+                  ForTodos.Add(Pv, D10_TODO_MARKER + ' inline loop var cannot be type-inferred for Delphi 10 -- declare a classic var and use a plain for');
+              end;
+            end // if
+            else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
             begin
               CommitInline(G.OpenIdx, i, Rec);
-              i:= Rec.Sep + 1;
+              i:= Rec.SemiIdx + 1;
               Continue;
             end;
-            // Non-inferable inline loop var (e.g. `for var X in Coll`): can't
-            // downgrade without the element/bound type. Flag a TODO before the  // dl:ok compiler-magic-comments@e3b0
-            // `for`. Idempotent: skip if the line above is already a YADF flag.
-            if not ForTodos.ContainsKey(Pv) then
-            begin
-              k:= PrevSig(Pv - 1);
-              if not ((k >= 0) and (ATokens[k].Kind = ptSlashesComment) and ATokens[k].Text.Contains('YADF')) then
-                ForTodos.Add(Pv, D10_TODO_MARKER + ' inline loop var cannot be type-inferred for Delphi 10 -- declare a classic var and use a plain for');
-            end;
-          end // if
-          else if TryParseExplicit(i, Rec) or TryParseInferred(i, Rec) then
+          end; // if
+          if Ki = ptConst then
           begin
-            CommitInline(G.OpenIdx, i, Rec);
-            i:= Rec.SemiIdx + 1;
-            Continue;
-          end;
-        end; // if
-        if Ki = ptConst then
+            // A `const` in an anon method's own decl section (before its begin) is
+            // a classic const section -- leave it. Otherwise, an inline const in
+            // THIS routine's statement section (AnonCount = 0) hoists to a const
+            // block; one inside a nested anon body has a different scope, so it is
+            // left untouched.
+            if PendingAnon then
+            begin
+              Inc(i);
+              Continue;
+            end;
+            if (AnonCount = 0) and (CondDepth > 0) then
+            begin
+              if TryFlagAnonConst(i, Rec, 'inside a conditional-compilation block') then
+              begin
+                Inlines.Add(i, Rec);
+                i:= Rec.SemiIdx + 1;
+                Continue;
+              end;
+            end
+            else if AnonCount = 0 then
+            begin
+              if TryParseInlineConst(i, Rec, ConstDecl) then
+              begin
+                Inlines.Add(i, Rec);
+                EnsureBodyConst(G.OpenIdx).Add(ConstDecl);
+                i:= Rec.SemiIdx + 1;
+                Continue;
+              end;
+            end
+            else if TryFlagAnonConst(i, Rec) then
+            begin
+              Inlines.Add(i, Rec);
+              i:= Rec.SemiIdx + 1;
+              Continue;
+            end;
+          end; // if
+          Inc(i);
+        end; // while
+        // A new poisoned name: drop everything this scan recorded for the routine
+        // (its body's token range) and scan it again with the name left inline.
+        if PoisonGrew then
         begin
-          // A `const` in an anon method's own decl section (before its begin) is
-          // a classic const section -- leave it. Otherwise, an inline const in
-          // THIS routine's statement section (AnonCount = 0) hoists to a const
-          // block; one inside a nested anon body has a different scope, so it is
-          // left untouched.
-          if PendingAnon then
-          begin
-            Inc(i);
-            Continue;
-          end;
-          if (AnonCount = 0) and (CondDepth > 0) then
-          begin
-            if TryFlagAnonConst(i, Rec, 'inside a conditional-compilation block') then
-            begin
-              Inlines.Add(i, Rec);
-              i:= Rec.SemiIdx + 1;
-              Continue;
-            end;
-          end
-          else if AnonCount = 0 then
-          begin
-            if TryParseInlineConst(i, Rec, ConstDecl) then
-            begin
-              Inlines.Add(i, Rec);
-              EnsureBodyConst(G.OpenIdx).Add(ConstDecl);
-              i:= Rec.SemiIdx + 1;
-              Continue;
-            end;
-          end
-          else if TryFlagAnonConst(i, Rec) then
-          begin
-            Inlines.Add(i, Rec);
-            i:= Rec.SemiIdx + 1;
-            Continue;
-          end;
+          for RollIdx in Inlines.Keys.ToArray do
+            if (RollIdx > G.OpenIdx) and (RollIdx < G.CloseIdx) then
+              Inlines.Remove(RollIdx);
+          for RollIdx in ForTodos.Keys.ToArray do
+            if (RollIdx > G.OpenIdx) and (RollIdx < G.CloseIdx) then
+              ForTodos.Remove(RollIdx);
+          BodyDecls.Remove(G.OpenIdx);
+          BodyConst.Remove(G.OpenIdx);
         end; // if
-        Inc(i);
-      end; // while
+      until not PoisonGrew;
     end; // for
 
     if (Inlines.Count = 0) and (ForTodos.Count = 0) then
@@ -9824,6 +9983,8 @@ begin
     BodyConst.Free;
     ForTodos.Free;
     RNames.Free;
+    Seeded.Free;
+    Poisoned.Free;
     BlkAnon.Free;
     BlkKind.Free;
     BlkLoop.Free;
@@ -10019,6 +10180,17 @@ var
       Result:= Result + '  ';
   end; // function
 
+  // True when the token range AFrom..ATo holds a begin / asm block (the body of
+  // an anonymous method passed as a list item).
+  function RangeHasBlockBody(AFrom, ATo: Integer): Boolean;
+  var
+    k: Integer;
+  begin
+    for k:= AFrom to ATo do
+      if Tokens[k].Kind in [ptBegin, ptAsm] then
+        Exit(True);
+    Result:= False;
+  end;
   function FindChildGroupAt(G: TGroup; AOpenIdx: Integer): TGroup;
   var
     Child: TGroup;
@@ -10089,7 +10261,12 @@ var
       else
       begin
         Inner:= InlineRenderRange(Tokens, Items[i].First, Items[i].Last);
-        if (Length(Indent) + Length(Trim(Inner)) > AOpts.MaxLen) then
+        // An anonymous method that does not fit keeps its own lines (owner rule
+        // 2026-11-03: begin at its header's level, one statement per line);
+        // flattened, its whole body landed on the list's item line.
+        if (Length(Indent) + Length(Trim(Inner)) > AOpts.MaxLen) and RangeHasBlockBody(Items[i].First, Items[i].Last) then
+          EmitTokenRange(Items[i].First, Items[i].Last)
+        else if (Length(Indent) + Length(Trim(Inner)) > AOpts.MaxLen) then
         begin
           SubGroup:= FindChildGroupAt(G, Items[i].First);
           if Assigned(SubGroup) and (SubGroup.Kind in [gkParens, gkBrackets]) and (SubGroup.CloseIdx = Items[i].Last)
@@ -10261,6 +10438,11 @@ var
         // verbatim (only re-indented later) instead of flattened or broken.
         else if (not AOpts.ReflowLines) and (RangeHasLineBreak(Tokens, Child.OpenIdx, Child.CloseIdx) or (CurCol + InlineW > AOpts.MaxLen)) then
           WalkGroup(Child)
+        // A list holding an anonymous method that does not fit on the line keeps
+        // the author's breaks, as a lone anonymous-method argument does (owner rule
+        // 2026-11-03): rendered inline, its whole body landed on one item line.
+        else if (CurCol + InlineW > AOpts.MaxLen) and RangeHasBlockBody(Child.OpenIdx, Child.CloseIdx) then
+          WalkGroup(Child)
         // BreakLongExpressions ON: a list is decided where its line has its final
         // column and its operator breaks (BreakListsInLine, from BreakLongLines).
         // Deciding it here measured the SOURCE column (tabs, an unsettled indent,
@@ -10408,9 +10590,18 @@ var
     OutVal      : TStringBuilder ;
     p         : Integer        ;
     MinBreakAt: Integer        ;
+    Tail      : string         ;
+    OpLead    : Boolean        ;
   begin
     Indent:= LeadingIndent(ALine);
-    NewIndent:= Indent + StringOfChar(' ', AOpts.Indent);
+    // A line that already leads with its connecting operator is a continuation this
+    // breaker made on an earlier format (the walker re-joined a group it left open):
+    // its pieces continue at ITS column, not one Indent deeper, so the next format
+    // re-breaks it to the same shape (idem_greedy_continuation).
+    Tail:= TrimLeft(ALine);
+    OpLead:= (Length(Tail) > 1) and CharInSet(Tail[1], ['+', '-']) and (Tail[2] = ' ');
+    OpLead:= OpLead or StartsWordCI(Tail, 'and') or StartsWordCI(Tail, 'or') or StartsWordCI(Tail, 'xor');
+    NewIndent:= if OpLead then Indent else Indent + StringOfChar(' ', AOpts.Indent);
     OutVal:= TStringBuilder.Create;
     try
       CurLine:= ALine;

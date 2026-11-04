@@ -412,7 +412,9 @@ What it does:
 - Anything whose type **cannot** be determined, a **name collision** with a
   different type, or an inline var inside an **anonymous method** is left in place
   with a `// TODO -oYADF : ...` marker (visible in the IDE To-Do list) quoting the
-  original line, so you can finish it by hand and re-run.
+  original line, so you can finish it by hand and re-run. A name declared inline with
+  different types in one routine is never hoisted at all (every declaration of it is
+  flagged), so the unit still compiles in Delphi 13.
 
 **This is not full Delphi 10 compliance.** Only inline variables are downgraded.
 Other modern constructs are **not** rewritten -- in particular the **`if` ternary

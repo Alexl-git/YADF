@@ -30,6 +30,9 @@ $sets = [ordered]@{
   'indent3'  = @('--indent', '3')
   'indent4'  = @('--indent', '4')
   'indent4tab8' = @('--indent', '4', '--tab-width', '8', '--max-len', '100')
+  # The greedy breaker continued a re-broken continuation line one Indent deeper than
+  # that line (idem_greedy_continuation): the next format moved it.
+  'greedy-indent4-60' = @('--no-break-expr', '--indent', '4', '--max-len', '60')
 }
 $files = @(Get-ChildItem $dir -Filter *.pas)
 if ($files.Count -lt 5) { Fail "expected at least 5 fixtures in $dir, found $($files.Count)" }

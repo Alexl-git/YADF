@@ -24,11 +24,13 @@ function D10([string]$body) {
   return $out
 }
 
-# Different types: a collision -> the second stays inline with the TODO.
+# Different types: a collision -> neither is hoisted, both stay inline with the TODO (2026-11-03:
+# hoisting one redeclared it next to the other, E2004 in Delphi 13 too).
 $diff = D10 ("  if K > 0 then`r`n  begin`r`n    var DcR: Integer:= K;`r`n    Result:= DcR;`r`n  end`r`n  else`r`n  begin`r`n" +
              "    var dcr: string:= 'x';`r`n    Result:= Length(dcr);`r`n  end;")
-MustMatch    $diff '(?m)^\s*DcR: Integer;\r?$' 'diff type: first name hoisted'
-MustMatch    $diff "(?m-i)^\s*var dcr: string:= 'x'; // TODO -oYADF -cd10 : name 'dcr' already hoisted with a different type" 'diff type: second kept inline + TODO'
+MustNotMatch $diff '(?m)^\s*DcR: Integer;\r?$' 'diff type: first name NOT hoisted'
+MustMatch    $diff "(?m-i)^\s*var DcR: Integer:= K; // TODO -oYADF -cd10 : name 'DcR' is declared with different types" 'diff type: first kept inline + TODO'
+MustMatch    $diff "(?m-i)^\s*var dcr: string:= 'x'; // TODO -oYADF -cd10 : name 'dcr' is declared with different types" 'diff type: second kept inline + TODO'
 MustNotMatch $diff '(?m-i)^\s*dcr\s*: string\s*;' 'diff type: second NOT hoisted'
 
 # Same type: one declaration, both assignments kept.

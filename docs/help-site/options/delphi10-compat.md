@@ -66,3 +66,7 @@ begin
   Writeln(Total);
 end;
 ```
+
+## Same name, different types
+
+When one routine declares the same inline var name with different types (`var X: Integer` in one block, `var X: string` in another), no declaration of that name is hoisted: hoisting either would redeclare it next to the other, which Delphi 13 rejects as well (E2004). Every such declaration stays inline with the flag "name 'X' is declared with different types in this routine; resolve manually for Delphi 10" (a loop variable gets the flag on the line above its `for`), so the unit still compiles in Delphi 13; rename one of them and run again.

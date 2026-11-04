@@ -1091,6 +1091,180 @@ begin
   end; // try
 end; // function
 
+// Routine-scope declaration census for gcD10 (2026-11-03, the guard's scope gap):
+// ACounts['<scope>/<name>'] = how often <name> is declared in a var / const /
+// threadvar / resourcestring section of one declaration scope. A scope is the
+// unit, or one routine header and the declaration part that follows it; a nested
+// routine is its own scope until its body ends. Bodies (begin / asm .. end) are
+// skipped whole -- inline vars are block-scoped and may repeat. Scope numbers
+// follow the header order, which the Delphi 10 transform never changes, so the
+// source and the output number their scopes alike. Not a parser: a shape it does
+// not know (a type section, a class) only ends the current section.
+procedure CountScopeDecls(const AList: TCodeList; const ACounts: TDictionary<string, Integer>; const ANames: TDictionary<string, string>);
+var
+  Stack    : TStack<Integer>;
+  Seq      : Integer;
+  Body     : Integer;
+  Paren    : Integer;
+  i        : Integer;
+  Next     : Integer;
+  InSection: Boolean;
+  Key      : string ;
+  Prev     : string ;
+
+  // The declaration `Name[, Name]` + `:` / `=` starting at AFrom counted in the
+  // current scope: the index past its `;` (outside brackets and record .. end),
+  // or -1 when no declaration starts there.
+  function CountDeclaration(AFrom: Integer): Integer;
+  var
+    Last: Integer;
+    Nest: Integer;
+    j   : Integer;
+    N   : Integer;
+    Slot: string ;
+  begin
+    Last:= NameListEnd(AList, AFrom);
+    if (Last + 1 >= AList.Count) or not MatchStr(AList[Last + 1].Key, [':', '=']) then
+      Exit(-1);
+    j:= AFrom;
+    while j <= Last do
+    begin
+      Slot:= IntToStr(Stack.Peek) + '/' + AList[j].Key;
+      N   := 0;
+      ACounts.TryGetValue(Slot, N);
+      ACounts.AddOrSetValue(Slot, N + 1);
+      ANames.AddOrSetValue(Slot, AList[j].Text);
+      Inc(j, 2);
+    end;
+    Nest:= 0;
+    j   := Last + 2;
+    while (j < AList.Count) and not ((Nest = 0) and (AList[j].Key = ';')) do
+    begin
+      if MatchStr(AList[j].Key, ['(', '[', 'record']) then
+        Inc(Nest)
+      else if MatchStr(AList[j].Key, [')', ']', 'end']) and (Nest > 0) then
+        Dec(Nest);
+      Inc(j);
+    end;
+    Result:= j + 1;
+  end; // function
+
+  // One token of a begin / asm .. end body: tracks its nesting, and the end of
+  // the body closes the routine's scope.
+  procedure StepBody(const AKey: string);
+  begin
+    if MatchStr(AKey, ['begin', 'case', 'try', 'asm', 'record']) then
+      Inc(Body)
+    else if AKey = 'end' then
+    begin
+      Dec(Body);
+      if (Body = 0) and (Stack.Count > 1) then
+        Stack.Pop;
+    end;
+  end; // procedure
+
+begin
+  Stack:= TStack<Integer>.Create;
+  try
+    Stack.Push(0);
+    Seq      := 0;
+    Body     := 0;
+    Paren    := 0;
+    InSection:= False;
+    Prev     := '';
+    i        := 0;
+    while i < AList.Count do
+    begin
+      Key:= AList[i].Key;
+      if AList[i].Cls = ccDirective then
+      begin
+        Inc(i);
+        Continue;
+      end;
+      if Body > 0 then
+      begin
+        StepBody(Key);
+        Inc(i);
+        Continue;
+      end; // if
+      if (Key = '(') or (Key = '[') then
+        Inc(Paren)
+      else if ((Key = ')') or (Key = ']')) and (Paren > 0) then
+        Dec(Paren);
+      if (Paren > 0) or (Key = ')') or (Key = ']') then
+      begin
+        Prev:= Key;
+        Inc(i);
+        Continue;
+      end;
+      // A declaration in an open section: `Name[, Name]` then `:` or `=`.
+      Next:= if InSection and (AList[i].Cls = ccIdent) then CountDeclaration(i) else -1;
+      if Next >= 0 then
+      begin
+        Prev:= ';';
+        i   := Next;
+        Continue;
+      end;
+      if MatchStr(Key, ['var', 'const', 'threadvar', 'resourcestring']) then
+        InSection:= True
+      else if MatchStr(Key, ['procedure', 'function', 'constructor', 'destructor', 'operator']) then
+      begin
+        InSection:= False;
+        // A procedural TYPE (`= procedure`, `: function`, `reference to`) is no header.
+        if not MatchStr(Prev, ['=', ':', 'to']) then
+        begin
+          Inc(Seq);
+          Stack.Push(Seq);
+        end;
+      end
+      else if (Key = 'begin') or (Key = 'asm') then
+      begin
+        InSection:= False;
+        Body     := 1;
+      end
+      else if (Key = 'initialization') or (Key = 'finalization') then
+        Break
+      else if AList[i].Cls <> ccIdent then
+        InSection:= InSection and MatchStr(Key, [';', ',', ':', '=']);
+      Prev:= Key;
+      Inc(i);
+    end; // while
+  finally
+    Stack.Free;
+  end; // try
+end; // procedure
+
+// gcD10: '' unless the output declares a name more often in one routine scope
+// than the source does (a hoist that duplicated a declaration: E2004).
+function D10ScopeReason(const AOrig, AFmt: TCodeList): string;
+var
+  OrigCounts: TDictionary<string, Integer>;
+  OutCounts : TDictionary<string, Integer>;
+  Names     : TDictionary<string, string>;
+  Pair      : TPair<string, Integer>;
+  N         : Integer;
+begin
+  Result    := '';
+  OrigCounts:= TDictionary<string, Integer>.Create;
+  OutCounts := TDictionary<string, Integer>.Create;
+  Names     := TDictionary<string, string>.Create;
+  try
+    CountScopeDecls(AOrig, OrigCounts, Names);
+    Names.Clear;
+    CountScopeDecls(AFmt, OutCounts, Names);
+    for Pair in OutCounts do
+    begin
+      N:= 0;
+      OrigCounts.TryGetValue(Pair.Key, N);
+      if (Pair.Value > 1) and (Pair.Value > N) then
+        Exit('declaration duplicated in one routine by the Delphi 10 transform: ' + Names[Pair.Key]);
+    end;
+  finally
+    Names.Free;
+    OutCounts.Free;
+    OrigCounts.Free;
+  end; // try
+end; // function
 // '' when the code-token stream of the output is acceptable for AMode and
 // ACasing; else a short decline cause. See TGuardCodeMode / TGuardCasingRule.
 function CodeStreamReason(const AOrig, AFmt: TCodeList; AMode: TGuardCodeMode; ACasing: TGuardCasing): string;
@@ -1123,6 +1297,8 @@ begin
     gcD10:
     begin
       Result:= D10Reason(AOrig, AFmt);
+      if Result = '' then
+        Result:= D10ScopeReason(AOrig, AFmt);
       if Result = '' then
         Result:= CasingReasonUnordered(AOrig, AFmt, ACasing);
     end;

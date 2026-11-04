@@ -693,6 +693,32 @@ begin
     not GuardOk(Src, 'function P(N: Integer): Double; var I: Integer; begin if N > 0 then for I:= 1 to N do R:= 1; end;', gcD10, DEF_CASING));
 end;
 
+// TODO guard-scope gap (task 10 finding, 2026-11-03): gcD10 compared bags, so a
+// declaration a hoist DUPLICATED inside one routine's declaration part (E2004)
+// passed. A name declared more often in one routine scope than in the source now
+// declines; names of a nested routine, a sibling routine or a class are their own
+// scope and pass.
+procedure TestD10DuplicateDeclaration;
+begin
+  Check('D10 hoist duplicating a routine-level var rejected',
+    not GuardOk('procedure P; var A: Integer; begin begin var A: Integer:= 1; Use(A); end; end;',
+      'procedure P; var A: Integer; A: Integer; begin begin A:= 1; Use(A); end; end;', gcD10, DEF_CASING));
+  Check('D10 hoist duplicating a const-section name rejected',
+    not GuardOk('procedure P; const A = 1; begin begin var A: Integer:= 1; Use(A); end; end;',
+      'procedure P; const A = 1; var A: Integer; begin begin A:= 1; Use(A); end; end;', gcD10, DEF_CASING));
+  Check('D10 nested routine declaring the same name passes',
+    GuardOk('procedure P; procedure Q; var A: Integer; begin Use(A); end; var C: Integer; begin begin var A: Integer:= 1; Use(A, C); end; end;',
+      'procedure P; procedure Q; var A: Integer; begin Use(A); end; var C: Integer; A: Integer; begin begin A:= 1; Use(A, C); end; end;', gcD10, DEF_CASING));
+  Check('D10 sibling routines with the same name pass',
+    GuardOk('procedure P; var A: Integer; begin Use(A); end; procedure R; begin var A: Integer:= 1; Use(A); end;',
+      'procedure P; var A: Integer; begin Use(A); end; procedure R; var A: Integer; begin A:= 1; Use(A); end;', gcD10, DEF_CASING));
+  Check('D10 a record-typed var and a field of the same name pass',
+    GuardOk('procedure P; var R: record A, B: Integer; end; begin begin var A: Integer:= 1; Use(A, R.A); end; end;',
+      'procedure P; var R: record A, B: Integer; end; A: Integer; begin begin A:= 1; Use(A, R.A); end; end;', gcD10, DEF_CASING));
+  Check('D10 a duplicate the SOURCE already had is not blamed on the format',
+    GuardOk('procedure P; var A: Integer; A: Integer; begin begin var B: Integer:= 1; Use(A, B); end; end;',
+      'procedure P; var A: Integer; A: Integer; B: Integer; begin begin B:= 1; Use(A, B); end; end;', gcD10, DEF_CASING));
+end;
 // Task 8 (b) end to end: both ORM3 shapes now format under --d10.
 procedure TestFormatSourceD10NoFalseDecline;
 const
@@ -733,7 +759,8 @@ begin
     '    var R: string:= ''a'';' + CRLF + '    Use(R);' + CRLF + '  end;' + CRLF + '  for var R: Integer:= 1 to N do Use(R);' + CRLF + 'end;' + CRLF + 'end.' + CRLF, Opts, Reason);
   Check('--d10: colliding for-var is not declined (' + Reason + ')', Reason = '');
   Check('--d10: colliding for-var stays inline and is flagged', Res.Contains('var R: Integer:= 1 to N') and Res.Contains('TODO -oYADF'));
-  Check('--d10: the string var is still hoisted', Res.Contains('R: string;'));
+  // 2026-11-03: a name declared with different types is hoisted for neither (E2004 in Delphi 13 otherwise).
+  Check('--d10: the string var stays inline too', Res.Contains('var R: string:= ''a'';') and not Res.Contains('R: string;'));
   Check('--d10: colliding for-var output is idempotent', FormatSource(Res, Opts, Reason) = Res);
 end;
 
@@ -761,6 +788,7 @@ begin
     TestCasingLicence;
     TestLabelVerdictIgnoresSpacing;
     TestD10SameTypeDedupe;
+    TestD10DuplicateDeclaration;
     TestFormatSourceD10NoFalseDecline;
     Writeln('');
     if GFailures = 0 then
