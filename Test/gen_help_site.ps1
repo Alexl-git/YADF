@@ -107,7 +107,8 @@ foreach ($o in $opts) {
 # ---- 6. index.json from all leaf front matter ------------------------------
 $items = @()
 foreach ($f in Get-ChildItem $optDir -Filter '*.md') {
-  $t = [IO.File]::ReadAllText($f.FullName)
+  $t = [IO.File]::ReadAllText($f.FullName) -replace "`r`n", "`n"
+  if ($t -notmatch '\A---\n') { throw "$($f.Name): no front matter" }
   $fmText = [regex]::Match($t, '(?s)\A---\n(.*?)\n---\n').Groups[1].Value
   $h = @{}
   foreach ($l in $fmText -split "`n") { if ($l -match '^(\w+):\s*(.*)$') { $h[$Matches[1]] = $Matches[2].Trim().Trim('"') } }
