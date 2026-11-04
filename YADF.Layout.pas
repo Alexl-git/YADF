@@ -8778,7 +8778,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@fba9, cognitive-complexity@f829, method-too-long@513b -- 368 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@fba9, cognitive-complexity@f829, method-too-long@e609 -- 368 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -9464,15 +9464,16 @@ var
     M       : Integer;
     Nm      : string ;
     Why     : string ;
+    Diff    : Boolean;
     OrigLine: string ;
     ForIdx  : Integer;
     Above   : Integer;
   begin
     Result:= False;
     for M:= 0 to High(ARec.Names) do
-      if Poisoned.ContainsKey(ARec.Names[M]) then
+      if Poisoned.TryGetValue(ARec.Names[M], Diff) then
       begin
-        Why:= if Poisoned[ARec.Names[M]] then ''' is declared with different types in this routine; resolve manually for Delphi 10' else ''' is also declared inline where it cannot be hoisted; resolve manually for Delphi 10';
+        Why:= if Diff then ''' is declared with different types in this routine; resolve manually for Delphi 10' else ''' is also declared inline where it cannot be hoisted; resolve manually for Delphi 10';
         for Nm in ARec.Names do
           if Poisoned.TryAdd(Nm, True) then
             PoisonGrew:= True;
