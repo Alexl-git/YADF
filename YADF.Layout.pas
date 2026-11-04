@@ -10992,6 +10992,20 @@ var
     Lines : TStringList    ;
     i     : Integer        ;
     Locked: TArray<Boolean>;
+    Lvl   : Integer        ;
+
+    // True when ALine starts (after its indent) with a binary operator and a
+    // space: a continuation line of an expression broken operator-leading.
+    function IsOperatorLed(const ALine: string): Boolean;
+    var
+      T: string;
+      p: Integer;
+    begin
+      T:= TrimLeft(ALine);
+      p:= Pos(' ', T);
+      Result:= (p > 1) and MatchText(Copy(T, 1, p - 1), ['+', '-', '*', '/', 'and', 'or', 'xor', 'div', 'mod', 'shl', 'shr']);
+    end;
+
   begin
     Lines:= TStringList.Create;
     try
@@ -11013,8 +11027,12 @@ var
           MoveTrailingOperator(Lines, Locked, i);
           if LineWidth(Lines[i]) <= AOpts.MaxLen then
             Continue;
-          Lines[i]:= if SplitTrailingHeaderKeyword(Lines[i], Body, Kw) then BreakComponents(Body, HeadWS, 0, 0) + CRLF + HeadWS + Kw
-                     else BreakComponents(Lines[i], HeadWS, 0, 0);
+          // An operator-led continuation line is already one component of its
+          // statement: the components it breaks into share its column (level -1),
+          // not its column + Indent -- that staircased (`- F(1)` / `  - F(2)`).
+          Lvl:= if IsOperatorLed(Lines[i]) then -1 else 0;
+          Lines[i]:= if SplitTrailingHeaderKeyword(Lines[i], Body, Kw) then BreakComponents(Body, HeadWS, Lvl, 0) + CRLF + HeadWS + Kw
+                     else BreakComponents(Lines[i], HeadWS, Lvl, 0);
         end // if
         else
         begin

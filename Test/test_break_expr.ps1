@@ -449,5 +449,17 @@ foreach ($ml in 100, 130, 180) {
   if (-not (SameBytes $laO1 $laO2)) { Fail "idempotent: list after operator at MaxLen $ml" }
 }
 
+# An over-long operator-led continuation line (its statement's first line fits):
+# its components share the continuation's column, no staircase.
+$olIn = Join-Path $PSScriptRoot 'Cases\break_expr_operator_led.pas'
+$olO1 = Join-Path $tmpRoot 'be_ol1.pas'
+$olO2 = Join-Path $tmpRoot 'be_ol2.pas'
+& $exe --ini $ini $olIn --o $olO1 | Out-Null
+& $exe --ini $ini $olO1 --o $olO2 | Out-Null
+$ol = Get-Content $olO1 -Raw
+MustMatch    $ol "(?m)^    - Length\('a'\)\r?\n    - Length\('bb'\)\r?$" 'operator-led continuation: components at one column'
+MustNotMatch $ol "(?m)^      - Length" 'operator-led continuation: no staircase'
+if (-not (SameBytes $olO1 $olO2)) { Fail 'idempotent: operator-led continuation' }
+
 [IO.Directory]::Delete($tmpRoot, $true)
 Finish 'break_expr'

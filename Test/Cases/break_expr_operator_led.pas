@@ -1,0 +1,21 @@
+unit break_expr_operator_led;
+
+// A statement whose first line fits and whose operator-led continuation line is
+// over-long (review 2026-11-03 L3 output): every component of that one expression
+// goes to ONE column -- the continuation's own -- not the first at +Indent and
+// the rest one more Indent in (a staircase).
+
+interface
+
+function Total: Integer;
+
+implementation
+
+function Total: Integer;
+begin
+  Result:= 0;
+  Result:= Result
+    - Length('a') - Length('bb') - Length('ccc') - Length('dddd') - Length('eeeee') - Length('ffffff') - Length('ggggggg') - Length('hhhhhhhh') - Length('iiiiiiiii') - Length('jjjjjjjjjjj') - Length('kkkkkkkkkkkkk') - Length('lllllllllllllll');
+end;
+
+end.
