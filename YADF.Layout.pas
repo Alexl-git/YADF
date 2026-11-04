@@ -5006,7 +5006,9 @@ const
     H    : string        ;
     T    : string        ;
   begin
-    Result:= AOpts.BreakParamsOnePerLine and SplitHeaderParams(ALine, Items, H, T);
+    // JoinRoutineHeaders OFF implies one parameter per line (same gate as
+    // BreakRoutineParams; idem_nojoin_long_header).
+    Result:= (AOpts.BreakParamsOnePerLine or not AOpts.JoinRoutineHeaders) and SplitHeaderParams(ALine, Items, H, T);
   end;
 
 // Advance the shared cross-line scanner St across one physical line L.

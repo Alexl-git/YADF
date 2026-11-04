@@ -33,6 +33,10 @@ $sets = [ordered]@{
   # The greedy breaker continued a re-broken continuation line one Indent deeper than
   # that line (idem_greedy_continuation): the next format moved it.
   'greedy-indent4-60' = @('--no-break-expr', '--indent', '4', '--max-len', '60')
+  # JoinRoutineHeaders OFF implies one parameter per line; the re-joined header of the
+  # next format was greedy-wrapped first, and the wrapped pair stayed joined
+  # (idem_nojoin_long_header).
+  'nojoin'   = @('--no-join-headers')
 }
 $files = @(Get-ChildItem $dir -Filter *.pas)
 if ($files.Count -lt 5) { Fail "expected at least 5 fixtures in $dir, found $($files.Count)" }
