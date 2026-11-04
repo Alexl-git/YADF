@@ -119,13 +119,13 @@ function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 /// a post-pass over the final line-broken text (ApplyBlockEndLabels), because the line count the
 /// walker sees is not the one the reader gets. One run of the pipeline: with BreakLongExpressions
 /// ON a bracketed list is decided after the line shape settles (BreakListsInLine), so no second run
-/// is needed (task 10 removed the task-5a re-run).
+/// is needed (task 10 removed the task-5a re-run) -- except FormatSourceSettled, above.
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)</para>
-/// <para>Calls: CharInSet, Copy, YADF.Layout.FormatSourceOnce, YADF.Layout.OffsetAfterFinalEnd, YADF.Layout.TextHasNonComment</para>
+/// <para>Calls: CharInSet, Copy, YADF.Layout.FormatSourceSettled, YADF.Layout.OffsetAfterFinalEnd, YADF.Layout.TextHasNonComment</para>
 /// <para>Overload 2 of 2</para>
 /// <para>Directives: overload</para>
-/// <seealso cref="YADF.Layout.FormatSourceOnce"/>
+/// <seealso cref="YADF.Layout.FormatSourceSettled"/>
 /// <seealso cref="YADF.Layout.OffsetAfterFinalEnd"/>
 /// <seealso cref="YADF.Layout.TextHasNonComment"/>
 /// <!-- drag-lint:auto END -->
@@ -11286,20 +11286,11 @@ end; // function
 //   Sb           - StringBuilder for the rendered output.
 //   Cursor       - next un-emitted token index. Incremented as
 //                  WalkGroup descends into / past child groups.
-//   CurCol,
-//   CurLine      - track the current output position so the walker
-//                  can decide whether a parens group fits inline at
-//                  the current column or must be broken.
-// Block-end labels are NOT decided here: they are a post-pass over the
-// final line-broken text (ApplyBlockEndLabels), because the line count
-// the walker sees is not the one the reader gets.
-// One run of the pipeline: with BreakLongExpressions ON a bracketed list is decided
-// after the line shape settles (BreakListsInLine), so no second run is needed
-// (task 10 removed the task-5a re-run). The one exception is FormatSourceSettled.
-// A bracket group the walker kept broken because it did not fit at its SOURCE
-// column (a variant-record arm field list, a single-item group) is decided again
-// on the formatted text, whose columns are the settled ones -- else tab-indented
-// input (each tab TabWidth columns) was not a fixed point (TODO 2026-11-03).
+// FormatSource's one re-run. A bracket group the walker kept broken because it
+// did not fit at its SOURCE column (a variant-record arm field list, a single-item
+// group) is decided again on the formatted text, whose columns are the settled
+// ones -- else tab-indented input (each tab TabWidth columns) was not a fixed
+// point (TODO 2026-11-03). Runs only when such a group was seen and the text changed.
 function FormatSourceSettled(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
 var
   Again    : string ;
@@ -11314,6 +11305,16 @@ begin
     Result:= Again;
 end; // function
 
+//   CurCol,
+//   CurLine      - track the current output position so the walker
+//                  can decide whether a parens group fits inline at
+//                  the current column or must be broken.
+// Block-end labels are NOT decided here: they are a post-pass over the
+// final line-broken text (ApplyBlockEndLabels), because the line count
+// the walker sees is not the one the reader gets.
+// One run of the pipeline: with BreakLongExpressions ON a bracketed list is decided
+// after the line shape settles (BreakListsInLine), so no second run is needed
+// (task 10 removed the task-5a re-run) -- except FormatSourceSettled, above.
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
 var
   Cut : Integer;
