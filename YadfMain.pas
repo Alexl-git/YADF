@@ -159,7 +159,7 @@ type
   /// "internal error" style report.</summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: declaration (YADF.dpr) ?, YadfMain.ExpandFileSpec (YadfMain.pas), YadfMain.ExtractIniPath (YadfMain.pas), YadfMain.ParseFlags (YadfMain.pas), YadfMain.ParseFlags.NextValue (YadfMain.pas)</para>
+  /// <para>Used by: YadfMain.ExpandFileSpec (YadfMain.pas), YadfMain.ExtractIniPath (YadfMain.pas), YadfMain.ParseFlags (YadfMain.pas), YadfMain.ParseFlags.IntFlag (YadfMain.pas), YadfMain.ParseFlags.NextValue (YadfMain.pas) (+1 more)</para>
   /// <para>Used in units: YADF, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
