@@ -104,7 +104,7 @@ end.
 # ----- shape / alignment family (fixture: $calls) -----
 $src = New-Src $calls
 $def = Fmt 'defaults' @{}
-MustMatch $def 'Foo\(1  , 2  , 3  \);'  'default: Foo calls shape-aligned'
+MustMatch $def 'Foo\(1  , 2  , 3\);'  'default: Foo calls shape-aligned (closing paren never padded)'
 MustMatch $def '(?m)^  A    : Integer;' 'default: var colons aligned'
 MustMatch $def 'A:= 1 \+ 2 \* B;'       'default: operators spaced'
 

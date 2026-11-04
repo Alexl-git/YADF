@@ -28,8 +28,8 @@ var
 begin
   SetLength(RowCurr, 4);
   RowPrev:= Copy  (RowCurr);
-  NamedA := Length(A      );
-  NamedB := Length(B      );
+  NamedA := Length(A);
+  NamedB := Length(B);
   Result:= Length(RowPrev) + NamedA + NamedB;
 end;
 

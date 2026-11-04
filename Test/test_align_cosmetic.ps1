@@ -22,4 +22,16 @@ if (Invoke-Yadf $src $ini $out @('--break-if', '--break-loop')) {
     if (-not (SameBytes $out $out2)) { Fail 'align_cosmetic: second pass changed the output (not idempotent)' }
   }
 }
-Finish 'align_cosmetic'
+# Cosmetic (2026-11-03): AlignMatchingShapes never pads a closing `)` / `]`.
+$src3 = Join-Path $PSScriptRoot 'Cases\align_close_paren.pas'
+$out3 = New-TempOut
+if (Invoke-Yadf $src3 $ini $out3 @()) {
+  $txt = [IO.File]::ReadAllText($out3)
+  MustNotMatch $txt '(?m)^(?!\s*//)[^/]*\S +[)\]]' 'no space before a closing ) or ] on a code line'
+  MustMatch $txt "(?m)^  Writeln\('one'\);" "Writeln('one'); tight"
+  MustMatch $txt '(?m)^  Foo\(1  , 2\);' 'Foo(1  , 2); keeps comma alignment, tight closer'
+  $out4 = New-TempOut
+  if (Invoke-Yadf $out3 $ini $out4 @()) {
+    if (-not (SameBytes $out3 $out4)) { Fail 'align_cosmetic: close-paren case not idempotent' }
+  }
+}Finish 'align_cosmetic'

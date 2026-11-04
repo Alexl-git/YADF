@@ -3033,7 +3033,7 @@ begin
   Result:= if c > 0 then Length(TrimRight(Copy(ALine, 1, c - 1))) else Length(ALine);
 end; // function
 
-function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@bf90, cognitive-complexity@7327
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@7eba, cognitive-complexity@ceb4
 var
   AnyOver  : Boolean                ;
   ColCols  : TArray<Integer>        ;
@@ -3052,6 +3052,8 @@ var
   L        : Integer                ; // hoisted from inline `for var L` (XE8/D10 compat)
   M        : Integer                ; // hoisted from inline `for var M`
   AllHaveCo: Boolean                ; // hoisted from inline vars in the comment-align block
+  TailFrom : Integer                ; // first anchor of the closers-and-separators line tail
+  EndsWithSemi: Boolean             ; // the run's lines end in `;` (statements, not grid rows)
   MaxCoCol : Integer                ;
   MaxShift : Integer                ;
   CommaCol : TArray<Integer>        ; // column of the leading `,` of a comma-first list line (0 = none)
@@ -3308,6 +3310,12 @@ begin
           AnyOver:= False;
           SetLength(ColLines, j - i);
           SetLength(ColCols , j - i);
+          // First anchor of the line's tail of closers and their `;` / `,`.
+          EndsWithSemi:= (Length(Info[i].Shape) > 0) and (Info[i].Shape[High(Info[i].Shape)] = ptSemiColon);
+          TailFrom:= Length(Info[i].Shape);
+          while (TailFrom > 0) and ((Info[i].Shape[TailFrom - 1] in [ptRoundClose, ptSquareClose])
+                 or ((Info[i].Shape[TailFrom - 1] in [ptSemiColon, ptComma]) and (TailFrom >= 2) and (Info[i].Shape[TailFrom - 2] in [ptRoundClose, ptSquareClose]))) do
+            Dec(TailFrom);
           for k:= 0 to Length(Info[i].Shape) - 1 do
           begin
             // Never align a line-terminal `;`. Padding to reach a
@@ -3319,6 +3327,13 @@ begin
             // by more anchors) is still aligned, so grid-shaped const
             // arrays keep their columns.
             if (k = High(Info[i].Shape)) and (Info[i].Shape[k] = ptSemiColon) then
+              Continue;
+            // Never pad a closing `)` / `]` of a `;`-terminated line (cosmetic,
+            // 2026-11-03): `Writeln('one'   );` reads as a stray gap. Nor the `;` /
+            // `,` right after such a closer: padded alone it would float
+            // (`Foo(1)   ;`). Rows of a grid-shaped const array (`(...; F: 'x'  ), // c`)
+            // end in `,`, not `;`: their closer column is part of the table and stays.
+            if EndsWithSemi and ((Info[i].Shape[k] in [ptRoundClose, ptSquareClose]) or (k >= TailFrom)) then
               Continue;
             // A member `.` is an ordinary anchor (owner rule 2026-11-02, task 8b):
             // every line of a run has the identical skeleton, so it is padded
@@ -11271,21 +11286,6 @@ begin
   end; // try
 end; // function
 
-// ===== FormatSource =====
-// Top-level orchestrator. Runs the pipeline described in the unit
-// header comment. The first stage is token-level (capitalisation,
-// assignment spacing); the second is a structural emission driven by
-// WalkGroup over the TGroup tree; the third is a sequence of pure
-// string -> string passes for indentation, blank lines, line breaks,
-// and (optionally) reflow and column alignment.
-//
-// Shared mutable state for the walker (in scope of the nested procs):
-//   Tokens       - the lexed token stream (after capitalisation /
-//                  assign-spacing passes have mutated it).
-//   Root         - the parsed TGroup tree.
-//   Sb           - StringBuilder for the rendered output.
-//   Cursor       - next un-emitted token index. Incremented as
-//                  WalkGroup descends into / past child groups.
 // FormatSource's one re-run. A bracket group the walker kept broken because it
 // did not fit at its SOURCE column (a variant-record arm field list, a single-item
 // group) is decided again on the formatted text, whose columns are the settled
@@ -11305,6 +11305,21 @@ begin
     Result:= Again;
 end; // function
 
+// ===== FormatSource =====
+// Top-level orchestrator. Runs the pipeline described in the unit
+// header comment. The first stage is token-level (capitalisation,
+// assignment spacing); the second is a structural emission driven by
+// WalkGroup over the TGroup tree; the third is a sequence of pure
+// string -> string passes for indentation, blank lines, line breaks,
+// and (optionally) reflow and column alignment.
+//
+// Shared mutable state for the walker (in scope of the nested procs):
+//   Tokens       - the lexed token stream (after capitalisation /
+//                  assign-spacing passes have mutated it).
+//   Root         - the parsed TGroup tree.
+//   Sb           - StringBuilder for the rendered output.
+//   Cursor       - next un-emitted token index. Incremented as
+//                  WalkGroup descends into / past child groups.
 //   CurCol,
 //   CurLine      - track the current output position so the walker
 //                  can decide whether a parens group fits inline at

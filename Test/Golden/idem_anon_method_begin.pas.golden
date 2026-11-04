@@ -52,7 +52,7 @@ begin
     procedure
     begin
       Writeln('a very long string literal number three that pads the line out a lot');
-      Writeln('a very long string literal number four that pads the line out a lot' );
+      Writeln('a very long string literal number four that pads the line out a lot');
     end);
   L:= TList<Integer>.Create(TComparer<Integer>.Construct(
     function(const A, B: Integer): Integer
@@ -69,14 +69,14 @@ begin
   RunWith(0,
     procedure
     begin
-      Writeln('a very long string literal number six that pads the line out a lot'  );
+      Writeln('a very long string literal number six that pads the line out a lot');
       Writeln('a very long string literal number seven that pads the line out a lot');
     end);
   if Assigned(P) then
     Run(procedure
     begin
       Writeln('a very long string literal number eight that pads the line out a lot');
-      Writeln('a very long string literal number nine that pads the line out a lot' );
+      Writeln('a very long string literal number nine that pads the line out a lot');
     end);
   Writeln('after');
 end; // procedure
