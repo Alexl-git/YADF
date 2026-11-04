@@ -10099,8 +10099,10 @@ begin
   end;
 end; // function
 
-// One run of the pipeline; FormatSource below is the public entry.
-function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;  // dl:ok cyclomatic-complexity@834e, method-too-long@2d84 -- the stage list reads top to bottom as the pipeline diagram
+// One run of the pipeline; FormatSource below is the public entry. AUnsettled:
+// a bracket group was kept broken because it did not fit at its SOURCE column,
+// which can differ from the column the formatted line settles at.
+function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string; out AUnsettled: Boolean): string;  // dl:ok cyclomatic-complexity@e512, method-too-long@0b70 -- the stage list reads top to bottom as the pipeline diagram
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -10479,7 +10481,14 @@ var
           Cursor:= Child.CloseIdx + 1;
         end
         else
+        begin
+          // Kept as the author broke it because it did not fit at CurCol -- the
+          // SOURCE column (tabs, an unsettled indent). The settled line may fit
+          // it, so FormatSource runs the pipeline once more on this result.
+          if (CurCol + InlineW > AOpts.MaxLen) and not ListPass and RangeHasLineBreak(Tokens, Child.OpenIdx, Child.CloseIdx) then
+            AUnsettled:= True;
           WalkGroup(Child);
+        end;
       end // if
       else
       begin
@@ -10924,6 +10933,7 @@ var
 // The code below is a literal rendering of those stages.
 begin
   ADeclineReason:= '';
+  AUnsettled    := False;
   ListPass      := False;
   // The lexer treats #0 as end of input, so everything after a NUL would be
   // dropped from the output -- and from the guard's view of BOTH sides, so it
@@ -11285,7 +11295,25 @@ end; // function
 // the walker sees is not the one the reader gets.
 // One run of the pipeline: with BreakLongExpressions ON a bracketed list is decided
 // after the line shape settles (BreakListsInLine), so no second run is needed
-// (task 10 removed the task-5a re-run).
+// (task 10 removed the task-5a re-run). The one exception is FormatSourceSettled.
+// A bracket group the walker kept broken because it did not fit at its SOURCE
+// column (a variant-record arm field list, a single-item group) is decided again
+// on the formatted text, whose columns are the settled ones -- else tab-indented
+// input (each tab TabWidth columns) was not a fixed point (TODO 2026-11-03).
+function FormatSourceSettled(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
+var
+  Again    : string ;
+  Reason   : string ;
+  Unsettled: Boolean;
+begin
+  Result:= FormatSourceOnce(ASource, AOpts, ADeclineReason, Unsettled);
+  if (ADeclineReason <> '') or not Unsettled or (Result = ASource) then
+    Exit;
+  Again:= FormatSourceOnce(Result, AOpts, Reason, Unsettled);
+  if Reason = '' then
+    Result:= Again;
+end; // function
+
 function FormatSource(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
 var
   Cut : Integer;
@@ -11302,9 +11330,9 @@ begin
   // Only a tail holding text other than comments needs it: comments (YADF's own
   // MarkUnclosed flags included) keep going through the pipeline as before.
   if (Cut = 0) or not TextHasNonComment(Copy(ASource, Cut, MaxInt)) then
-    Exit(FormatSourceOnce(ASource, AOpts, ADeclineReason));
+    Exit(FormatSourceSettled(ASource, AOpts, ADeclineReason));
   Head  := Copy(ASource, 1, Cut - 1);
-  Result:= FormatSourceOnce(Head, AOpts, ADeclineReason);
+  Result:= FormatSourceSettled(Head, AOpts, ADeclineReason);
   if ADeclineReason <> '' then
     Exit(ASource);
   // The formatter ends its text with a line break the head did not have.
