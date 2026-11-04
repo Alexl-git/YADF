@@ -27,7 +27,7 @@ end;
 
 // Count of fields in TYadfOptions; the descriptor table must match exactly.
 const
-  EXPECTED_OPTION_COUNT = 49;
+  EXPECTED_OPTION_COUNT = 50;
 
 procedure TestDescriptorCompleteness;
 var

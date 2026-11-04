@@ -91,7 +91,7 @@ after each change. The status by the Result pane shows **OK** or a
 **[Format error]** message if the input can't be parsed (the app never crashes
 on bad input).
 
-Options in the **File & CLI** group (Backup, BackupDir, ResultDir, Encoding,
+Options in the **File & CLI** group (Backup, BackupDir, BackupKeep, ResultDir, Encoding,
 Logging) configure the CLI's file handling and have no effect on the live
 preview ??? they're saved for `YADF.exe` to use.
 

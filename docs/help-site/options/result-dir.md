@@ -3,7 +3,7 @@ id: result-dir
 title: Result directory
 summary: Directory for formatted output. Empty = format in place.
 group: file-cli-no-preview-effect
-order: 30
+order: 40
 default: ""
 ini: ResultDir
 cli: --of

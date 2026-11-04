@@ -29,7 +29,7 @@ foreach ($l in [IO.File]::ReadAllLines($ini0)) { if ($l -match '^(\w+)\s*=\s*(.*
 if ($def.Count -lt 40) { throw "default INI holds only $($def.Count) keys" }
 
 # ---- option sets: name -> overrides ------------------------------------------
-$noEffect = 'Backup', 'Logging', 'BackupDir', 'ResultDir', 'Encoding'
+$noEffect = 'Backup', 'Logging', 'BackupDir', 'BackupKeep', 'ResultDir', 'Encoding'
 $all = [ordered]@{ 'default' = @{} }
 foreach ($k in $def.Keys) {
   if ($k -in $noEffect) { continue }

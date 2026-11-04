@@ -3,7 +3,7 @@ id: encoding
 title: Output encoding
 summary: ANSI keeps each file's own encoding; UTF-8/UTF-16 convert the output (with BOM).
 group: file-cli-no-preview-effect
-order: 40
+order: 50
 default: "ANSI"
 ini: Encoding
 cli: --encoding

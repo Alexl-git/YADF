@@ -187,6 +187,8 @@ uses
   , System.Classes
   , System.IOUtils
   , System.Generics.Collections
+  , System.RegularExpressions
+  , System.Math
   , SimpleParser.Lexer.Types
   , YADF.Tokens
   , YADF.Options
@@ -324,6 +326,7 @@ begin
   LogMsg('    ResultDir       = ' + AOpts.ResultDir);
   LogMsg('    Backup          = ' + BoolStr(AOpts.Backup));
   LogMsg('    BackupDir       = ' + AOpts.BackupDir);
+  LogMsg('    BackupKeep      = ' + IntToStr(AOpts.BackupKeep));
   LogMsg('    Encoding        = ' + EncName(AOpts.Encoding       ));
   LogMsg('    UsesAlwaysBreak = ' + BoolStr(AOpts.UsesAlwaysBreak));
 end; // begin
@@ -470,25 +473,112 @@ begin
     WriteStdoutLine('wrote ' + AOutFile);
 end; // procedure
 
+// Width the backup numbers are zero-padded to so that text order = numeric order.
+const
+  BACKUP_KEY_WIDTH = 20;
+
+/// <summary>The sort key of AName when it is a backup YADF itself names for the
+/// file ABase, else ''. Sibling form: ABase.BCKn (key = n). Folder form:
+/// ABase.yyyymmdd-hhnnss[-n].bak (key = stamp + collision number).</summary>
+/// <param name="AName">A file name (no path) found in the backup location.</param>
+/// <param name="ABase">The file name (no path) whose backups are wanted.</param>
+/// <param name="ASibling">True for the ABase.BCKn form, False for the .bak form.</param>
+/// <returns>A key that sorts oldest-first as plain text, or '' for any other name.</returns>
+/// <remarks>The match is anchored and ABase is escaped, so a different file's
+/// backups (xABase..., ABase2...) can never match.</remarks>
+function BackupSortKey(const AName, ABase: string; ASibling: Boolean): string;
+var
+  M: TMatch;
+begin
+  Result:= '';
+  if ASibling then
+  begin
+    M:= TRegEx.Match(AName, '^' + TRegEx.Escape(ABase) + '\.BCK(\d+)$', [roIgnoreCase]);
+    if M.Success then
+      Result:= M.Groups[1].Value.PadLeft(BACKUP_KEY_WIDTH, '0');
+  end
+  else
+  begin
+    M:= TRegEx.Match(AName, '^' + TRegEx.Escape(ABase) + '\.(\d{8}-\d{6})(?:-(\d+))?\.bak$', [roIgnoreCase]);
+    if M.Success then
+      Result:= M.Groups[1].Value + '|' + (if (M.Groups.Count > 2) and (M.Groups[2].Value <> '') then M.Groups[2].Value else '1').PadLeft(BACKUP_KEY_WIDTH, '0');
+  end;
+end; // function
+
 function NextSiblingBackupName(const AFile: string): string;
 var
-  Base: string ;
-  Dir : string ;
+  Base: string;
+  Dir : string;
+  F   : string;
+  Key : string;
   n   : Integer;
+  Top : Integer;
 begin
   Dir := ExtractFilePath(AFile);
   Base:= ExtractFileName(AFile);
-  n:= 1;
-  repeat
-    Result:= TPath.Combine(Dir, Base + '.BCK' + IntToStr(n));
-    if not TFile.Exists(Result) then
-      Exit;
-    Inc(n);
-  until False;
+  // One above the highest existing number (never a freed lower one), so the
+  // numbers stay in age order even after BackupKeep has pruned the old ones.
+  Top:= 0;
+  for F in TDirectory.GetFiles(if Dir = '' then '.' else Dir, Base + '.*') do
+  begin
+    Key:= BackupSortKey(ExtractFileName(F), Base, True);
+    n:= StrToIntDef(Key, 0);
+    if n > Top then
+      Top:= n;
+  end;
+  Result:= TPath.Combine(Dir, Base + '.BCK' + IntToStr(Top + 1));
 end;
 
-procedure BackupOriginalFile(const AFile: string; const ABackupDir: string);
+/// <summary>Deletes the older backups of AFile beyond the newest AKeep.</summary>
+/// <param name="AFile">The file that was just backed up.</param>
+/// <param name="ABackupDir">The backup folder; empty = the siblings next to AFile.</param>
+/// <param name="AKeep">How many backups to keep; 0 or less keeps all.</param>
+/// <remarks>Only names BackupOriginalFile itself generates for this exact file
+/// are candidates (see BackupSortKey). A backup that cannot be deleted is logged
+/// and left; it never fails the run.</remarks>
+procedure PruneBackups(const AFile, ABackupDir: string; AKeep: Integer);
 var
+  Base : string     ;
+  Dir  : string     ;
+  F    : string     ;
+  i    : Integer    ;
+  Key  : string     ;
+  Found: TStringList;
+begin
+  if AKeep <= 0 then
+    Exit;
+  Base:= ExtractFileName(AFile);
+  Dir:= if Trim(ABackupDir) = '' then ExtractFilePath(AFile) else ABackupDir;
+  Found:= TStringList.Create;
+  try
+    for F in TDirectory.GetFiles(if Dir = '' then '.' else Dir, Base + '.*') do
+    begin
+      Key:= BackupSortKey(ExtractFileName(F), Base, Trim(ABackupDir) = '');
+      if Key <> '' then
+        Found.Add(Key + #9 + F);
+    end;
+    Found.CaseSensitive:= True;
+    Found.Sort;
+    for i:= 0 to Found.Count - AKeep - 1 do
+    try
+      TFile.Delete(Copy(Found[i], Pos(#9, Found[i]) + 1, MaxInt));
+    except
+      on E: Exception do
+        LogMsg('    backup prune failed: ' + Found[i] + ' (' + E.Message + ')');
+    end;
+  finally
+    Found.Free;
+  end;
+end; // procedure
+/// <summary>Copies AFile to a new backup (sibling .BCKn, or a timestamped .bak in
+/// ABackupDir), then prunes this file's older backups beyond the newest AKeep.</summary>
+/// <param name="AFile">The file about to be overwritten.</param>
+/// <param name="ABackupDir">Backup folder; empty = next to AFile.</param>
+/// <param name="AKeep">BackupKeep option; 0 keeps every backup.</param>
+procedure BackupOriginalFile(const AFile: string; const ABackupDir: string; AKeep: Integer);
+var
+  F     : string ;
+  Key   : string ;
   Stamp : string ;
   Target: string ;
   n     : Integer;
@@ -497,6 +587,7 @@ begin
   begin
     Target:= NextSiblingBackupName(AFile);
     TFile.Copy(AFile, Target, True);
+    PruneBackups(AFile, ABackupDir, AKeep);
     Exit;
   end;
   if not TDirectory.Exists(ABackupDir) then
@@ -506,13 +597,28 @@ begin
   // Two inputs with the same basename in one second used to share this name
   // and the second Copy overwrote the first file's only backup. Never
   // overwrite: number the collision instead.
+  // Number above every backup of this file made in this second, not just the
+  // first free name: once BackupKeep pruned the unnumbered one, reusing its
+  // name would file the NEWEST backup as the oldest and prune it at once.
   n:= 1;
+  for F in TDirectory.GetFiles(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '*') do
+  begin
+    Key:= BackupSortKey(ExtractFileName(F), ExtractFileName(AFile), False);
+    if Key <> '' then
+      n:= Max(n, StrToIntDef(Copy(Key, Pos('|', Key) + 1, MaxInt), 1));
+  end;
+  if n > 1 then
+  begin
+    Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '-' + IntToStr(n + 1) + '.bak');
+    Inc(n);
+  end;
   while TFile.Exists(Target) do
   begin
     Inc(n);
     Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '-' + IntToStr(n) + '.bak');
   end;
   TFile.Copy(AFile, Target, False);
+  PruneBackups(AFile, ABackupDir, AKeep);
 end; // procedure
 
 // True when AArg names a source input rather than a folder: a .pas/.dpr/
@@ -808,7 +914,7 @@ begin
       if AOpts.Backup then
       begin
         LogMsg('    backup requested, BackupDir=' + AOpts.BackupDir);
-        BackupOriginalFile(AFile, AOpts.BackupDir);
+        BackupOriginalFile(AFile, AOpts.BackupDir, AOpts.BackupKeep);
       end
       else
         LogMsg('    backup off, writing in-place');
@@ -903,6 +1009,7 @@ begin
   WriteStdoutLine(Format('  --b                   backup; write <source>.BCKn next to source     [Backup=%s]', [OnOff (AOpts.Backup   )]));
   WriteStdoutLine(Format('  --b <folder>          backup; write timestamped .bak under <folder>   [%s]'      , [Quoted(AOpts.BackupDir)]));
   WriteStdoutLine(Format('  --no-b                skip backup                                    [Backup=%s]', [OnOff(AOpts.Backup)]));
+  WriteStdoutLine(Format('  --backup-keep N       keep only the newest N backups per file; 0 = all [%d]'      , [AOpts.BackupKeep]));
   WriteStdoutLine(''                                             );
   WriteStdoutLine('Encoding:'                                    );
   WriteStdoutLine(Format(
@@ -1130,12 +1237,13 @@ var
   end;
 
   // Every flag that only sets one option field: True when AArgs[i] was one.
-  function TableFlag: Boolean;  // dl:ok cyclomatic-complexity@7ecc -- each "or" is one row of the flag table, not a decision; splitting it would only bring back the repetition
+  function TableFlag: Boolean;  // dl:ok cyclomatic-complexity@e039 -- each "or" is one row of the flag table, not a decision; splitting it would only bring back the repetition
   begin
     Result:= IntFlag('--max-len', AOpts.MaxLen)  // dl:ok boolean-expression-complexity@89ee -- the expression IS the flag table, one row per line
       or IntFlag('--indent', AOpts.Indent)
       or IntFlag('--tab-width', AOpts.TabWidth)
       or IntFlag('--label-min-lines', AOpts.LabelMinLines)
+      or IntFlag('--backup-keep', AOpts.BackupKeep)
       or IntFlag('--max-blank-lines', AOpts.MaxBlankLines)
       or IntFlag('--blanks-before-section', AOpts.BlanksBeforeSection)
       or IntFlag('--blanks-before-method', AOpts.BlanksBeforeMethod)

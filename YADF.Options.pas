@@ -88,6 +88,7 @@ type
     Delphi10Compat       : Boolean      ;
     Backup               : Boolean      ;
     BackupDir            : string       ;
+    BackupKeep           : Integer      ;
     ResultDir            : string       ;
     Encoding             : TYadfEncoding;
     Logging              : Boolean      ;
@@ -934,6 +935,7 @@ begin
   Result.Delphi10Compat       := False;
   Result.Backup               := False;
   Result.BackupDir            := '';
+  Result.BackupKeep           := 0 ;
   Result.ResultDir            := '';
   Result.Encoding             := encANSI;
   Result.Logging              := False;
@@ -1206,7 +1208,9 @@ begin
       function(const O: TYadfOptions): Variant begin Result:= O.Backup end, procedure(var O: TYadfOptions; const V: Variant) begin O.Backup:= V end),
     MakeOpt('BackupDir', 'File & CLI (no preview effect)', 'Backup directory', 'Directory for backups (used when backup is on). Empty = next to the original file.', okString, False,
       function(const O: TYadfOptions): Variant begin Result:= O.BackupDir end, procedure(var O: TYadfOptions; const V: Variant) begin O.BackupDir:= VarToStr(V) end),
-    MakeOpt('ResultDir', 'File & CLI (no preview effect)', 'Result directory', 'Directory for formatted output. Empty = format in place.', okString, False,
+    MakeOpt('BackupKeep', 'File & CLI (no preview effect)', 'Backups to keep', 'How many backups of each file to keep (used when backup is on). After a run writes a backup, older YADF backups of that same file beyond the newest N are deleted. 0 = keep all.', okInt, False,
+      function(const O: TYadfOptions): Variant begin Result:= O.BackupKeep end, procedure(var O: TYadfOptions; const V: Variant) begin O.BackupKeep:= V end),
+    MakeOpt('ResultDir','File & CLI (no preview effect)', 'Result directory', 'Directory for formatted output. Empty = format in place.', okString, False,
       function(const O: TYadfOptions): Variant begin Result:= O.ResultDir end, procedure(var O: TYadfOptions; const V: Variant) begin O.ResultDir:= VarToStr(V) end),
     MakeOpt('Encoding', 'File & CLI (no preview effect)', 'Output encoding',
       'ANSI keeps each file''s own encoding; UTF-8/UTF-16 convert the output (with BOM).', okEnum, False, function(const O: TYadfOptions): Variant begin Result:= EncodingToStr(O.Encoding) end, procedure(var O: TYadfOptions; const V: Variant) begin O.Encoding:= ParseEncoding(VarToStr(V),
@@ -1227,7 +1231,7 @@ const
   MIN_MAX_LEN = 40;
   MAX_INDENT  = 16;
   // The ranges of the integer options, in warning order (REVIEW-2026-11-02 M3).
-  OPT_BOUNDS: array[0..10] of TOptBound = (
+  OPT_BOUNDS: array[0..11] of TOptBound = (
     (Ident: 'MaxLen'              ; Min: MIN_MAX_LEN; Max: MaxInt    ),
     (Ident: 'Indent'              ; Min: 0          ; Max: MAX_INDENT),
     (Ident: 'TabWidth'            ; Min: 1          ; Max: MAX_INDENT),
@@ -1238,7 +1242,8 @@ const
     (Ident: 'BlanksBeforeType'    ; Min: 0          ; Max: MaxInt    ),
     (Ident: 'AlignMaxColumn'      ; Min: 0          ; Max: MaxInt    ),
     (Ident: 'AlignShapeMinAnchors'; Min: 1          ; Max: MaxInt    ),
-    (Ident: 'AlignCommentMaxShift'; Min: 0          ; Max: MaxInt    ));
+    (Ident: 'AlignCommentMaxShift'; Min: 0          ; Max: MaxInt    ),
+    (Ident: 'BackupKeep'          ; Min: 0          ; Max: MaxInt    ));
 
 function OptionBounds(const AIdent: string; out AMin, AMax: Integer): Boolean;
 var

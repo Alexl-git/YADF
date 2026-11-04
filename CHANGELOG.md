@@ -8,6 +8,12 @@ predate the scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **`BackupKeep`** (INI `BackupKeep`, CLI `--backup-keep N`, Options page): keep only the newest N backups of each file; after a run writes a backup, older YADF-named backups of that same file are deleted. 0 (default) keeps all.
+
 ## [1.0.21.0] - 2026-11-03
 
 This release reworks the layout engine (one-run idempotence, two-way short

@@ -64,7 +64,7 @@ $ini0 = Join-Path $work 'default.ini'
 & $exe --ini $ini0 --stdout $sample *> $null
 $defaults = [ordered]@{}
 foreach ($l in [IO.File]::ReadAllLines($ini0)) { if ($l -match '^(\w+)\s*=\s*(.*)$') { $defaults[$Matches[1]] = $Matches[2].Trim() } }
-$noPreview = @('Backup', 'BackupDir', 'ResultDir', 'Encoding', 'Logging')
+$noPreview = @('Backup', 'BackupDir', 'BackupKeep', 'ResultDir', 'Encoding', 'Logging')
 
 function Split-Blocks([string]$text) {
   $blocks = [ordered]@{}
