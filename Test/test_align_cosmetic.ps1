@@ -30,6 +30,10 @@ if (Invoke-Yadf $src3 $ini $out3 @()) {
   MustNotMatch $txt '(?m)^(?!\s*//)[^/]*\S +[)\]]' 'no space before a closing ) or ] on a code line'
   MustMatch $txt "(?m)^  Writeln\('one'\);" "Writeln('one'); tight"
   MustMatch $txt '(?m)^  Foo\(1  , 2\);' 'Foo(1  , 2); keeps comma alignment, tight closer'
+  # Never a space between a callee and its `(` (P(); beside Writeln('x'); was `P      ();`).
+  MustNotMatch $txt '(?m)^(?!\s*//)[^/]*\w +\(' 'no space between an identifier and its ('
+  MustMatch $txt '(?m)^  P\(\);' 'P(); tight'
+  MustMatch $txt '(?m)^  Foo\(1, 2\);\r?\n  Gamma\(3, 4\);' 'different callees: no padding at the ( nor in the arguments'
   $out4 = New-TempOut
   if (Invoke-Yadf $out3 $ini $out4 @()) {
     if (-not (SameBytes $out3 $out4)) { Fail 'align_cosmetic: close-paren case not idempotent' }

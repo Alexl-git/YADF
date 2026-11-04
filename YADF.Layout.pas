@@ -3033,7 +3033,7 @@ begin
   Result:= if c > 0 then Length(TrimRight(Copy(ALine, 1, c - 1))) else Length(ALine);
 end; // function
 
-function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@7eba, cognitive-complexity@ceb4
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@766f, cognitive-complexity@c847
 var
   AnyOver  : Boolean                ;
   ColCols  : TArray<Integer>        ;
@@ -3196,6 +3196,34 @@ var
       Result[CommaCol[AIdx]]:= ',';
   end;
 
+  // True when anchor AK of the current run is a `(` that directly follows an
+  // identifier (a callee / indexer) on any line of the run (WorkLine/WorkCols,
+  // i..j-1): padding it would split the name from its argument list.
+  function AnyCalleeParen(AK: Integer): Boolean;
+  var
+    C : Integer;
+    LI: Integer;
+  begin
+    for LI:= 0 to (j - i) - 1 do
+    begin
+      C:= WorkCols[LI][AK];
+      if (C > 1) and (C - 1 <= Length(WorkLine[LI])) and CharInSet(WorkLine[LI][C - 1], ['A'..'Z', 'a'..'z', '0'..'9', '_']) then
+        Exit(True);
+    end;
+    Result:= False;
+  end;
+
+  // True when anchor AK sits at one column on every line of the current run.
+  function SameAnchorCol(AK: Integer): Boolean;
+  var
+    LI: Integer;
+  begin
+    for LI:= 1 to (j - i) - 1 do
+      if WorkCols[LI][AK] <> WorkCols[0][AK] then
+        Exit(False);
+    Result:= True;
+  end;
+
   function Eligible(AIdx: Integer): Boolean;
   var
     AInfo: TLineShape  ;
@@ -3335,6 +3363,16 @@ begin
             // end in `,`, not `;`: their closer column is part of the table and stays.
             if EndsWithSemi and ((Info[i].Shape[k] in [ptRoundClose, ptSquareClose]) or (k >= TailFrom)) then
               Continue;
+            // Never pad between a callee and its `(` (cosmetic, 2026-11-04):
+            // `P();` beside `Writeln('x');` became `P      ();`. Callees of
+            // different widths stop the run's alignment there: their arguments
+            // are different lists (`Foo(1  , 2)` beside `Gamma(3, 4)`).
+            if (Info[i].Shape[k] = ptRoundOpen) and AnyCalleeParen(k) then
+            begin
+              if not SameAnchorCol(k) then
+                Break;
+              Continue;
+            end;
             // A member `.` is an ordinary anchor (owner rule 2026-11-02, task 8b):
             // every line of a run has the identical skeleton, so it is padded
             // only where all lines carry it (`Eta  .Th:= 3` / `Omega.Th:= 4`).
