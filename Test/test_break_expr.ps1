@@ -461,5 +461,17 @@ MustMatch    $ol "(?m)^    - Length\('a'\)\r?\n    - Length\('bb'\)\r?$" 'operat
 MustNotMatch $ol "(?m)^      - Length" 'operator-led continuation: no staircase'
 if (-not (SameBytes $olO1 $olO2)) { Fail 'idempotent: operator-led continuation' }
 
+# A-L4 (review 2026-11-03): an author's break inside a nested call group is a
+# fixed point after ONE format, at every indent / MaxLen pairing that showed it.
+$ngIn = Join-Path $PSScriptRoot 'Cases\break_expr_nested_group.pas'
+foreach ($ng in @(@('4', '60'), @('8', '60'), @('8', '70'))) {
+  $ngO1 = Join-Path $tmpRoot "be_ng1_$($ng[0])_$($ng[1]).pas"
+  $ngO2 = Join-Path $tmpRoot "be_ng2_$($ng[0])_$($ng[1]).pas"
+  & $exe --ini $ini $ngIn --indent $ng[0] --max-len $ng[1] --o $ngO1 | Out-Null
+  & $exe --ini $ini $ngO1 --indent $ng[0] --max-len $ng[1] --o $ngO2 | Out-Null
+  MustNotMatch (Get-Content $ngO1 -Raw) "F\(F\(111\)\r?\n" "nested group (indent $($ng[0]), MaxLen $($ng[1])): F(F(111) + F(112)) not split"
+  if (-not (SameBytes $ngO1 $ngO2)) { Fail "idempotent: nested call group at indent $($ng[0]) MaxLen $($ng[1])" }
+}
+
 [IO.Directory]::Delete($tmpRoot, $true)
 Finish 'break_expr'

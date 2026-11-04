@@ -98,7 +98,9 @@ function Test-DccCompiles([string]$pasFile, [string]$incDir, [string]$dcuDir) {
 # the golden -Capture would bless its output uncompiled. Returns $false and
 # FAILS the suite for such a fixture (review 2026-10-18).
 function Test-UnitNameMatchesFile([string]$pasFile) {
-  $head = (Get-Content -LiteralPath $pasFile -TotalCount 40 -Encoding Latin1) -join "`n"
+  # .NET Latin-1 (28591), not Get-Content -Encoding Latin1: that value is pwsh 7+ only
+  # and threw under Windows PowerShell 5.1.
+  $head = ([IO.File]::ReadAllLines($pasFile, [Text.Encoding]::GetEncoding(28591)) | Select-Object -First 40) -join "`n"
   $m = [regex]::Match($head, '(?im)^\s*unit\s+([A-Za-z_][\w.]*)\s*;')
   if (-not $m.Success) { return $true }   # program / library / fragment: not subject
   $base = [IO.Path]::GetFileNameWithoutExtension($pasFile)

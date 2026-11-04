@@ -1,0 +1,24 @@
+program align_index_target;
+
+// AlignMatchingShapes on same-shape := lines with an indexed target
+// (owner rule 2026-11-04). At AlignShapeMinAnchors >= 3 (default) only the
+// := lines up, after the interior closer:
+//   A[1]  := 1;  A[22] := 2;  A[333]:= 3;
+// At AlignShapeMinAnchors <= 2 the target's closer is anchor 1 and := is
+// anchor 2, so the brackets line up too:
+//   A[1  ]:= 1;  A[22 ]:= 2;  A[333]:= 3;
+// A closer AFTER the := (the line tail) is never padded.
+
+var
+  A: array[0..400] of Integer;
+
+begin
+  A[1] := 1;
+  A[22] := 2;
+  A[333] := 3;
+
+  A[1] := A[1] + 1;
+  A[22] := A[22] + 1;
+  A[333] := A[333] + 1;
+  Writeln(A[1]);
+end.

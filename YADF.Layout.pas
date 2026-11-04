@@ -3033,7 +3033,7 @@ begin
   Result:= if c > 0 then Length(TrimRight(Copy(ALine, 1, c - 1))) else Length(ALine);
 end; // function
 
-function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@766f, cognitive-complexity@c847
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@9ed8, cognitive-complexity@53ce
 var
   AnyOver  : Boolean                ;
   ColCols  : TArray<Integer>        ;
@@ -3054,6 +3054,8 @@ var
   AllHaveCo: Boolean                ; // hoisted from inline vars in the comment-align block
   TailFrom : Integer                ; // first anchor of the closers-and-separators line tail
   EndsWithSemi: Boolean             ; // the run's lines end in `;` (statements, not grid rows)
+  AssignAt : Integer                ; // anchor index of the run's first `:=` (-1 = none)
+  TargetAnchor: Boolean             ; // anchor k is on the := target and is aligned (owner rule 2026-11-04)
   MaxCoCol : Integer                ;
   MaxShift : Integer                ;
   CommaCol : TArray<Integer>        ; // column of the leading `,` of a comma-first list line (0 = none)
@@ -3344,6 +3346,15 @@ begin
           while (TailFrom > 0) and ((Info[i].Shape[TailFrom - 1] in [ptRoundClose, ptSquareClose])
                  or ((Info[i].Shape[TailFrom - 1] in [ptSemiColon, ptComma]) and (TailFrom >= 2) and (Info[i].Shape[TailFrom - 2] in [ptRoundClose, ptSquareClose]))) do
             Dec(TailFrom);
+          // Anchor index of the run's first `:=` (-1 = none): anchors before it
+          // belong to the assignment target.
+          AssignAt:= -1;
+          for k:= 0 to High(Info[i].Shape) do
+            if Info[i].Shape[k] = ptAssign then
+            begin
+              AssignAt:= k;
+              Break;
+            end;
           for k:= 0 to Length(Info[i].Shape) - 1 do
           begin
             // Never align a line-terminal `;`. Padding to reach a
@@ -3361,7 +3372,12 @@ begin
             // `,` right after such a closer: padded alone it would float
             // (`Foo(1)   ;`). Rows of a grid-shaped const array (`(...; F: 'x'  ), // c`)
             // end in `,`, not `;`: their closer column is part of the table and stays.
-            if EndsWithSemi and ((Info[i].Shape[k] in [ptRoundClose, ptSquareClose]) or (k >= TailFrom)) then
+            // Exception (owner rule 2026-11-04): with AlignMatchingShapes on and
+            // AlignShapeMinAnchors <= 2, a closer of the := TARGET is an anchor of
+            // its own (`A[1  ]:= 1;` / `A[333]:= 3;`). At the default floor of 3
+            // only the := lines up (`A[1]  := 1;`).
+            TargetAnchor:= AMatchShapes and (AMinAnchors <= 2) and (k < AssignAt);
+            if EndsWithSemi and not TargetAnchor and ((Info[i].Shape[k] in [ptRoundClose, ptSquareClose]) or (k >= TailFrom)) then
               Continue;
             // Never pad between a callee and its `(` (cosmetic, 2026-11-04):
             // `P();` beside `Writeln('x');` became `P      ();`. Callees of
@@ -10194,7 +10210,9 @@ end; // function
 
 // One run of the pipeline; FormatSource below is the public entry. AUnsettled:
 // a bracket group was kept broken because it did not fit at its SOURCE column,
-// which can differ from the column the formatted line settles at.
+// which can differ from the column the formatted line settles at; or
+// BreakLongLines broke an over-long line (A-L4: a nested group it split may fit
+// on the settled line).
 function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string; out AUnsettled: Boolean): string;  // dl:ok cyclomatic-complexity@e512, method-too-long@9c1e -- the stage list reads top to bottom as the pipeline diagram
 var
   CurCol      : Integer       ;
@@ -10993,6 +11011,7 @@ var
     i     : Integer        ;
     Locked: TArray<Boolean>;
     Lvl   : Integer        ;
+    Orig  : string         ; // Lines.Text before any break (A-L4 re-run trigger)
 
     // True when ALine starts (after its indent) with a binary operator and a
     // space: a continuation line of an expression broken operator-leading.
@@ -11011,6 +11030,7 @@ var
     try
       Lines.LineBreak:= CRLF;
       Lines.Text     := ASrc;
+      Orig           := Lines.Text;
       Locked:= ComputeBlockCommentLock(Lines);
       for i:= 0 to Lines.Count - 1 do if (LineWidth(Lines[i]) > AOpts.MaxLen) and not Locked[i] then
         if AOpts.BreakLongExpressions then
@@ -11040,6 +11060,12 @@ var
           Lines[i]:= if Body <> Lines[i] then Body else BreakLineByOperators(Lines[i]);
         end;
       Result:= Lines.Text;
+      // A line broken here was measured at the column it had BEFORE this pass,
+      // but the walker decides a nested group (`F(F(111) + F(112))`) on that
+      // column too, so a group it split can fit once the line settles (review
+      // 2026-11-03 A-L4: pass 2 rejoined it). Let FormatSource run once more.
+      if Result <> Orig then
+        AUnsettled:= True;
     finally
       Lines.Free;
     end; // try
@@ -11396,23 +11422,36 @@ begin
   end; // try
 end; // function
 
-// FormatSource's one re-run. A bracket group the walker kept broken because it
+// FormatSource's settling re-runs. A bracket group the walker kept broken because it
 // did not fit at its SOURCE column (a variant-record arm field list, a single-item
 // group) is decided again on the formatted text, whose columns are the settled
 // ones -- else tab-indented input (each tab TabWidth columns) was not a fixed
-// point (TODO 2026-11-03). Runs only when such a group was seen and the text changed.
+// point (TODO 2026-11-03). Also after BreakLongLines broke a line (review 2026-11-03
+// A-L4): an author break inside a nested call group at --indent 8 --max-len 60 took
+// TWO more runs to settle (staircase, then `+ F(F(111)` / `+ F(112));`, then joined).
+// Re-runs only while a run reports unsettled AND changes the text, at most
+// SETTLE_MAX_RERUNS times; a declined re-run keeps the last accepted text.
 function FormatSourceSettled(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
+const
+  SETTLE_MAX_RERUNS = 3;
 var
   Again    : string ;
   Reason   : string ;
+  Run      : Integer;
   Unsettled: Boolean;
 begin
   Result:= FormatSourceOnce(ASource, AOpts, ADeclineReason, Unsettled);
   if (ADeclineReason <> '') or not Unsettled or (Result = ASource) then
     Exit;
-  Again:= FormatSourceOnce(Result, AOpts, Reason, Unsettled);
-  if Reason = '' then
+  for Run:= 1 to SETTLE_MAX_RERUNS do
+  begin
+    Again:= FormatSourceOnce(Result, AOpts, Reason, Unsettled);
+    if (Reason <> '') or (Again = Result) then
+      Exit;
     Result:= Again;
+    if not Unsettled then
+      Exit;
+  end; // for
 end; // function
 
 // ===== FormatSource =====
