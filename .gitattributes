@@ -1,0 +1,2 @@
+# help-site pages and index are generated LF (gen_help_site.ps1); keep them LF on checkout
+docs/help-site/** text eol=lf
