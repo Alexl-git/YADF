@@ -6899,7 +6899,7 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@7479, cyclomatic-complexity@84b4, cognitive-complexity@d62e, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@19e2, cyclomatic-complexity@6fd2, cognitive-complexity@1988, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
 const
   // Stack entry for a record's variant part (`case Tag: T of` at the record's
   // own paren level). `of` itself is never pushed, so the kind is free; the
@@ -7532,6 +7532,15 @@ begin
             begin
               // An anonymous method passed inside ()/[]: its begin goes to this line's level.
               AnonHdrPending:= True;
+              AnonHdrDepth  := CurLineDepth;
+            end
+            else if (ParensDepth = 0) and (T.Kind in [ptProcedure, ptFunction]) and (PrevNonKind = ptAssign) and not AnonHdrWrapped then
+            begin
+              // Review 2026-11-03 L5: `X:= procedure` on one line -- its begin/end at
+              // that line's level even when the line is a controlled statement
+              // (`if C then` / `P:= procedure`), not at the level of the if.
+              AnonHdrPending:= True;
+              AnonHdrWrapped:= True;
               AnonHdrDepth  := CurLineDepth;
             end
             else if (ParensDepth = 0) and (AngleDepth = 0) and (PrevNonKind not in [ptEqual, ptTo, ptColon]) and not AnonRoutineInStatement then

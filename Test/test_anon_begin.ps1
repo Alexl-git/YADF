@@ -64,4 +64,25 @@ foreach ($ind in 2, 4) {
   MustMatch $out ('(?m)^' + (' ' * $ind) + 'Writeln\(''after''\);') "[wrap indent$ind] statement after the methods back at the body column"
   MustMatch $out ('(?m)^' + (' ' * $ind) + 'P:= procedure\r?\n' + (' ' * $ind) + 'begin') "[wrap indent$ind] same-line header keeps begin at the statement column"
 }
+# Review 2026-11-03 L5: `if C then` / `P:= procedure` (header on the P:= line, the
+# line a controlled statement) -- begin/end at the header LINE's column, not the if's.
+$work = Join-Path $env:TEMP ('anonthen_' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $work | Out-Null
+$src3 = Join-Path $work 'anon_then.dpr'
+[IO.File]::WriteAllText($src3, "program anon_then;`r`n`r`nuses`r`n  System.SysUtils;`r`n`r`nvar`r`n  P: TProc;`r`n  Flag: Boolean;`r`nbegin`r`n  Flag:= ParamCount > 5;`r`n" +
+  "  if Flag then`r`n    P:= procedure`r`n    begin`r`n      Writeln('then 1');`r`n      Writeln('then 2');`r`n    end`r`n  else`r`n    P:= nil;`r`n" +
+  "  if not Flag then`r`n  begin`r`n    if ParamCount = 0 then`r`n      P:= procedure`r`n      begin`r`n        Writeln('nested 1');`r`n        Writeln('nested 2');`r`n      end;`r`n  end;`r`n  P();`r`nend.`r`n")
+foreach ($ind in 2, 4) {
+  $o1 = Join-Path $work "o$ind.dpr"; $o2 = Join-Path $work "p$ind.dpr"
+  & $exe --ini $ini --indent $ind $src3 --o $o1 *> $null
+  if ($LASTEXITCODE -ne 0) { Fail "[then indent$ind] exit $LASTEXITCODE"; continue }
+  & $exe --ini $ini --indent $ind $o1 --o $o2 *> $null
+  if (-not (SameBytes $o1 $o2)) { Fail "[then indent$ind] not idempotent" }
+  $out = [IO.File]::ReadAllText($o1)
+  $h = ' ' * (2 * $ind); $b = ' ' * (3 * $ind)
+  MustMatch $out ("(?m)^$h" + "P:= procedure\r?\n$h" + "begin\r?\n$b" + "Writeln\('then 1'\);\r?\n$b" + "Writeln\('then 2'\);\r?\n$h" + "end\r?\n" + (' ' * $ind) + 'else\r?$') "[then indent$ind] then-branch begin/end at the P:= line"
+  $h = ' ' * (3 * $ind); $b = ' ' * (4 * $ind)
+  MustMatch $out ("(?m)^$h" + "P:= procedure\r?\n$h" + "begin\r?\n$b" + "Writeln\('nested 1'\);\r?\n$b" + "Writeln\('nested 2'\);\r?\n$h" + "end;\r?\n" + (' ' * (1 * $ind)) + 'end;') "[then indent$ind] nested then-branch begin/end at the P:= line"
+}
+[IO.Directory]::Delete($work, $true)
 Finish 'anon_begin'
