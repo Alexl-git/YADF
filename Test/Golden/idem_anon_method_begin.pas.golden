@@ -38,11 +38,11 @@ begin
     Writeln('a very long string literal number zero that pads the line out a lot');
   end;
   P:=
-  procedure
-  begin
-    Writeln('a very long string literal number zero that pads the line out a lot');
-    Writeln('a very long string literal number zero that pads the line out a lot');
-  end;
+    procedure
+    begin
+      Writeln('a very long string literal number zero that pads the line out a lot');
+      Writeln('a very long string literal number zero that pads the line out a lot');
+    end;
   Run(procedure
   begin
     Writeln('a very long string literal number one that pads the line out a lot');

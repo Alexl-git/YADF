@@ -6884,7 +6884,7 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@6871, cyclomatic-complexity@7d9c, cognitive-complexity@0fc5, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@7479, cyclomatic-complexity@84b4, cognitive-complexity@d62e, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
 const
   // Stack entry for a record's variant part (`case Tag: T of` at the record's
   // own paren level). `of` itself is never pushed, so the kind is free; the
@@ -6921,6 +6921,7 @@ var
   Tokens            : TTokenList         ;
   CurLineDepth      : Integer            ; // indent level the current line got (or keeps, for a verbatim line)
   AnonHdrPending    : Boolean            ; // an anonymous method header read inside ()/[] waits for its begin
+  AnonHdrWrapped    : Boolean            ; // ... or one wrapped onto its own line after `X:=` (bracket depth 0)
   AnonHdrDepth      : Integer            ; // ... and the level of the line that holds that header
   AnonAt            : TList<Integer>     ; // Stack.Count right after each open anonymous-method begin inside ()/[]
   AnonSaved         : TList<Integer>     ; // per AnonAt entry: ParensDepth, PendingCtrl (two entries each)
@@ -7261,6 +7262,7 @@ begin
     try
       CurLineDepth      := 0;
       AnonHdrPending    := False;
+      AnonHdrWrapped    := False;
       AnonHdrDepth      := 0;
       LineNo            := 0;
       PrevNonKind       := ptUnknown;
@@ -7453,8 +7455,18 @@ begin
           // Owner rule (2026-11-03): the begin of an anonymous method inside a call
           // sits at the level of its header LINE (`Run(procedure` / `begin`), as it
           // does for `X:= procedure` -- not one level in for the open bracket.
-          if (T.Kind = ptBegin) and AnonHdrPending and (ParensDepth > 0) then
+          if (T.Kind = ptBegin) and AnonHdrPending and ((ParensDepth > 0) or AnonHdrWrapped) then
             EffectiveDepth:= AnonHdrDepth;
+          // Owner decision (2026-11-03): an anonymous method header wrapped onto
+          // its own line after `X:=` continues the assignment one level in; its
+          // begin/end follow that header line (PushAnonBegin), the body one more in.
+          if (T.Kind in [ptProcedure, ptFunction]) and (ParensDepth = 0) and (PrevNonKind = ptAssign) then
+          begin
+            Inc(EffectiveDepth);
+            AnonHdrPending:= True;
+            AnonHdrWrapped:= True;
+            AnonHdrDepth  := EffectiveDepth;
+          end;
           CurLineDepth:= EffectiveDepth;
           if CommaLeadLine then
             OutVal.Append(StringOfChar(' ', Max(0, EffectiveDepth * AIndent - Length(', '))))
@@ -7548,11 +7560,12 @@ begin
             begin
               if (not InClassOrRecord) then
                 CloseSectionIfOpen;
-              if AnonHdrPending and (ParensDepth > 0) then
+              if AnonHdrPending and ((ParensDepth > 0) or AnonHdrWrapped) then
                 PushAnonBegin
               else
                 StackPushBegin;
               AnonHdrPending:= False;
+              AnonHdrWrapped:= False;
               InVisibility  := False;
             end;
             ptAsm:
