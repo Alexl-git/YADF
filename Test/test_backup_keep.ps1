@@ -67,8 +67,8 @@ if ($theirs.Count -ne 3) { Fail "N=2 dir: alien.pas backups touched ($($theirs.C
 # 4. INI key BackupKeep=1; the CLI flag wins over the INI
 $ini2 = Join-Path $root 'k.ini'
 $text = [IO.File]::ReadAllText($ini)
-if ($text -match '(?im)^BackupKeep\s*=') { $text = $text -replace '(?im)^BackupKeep\s*=.*$', 'BackupKeep=1' }
-else { $text = $text -replace '(?im)^\[Format\]\s*$', "[Format]`r`nBackupKeep=1" }
+if ($text -notmatch '(?im)^BackupKeep\s*=') { Fail 'repo yadf.ini has no BackupKeep key' }
+$text = $text -replace '(?im)^BackupKeep\s*=.*$', 'BackupKeep=1'
 [IO.File]::WriteAllText($ini2, $text, [Text.Encoding]::ASCII)
 $d = Join-Path $root 'ini'; New-Item -ItemType Directory $d | Out-Null
 $f = Join-Path $d 'same.pas'
@@ -88,6 +88,34 @@ foreach ($n in 1..3) { Set-Content "$f.BCK$n" "pre$n" }
 Write-Ugly $f 'run1'
 & $exe --ini $ini --backup-keep 1 $f | Out-Null
 if (@(Get-ChildItem $d -Filter 'same.pas.BCK*').Count -ne 3) { Fail 'no --b: existing backups were pruned' }
+
+# 6. H1: two SAME-NAMED files from different folders sharing one backup folder
+#    (A\Unit1.pas, B\Unit1.pas), keep=1: each keeps its OWN newest backup, and an
+#    old-format (hash-less) name is never a candidate.
+$d6 = Join-Path $root 'twin'; $bak6 = Join-Path $d6 'bak'
+New-Item -ItemType Directory (Join-Path $d6 'A') -Force | Out-Null
+New-Item -ItemType Directory (Join-Path $d6 'B') -Force | Out-Null
+New-Item -ItemType Directory $bak6 -Force | Out-Null
+$legacy = Join-Path $bak6 'Unit1.pas.20200101-000000.bak'
+Set-Content $legacy 'legacy'
+foreach ($i in 1..2) {
+  Write-Ugly (Join-Path $d6 'A\Unit1.pas') "run$($i)A"
+  Write-Ugly (Join-Path $d6 'B\Unit1.pas') "run$($i)B"
+  & $exe --ini $ini --b $bak6 --backup-keep 1 (Join-Path $d6 'A\Unit1.pas') (Join-Path $d6 'B\Unit1.pas') | Out-Null
+  if ($LASTEXITCODE -ne 0) { Fail "twin: exit $LASTEXITCODE" }
+}
+$tw = @(Get-ChildItem $bak6 -Filter 'Unit1.pas.*.bak' | Where-Object { $_.Name -ne 'Unit1.pas.20200101-000000.bak' })
+if ($tw.Count -ne 2) { Fail "twin: expected 2 backups (one per folder), found $($tw.Count)" }
+$ct = ($tw | ForEach-Object { Get-Content $_.FullName -Raw }) -join ' '
+if (($ct -notmatch 'run2A') -or ($ct -notmatch 'run2B')) { Fail "twin: newest backups of A and B not both kept: $ct" }
+if (-not (Test-Path $legacy)) { Fail 'twin: old-format backup was deleted' }
+
+# 7. L3: only names YADF writes are candidates (no leading zeros)
+$d = Join-Path $root 'zeros'; New-Item -ItemType Directory $d | Out-Null
+$f = Join-Path $d 'same.pas'
+Set-Content (Join-Path $d 'same.pas.BCK01') 'decoy'
+Run-Many $f 2 @('--b', '--backup-keep', '1')
+if (-not (Test-Path (Join-Path $d 'same.pas.BCK01'))) { Fail 'BCK01 decoy was pruned' }
 
 [IO.Directory]::Delete($root, $true)
 Finish 'backup_keep'

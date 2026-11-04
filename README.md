@@ -287,7 +287,7 @@ yadf MyUnit.pas --b
 
 In-place format with a sibling backup `MyUnit.pas.BCK1` (then `BCK2`, `BCK3`,
 ...) next to the source. To send backups to a central folder with timestamped
-`.bak` names instead, give `--b` a folder argument:
+`.bak` names (`MyUnit.pas.<folder hash>.<stamp>.bak`) instead, give `--b` a folder argument:
 
 ```cmd
 yadf MyUnit.pas --b D:\YADF-backups
@@ -370,7 +370,7 @@ values pulled from `yadf.ini`.
 - Backups are opt-in: in-place formatting overwrites the source unless
   you set `Backup=true` in `yadf.ini` or pass `--b` on the command line.
   When backups are on, they go to a sibling `<source>.BCK<N>` (default)
-  or to a folder you specify with `--b <folder>` (timestamped `.bak`).
+  or to a folder you specify with `--b <folder>` (`<name>.<folder hash>.<yyyymmdd-hhnnss>.bak`; the hash identifies the source folder, so same-named files from different folders keep separate backups).
 - Trailing whitespace stripped on every line
 - Consecutive blank lines collapsed to a configurable cap (default 1)
 - Optional blank-line insertion before sections, methods, type sections
@@ -440,7 +440,7 @@ fully-commented `%APPDATA%\YADF\yadf.ini` and pins `F=yadf.ini`. Edit it from
 **YADFSetup** or in-IDE via **Tools ??? Options ??? Third Party ??? YADF**. CLI
 flags override INI values; INI values override compiled-in defaults (`--no-ini`: CLI flags override defaults).
 
-**Short bodies.** `PackShortBodies` (CLI `--pack-bodies`, default off) is a preset over four independent rules (`BreakIfBody`, `BreakLoopBody`, `BreakWithBody` = false, `CaseArmOnLabelLine` = true), shown together in the Options page group *Short bodies*. A rule you set explicitly is kept over the preset within the same source (INI or CLI); the CLI beats the INI. See `docs/help-site/options/pack-short-bodies.md`.
+**Short bodies.** `PackShortBodies` (CLI `--pack-bodies`, default off) is a preset over four independent rules (`BreakIfBody`, `BreakLoopBody`, `BreakWithBody` = false, `CaseArmOnLabelLine` = true), shown together in the Options page group *Short bodies*. A rule you set explicitly is kept over the preset within the same source (INI or CLI); the CLI beats the INI. `--no-pack-bodies` only clears the Pack flag: rules an INI sets explicitly keep their values, and an INI saved by YADF (Options page, YADFSetup) names all four, so with such an INI change them with the `--break-*` / `--case-arm-on-label` switches. See `docs/help-site/options/pack-short-bodies.md`.
 
 YADFOT (IDE wizard) reads the same `[Format]` keys with a different search
 order ??? see [YADFOT install](#yadfot-install) above.

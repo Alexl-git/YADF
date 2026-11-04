@@ -1,7 +1,7 @@
 ---
 id: pack-short-bodies
 title: Pack short bodies onto their header line
-summary: Preset for the four rules above: if/loop/with bodies are joined onto their header line when they fit, and a one-statement case arm goes on its label line. Each of the four stays its own rule: change one after checking Pack and that choice is kept (shown below the rules). Off by default.
+summary: Preset for the four rules above: if/loop/with bodies are joined onto their header line when they fit, and a one-statement case arm goes on its label line. Each of the four stays its own rule: change one after checking Pack and that choice is kept (shown below the rules). Off by default. On the command line --no-pack-bodies only clears this flag: rules the INI names (every YADF-saved INI names all four) keep their values.
 group: short-bodies
 order: 50
 default: "false"
@@ -21,7 +21,7 @@ A one-click preset. Checking it sets four independent rules at once:
 - [Break with body onto its own line](break-with-body.md) = off
 - [One-statement case arm on its label line](case-arm-on-label-line.md) = on
 
-The result: short if / for / while / with bodies are joined onto their header line when they fit the max length (`with R do Clear;`), and a one-statement case arm sits on its label line. Off by default. Saved in the INI as `PackShortBodies`; CLI: `--pack-bodies` (preset on), `--no-pack-bodies` (preset off).
+The result: short if / for / while / with bodies are joined onto their header line when they fit the max length (`with R do Clear;`), and a one-statement case arm sits on its label line. Off by default. Saved in the INI as `PackShortBodies`; CLI: `--pack-bodies` (preset on), `--no-pack-bodies` (clears the Pack flag and the preset; explicitly set rules keep their values).
 
 The four rules stay separate options. Pack does not lock them: you can still change any of them, and a rule you set yourself is respected over the preset.
 
@@ -52,7 +52,7 @@ Settings are applied in layers; the order of keys or switches inside one layer n
 2. The INI file (skipped entirely with `--no-ini`). If it has `PackShortBodies = true`, the preset is applied, then every one of the four rules the INI sets explicitly (key present) is put back to the INI's value.
 3. The command line. If `--pack-bodies` is given (and no `--no-pack-bodies`), the preset is applied over layers 1 and 2, then every one of the four rules set by an explicit switch (`--break-if` / `--no-break-if`, `--break-loop` / `--no-break-loop`, `--break-with` / `--no-break-with`, `--case-arm-on-label` / `--no-case-arm-on-label`) is put back.
 
-So: the command line beats the INI, and inside one layer an explicit rule beats the preset. `--no-pack-bodies` cancels the preset in both layers. `--no-ini` skips the INI layer completely (it cannot be combined with `--ini`).
+So: the command line beats the INI, and inside one layer an explicit rule beats the preset. `--no-pack-bodies` cancels the preset in both layers, but only for rules that are not set explicitly: a rule key the INI names keeps its value, and an INI saved by YADF (Options page, YADFSetup) names all four, so with such an INI use the `--break-*` / `--case-arm-on-label` switches (example 8 applies to an INI with only `PackShortBodies`). `--no-ini` skips the INI layer completely (it cannot be combined with `--ini`).
 
 Source used below: `if Ok then Run; for I:= 0 to 9 do Inc(N); with R do Clear;`
 
@@ -65,7 +65,7 @@ Source used below: `if Ok then Run; for I:= 0 to 9 do Inc(N); with R do Clear;`
 | 5 | nothing | `--no-case-arm-on-label --pack-bodies` | joined | joined | joined | under label |
 | 6 | any | `--pack-bodies --no-pack-bodies` (either order) | INI / default values | | | |
 | 7 | `PackShortBodies = true` + `BreakIfBody = true` | nothing | broken (INI key beats INI preset) | joined | joined | on label |
-| 8 | `PackShortBodies = true` | `--no-pack-bodies` | defaults (broken) | | | |
+| 8 | `PackShortBodies = true` (no rule keys) | `--no-pack-bodies` | defaults (broken) | | | |
 | 9 | anything | `--no-ini --pack-bodies` | joined | joined | joined | on label (INI not read) |
 
 Example 4 matters: an INI saved by YADF lists all four keys, so on its own it never changes under Pack -- but `--pack-bodies` on the command line still wins over it.

@@ -35,6 +35,21 @@ try {
   $out = & $exe --ini $ini --indent -3 --stdout $src 2>&1 | Out-String
   MustMatch $out '(?i)warning.*Indent' '--indent -3 warns that it was clamped'
 
+  # ----- non-numeric value of an integer flag: clean usage error, exit 2, no RTL text -----
+  foreach ($fl in @('--backup-keep', '--max-len', '--indent')) {
+    $out = & $exe --no-ini $fl abc $src 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 2) { Fail "$fl abc: expected exit 2, got $LASTEXITCODE" }
+    MustMatch $out "(?i)$fl requires a number" "$fl abc message"
+    if ($out -match 'EConvertError') { Fail "$fl abc leaks the RTL exception" }
+  }
+  # ----- help wins over the --ini/--no-ini conflict, and --no-ini --help works -----
+  $out = & $exe --ini $ini --no-ini --help 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0) { Fail "--ini --no-ini --help: expected exit 0, got $LASTEXITCODE" }
+  MustMatch $out '(?m)^Usage' '--ini --no-ini --help prints help'
+  $out = & $exe --no-ini --help 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0) { Fail "--no-ini --help: expected exit 0, got $LASTEXITCODE" }
+  MustMatch $out '(?m)^Usage' '--no-ini --help prints help'
+
   # ----- typo'd value flag: same treatment, value arg not eaten as a file -----
   $out = & $exe --ini $ini --max-length 100 $src 2>&1 | Out-String
   if ($LASTEXITCODE -eq 0) { Fail "typo-flag exit: expected nonzero, got 0" }

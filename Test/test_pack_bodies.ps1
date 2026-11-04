@@ -147,6 +147,10 @@ LyExpect '#6 INI arm=false + both'                       (Ly $lyPackArm @('--no-
 LyExpect '#7 INI Pack + BreakIfBody=true'                (Ly $lyPackIf @())                                            'BJJJ'
 LyExpect '#7b INI Pack + CaseArmOnLabelLine=false'       (Ly $lyPackArm @())                                           'JJJB'
 LyExpect '#8 INI Pack + --no-pack-bodies'                (Ly $lyPack @('--no-pack-bodies'))                            'BBBJ'
+# L2 (review 2026-11-03): an EMPTY or unparsable rule key is not an explicit choice,
+# so the Pack preset still applies to that rule (if joined, not pinned to the default).
+$lyEmpty = LyIni "PackShortBodies=true`r`nBreakIfBody=`r`nBreakLoopBody=maybe`r`n"
+LyExpect '#L2 INI Pack + empty/garbage rule keys'        (Ly $lyEmpty @())                                             'JJJJ'
 LyExpect '#9 --no-ini --pack-bodies'                     (Ly '' @('--no-ini', '--pack-bodies'))                        'JJJJ'
 # --no-ini = compiled-in defaults + CLI switches: the same bytes as an empty INI.
 if ((Ly '' @('--no-ini')) -ne (Ly $lyBare @())) { Fail 'layers #9: --no-ini output differs from an empty INI (defaults)' }

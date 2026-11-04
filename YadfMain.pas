@@ -479,13 +479,17 @@ const
 
 /// <summary>The sort key of AName when it is a backup YADF itself names for the
 /// file ABase, else ''. Sibling form: ABase.BCKn (key = n). Folder form:
-/// ABase.yyyymmdd-hhnnss[-n].bak (key = stamp + collision number).</summary>
+/// ABase.yyyymmdd-hhnnss[-n].bak (key = stamp + collision number), where ABase is
+/// the folder-form base from FolderBackupBase (file name + source-folder hash).</summary>
 /// <param name="AName">A file name (no path) found in the backup location.</param>
 /// <param name="ABase">The file name (no path) whose backups are wanted.</param>
 /// <param name="ASibling">True for the ABase.BCKn form, False for the .bak form.</param>
 /// <returns>A key that sorts oldest-first as plain text, or '' for any other name.</returns>
 /// <remarks>The match is anchored and ABase is escaped, so a different file's
-/// backups (xABase..., ABase2...) can never match.</remarks>
+/// backups (xABase..., ABase2...) can never match. Only names YADF writes match:
+/// numbers have no leading zero and a collision number is 2 or more. An
+/// old-format folder name (no folder hash) matches no ABase, so its owner is
+/// ambiguous and it is never a candidate.</remarks>
 function BackupSortKey(const AName, ABase: string; ASibling: Boolean): string;
 var
   M: TMatch;
@@ -493,17 +497,43 @@ begin
   Result:= '';
   if ASibling then
   begin
-    M:= TRegEx.Match(AName, '^' + TRegEx.Escape(ABase) + '\.BCK(\d+)$', [roIgnoreCase]);
+    M:= TRegEx.Match(AName, '^' + TRegEx.Escape(ABase) + '\.BCK([1-9]\d*)$', [roIgnoreCase]);
     if M.Success then
       Result:= M.Groups[1].Value.PadLeft(BACKUP_KEY_WIDTH, '0');
   end
   else
   begin
-    M:= TRegEx.Match(AName, '^' + TRegEx.Escape(ABase) + '\.(\d{8}-\d{6})(?:-(\d+))?\.bak$', [roIgnoreCase]);
+    M:= TRegEx.Match(AName, '^' + TRegEx.Escape(ABase) + '\.(\d{8}-\d{6})(?:-([2-9]|[1-9]\d+))?\.bak$', [roIgnoreCase]);
     if M.Success then
       Result:= M.Groups[1].Value + '|' + (if (M.Groups.Count > 2) and (M.Groups[2].Value <> '') then M.Groups[2].Value else '1').PadLeft(BACKUP_KEY_WIDTH, '0');
   end;
 end; // function
+
+/// <summary>The base name of AFile's backups in a backup folder: the file name,
+/// then 8 hex digits identifying the source folder, so same-named files from
+/// different folders never share backups.</summary>
+/// <param name="AFile">The source file.</param>
+/// <returns>name.hhhhhhhh, e.g. Unit1.pas.1A2B3C4D.</returns>
+/// <remarks>The hash is FNV-1a over the upper-cased full source folder path
+/// without a trailing separator; stable across runs and case-insensitive like
+/// the file system.</remarks>
+function FolderBackupBase(const AFile: string): string;
+const
+  FNV_OFFSET: UInt64  = $811C9DC5;
+  FNV_PRIME : UInt64  = $01000193;
+  FNV_MASK  : UInt64  = $FFFFFFFF;
+  HASH_DIGITS         = 8;
+var
+  C: Char;
+  H: UInt64;
+  S: string;
+begin
+  S:= UpperCase(ExcludeTrailingPathDelimiter(ExtractFilePath(TPath.GetFullPath(AFile))));
+  H:= FNV_OFFSET;
+  for C in S do
+    H:= ((H xor Ord(C)) * FNV_PRIME) and FNV_MASK;
+  Result:= ExtractFileName(AFile) + '.' + IntToHex(H, HASH_DIGITS);
+end;
 
 function NextSiblingBackupName(const AFile: string): string;
 var
@@ -534,7 +564,9 @@ end;
 /// <param name="ABackupDir">The backup folder; empty = the siblings next to AFile.</param>
 /// <param name="AKeep">How many backups to keep; 0 or less keeps all.</param>
 /// <remarks>Only names BackupOriginalFile itself generates for this exact file
-/// are candidates (see BackupSortKey). A backup that cannot be deleted is logged
+/// (same name AND same source folder, see FolderBackupBase) are candidates
+/// (see BackupSortKey). Old-format folder names without a folder hash are left
+/// alone. A backup that cannot be deleted is logged
 /// and left; it never fails the run.</remarks>
 procedure PruneBackups(const AFile, ABackupDir: string; AKeep: Integer);
 var
@@ -547,7 +579,7 @@ var
 begin
   if AKeep <= 0 then
     Exit;
-  Base:= ExtractFileName(AFile);
+  Base:= if Trim(ABackupDir) = '' then ExtractFileName(AFile) else FolderBackupBase(AFile);
   Dir:= if Trim(ABackupDir) = '' then ExtractFilePath(AFile) else ABackupDir;
   Found:= TStringList.Create;
   try
@@ -570,13 +602,14 @@ begin
     Found.Free;
   end;
 end; // procedure
-/// <summary>Copies AFile to a new backup (sibling .BCKn, or a timestamped .bak in
-/// ABackupDir), then prunes this file's older backups beyond the newest AKeep.</summary>
+/// <summary>Copies AFile to a new backup (sibling .BCKn, or name.folderhash.stamp.bak
+/// in ABackupDir, unique per source folder), then prunes this file's older backups beyond the newest AKeep.</summary>
 /// <param name="AFile">The file about to be overwritten.</param>
 /// <param name="ABackupDir">Backup folder; empty = next to AFile.</param>
 /// <param name="AKeep">BackupKeep option; 0 keeps every backup.</param>
 procedure BackupOriginalFile(const AFile: string; const ABackupDir: string; AKeep: Integer);
 var
+  Base  : string ;
   F     : string ;
   Key   : string ;
   Stamp : string ;
@@ -592,8 +625,9 @@ begin
   end;
   if not TDirectory.Exists(ABackupDir) then
     TDirectory.CreateDirectory(ABackupDir);
+  Base:= FolderBackupBase(AFile);
   Stamp:= FormatDateTime('yyyymmdd-hhnnss', Now);
-  Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '.bak');
+  Target:= TPath.Combine(ABackupDir, Base + '.' + Stamp + '.bak');
   // Two inputs with the same basename in one second used to share this name
   // and the second Copy overwrote the first file's only backup. Never
   // overwrite: number the collision instead.
@@ -601,21 +635,21 @@ begin
   // first free name: once BackupKeep pruned the unnumbered one, reusing its
   // name would file the NEWEST backup as the oldest and prune it at once.
   n:= 1;
-  for F in TDirectory.GetFiles(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '*') do
+  for F in TDirectory.GetFiles(ABackupDir, Base + '.' + Stamp + '*') do
   begin
-    Key:= BackupSortKey(ExtractFileName(F), ExtractFileName(AFile), False);
+    Key:= BackupSortKey(ExtractFileName(F), Base, False);
     if Key <> '' then
       n:= Max(n, StrToIntDef(Copy(Key, Pos('|', Key) + 1, MaxInt), 1));
   end;
   if n > 1 then
   begin
-    Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '-' + IntToStr(n + 1) + '.bak');
+    Target:= TPath.Combine(ABackupDir, Base + '.' + Stamp + '-' + IntToStr(n + 1) + '.bak');
     Inc(n);
   end;
   while TFile.Exists(Target) do
   begin
     Inc(n);
-    Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '-' + IntToStr(n) + '.bak');
+    Target:= TPath.Combine(ABackupDir, Base + '.' + Stamp + '-' + IntToStr(n) + '.bak');
   end;
   TFile.Copy(AFile, Target, False);
   PruneBackups(AFile, ABackupDir, AKeep);
@@ -1009,7 +1043,7 @@ begin
   WriteStdoutLine(Format('  --b                   backup; write <source>.BCKn next to source     [Backup=%s]', [OnOff (AOpts.Backup   )]));
   WriteStdoutLine(Format('  --b <folder>          backup; write timestamped .bak under <folder>   [%s]'      , [Quoted(AOpts.BackupDir)]));
   WriteStdoutLine(Format('  --no-b                skip backup                                    [Backup=%s]', [OnOff(AOpts.Backup)]));
-  WriteStdoutLine(Format('  --backup-keep N       keep only the newest N backups per file; 0 = all [%d]'      , [AOpts.BackupKeep]));
+  WriteStdoutLine(Format('  --backup-keep N       keep the newest N backups per file; 0 = all        [%d]'      , [AOpts.BackupKeep]));
   WriteStdoutLine(''                                             );
   WriteStdoutLine('Encoding:'                                    );
   WriteStdoutLine(Format(
@@ -1038,9 +1072,11 @@ begin
   WriteStdoutLine(Format('  --no-break-with       join a short with body onto the do line         [with=%s]', [OnOff(AOpts.BreakWithBody)]));
   WriteStdoutLine(Format('  --break-if            break if then/else body onto its own line          [if=%s]', [OnOff(AOpts.BreakIfBody)]));
   WriteStdoutLine(Format('  --no-break-if         one-line if when it fits (if C then A else B;)  [if=%s]', [OnOff(AOpts.BreakIfBody)]));
-  WriteStdoutLine(Format('  --pack-bodies         preset: --no-break-if/-loop/-with + --case-arm-on-label;  [PackShortBodies=%s]', [OnOff(AOpts.PackShortBodies)]));
+  WriteStdoutLine(Format('  --pack-bodies         preset: no-break-if/-loop/-with + case-arm-on-label[PackShortBodies=%s]', [OnOff(AOpts.PackShortBodies)]));
   WriteStdoutLine('                          an explicit switch for one of those four wins (any order); beats the INI');
-  WriteStdoutLine('  --no-pack-bodies      cancel the preset (--pack-bodies and an INI PackShortBodies=true)');
+  WriteStdoutLine(Format('  --no-pack-bodies      clear the Pack flag (drops the preset; see below)  [PackShortBodies=%s]', [OnOff(AOpts.PackShortBodies)]));
+  WriteStdoutLine('                          (rules the INI sets explicitly keep their values - an INI saved by YADF');
+  WriteStdoutLine('                           sets all four; change them with --break-if/-loop/-with, --no-case-arm-on-label)');
   WriteStdoutLine(Format('  --begin-on-header     begin on the then/do/else/label line (then begin) [begin=%s]', [OnOff(AOpts.BeginOnHeaderLine)]));
   WriteStdoutLine(Format('  --no-begin-on-header  begin on its own line; end / else / begin apart [begin=%s]', [OnOff(AOpts.BeginOnHeaderLine)]));
   WriteStdoutLine(Format('  --pack-statements     pack adjacent plain statements on one line     [pack=%s]', [OnOff(AOpts.PackStatements)]));
@@ -1149,17 +1185,21 @@ var
   i       : Integer      ;
   NoIni   : Boolean      ;
   HasIni  : Boolean      ;
+  HelpSeen: Boolean      ;
 begin
   // --no-ini (SPEC-2026-11-03): no INI is read and none is created -- not even
   // the F profile's, so DefaultIniPath (which materialises it) must not run.
   NoIni := False;
   HasIni:= False;
+  HelpSeen:= False;
   for i:= 0 to High(AArgs) do
-    if AArgs[i] = '--no-ini' then
+    if IsHelpArg(AArgs[i]) then
+      HelpSeen:= True
+    else if AArgs[i] = '--no-ini' then
       NoIni:= True
     else if AArgs[i] = '--ini' then
       HasIni:= True;
-  if NoIni and HasIni then
+  if NoIni and HasIni and not HelpSeen then
     raise EYadfUsage.Create('--ini and --no-ini cannot be combined');
   Result:= if NoIni then '' else DefaultIniPath;
   Filtered:= TList<string>.Create;
@@ -1230,10 +1270,16 @@ var
 
   // AArgs[i] is AName: reads the integer after it into AField.
   function IntFlag(const AName: string; var AField: Integer): Boolean;
+  var
+    V: string;
   begin
     Result:= AArgs[i] = AName;
     if Result then
-      AField:= StrToInt(NextValue(AName + ' requires a value'));
+    begin
+      V:= NextValue(AName + ' requires a value');
+      if not TryStrToInt(V, AField) then
+        raise EYadfUsage.Create(AName + ' requires a number, got ''' + V + '''');
+    end;
   end;
 
   // Every flag that only sets one option field: True when AArgs[i] was one.

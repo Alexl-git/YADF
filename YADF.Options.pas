@@ -1140,7 +1140,7 @@ begin
     MakeOpt('BreakLoopBody', 'Short bodies', 'Break loop body onto its own line', 'On: the body of a for/while loop goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakLoopBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakLoopBody:= V end),
     MakeOpt('BreakWithBody', 'Short bodies', 'Break with body onto its own line', 'On: the body of a with..do goes on its own indented line. Off: a short simple body is joined onto the do line when it fits the max length.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakWithBody end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakWithBody:= V end),
     MakeOpt('CaseArmOnLabelLine', 'Short bodies', 'One-statement case arm on its label line', 'Put a case arm whose body is one short simple statement on its label line ("0: DoZero;"), the case else part included ("else DoOther;"); off = the statement goes on its own line under the label.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.CaseArmOnLabelLine end, procedure(var O: TYadfOptions; const V: Variant) begin O.CaseArmOnLabelLine:= V end),
-    MakeOpt('PackShortBodies', 'Short bodies', 'Pack short bodies onto their header line', 'Preset for the four rules above: if/loop/with bodies are joined onto their header line when they fit, and a one-statement case arm goes on its label line. Each of the four stays its own rule: change one after checking Pack and that choice is kept (shown below the rules). Off by default.'
+    MakeOpt('PackShortBodies', 'Short bodies', 'Pack short bodies onto their header line', 'Preset for the four rules above: if/loop/with bodies are joined onto their header line when they fit, and a one-statement case arm goes on its label line. Each of the four stays its own rule: change one after checking Pack and that choice is kept (shown below the rules). Off by default. On the command line --no-pack-bodies only clears this flag: rules the INI names (every YADF-saved INI names all four) keep their values.'
       , okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.PackShortBodies end, procedure(var O: TYadfOptions; const V: Variant) begin O.PackShortBodies:= V end),
     MakeOpt('BreakCaseLabels', 'Case statements', 'Break case labels one per line', 'Break a multi-label case arm ("a, b, c: Stmt;") into one label per line. Off by default.', okBool, True, function(const O: TYadfOptions): Variant begin Result:= O.BreakCaseLabels end, procedure(var O: TYadfOptions; const V: Variant) begin O.BreakCaseLabels:= V end),
     MakeOpt('ReflowLines', 'Expressions', 'Reflow lines (join and wrap)', 'Join a statement broken by hand when it fits the max line length and wrap longer lines. Off = the author''s line breaks are kept and long lines are left as-is.', okBool, True,
@@ -1352,10 +1352,13 @@ begin
     // The INI layer of the Pack preset (SPEC-2026-11-03): ResolveOptions applies
     // it, then puts back the rules this file sets explicitly.
     AOver.Ini.Pack        := AOpts.PackShortBodies;
-    AOver.Ini.ExplicitIf  := Ini.ValueExists('Format', 'BreakIfBody'       );
-    AOver.Ini.ExplicitLoop:= Ini.ValueExists('Format', 'BreakLoopBody'     );
-    AOver.Ini.ExplicitWith:= Ini.ValueExists('Format', 'BreakWithBody'     );
-    AOver.Ini.ExplicitArm := Ini.ValueExists('Format', 'CaseArmOnLabelLine');
+    // Explicit = the key holds a value ReadBoolIni understands: `BreakIfBody=`
+    // (empty) or garbage is not a choice (review 2026-11-03 L2). The two
+    // defaults agree only when the value parsed.
+    AOver.Ini.ExplicitIf  := ReadBoolIni(Ini, 'Format', 'BreakIfBody'       , False) = ReadBoolIni(Ini, 'Format', 'BreakIfBody'       , True);
+    AOver.Ini.ExplicitLoop:= ReadBoolIni(Ini, 'Format', 'BreakLoopBody'     , False) = ReadBoolIni(Ini, 'Format', 'BreakLoopBody'     , True);
+    AOver.Ini.ExplicitWith:= ReadBoolIni(Ini, 'Format', 'BreakWithBody'     , False) = ReadBoolIni(Ini, 'Format', 'BreakWithBody'     , True);
+    AOver.Ini.ExplicitArm := ReadBoolIni(Ini, 'Format', 'CaseArmOnLabelLine', False) = ReadBoolIni(Ini, 'Format', 'CaseArmOnLabelLine', True);
   finally
     Ini.Free;
   end; // try

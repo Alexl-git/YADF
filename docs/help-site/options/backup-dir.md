@@ -14,8 +14,10 @@ status: "stable"
 # Backup directory
 
 Used only when Backup=true and ResultDir is empty.
-  - Non-empty: write a timestamped <name>.<YYYYMMDD-hhmmss>.bak
-    under this folder before overwriting the source.
+  - Non-empty: write a timestamped <name>.<hhhhhhhh>.<YYYYMMDD-hhmmss>.bak
+    under this folder before overwriting the source. The hex digits
+    identify the source folder, so same-named files from different
+    folders never share (or prune) each other's backups.
   - Empty (default): write <source>.BCK<N> next to the source,
     where N is the lowest unused integer (1, 2, 3, ...).
 CLI equivalent: --b <folder> (with arg) or --b (no arg, sibling).
@@ -27,7 +29,7 @@ No effect on the formatted code. In yadf.ini, or on the command line:
 ```
 Backup    = true
 BackupDir = C:\Backups\Yadf
-yadf --b C:\Backups\Yadf MyUnit.pas   (writes MyUnit.pas.<YYYYMMDD-hhmmss>.bak there)
+yadf --b C:\Backups\Yadf MyUnit.pas   (writes MyUnit.pas.<hhhhhhhh>.<YYYYMMDD-hhmmss>.bak there)
 ```
 
 ## Related
