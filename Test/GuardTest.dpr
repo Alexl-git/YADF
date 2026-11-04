@@ -718,6 +718,20 @@ begin
   Check('D10 a duplicate the SOURCE already had is not blamed on the format',
     GuardOk('procedure P; var A: Integer; A: Integer; begin begin var B: Integer:= 1; Use(A, B); end; end;',
       'procedure P; var A: Integer; A: Integer; B: Integer; begin begin B:= 1; Use(A, B); end; end;', gcD10, DEF_CASING));
+  // Review 2026-11-03 M1: a name left inline (TODO fallback) next to the same name
+  // hoisted from a sibling block is E2004 -- the scope census sees body inline vars.
+  Check('D10 hoist next to a statement var left inline rejected',
+    not GuardOk('procedure P(X: Integer); begin if X > 0 then begin var Y:= X * 2; Use(Y); end else begin var Y:= ''n''; Use(Y); end; end;',
+      'procedure P(X: Integer); var Y: string; begin if X > 0 then begin var Y:= X * 2; Use(Y); end else begin Y:= ''n''; Use(Y); end; end;', gcD10, DEF_CASING));
+  Check('D10 hoist next to a for-in var left inline rejected',
+    not GuardOk('procedure P(L: TL); begin for var V in L do Use(V); for var V:= 0 to 1 do Use(V); end;',
+      'procedure P(L: TL); var V: Integer; begin for var V in L do Use(V); for V:= 0 to 1 do Use(V); end;', gcD10, DEF_CASING));
+  Check('D10 an anonymous-method inline var shadowing a hoisted name passes',
+    GuardOk('procedure P; begin var A: Integer:= 1; Run(procedure begin var A: Integer:= 2; Use(A); end); Use(A); end;',
+      'procedure P; var A: Integer; begin A:= 1; Run(procedure begin var A: Integer:= 2; Use(A); end); Use(A); end;', gcD10, DEF_CASING));
+  Check('D10 an inline var next to a section name the SOURCE already had passes',
+    GuardOk('procedure P; var A: Integer; begin begin var A: Integer:= 1; Use(A); end; end;',
+      'procedure P; var A: Integer; begin begin var A: Integer:= 1; Use(A); end; end;', gcD10, DEF_CASING));
 end;
 // Task 8 (b) end to end: both ORM3 shapes now format under --d10.
 procedure TestFormatSourceD10NoFalseDecline;

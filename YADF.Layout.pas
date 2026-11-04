@@ -9381,6 +9381,27 @@ var
 // `var Name := Expr;` with no explicit type -- infer from a literal initializer.
 // Reuses the explicit-init rewrite (Name := Expr) but annotates the hoisted
 // declaration with a verify comment quoting the original line.
+// The inline `var Name[, Name]` / `for var Name` at AVar stays in place (a TODO
+// fallback): poison its names, so no declaration of them elsewhere in the routine
+// is hoisted next to it (E2004 in Delphi 13 too; review 2026-11-03 M1). A new
+// name sets PoisonGrew and the routine is scanned again. Value False = "left
+// inline", True = "declared with different types" (CommitPoisoned's message).
+  procedure PoisonInlineNames(AVar: Integer);
+  var
+    j: Integer;
+  begin
+    j:= NextSig(AVar + 1);
+    while (j < ATokens.Count) and (ATokens[j].Kind = ptIdentifier) do
+    begin
+      if Poisoned.TryAdd(ATokens[j].Text, False) then
+        PoisonGrew:= True;
+      j:= NextSig(j + 1);
+      if (j >= ATokens.Count) or (ATokens[j].Kind <> ptComma) then
+        Break;
+      j:= NextSig(j + 1);
+    end;
+  end; // procedure
+
   function TryParseInferred(AVar: Integer; out ARec: TInlineRec): Boolean;
   var
     Ni      : Integer;
@@ -9420,6 +9441,7 @@ var
     begin
       // Not inferable: leave the inline var in place + a TODO marker -- unless it  // dl:ok compiler-magic-comments@e3b0
       // was already flagged on a previous run (keeps the pass idempotent).
+      PoisonInlineNames(AVar);
       if AlreadyFlagged(Semi) then
         Exit;
       ARec.Kind:= ikFallbackTodo;
@@ -9434,12 +9456,14 @@ var
 // A name inline-declared with different types in this routine (found by an
 // earlier scan of it): no declaration of it is hoisted -- every one stays inline
 // with a TODO, so the routine compiles in Delphi 13 as the source did. The other  // dl:ok compiler-magic-comments@e3b0
-// names of the statement stay with it, so they are poisoned too. True when ARec
-// names a poisoned name (and was recorded as left in place).
+// names of the statement stay with it, so they are poisoned too. A name a TODO
+// fallback leaves inline (PoisonInlineNames, review 2026-11-03 M1) is poisoned the
+// same way. True when ARec names a poisoned name (and was recorded as left in place).
   function CommitPoisoned(AVarIdx: Integer; var ARec: TInlineRec): Boolean;
   var
     M       : Integer;
     Nm      : string ;
+    Why     : string ;
     OrigLine: string ;
     ForIdx  : Integer;
     Above   : Integer;
@@ -9448,6 +9472,7 @@ var
     for M:= 0 to High(ARec.Names) do
       if Poisoned.ContainsKey(ARec.Names[M]) then
       begin
+        Why:= if Poisoned[ARec.Names[M]] then ''' is declared with different types in this routine; resolve manually for Delphi 10' else ''' is also declared inline where it cannot be hoisted; resolve manually for Delphi 10';
         for Nm in ARec.Names do
           if Poisoned.TryAdd(Nm, True) then
             PoisonGrew:= True;
@@ -9456,7 +9481,7 @@ var
           ForIdx:= PrevSig(AVarIdx - 1);
           Above := PrevSig(ForIdx - 1);
           if not ForTodos.ContainsKey(ForIdx) and not ((Above >= 0) and (ATokens[Above].Kind = ptSlashesComment) and ATokens[Above].Text.Contains('YADF')) then
-            ForTodos.Add(ForIdx, D10_TODO_MARKER + ' loop variable ''' + ARec.Names[M] + ''' is declared with different types in this routine; resolve manually for Delphi 10');
+            ForTodos.Add(ForIdx, D10_TODO_MARKER + ' loop variable ''' + ARec.Names[M] + Why);
           Exit(True);
         end;
         if AlreadyFlagged(ARec.SemiIdx) then
@@ -9464,7 +9489,7 @@ var
         OrigLine:= Trim(InlineRenderRange(ATokens, AVarIdx, ARec.SemiIdx));
         ARec.Kind   := ikFallbackTodo;
         ARec.ReInit := False;
-        ARec.Comment:= ' ' + D10_TODO_MARKER + ' name ''' + ARec.Names[M] + ''' is declared with different types in this routine; resolve manually for Delphi 10 -- was: ' + OrigLine;
+        ARec.Comment:= ' ' + D10_TODO_MARKER + ' name ''' + ARec.Names[M] + Why + ' -- was: ' + OrigLine;
         Inlines.Add(AVarIdx, ARec);
         Exit(True);
       end; // if
@@ -9773,6 +9798,7 @@ begin
             Pv:= PrevSig(i - 1);
             if (CondDepth > 0) and (AnonCount = 0) then
             begin
+              PoisonInlineNames(i);
               if ((Pv < 0) or (ATokens[Pv].Kind <> ptFor)) and TryAnonFallback(i, Rec, 'inside a conditional-compilation block') then
               begin
                 Inlines.Add(i, Rec);
@@ -9805,6 +9831,7 @@ begin
               k:= PrevSig(Pv - 1);
               if (k >= 0) and (ATokens[k].Kind = ptSlashesComment) and ATokens[k].Text.Contains('YADF') and ATokens[k].Text.Contains('loop variable') then
               begin
+                PoisonInlineNames(i);
                 Inc(i);
                 Continue;
               end;
@@ -9817,6 +9844,7 @@ begin
               // Non-inferable inline loop var (e.g. `for var X in Coll`): can't
               // downgrade without the element/bound type. Flag a TODO before the  // dl:ok compiler-magic-comments@e3b0
               // `for`. Idempotent: skip if the line above is already a YADF flag.
+              PoisonInlineNames(i);
               if not ForTodos.ContainsKey(Pv) then
               begin
                 k:= PrevSig(Pv - 1);

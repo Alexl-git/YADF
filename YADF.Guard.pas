@@ -1096,19 +1096,24 @@ end; // function
 // threadvar / resourcestring section of one declaration scope. A scope is the
 // unit, or one routine header and the declaration part that follows it; a nested
 // routine is its own scope until its body ends. Bodies (begin / asm .. end) are
-// skipped whole -- inline vars are block-scoped and may repeat. Scope numbers
-// follow the header order, which the Delphi 10 transform never changes, so the
-// source and the output number their scopes alike. Not a parser: a shape it does
-// not know (a type section, a class) only ends the current section.
-procedure CountScopeDecls(const AList: TCodeList; const ACounts: TDictionary<string, Integer>; const ANames: TDictionary<string, string>);
+// skipped for the count -- inline vars are block-scoped and may repeat -- but
+// AInline gets '<scope>/<name>' for every inline `var` / `for var` name a body
+// declares outside an anonymous method (review 2026-11-03 M1: a name hoisted into
+// the section next to one left inline is E2004 too). Scope numbers follow the
+// header order, which the Delphi 10 transform never changes, so the source and
+// the output number their scopes alike. Not a parser: a shape it does not know (a
+// type section, a class) only ends the current section.
+procedure CountScopeDecls(const AList: TCodeList; const ACounts: TDictionary<string, Integer>; const ANames: TDictionary<string, string>; const AInline: TDictionary<string, Boolean>);
 var
   Stack    : TStack<Integer>;
+  Anon     : TStack<Integer>;
   Seq      : Integer;
   Body     : Integer;
   Paren    : Integer;
   i        : Integer;
   Next     : Integer;
   InSection: Boolean;
+  PendAnon : Boolean;
   Key      : string ;
   Prev     : string ;
 
@@ -1149,28 +1154,72 @@ var
     Result:= j + 1;
   end; // function
 
-  // One token of a begin / asm .. end body: tracks its nesting, and the end of
-  // the body closes the routine's scope.
-  procedure StepBody(const AKey: string);
+  // An inline `var Name[, Name]` / `for var Name` at AFrom (the `var`) in a
+  // body: its names go to AInline under the current scope.
+  procedure NoteInline(AFrom: Integer);
+  var
+    Last: Integer;
+    j   : Integer;
+    Slot: string ;
   begin
-    if MatchStr(AKey, ['begin', 'case', 'try', 'asm', 'record']) then
-      Inc(Body)
-    else if AKey = 'end' then
+    if (AFrom + 1 >= AList.Count) or (AList[AFrom + 1].Cls <> ccIdent) then
+      Exit;
+    Last:= NameListEnd(AList, AFrom + 1);
+    if (Last + 1 >= AList.Count) or not MatchStr(AList[Last + 1].Key, [':', ':=', 'in']) then
+      Exit;
+    j:= AFrom + 1;
+    while j <= Last do
     begin
+      Slot:= IntToStr(Stack.Peek) + '/' + AList[j].Key;
+      AInline.AddOrSetValue(Slot, True);
+      ANames.AddOrSetValue(Slot, AList[j].Text);
+      Inc(j, 2);
+    end;
+  end; // procedure
+
+  // One token (index AIdx) of a begin / asm .. end body: tracks its nesting and
+  // the anonymous methods in it, notes inline vars, and the end of the body
+  // closes the routine's scope. An anonymous method's `var` (parameter, own
+  // section or body) belongs to its own scope and is not noted.
+  procedure StepBody(AIdx: Integer);
+  var
+    BKey: string;
+  begin
+    BKey:= AList[AIdx].Key;
+    if MatchStr(BKey, ['procedure', 'function']) and not MatchStr(Prev, [':', '=', 'to']) then
+      PendAnon:= True
+    else if MatchStr(BKey, ['begin', 'case', 'try', 'asm', 'record']) then
+    begin
+      Inc(Body);
+      if PendAnon and (BKey = 'begin') then
+      begin
+        Anon.Push(Body);
+        PendAnon:= False;
+      end;
+    end
+    else if BKey = 'end' then
+    begin
+      if (Anon.Count > 0) and (Anon.Peek = Body) then
+        Anon.Pop;
       Dec(Body);
       if (Body = 0) and (Stack.Count > 1) then
         Stack.Pop;
-    end;
+    end
+    else if (BKey = 'var') and not PendAnon and (Anon.Count = 0) then
+      NoteInline(AIdx);
+    Prev:= BKey;
   end; // procedure
 
 begin
   Stack:= TStack<Integer>.Create;
+  Anon := TStack<Integer>.Create;
   try
     Stack.Push(0);
     Seq      := 0;
     Body     := 0;
     Paren    := 0;
     InSection:= False;
+    PendAnon := False;
     Prev     := '';
     i        := 0;
     while i < AList.Count do
@@ -1183,7 +1232,7 @@ begin
       end;
       if Body > 0 then
       begin
-        StepBody(Key);
+        StepBody(i);
         Inc(i);
         Continue;
       end; // if
@@ -1220,6 +1269,8 @@ begin
       else if (Key = 'begin') or (Key = 'asm') then
       begin
         InSection:= False;
+        PendAnon := False;
+        Anon.Clear;
         Body     := 1;
       end
       else if (Key = 'initialization') or (Key = 'finalization') then
@@ -1230,16 +1281,22 @@ begin
       Inc(i);
     end; // while
   finally
+    Anon.Free;
     Stack.Free;
   end; // try
 end; // procedure
 
 // gcD10: '' unless the output declares a name more often in one routine scope
-// than the source does (a hoist that duplicated a declaration: E2004).
+// than the source does (a hoist that duplicated a declaration: E2004), or
+// declares a name in a routine's section that the same routine's body still
+// declares inline where the source did not (a hoist next to a declaration a TODO
+// fallback left inline: E2004, review 2026-11-03 M1).
 function D10ScopeReason(const AOrig, AFmt: TCodeList): string;
 var
   OrigCounts: TDictionary<string, Integer>;
   OutCounts : TDictionary<string, Integer>;
+  OrigInline: TDictionary<string, Boolean>;
+  OutInline : TDictionary<string, Boolean>;
   Names     : TDictionary<string, string>;
   Pair      : TPair<string, Integer>;
   N         : Integer;
@@ -1247,19 +1304,25 @@ begin
   Result    := '';
   OrigCounts:= TDictionary<string, Integer>.Create;
   OutCounts := TDictionary<string, Integer>.Create;
+  OrigInline:= TDictionary<string, Boolean>.Create;
+  OutInline := TDictionary<string, Boolean>.Create;
   Names     := TDictionary<string, string>.Create;
   try
-    CountScopeDecls(AOrig, OrigCounts, Names);
+    CountScopeDecls(AOrig, OrigCounts, Names, OrigInline);
     Names.Clear;
-    CountScopeDecls(AFmt, OutCounts, Names);
+    CountScopeDecls(AFmt, OutCounts, Names, OutInline);
     for Pair in OutCounts do
     begin
       N:= 0;
       OrigCounts.TryGetValue(Pair.Key, N);
       if (Pair.Value > 1) and (Pair.Value > N) then
         Exit('declaration duplicated in one routine by the Delphi 10 transform: ' + Names[Pair.Key]);
+      if OutInline.ContainsKey(Pair.Key) and not ((N > 0) and OrigInline.ContainsKey(Pair.Key)) then
+        Exit('declaration hoisted next to the same name left inline by the Delphi 10 transform: ' + Names[Pair.Key]);
     end;
   finally
+    OutInline.Free;
+    OrigInline.Free;
     Names.Free;
     OutCounts.Free;
     OrigCounts.Free;
