@@ -1,0 +1,50 @@
+unit idem_ifelse_trailing_op;
+
+// Review 2026-11-03 L2 / L3 (one-step non-idempotent under BreakLongExpressions,
+// default MaxLen 180): an over-long one-line if/else whose then-body the tree
+// breaker cut at its operators, leaving `+ X else Y;` on a continuation line; and a
+// line that FITS but ends in a binary operator, followed by an over-long
+// continuation the breaker split while the operator stayed behind.
+
+interface
+
+function F(A: Integer): Integer;
+function IfElse: Integer;
+function TrailingOp: Integer;
+
+implementation
+
+var
+  Other1: Integer;
+  Other2: Integer;
+  Other3: Integer;
+  Other4: Integer;
+  Other5: Integer;
+  Other6: Integer;
+  Other7: Integer;
+  Other8: Integer;
+  Other9: Integer;
+  Other10: Integer;
+  Other11: Integer;
+  Other12: Integer;
+  Other13: Integer;
+  Other14: Integer;
+
+function F(A: Integer): Integer;
+begin
+  Result:= A;
+end;
+
+function IfElse: Integer;
+begin
+  Result:= Other1;
+  if Result > 0 then Result:= Result + Other1 + Other2 + Other3 + Other4 + Other5 + Other6 + Other7 + Other8 + Other9 + Other10 + Other11 + Other12 + Other13 + Other14 else Result:= -1;
+end;
+
+function TrailingOp: Integer;
+begin
+  Result:= F(100) + F(200) + F(300) + F(400) + F(500) + F(600) + F(700) + F(800) + F(900) + F(1000) + F(1100) + F(1200) + F(1300) + F(1400) + F(1500) + F(1600) + F(1700) -
+    F(1) - F(2) - F(3) - F(4) - F(5) - F(6) - F(7) - F(8) - F(9) - F(10) - F(11) - F(12) - F(13) - F(14) - F(15) - F(16) - F(17) - F(18) - F(19) - F(20) - F(21) - F(22) - F(23) - F(24) - F(25) - F(26) - F(27) - F(28) - F(29) - F(30);
+end;
+
+end.

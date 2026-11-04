@@ -65,9 +65,9 @@ $flat = FmtBody '  if AlphaFlagIsLong and BetaFlagIsLong and GammaFlagIsLong and
 MustMatch $flat '(?m)^\s+if AlphaFlagIsLong\s*$'  'flat: head is the first operand alone'
 MustMatch $flat '(?m)^\s+and BetaFlagIsLong\s*$'  'flat: and leads component 2'
 MustMatch $flat '(?m)^\s+and GammaFlagIsLong\s*$' 'flat: and leads component 3'
-# The last component still carries the trailing `then` -- moving it to its own
-# line is Task 3's job, so assert the component, not the end of line.
-MustMatch $flat '(?m)^\s+and DeltaFlagIsLong then\b' 'flat: and leads component 4'
+# The then body goes on its own line before the breaker runs (review 2026-11-03
+# L2), so the trailing `then` moves to its own line too.
+MustMatch $flat '(?m)^\s+and DeltaFlagIsLong\s*$' 'flat: and leads component 4'
 
 # RECURSION: a component that still overflows breaks again, ONE STEP DEEPER.
 # Indent=2, so top-level components sit at 4 and their children at 6.
@@ -86,7 +86,10 @@ if ($subInd -le $orInd) { Fail "recursion: sub-component indent $subInd must be 
 # the greedy fallback splits it, which is a different behaviour under test.
 $paren = FmtBody '  if (AlphaFlagIsLong and BetaFlagIsLong) or (GammaFlagIsLong and DeltaFlagIsLong) then Writeln(1);' '--break-expr' 70
 MustMatch $paren '(?m)^\s+if \(AlphaFlagIsLong and BetaFlagIsLong\)\s*$' 'paren: first group whole on the head line'
-MustMatch $paren '(?m)^\s+or \(GammaFlagIsLong and DeltaFlagIsLong\) then Writeln\(1\);\s*$' 'paren: second group whole, or leading'
+# Review 2026-11-03 L2: the then body is laid out (own line, BreakIfBody) BEFORE the
+# breaker, so `then` then moves to its own line at the if column.
+MustMatch $paren '(?m)^\s+or \(GammaFlagIsLong and DeltaFlagIsLong\)\s*$' 'paren: second group whole, or leading'
+MustMatch $paren '(?m)^  then\s*$' 'paren: then on its own line at the if column'
 # Control: the greedy breaker shatters that same group at the same MaxLen.
 $parenGreedy = FmtBody '  if (AlphaFlagIsLong and BetaFlagIsLong) or (GammaFlagIsLong and DeltaFlagIsLong) then Writeln(1);' '--no-break-expr' 70
 MustNotMatch $parenGreedy '(?m)^\s+or \(GammaFlagIsLong and DeltaFlagIsLong\)' 'paren: control -- greedy does NOT keep the group whole'

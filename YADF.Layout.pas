@@ -10155,7 +10155,7 @@ end; // function
 // One run of the pipeline; FormatSource below is the public entry. AUnsettled:
 // a bracket group was kept broken because it did not fit at its SOURCE column,
 // which can differ from the column the formatted line settles at.
-function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string; out AUnsettled: Boolean): string;  // dl:ok cyclomatic-complexity@e512, method-too-long@0b70 -- the stage list reads top to bottom as the pipeline diagram
+function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string; out AUnsettled: Boolean): string;  // dl:ok cyclomatic-complexity@e512, method-too-long@9c1e -- the stage list reads top to bottom as the pipeline diagram
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -11120,8 +11120,17 @@ begin
         // runs once more afterwards: a header left alone once its body moved can now
         // be broken (`... <> X then` -> `then` on its own line) -- else the NEXT
         // format would do it (idempotency). Lines that fit are never touched.
+        // The control bodies are laid out BEFORE this breaker as well (review
+        // 2026-11-03 L2): breaking an over-long `if C then A:= X + Y else B;` at its
+        // operators first left `+ Y else B;` on a continuation line no later pass
+        // splits, and the next format joined it differently.
         if AOpts.ReflowLines and AOpts.BreakLongExpressions then
+        begin
+          Result:= LayoutCaseArms(Result, False, cabSplitCtl, AOpts.Indent, AOpts.MaxLen);
+          Result:= LayoutControlBodies(Result, AOpts);
+          Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
           Result:= BreakLongLines(Result);
+        end;
         // Task 2d-2: an if / for / while / with written on its case-arm label line
         // moves under the label first, so the Break*Body layout below treats it like
         // any other control statement (never half-split). CaseArmOnLabelLine ON pulls
