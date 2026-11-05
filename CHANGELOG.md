@@ -8,11 +8,38 @@ predate the scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.0.22.0] - 2026-11-04
+
+This release adds the `BackupKeep` option, closes the 2026-11-03 and 2026-11-04
+review rounds (backups, `--d10`, idempotence of the layout engine) and settles
+several continuation-line and control-body layout cases.
 
 ### Added
 
-- **`BackupKeep`** (INI `BackupKeep`, CLI `--backup-keep N`, Options page): keep only the newest N backups of each file; after a run writes a backup, older YADF-named backups of that same file are deleted. 0 (default) keeps all.
+- **`BackupKeep`** (INI `BackupKeep`, CLI `--backup-keep N`, Options page): keep only the newest N backups of each file; after a run writes a backup, older YADF-named backups of that same file are deleted. 0 (default) keeps all. A failure to prune is reported as a warning.
+
+### Fixed -- backups and options
+
+- Backup file names are unique per source directory (folder-form backups of same-named files no longer collide); CLI and IDE share one backup unit.
+- `--no-ini --help` creates no INI file; integer flags accept decimal digits only; `--no-pack-bodies` help wording corrected; usage columns aligned.
+
+### Fixed -- `--d10`
+
+- An inline `var` or `const` that shadows a field, global or `with` member is never hoisted.
+- A name that a TODO fallback leaves inline is not hoisted from a sibling block.
+
+### Fixed -- layout engine
+
+- **Idempotence:** a second run no longer changes the first run's output for tab-indented variant-record arms, greedy continuations, `JoinRoutineHeaders=false` on a header longer than `MaxLen`, and anonymous-method headers wrapped after `:=`.
+- **Continuations:** an operator-led continuation breaks into one column (no staircase); a trailing operator leads the over-long continuation; a trailing `then` / `do` of an over-long continuation goes to the header's column; control bodies are laid out before the `BreakLongExpressions` breaker.
+- **Control bodies:** a loop / `with` body that is itself a control statement goes on its own line; a one-line anonymous method as a controlled body stays whole on its own line; `if C then P:= procedure` puts `begin`/`end` at the header's level; an anonymous-method `begin` keeps its header line's level.
+- **`AlignMatchingShapes`:** never pads between a callee and its `(`, nor the closing paren of a `;`-terminated line; indexed `:=` targets align at `AlignShapeMinAnchors <= 2`.
+- A one-line bracket list holding an over-long anonymous method breaks comma-first again.
+
+### Changed
+
+- Generated help pages stay LF on checkout; the help examples are regenerated; new options carry `since 1.0.22.0`.
+- Internal: drag-lint findings of the code base stay at zero.
 
 ## [1.0.21.0] - 2026-11-03
 
