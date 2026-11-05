@@ -4168,7 +4168,7 @@ type
 /// stays on the header line (Q18). A then-body that is itself a control statement
 /// stays on the `then` line: with an `else` on the line it could belong to either
 /// if, and splitting it is not needed by any layout rule.</remarks>
-function BreakControlBodies(const S: string; ASplit, ASplitShort, AOnKinds: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@e08d, cognitive-complexity@5743 -- one segment walk per line
+function BreakControlBodies(const S: string; ASplit, ASplitShort, AOnKinds: TBodyKinds; AMaxLen: Integer): string;
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -4317,14 +4317,17 @@ var
   // would change the author's layout under an OFF option.
   function IsNestedCtlBody(AKind: TBodyKind; const ABody: string): Boolean;
   begin
-    Result:= (AKind in AOnKinds) and (CtlStartsWord(ABody, 'if') or CtlStartsWord(ABody, 'for') or CtlStartsWord(ABody, 'while') or CtlStartsWord(ABody, 'with'));  // dl:ok boolean-expression-complexity -- four sibling keyword tests
+    Result:= (AKind in AOnKinds) and (CtlStartsWord(ABody, 'if') or CtlStartsWord(ABody, 'for') or CtlStartsWord(ABody, 'while') or CtlStartsWord(ABody, 'with'));
   end;
 
   // One source line (or, ANested, the control statement split off a `do` line).
   // A case-arm `else` line is ElseL[i] only for the line as read, not for a
   // statement split off it.
-  procedure ProcessLine(const ALine: string; ANested: Boolean);
+  procedure ProcessLine(const ALine: string; ANested: Boolean);  // dl:ok deep-nesting@c155, cyclomatic-complexity@0cb4, cognitive-complexity@fd91 -- the per-line segment walk BreakControlBodies always held, moved here to recurse on a nested body
+  const
+    MIN_ELSE_SEGS = 3; // if-header, body, else
   var
+    CaseElse: Boolean  ; // a case-arm else line as read (Q11)
     Kind   : TBodyKind;
     TailCmt: string   ; // `// note` after a trailing `else` (L3), else ''
     Cc     : Integer  ;
@@ -4375,7 +4378,8 @@ var
     // after an arm's `end` is ElseL and left alone (Q11).
     EndElse:= CtlStartsWord(T, 'end') and CtlStartsWord(Copy(T, Length('end') + 1, MaxInt), 'else');
     IsElse := CtlStartsWord(T, 'else') or EndElse;
-    if (not Lock[i]) and Wants(bkIf) and (CtlStartsWord(T, 'if') or IsElse) and (ANested or not ElseL[i]) then
+    CaseElse:= ElseL[i] and not ANested;
+    if (not Lock[i]) and Wants(bkIf) and (CtlStartsWord(T, 'if') or IsElse) and not CaseElse then
     begin
       // A line ending `else // note` (its body on the next line) is laid out
       // like the fitting shape, the note staying on the `else` line (review
@@ -4464,7 +4468,7 @@ var
             begin
               // Only `... else // note`: nothing after the else, at least one
               // body before it; the body below stays where the author put it.
-              if (Body = '') and (Segs.Count >= 3) and CtlStartsWord(Header, 'else') and not CtlStartsWord(Header, 'else if') then
+              if (Body = '') and (Segs.Count >= MIN_ELSE_SEGS) and CtlStartsWord(Header, 'else') and not CtlStartsWord(Header, 'else if') then
               begin
                 Segs[Segs.Count - 1]:= Header + ' ' + TailCmt;
                 for S2:= 0 to Segs.Count - 1 do
