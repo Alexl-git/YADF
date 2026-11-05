@@ -9518,6 +9518,200 @@ var
     Result:= True;
   end; // function
 
+// Leaves the inline declaration at AVarIdx in place, flagged: a loop var gets a
+// TODO line above its `for`, a statement var a trailing TODO naming ANm, AWhy
+// following the quoted name. A flag a previous run left is not repeated.
+  procedure LeaveInline(AVarIdx: Integer; var ARec: TInlineRec; const ANm, AWhy: string);
+  var
+    ForIdx: Integer;
+    Above : Integer;
+  begin
+    if ARec.Kind = ikForExplicit then
+    begin
+      ForIdx:= PrevSig(AVarIdx - 1);
+      Above := PrevSig(ForIdx - 1);
+      if not ForTodos.ContainsKey(ForIdx) and not ((Above >= 0) and (ATokens[Above].Kind = ptSlashesComment) and ATokens[Above].Text.Contains('YADF')) then
+        ForTodos.Add(ForIdx, D10_TODO_MARKER + ' loop variable ''' + ANm + AWhy);
+      Exit;
+    end;
+    if AlreadyFlagged(ARec.SemiIdx) then
+      Exit;
+    ARec.Comment:= ' ' + D10_TODO_MARKER + ' name ''' + ANm + AWhy + ' -- was: ' + Trim(InlineRenderRange(ATokens, AVarIdx, ARec.SemiIdx));
+    ARec.Kind   := ikFallbackTodo;
+    ARec.ReInit := False;
+    Inlines.Add(AVarIdx, ARec);
+  end; // procedure
+
+// Index of the innermost unclosed block opener (begin / try / case / asm /
+// repeat / record) before AIdx, scanning back to AFloor (exclusive); -1 when
+// none. For an `end` / `until` at AIdx it is that block's own opener.
+  function EnclosingOpener(AIdx, AFloor: Integer): Integer;
+  var
+    Depth: Integer;
+  begin
+    Depth := 0;
+    Result:= AIdx - 1;
+    while Result > AFloor do
+    begin
+      if ATokens[Result].Kind in [ptEnd, ptUntil] then
+        Inc(Depth)
+      else if ATokens[Result].Kind in [ptBegin, ptTry, ptCase, ptAsm, ptRepeat, ptRecord] then
+      begin
+        if Depth = 0 then
+          Exit;
+        Dec(Depth);
+      end;
+      Dec(Result);
+    end; // while
+    Result:= -1;
+  end; // function
+
+// Index of the `end` / `until` closing the block that holds AIdx, or ACeil.
+  function EnclosingCloser(AIdx, ACeil: Integer): Integer;
+  var
+    Depth: Integer;
+  begin
+    Depth := 0;
+    Result:= AIdx + 1;
+    while Result < ACeil do
+    begin
+      if ATokens[Result].Kind in [ptBegin, ptTry, ptCase, ptAsm, ptRepeat, ptRecord] then
+        Inc(Depth)
+      else if ATokens[Result].Kind in [ptEnd, ptUntil] then
+      begin
+        if Depth = 0 then
+          Exit;
+        Dec(Depth);
+      end;
+      Inc(Result);
+    end; // while
+    Result:= ACeil;
+  end; // function
+
+// True when the statement holding AVar, or one enclosing it, is a `with` (review
+// 2026-11-04 H1): a hoisted name could then bind to a member of the `with`
+// target, whose fields the formatter cannot know. Each level scans back from its
+// opener to the previous statement boundary. Errs towards True.
+  function InWithBody(AVar, AFloor: Integer): Boolean;
+  var
+    p: Integer;
+    j: Integer;
+  begin
+    p:= AVar;
+    while p > AFloor do
+    begin
+      j:= p - 1;
+      while j > AFloor do
+      begin
+        if ATokens[j].Kind in [ptEnd, ptUntil] then
+        begin
+          j:= EnclosingOpener(j, AFloor);
+          if j < 0 then
+            Exit(False);
+        end
+        else if ATokens[j].Kind in [ptSemiColon, ptBegin, ptTry, ptRepeat, ptFinally, ptExcept, ptOf] then
+          Break
+        else if ATokens[j].Kind = ptWith then
+          Exit(True);
+        Dec(j);
+      end; // while
+      p:= EnclosingOpener(p, AFloor);
+      if p < 0 then
+        Exit(False);
+    end; // while
+    Result:= False;
+  end; // function
+
+// True when ANm occurs in the routine body (AFloor..ACeil, exclusive) where no
+// inline declaration of it is in scope (review 2026-11-04 H1): that occurrence
+// binds to something outside the routine's sections -- a field, a global -- and a
+// hoisted local would capture it. An inline declaration covers from its `var` /
+// `const` to the end of the block holding it; a member access (`R.ANm`) does not
+// count. Errs towards True (an anon-method parameter of the name counts).
+  function RefOutsideScope(const ANm: string; AFloor, ACeil: Integer): Boolean;
+  var
+    Cover: TList<TPair<Integer, Integer>>;
+    Rng  : TPair<Integer, Integer>;
+    j    : Integer;
+    n    : Integer;
+    Hit  : Boolean;
+  begin
+    Result:= False;
+    Cover := TList<TPair<Integer, Integer>>.Create;
+    try
+      for j:= AFloor + 1 to ACeil - 1 do
+        if ATokens[j].Kind in [ptVar, ptConst] then
+        begin
+          n:= NextSig(j + 1);
+          while (n < ACeil) and (ATokens[n].Kind = ptIdentifier) do
+          begin
+            if SameText(ATokens[n].Text, ANm) then
+            begin
+              Cover.Add(TPair<Integer, Integer>.Create(j, EnclosingCloser(j, ACeil)));
+              Break;
+            end;
+            n:= NextSig(n + 1);
+            if (n >= ACeil) or (ATokens[n].Kind <> ptComma) then
+              Break;
+            n:= NextSig(n + 1);
+          end; // while
+        end; // if
+      for j:= AFloor + 1 to ACeil - 1 do
+      begin
+        if (ATokens[j].Kind <> ptIdentifier) or not SameText(ATokens[j].Text, ANm) then
+          Continue;
+        n:= PrevSig(j - 1);
+        if (n >= 0) and (ATokens[n].Kind = ptPoint) then
+          Continue;
+        Hit:= False;
+        for Rng in Cover do
+          if (j > Rng.Key) and (j < Rng.Value) then
+          begin
+            Hit:= True;
+            Break;
+          end;
+        if not Hit then
+          Exit(True);
+      end; // for
+    finally
+      Cover.Free;
+    end; // try
+  end; // function
+
+// Review 2026-11-04 H1: an inline declaration whose name also binds outside its
+// block (RefOutsideScope) or that sits in a `with` body (InWithBody) is not
+// hoisted -- the routine-wide local would shadow that binding (or be shadowed by
+// a member) for the whole routine. Its names are poisoned, so no sibling
+// declaration of them is hoisted either. A name the routine's own sections
+// declare (Seeded) keeps the collision rules of CommitInline. True when ARec
+// was left inline.
+  function CommitShadowed(ABeginIdx, AVarIdx: Integer; var ARec: TInlineRec): Boolean;
+  var
+    M  : Integer;
+    Nm : string ;
+    Why: string ;
+  begin
+    Result:= False;
+    Why   := '';
+    for M:= 0 to High(ARec.Names) do
+    begin
+      if Seeded.ContainsKey(ARec.Names[M]) then
+        Continue;
+      if InWithBody(AVarIdx, ABeginIdx) then
+        Why:= ''' is declared inside a `with` body; hoisting could rebind it to a member; resolve manually for Delphi 10'
+      else if RefOutsideScope(ARec.Names[M], ABeginIdx, G.CloseIdx) then
+        Why:= ''' is referenced outside its block; hoisting would shadow an outer binding; resolve manually for Delphi 10';
+      if Why <> '' then
+      begin
+        for Nm in ARec.Names do
+          if Poisoned.TryAdd(Nm, False) then
+            PoisonGrew:= True;
+        LeaveInline(AVarIdx, ARec, ARec.Names[M], Why);
+        Exit(True);
+      end;
+    end; // for
+  end; // function
+
 // A name inline-declared with different types in this routine (found by an
 // earlier scan of it): no declaration of it is hoisted -- every one stays inline
 // with a TODO, so the routine compiles in Delphi 13 as the source did. The other  // dl:ok compiler-magic-comments@e3b0
@@ -9530,9 +9724,6 @@ var
     Nm      : string ;
     Why     : string ;
     Diff    : Boolean;
-    OrigLine: string ;
-    ForIdx  : Integer;
-    Above   : Integer;
   begin
     Result:= False;
     for M:= 0 to High(ARec.Names) do
@@ -9542,21 +9733,7 @@ var
         for Nm in ARec.Names do
           if Poisoned.TryAdd(Nm, True) then
             PoisonGrew:= True;
-        if ARec.Kind = ikForExplicit then
-        begin
-          ForIdx:= PrevSig(AVarIdx - 1);
-          Above := PrevSig(ForIdx - 1);
-          if not ForTodos.ContainsKey(ForIdx) and not ((Above >= 0) and (ATokens[Above].Kind = ptSlashesComment) and ATokens[Above].Text.Contains('YADF')) then
-            ForTodos.Add(ForIdx, D10_TODO_MARKER + ' loop variable ''' + ARec.Names[M] + Why);
-          Exit(True);
-        end;
-        if AlreadyFlagged(ARec.SemiIdx) then
-          Exit(True);
-        OrigLine:= Trim(InlineRenderRange(ATokens, AVarIdx, ARec.SemiIdx));
-        ARec.Kind   := ikFallbackTodo;
-        ARec.ReInit := False;
-        ARec.Comment:= ' ' + D10_TODO_MARKER + ' name ''' + ARec.Names[M] + Why + ' -- was: ' + OrigLine;
-        Inlines.Add(AVarIdx, ARec);
+        LeaveInline(AVarIdx, ARec, ARec.Names[M], Why);
         Exit(True);
       end; // if
   end; // function
@@ -9580,6 +9757,9 @@ var
   begin
     // A statement a previous run flagged is the user's to resolve: an inferred one
     // (`var X:= TFoo.Create;`) reaches here without TryParseExplicit's check.
+    // The shadow check runs first, so a re-run poisons the same names.
+    if CommitShadowed(ABeginIdx, AVarIdx, ARec) then
+      Exit;
     if ((ARec.Kind in [ikExplicitInit, ikExplicitNoInit]) and AlreadyFlagged(ARec.SemiIdx)) or CommitPoisoned(AVarIdx, ARec) then
       Exit;
     Collide:= False;

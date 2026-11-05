@@ -726,6 +726,17 @@ begin
   Check('D10 hoist next to a for-in var left inline rejected',
     not GuardOk('procedure P(L: TL); begin for var V in L do Use(V); for var V:= 0 to 1 do Use(V); end;',
       'procedure P(L: TL); var V: Integer; begin for var V in L do Use(V); for V:= 0 to 1 do Use(V); end;', gcD10, DEF_CASING));
+  // Review 2026-11-04 H1: a hoist that lets the local shadow a field / global
+  // referenced outside the block, or that leaves a `with` body, changes behaviour.
+  Check('D10 hoist over a field referenced outside the block rejected',
+    not GuardOk('procedure TFoo.Go; begin X:= 5; if X > 0 then begin var X: Integer:= 10; Use(X); end; Use(X); end;',
+      'procedure TFoo.Go; var X: Integer; begin X:= 5; if X > 0 then begin X:= 10; Use(X); end; Use(X); end;', gcD10, DEF_CASING));
+  Check('D10 hoist out of a with body rejected',
+    not GuardOk('procedure P; var R: TRec; begin with R do begin var A: Integer:= 99; Use(A); end; Use(R.A); end;',
+      'procedure P; var R: TRec; A: Integer; begin with R do begin A:= 99; Use(A); end; Use(R.A); end;', gcD10, DEF_CASING));
+  Check('D10 hoist of a block-local name used only in its block passes',
+    GuardOk('procedure P; begin Use(G); if G > 0 then begin var Y: Integer:= 3; Use(Y); end; for var I: Integer:= 1 to 2 do Use(I); for var I: Integer:= 3 to 4 do Use(I); end;',
+      'procedure P; var Y: Integer; I: Integer; begin Use(G); if G > 0 then begin Y:= 3; Use(Y); end; for I:= 1 to 2 do Use(I); for I:= 3 to 4 do Use(I); end;', gcD10, DEF_CASING));
   Check('D10 an anonymous-method inline var shadowing a hoisted name passes',
     GuardOk('procedure P; begin var A: Integer:= 1; Run(procedure begin var A: Integer:= 2; Use(A); end); Use(A); end;',
       'procedure P; var A: Integer; begin A:= 1; Run(procedure begin var A: Integer:= 2; Use(A); end); Use(A); end;', gcD10, DEF_CASING));

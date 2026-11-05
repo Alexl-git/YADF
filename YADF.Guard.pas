@@ -1103,10 +1103,19 @@ end; // function
 // header order, which the Delphi 10 transform never changes, so the source and
 // the output number their scopes alike. Not a parser: a shape it does not know (a
 // type section, a class) only ends the current section.
-procedure CountScopeDecls(const AList: TCodeList; const ACounts: TDictionary<string, Integer>; const ANames: TDictionary<string, string>; const AInline: TDictionary<string, Boolean>);
+// AShadow (review 2026-11-04 H1) gets '<scope>/<name>' for each such inline name
+// that a hoist would let shadow an outer binding: the name occurs in the body
+// where no inline declaration of it is in scope (a field, a global), or the
+// declaration sits in a `with` body (a member may share the name).
+procedure CountScopeDecls(const AList: TCodeList; const ACounts: TDictionary<string, Integer>; const ANames: TDictionary<string, string>; const AInline, AShadow: TDictionary<string, Boolean>);
+const
+  OPENERS: array[0..5] of string = ('begin', 'try', 'case', 'asm', 'repeat', 'record');
+  CLOSERS: array[0..1] of string = ('end', 'until');
 var
   Stack    : TStack<Integer>;
   Anon     : TStack<Integer>;
+  BodyVars : TList<Integer>;
+  BodyFrom : Integer;
   Seq      : Integer;
   Body     : Integer;
   Paren    : Integer;
@@ -1175,6 +1184,156 @@ var
       ANames.AddOrSetValue(Slot, AList[j].Text);
       Inc(j, 2);
     end;
+    BodyVars.Add(AFrom);
+  end; // procedure
+
+  // Index of the innermost unclosed block opener before AIdx (after AFloor), or
+  // -1; for an `end` / `until` at AIdx, that block's own opener.
+  function OpenerBefore(AIdx, AFloor: Integer): Integer;
+  var
+    Depth: Integer;
+  begin
+    Depth := 0;
+    Result:= AIdx - 1;
+    while Result > AFloor do
+    begin
+      if MatchStr(AList[Result].Key, CLOSERS) then
+        Inc(Depth)
+      else if MatchStr(AList[Result].Key, OPENERS) then
+      begin
+        if Depth = 0 then
+          Exit;
+        Dec(Depth);
+      end;
+      Dec(Result);
+    end; // while
+    Result:= -1;
+  end; // function
+
+  // Index of the `end` / `until` closing the block that holds AIdx, or ACeil.
+  function CloserAfter(AIdx, ACeil: Integer): Integer;
+  var
+    Depth: Integer;
+  begin
+    Depth := 0;
+    Result:= AIdx + 1;
+    while Result < ACeil do
+    begin
+      if MatchStr(AList[Result].Key, OPENERS) then
+        Inc(Depth)
+      else if MatchStr(AList[Result].Key, CLOSERS) then
+      begin
+        if Depth = 0 then
+          Exit;
+        Dec(Depth);
+      end;
+      Inc(Result);
+    end; // while
+    Result:= ACeil;
+  end; // function
+
+  // True when the statement holding AVar, or one enclosing it, is a `with`.
+  function InWith(AVar, AFloor: Integer): Boolean;
+  var
+    p: Integer;
+    j: Integer;
+  begin
+    p:= AVar;
+    while p > AFloor do
+    begin
+      j:= p - 1;
+      while j > AFloor do
+      begin
+        if MatchStr(AList[j].Key, CLOSERS) then
+        begin
+          j:= OpenerBefore(j, AFloor);
+          if j < 0 then
+            Exit(False);
+        end
+        else if MatchStr(AList[j].Key, [';', 'begin', 'try', 'repeat', 'finally', 'except', 'of']) then
+          Break
+        else if AList[j].Key = 'with' then
+          Exit(True);
+        Dec(j);
+      end; // while
+      p:= OpenerBefore(p, AFloor);
+      if p < 0 then
+        Exit(False);
+    end; // while
+    Result:= False;
+  end; // function
+
+  // True when the identifier AKey occurs in the body (AFloor..ACeil) outside the
+  // scope of every `var` / `const` declaration of it (declaration to block end);
+  // a member access (`.AKey`) does not count.
+  function RefOutside(const AKey: string; AFloor, ACeil: Integer): Boolean;
+  var
+    Cover: TList<TPair<Integer, Integer>>;
+    Rng  : TPair<Integer, Integer>;
+    j    : Integer;
+    Last : Integer;
+    n    : Integer;
+    Hit  : Boolean;
+  begin
+    Result:= False;
+    Cover := TList<TPair<Integer, Integer>>.Create;
+    try
+      for j:= AFloor + 1 to ACeil - 1 do
+        if MatchStr(AList[j].Key, ['var', 'const']) and (j + 1 < ACeil) and (AList[j + 1].Cls = ccIdent) then
+        begin
+          Last:= NameListEnd(AList, j + 1);
+          n   := j + 1;
+          while n <= Last do
+          begin
+            if AList[n].Key = AKey then
+            begin
+              Cover.Add(TPair<Integer, Integer>.Create(j, CloserAfter(j, ACeil)));
+              Break;
+            end;
+            Inc(n, 2);
+          end; // while
+        end; // if
+      for j:= AFloor + 1 to ACeil - 1 do
+      begin
+        if (AList[j].Cls <> ccIdent) or (AList[j].Key <> AKey) or (AList[j - 1].Key = '.') then
+          Continue;
+        Hit:= False;
+        for Rng in Cover do
+          if (j > Rng.Key) and (j < Rng.Value) then
+          begin
+            Hit:= True;
+            Break;
+          end;
+        if not Hit then
+          Exit(True);
+      end; // for
+    finally
+      Cover.Free;
+    end; // try
+  end; // function
+
+  // The body that ends at ATo closes: AShadow gets each of its inline names a
+  // hoist would let shadow an outer binding (InWith / RefOutside).
+  procedure NoteShadows(ATo: Integer);
+  var
+    v   : Integer;
+    j   : Integer;
+    Last: Integer;
+    W   : Boolean;
+  begin
+    for v in BodyVars do
+    begin
+      W   := InWith(v, BodyFrom);
+      Last:= NameListEnd(AList, v + 1);
+      j   := v + 1;
+      while j <= Last do
+      begin
+        if W or RefOutside(AList[j].Key, BodyFrom, ATo) then
+          AShadow.AddOrSetValue(IntToStr(Stack.Peek) + '/' + AList[j].Key, True);
+        Inc(j, 2);
+      end; // while
+    end; // for
+    BodyVars.Clear;
   end; // procedure
 
   // One token (index AIdx) of a begin / asm .. end body: tracks its nesting and
@@ -1202,6 +1361,8 @@ var
       if (Anon.Count > 0) and (Anon.Peek = Body) then
         Anon.Pop;
       Dec(Body);
+      if Body = 0 then
+        NoteShadows(AIdx);
       if (Body = 0) and (Stack.Count > 1) then
         Stack.Pop;
     end
@@ -1211,10 +1372,12 @@ var
   end; // procedure
 
 begin
-  Stack:= TStack<Integer>.Create;
-  Anon := TStack<Integer>.Create;
+  Stack   := TStack<Integer>.Create;
+  Anon    := TStack<Integer>.Create;
+  BodyVars:= TList<Integer>.Create;
   try
     Stack.Push(0);
+    BodyFrom := 0;
     Seq      := 0;
     Body     := 0;
     Paren    := 0;
@@ -1271,6 +1434,8 @@ begin
         InSection:= False;
         PendAnon := False;
         Anon.Clear;
+        BodyVars.Clear;
+        BodyFrom := i;
         Body     := 1;
       end
       else if (Key = 'initialization') or (Key = 'finalization') then
@@ -1281,6 +1446,7 @@ begin
       Inc(i);
     end; // while
   finally
+    BodyVars.Free;
     Anon.Free;
     Stack.Free;
   end; // try
@@ -1290,13 +1456,18 @@ end; // procedure
 // than the source does (a hoist that duplicated a declaration: E2004), or
 // declares a name in a routine's section that the same routine's body still
 // declares inline where the source did not (a hoist next to a declaration a TODO
-// fallback left inline: E2004, review 2026-11-03 M1).
+// fallback left inline: E2004, review 2026-11-03 M1), or adds a section
+// declaration of an inline name the source binds outside its block or declares
+// in a `with` body (the hoisted local would shadow that binding; review
+// 2026-11-04 H1).
 function D10ScopeReason(const AOrig, AFmt: TCodeList): string;
 var
   OrigCounts: TDictionary<string, Integer>;
   OutCounts : TDictionary<string, Integer>;
   OrigInline: TDictionary<string, Boolean>;
   OutInline : TDictionary<string, Boolean>;
+  OrigShadow: TDictionary<string, Boolean>;
+  OutShadow : TDictionary<string, Boolean>;
   Names     : TDictionary<string, string>;
   Pair      : TPair<string, Integer>;
   N         : Integer;
@@ -1306,11 +1477,13 @@ begin
   OutCounts := TDictionary<string, Integer>.Create;
   OrigInline:= TDictionary<string, Boolean>.Create;
   OutInline := TDictionary<string, Boolean>.Create;
+  OrigShadow:= TDictionary<string, Boolean>.Create;
+  OutShadow := TDictionary<string, Boolean>.Create;
   Names     := TDictionary<string, string>.Create;
   try
-    CountScopeDecls(AOrig, OrigCounts, Names, OrigInline);
+    CountScopeDecls(AOrig, OrigCounts, Names, OrigInline, OrigShadow);
     Names.Clear;
-    CountScopeDecls(AFmt, OutCounts, Names, OutInline);
+    CountScopeDecls(AFmt, OutCounts, Names, OutInline, OutShadow);
     for Pair in OutCounts do
     begin
       N:= 0;
@@ -1319,8 +1492,12 @@ begin
         Exit('declaration duplicated in one routine by the Delphi 10 transform: ' + Names[Pair.Key]);
       if OutInline.ContainsKey(Pair.Key) and not ((N > 0) and OrigInline.ContainsKey(Pair.Key)) then
         Exit('declaration hoisted next to the same name left inline by the Delphi 10 transform: ' + Names[Pair.Key]);
+      if (Pair.Value > N) and OrigShadow.ContainsKey(Pair.Key) then
+        Exit('declaration hoisted over an outer binding of the same name by the Delphi 10 transform: ' + Names[Pair.Key]);
     end;
   finally
+    OutShadow.Free;
+    OrigShadow.Free;
     OutInline.Free;
     OrigInline.Free;
     Names.Free;

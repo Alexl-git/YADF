@@ -1,0 +1,85 @@
+program review1104_d10_shadow;
+{$APPTYPE CONSOLE}
+// REVIEW-2026-11-04-corruption H1: --d10 must not hoist an inline var whose
+// name also binds OUTSIDE its block (a class field, a unit global, a `with`
+// member): the hoisted local would shadow that binding for the whole routine
+// and every reference outside the block would read the local instead.
+
+type
+  TFoo = class
+  public
+    X: Integer;
+    procedure Go;
+  end;
+
+  TRec = record
+    A: Integer;
+  end;
+
+var
+  G: Integer;
+
+procedure TFoo.Go;
+begin
+  X:= 5;
+  if X > 0 then
+  begin
+    var X:= 10;
+    Writeln('inner ', X);
+  end;
+  Writeln('field ', X);
+end;
+
+procedure UseGlobal;
+begin
+  G:= 1;
+  if G > 0 then
+  begin
+    var G: Integer:= 2;
+    Writeln('inner ', G);
+  end;
+  Writeln('global ', G);
+end;
+
+procedure WithShadow;
+var
+  R: TRec;
+begin
+  R.A:= 7;
+  with R do
+  begin
+    var A:= 99;
+    Writeln('with inner ', A);
+  end;
+  Writeln('with again ', R.A);
+end;
+
+// Legitimate hoists stay hoisted: Y is used only inside its block, and the two
+// loops' I cover each other.
+procedure Legit;
+begin
+  if G > 0 then
+  begin
+    var Y:= 3;
+    Writeln('legit ', Y);
+  end;
+  for var I:= 1 to 2 do
+    Write(I, ' ');
+  for var I:= 3 to 4 do
+    Write(I, ' ');
+  Writeln;
+end;
+
+var
+  F: TFoo;
+begin
+  F:= TFoo.Create;
+  try
+    F.Go;
+  finally
+    F.Free;
+  end;
+  UseGlobal;
+  WithShadow;
+  Legit;
+end.
