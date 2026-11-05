@@ -59,21 +59,21 @@ end;
 // AlignShapeMinAnchors = 3 (default)
 procedure ShowAlignMatchingShapes;
 begin
-  Writeln(Format('%d', [1  ]), 'a' , 22); // one
-  Writeln(Format('%d', [333]), 'bb', 4 ); // two
+  Writeln(Format('%d', [1])  , 'a' , 22); // one
+  Writeln(Format('%d', [333]), 'bb', 4);  // two
 end;
 
 procedure ShowAlignShapeMinAnchors(var K: Integer);
 begin
   Writeln(K, 'a'     , 22); // one
-  Writeln(K, 'bbbbbb', 4 ); // two
+  Writeln(K, 'bbbbbb', 4);  // two
 end;
 
 // AlignShapeMinAnchors = 6
 procedure ShowAlignMatchingShapes;
 begin
-  Writeln(Format('%d', [1  ]), 'a' , 22); // one
-  Writeln(Format('%d', [333]), 'bb', 4 ); // two
+  Writeln(Format('%d', [1])  , 'a' , 22); // one
+  Writeln(Format('%d', [333]), 'bb', 4);  // two
 end;
 
 procedure ShowAlignShapeMinAnchors(var K: Integer);
