@@ -44,6 +44,7 @@ contains
   YADF.OptionsFrame in 'YADF.OptionsFrame.pas' {YadfOptionsFrame: TFrame},
   YADF.Tokens in 'YADF.Tokens.pas',
   YADF.Options in 'YADF.Options.pas',
+  YADF.Backup in 'YADF.Backup.pas',
   YADF.Groups in 'YADF.Groups.pas',
   YADF.Guard in 'YADF.Guard.pas',
   YADF.LineScan in 'YADF.LineScan.pas',

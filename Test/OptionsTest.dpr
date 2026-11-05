@@ -9,7 +9,8 @@ uses
   System.IniFiles,
   System.Variants,
   Winapi.Windows,
-  YADF.Options in '..\YADF.Options.pas';
+  YADF.Options in '..\YADF.Options.pas',
+  YADF.Backup in '..\YADF.Backup.pas';
 
 var
   GFailures: Integer = 0;
@@ -530,6 +531,50 @@ begin
   end;
 end;
 
+procedure TestBackupShared;
+var
+  Dir, F, Warn: string;
+  Names: TArray<string>;
+  Sink: TBackupWarn;
+begin
+  Dir := TPath.Combine(TPath.GetTempPath, 'yadf_bk_' + TGUID.NewGuid.ToString.Substring(1, 8));
+  TDirectory.CreateDirectory(Dir);
+  try
+    F := TPath.Combine(Dir, 'u.pas');
+    TFile.WriteAllText(F, 'src');
+    // M1: pre-existing BCK3, BCK4 (older ones already pruned). The new backup
+    // must be numbered ABOVE them (BCK5), never the lowest unused (BCK1), so
+    // keep=2 keeps the two newest and drops BCK3.
+    TFile.WriteAllText(F + '.BCK3', 'old3');
+    TFile.WriteAllText(F + '.BCK4', 'old4');
+    BackupOriginalFile(F, '', 2);
+    Check('backup: new sibling is BCK5 (above the highest)', TFile.Exists(F + '.BCK5') and not TFile.Exists(F + '.BCK1'));
+    Check('backup: keep=2 keeps BCK4 + BCK5, prunes BCK3',
+      TFile.Exists(F + '.BCK4') and TFile.Exists(F + '.BCK5') and not TFile.Exists(F + '.BCK3'));
+    // keep=0 keeps everything
+    BackupOriginalFile(F, '', 0);
+    Check('backup: keep=0 prunes nothing', TFile.Exists(F + '.BCK4') and TFile.Exists(F + '.BCK5') and TFile.Exists(F + '.BCK6'));
+    // L4: a prune that cannot delete reports through the sink
+    TFile.SetAttributes(F + '.BCK4', [TFileAttribute.faReadOnly]);
+    Warn := '';
+    Sink := procedure(const AMsg: string)
+      begin
+        Warn := AMsg;
+      end;
+    BackupOriginalFile(F, '', 1, Sink);
+    Check('backup: failed prune reaches the warning sink', Warn <> '');
+    // folder form: hash-named .bak under the backup dir
+    BackupOriginalFile(F, TPath.Combine(Dir, 'bak'), 0);
+    Names := TDirectory.GetFiles(TPath.Combine(Dir, 'bak'), 'u.pas.*.bak');
+    Check('backup: folder form writes name.hash.stamp.bak', (Length(Names) = 1) and
+      (ExtractFileName(Names[0]).Length > Length('u.pas.20200101-000000.bak')));
+  finally
+    for F in TDirectory.GetFiles(Dir, '*', TSearchOption.soAllDirectories) do
+      TFile.SetAttributes(F, [TFileAttribute.faNormal]);
+    TDirectory.Delete(Dir, True);
+  end;
+end;
+
 begin
   try
     TestDescriptorCompleteness;
@@ -546,6 +591,7 @@ begin
     TestPackLayers;
     TestPackConflictText;
     TestSampleSeed;
+    TestBackupShared;
     Writeln('');
     if GFailures = 0 then
       Writeln('ALL PASS')

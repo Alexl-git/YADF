@@ -62,6 +62,7 @@ uses
   , Vcl.Graphics          // TIcon / TBitmap for the splash + About image
   , DesignIntf            // ForceDemandLoadState / dlDisable live HERE, not ToolsAPI
   , YADF.Options
+  , YADF.Backup
   , YADF.Layout
   , YADF.FormatBridge
   , YADFOT.Options
@@ -268,44 +269,6 @@ end;
 // detector shared with the CLI, so both hosts decode and re-encode the same
 // file identically.
 
-// Lowest unused `<file>.BCK<n>` sibling name (mirrors the YADF CLI --b scheme).
-function NextSiblingBackupName(const AFile: string): string;
-var
-  Base: string;
-  Dir : string;
-  n   : Integer;
-begin
-  Dir := ExtractFilePath(AFile);
-  Base:= ExtractFileName(AFile);
-  n:= 1;
-  repeat
-    Result:= TPath.Combine(Dir, Base + '.BCK' + IntToStr(n));
-    if not TFile.Exists(Result) then Exit;
-    Inc(n);
-  until False;
-end;
-
-// Copy AFile aside before it is overwritten -- same scheme as the CLI's --b:
-// a timestamped `.bak` under ABackupDir when set, else a `<file>.BCK<n>`
-// sibling. The form-reload path ALWAYS calls this, so a form unit can be
-// restored from its `.BCK` if the reformat or the IDE reload goes wrong.
-procedure BackupOriginalFile(const AFile: string; const ABackupDir: string);
-var
-  Stamp : string;
-  Target: string;
-begin
-  if Trim(ABackupDir) = '' then
-  begin
-    TFile.Copy(AFile, NextSiblingBackupName(AFile), True);
-    Exit;
-  end;
-  if not TDirectory.Exists(ABackupDir) then
-    TDirectory.CreateDirectory(ABackupDir);
-  Stamp:= FormatDateTime('yyyymmdd-hhnnss', Now);
-  Target:= TPath.Combine(ABackupDir, ExtractFileName(AFile) + '.' + Stamp + '.bak');
-  TFile.Copy(AFile, Target, True);
-end;
-
 // Format AFileName in place ON DISK (read -> FormatSource -> write), preserving
 // the file's encoding. Returns True when the content changed (and was written).
 // This is exactly what the YADF CLI does to a file: it deliberately does NOT go
@@ -341,7 +304,7 @@ begin
     // original aside before overwriting. Set it once in YADFSetup and every
     // form format keeps a .BCK without passing anything per-call.
     if AOpts.Backup then
-      BackupOriginalFile(AFileName, AOpts.BackupDir);
+      BackupOriginalFile(AFileName, AOpts.BackupDir, AOpts.BackupKeep);
     // Same write contract as the CLI (LoadFile/SaveFile): Encoding=ANSI means
     // "preserve what was detected" -- re-emit in the detected encoding with
     // the original BOM-ness; an explicit utf8/utf16 option is a conversion

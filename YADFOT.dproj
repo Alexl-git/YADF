@@ -137,6 +137,7 @@
         </DCCReference>
         <DCCReference Include="YADF.Tokens.pas"/>
         <DCCReference Include="YADF.Options.pas"/>
+        <DCCReference Include="YADF.Backup.pas"/>
         <DCCReference Include="YADF.Groups.pas"/>
         <DCCReference Include="YADF.Guard.pas"/>
         <DCCReference Include="YADF.LineScan.pas"/>

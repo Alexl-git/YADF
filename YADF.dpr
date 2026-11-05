@@ -29,6 +29,7 @@ uses
   YADF.LineScan,
   YADF.Layout,
   YADF.Debug,
+  YADF.Backup,
   YadfMain;
 
 begin
