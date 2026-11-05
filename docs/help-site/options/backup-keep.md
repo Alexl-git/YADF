@@ -7,7 +7,7 @@ order: 30
 default: "0"
 ini: BackupKeep
 cli: --backup-keep
-since: "1.0.21.0"
+since: "1.0.22.0"
 status: "stable"
 ---
 

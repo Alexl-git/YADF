@@ -45,6 +45,7 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="..\YADF.Options.pas"/>
+        <DCCReference Include="..\YADF.Backup.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

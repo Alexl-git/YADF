@@ -117,5 +117,17 @@ Set-Content (Join-Path $d 'same.pas.BCK01') 'decoy'
 Run-Many $f 2 @('--b', '--backup-keep', '1')
 if (-not (Test-Path (Join-Path $d 'same.pas.BCK01'))) { Fail 'BCK01 decoy was pruned' }
 
+# 8. L4: a prune that cannot delete prints a warning (stdout), exit stays 0, run still wrote
+$d = Join-Path $root 'ro'; New-Item -ItemType Directory $d | Out-Null
+$f = Join-Path $d 'same.pas'
+Set-Content "$f.BCK1" 'readonly'
+Set-ItemProperty "$f.BCK1" -Name IsReadOnly -Value $true
+Write-Ugly $f 'run1'
+$out = & $exe --ini $ini --b --backup-keep 1 $f 2>&1 | Out-String
+$rc = $LASTEXITCODE
+Set-ItemProperty "$f.BCK1" -Name IsReadOnly -Value $false
+if ($rc -ne 0) { Fail "prune failure: expected exit 0, got $rc" }
+MustMatch $out '(?i)warning: backup prune failed' 'prune failure warns'
+
 [IO.Directory]::Delete($root, $true)
 Finish 'backup_keep'

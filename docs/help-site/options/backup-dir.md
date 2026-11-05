@@ -19,7 +19,8 @@ Used only when Backup=true and ResultDir is empty.
     identify the source folder, so same-named files from different
     folders never share (or prune) each other's backups.
   - Empty (default): write <source>.BCK<N> next to the source,
-    where N is the lowest unused integer (1, 2, 3, ...).
+    where N is one above the highest existing number (a freed lower
+    number is never reused, so the numbers stay in age order).
 CLI equivalent: --b <folder> (with arg) or --b (no arg, sibling).
 
 ## Example

@@ -50,6 +50,21 @@ try {
   if ($LASTEXITCODE -ne 0) { Fail "--no-ini --help: expected exit 0, got $LASTEXITCODE" }
   MustMatch $out '(?m)^Usage' '--no-ini --help prints help'
 
+  # L6: integer flags accept plain decimal only ($10 / 0x10 are Delphi hex)
+  foreach ($hex in @('$10', '0x10')) {
+    $out = & $exe --no-ini --backup-keep $hex $src 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 2) { Fail "--backup-keep $hex : expected exit 2, got $LASTEXITCODE" }
+    MustMatch $out '(?i)--backup-keep requires a number' "--backup-keep $hex message"
+  }
+
+  # L2: --no-ini wins over --ini on --help: compiled-in defaults, NO file created
+  $iniNoIni = Join-Path $tmpDir 'noini_help.ini'
+  $out = & $exe --no-ini --ini $iniNoIni --help 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0) { Fail "--no-ini --ini X --help: expected exit 0, got $LASTEXITCODE" }
+  MustMatch $out '(?m)^Usage' '--no-ini --ini X --help prints help'
+  if (Test-Path $iniNoIni) { Fail '--no-ini --ini X --help created the INI' }
+  if ($out -match 'Created default config') { Fail '--no-ini --ini X --help announced a created config' }
+
   # ----- typo'd value flag: same treatment, value arg not eaten as a file -----
   $out = & $exe --ini $ini --max-length 100 $src 2>&1 | Out-String
   if ($LASTEXITCODE -eq 0) { Fail "typo-flag exit: expected nonzero, got 0" }
