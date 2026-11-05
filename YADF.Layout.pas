@@ -11223,10 +11223,19 @@ var
     if (Nxt = '') or StartsStr('//', Nxt) or StartsStr('{', Nxt) or StartsStr('(*', Nxt) then
       Exit;
     Bounds:= FindComponentBoundaries(ALines[AIdx], 0);
+    // No boundary at all (`Z:= 1 shl`, `Z:= -`): the trailing operator is still
+    // looked for directly below, else it never led the over-long continuation
+    // (REVIEW-2026-11-04 L6). A space keeps Op on the direct path.
     if Length(Bounds) = 0 then
-      Exit;
-    Last:= Bounds[High(Bounds)];
-    Op  := TrimRight(Copy(ALines[AIdx], Last, MaxInt));
+    begin
+      Last:= 0;
+      Op  := ' ';
+    end
+    else
+    begin
+      Last:= Bounds[High(Bounds)];
+      Op  := TrimRight(Copy(ALines[AIdx], Last, MaxInt));
+    end;
     // A binary operator ending the line is no component boundary of its own
     // (nothing follows it): find it directly, at bracket depth 0, else it stayed
     // behind and the next format joined the two lines (REVIEW-2026-11-02 L2d).
