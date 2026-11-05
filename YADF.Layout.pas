@@ -3993,11 +3993,13 @@ begin
   Result:= True;
 end;
 
-/// <summary>Lists the top-level (outside strings, comments and ()/[]) do / then /
-/// else words of the line L: AW = the lower-cased words, ABef / AAft = their
-/// start column and the column after them. ADisq = the line holds a `//` comment
-/// or ends inside a block comment.</summary>
-procedure ScanControlWords(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@83a3 -- one flat hand lexer
+/// <summary>Lists the top-level (outside strings, comments, ()/[] and a begin /
+/// case / try / asm / record .. end opened on the line, e.g. an anonymous
+/// method's body -- review 2026-11-04 L1) do / then / else words of the line L:
+/// AW = the lower-cased words, ABef / AAft = their start column and the column
+/// after them. ADisq = the line holds a `//` comment or ends inside a block
+/// comment.</summary>
+procedure ScanControlWords(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@b83f -- one flat hand lexer
 var
   p    : Integer;
   n    : Integer;
@@ -4008,6 +4010,7 @@ var
   InPar: Boolean;
   Wrd  : string ;
   Cnt  : Integer;
+  Blk  : Integer; // begin/case/try/asm/record .. end nesting opened on this line
 
   function IsIdent(ch: Char): Boolean;
   begin
@@ -4037,6 +4040,7 @@ begin
   n:= Length(L);
   p:= 1;
   Depth:= 0;
+  Blk  := 0;
   InStr:= False;
   InBlk:= False;
   InPar:= False;
@@ -4113,7 +4117,11 @@ begin
         Wrd:= Wrd + L[p];  // dl:ok concat-in-loop@02e7
         Inc(p);
       end;
-      if (Depth = 0) and (SameText(Wrd, 'do') or SameText(Wrd, 'then') or SameText(Wrd, 'else')) then
+      if MatchText(Wrd, ['begin', 'case', 'try', 'asm', 'record']) then
+        Inc(Blk)
+      else if SameText(Wrd, 'end') and (Blk > 0) then
+        Dec(Blk)
+      else if (Depth = 0) and (Blk = 0) and MatchText(Wrd, ['do', 'then', 'else']) then
         AddHit(LowerCase(Wrd), Ws, p);
       Continue;
     end;
@@ -4234,12 +4242,56 @@ var
   // only the FIRST is the control body -- the rest is a sibling statement and
   // goes on its own line at the header's own indent. A remainder that begins
   // with a comment is left attached (hoisting it would detach the comment).
+  // Positions of the `;` in ABody outside strings, comments, ()/[] and a
+  // begin / case / try / asm / record .. end: a `;` inside an anonymous method's
+  // body does not end the controlled statement (review 2026-11-04 L1).
+  function StmtSeps(const ABody: string): TArray<Integer>;
+  var
+    St : TLineScanState;
+    p  : Integer;
+    e  : Integer;
+    Blk: Integer;
+    Res: TList<Integer>;
+  begin
+    Res:= TList<Integer>.Create;
+    try
+      St.Reset;
+      Blk:= 0;
+      p  := 1;
+      while True do
+      case St.SkipNonCode(ABody, p) of
+        seEndOfLine, seLineComment: Break;
+        seCode                    :
+        if CharInSet(ABody[p], ['a'..'z', 'A'..'Z', '_']) then
+        begin
+          e:= p;
+          while (e <= Length(ABody)) and CharInSet(ABody[e], ['a'..'z', 'A'..'Z', '0'..'9', '_']) do
+            Inc(e);
+          if MatchText(Copy(ABody, p, e - p), ['begin', 'case', 'try', 'asm', 'record']) then
+            Inc(Blk)
+          else if SameText(Copy(ABody, p, e - p), 'end') and (Blk > 0) then
+            Dec(Blk);
+          p:= e;
+        end
+        else
+        begin
+          if (ABody[p] = ';') and (St.Depth = 0) and (Blk = 0) then
+            Res.Add(p);
+          St.StepCode(ABody, p);
+        end; // seCode
+      end; // case
+      Result:= Res.ToArray;
+    finally
+      Res.Free;
+    end; // try
+  end; // function
+
   procedure OutBodySplit(const AIndent, ABody: string);
   var
     Seps: TArray<Integer>;
     Rest: string;
   begin
-    Seps:= TopLevelSepPositions(ABody, ';');
+    Seps:= StmtSeps(ABody);
     Rest:= if Length(Seps) > 0 then Trim(Copy(ABody, Seps[0] + 1, MaxInt)) else '';
     if (Rest = '') or Rest.StartsWith('{') or Rest.StartsWith('(*') then
       OutLine(AIndent + ABody)
