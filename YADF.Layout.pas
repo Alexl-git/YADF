@@ -11340,6 +11340,47 @@ var
       Result:= (p > 1) and MatchText(Copy(T, 1, p - 1), ['+', '-', '*', '/', 'and', 'or', 'xor', 'div', 'mod', 'shl', 'shr']);
     end;
 
+    // Indent of the control header whose condition line AIdx continues: a
+    // trailing `then` / `do` goes to the header's column, not the
+    // continuation's (review 2026-11-04 L4). Walks back over continuation
+    // lines; anything that ends a statement or opens a body (`;`, then / do /
+    // else / begin / of), a blank, comment or locked line gives up and keeps
+    // AIdx's own indent.
+    function HeaderIndent(AIdx: Integer): string;
+    const
+      HEADERS: array[0..5] of string = ('if', 'else', 'while', 'for', 'with', 'on');
+      ENDERS : array[0..4] of string = ('then', 'do', 'else', 'begin', 'of');
+      MAX_BACK = 50; // continuation lines searched
+    var
+      j : Integer;
+      Tj: string ;
+      c : Integer;
+      w : string ;
+    begin
+      Result:= LeadingIndent(Lines[AIdx]);
+      for w in HEADERS do
+        if CtlStartsWord(Lines[AIdx], w) then
+          Exit;
+      for j:= AIdx - 1 downto Max(0, AIdx - MAX_BACK) do
+      begin
+        if Locked[j] then
+          Exit;
+        Tj:= Lines[j];
+        c := TopLevelLineCommentCol(Tj);
+        if c > 0 then
+          Tj:= Copy(Tj, 1, c - 1);
+        Tj:= Trim(Tj);
+        if (Tj = '') or StartsStr('{', Tj) or StartsStr('(*', Tj) or EndsStr(';', Tj) then
+          Exit;
+        for w in ENDERS do
+          if SameText(Tj, w) or EndsText(' ' + w, Tj) then
+            Exit;
+        for w in HEADERS do
+          if CtlStartsWord(Tj, w) then
+            Exit(LeadingIndent(Lines[j]));
+      end; // for
+    end; // function
+
   begin
     Lines:= TStringList.Create;
     try
@@ -11366,7 +11407,7 @@ var
           // statement: the components it breaks into share its column (level -1),
           // not its column + Indent -- that staircased (`- F(1)` / `  - F(2)`).
           Lvl:= if IsOperatorLed(Lines[i]) then -1 else 0;
-          Lines[i]:= if SplitTrailingHeaderKeyword(Lines[i], Body, Kw) then BreakComponents(Body, HeadWS, Lvl, 0) + CRLF + HeadWS + Kw
+          Lines[i]:= if SplitTrailingHeaderKeyword(Lines[i], Body, Kw) then BreakComponents(Body, HeadWS, Lvl, 0) + CRLF + HeaderIndent(i) + Kw
                      else BreakComponents(Lines[i], HeadWS, Lvl, 0);
         end // if
         else
