@@ -10575,8 +10575,10 @@ var
         Inner:= InlineRenderRange(Tokens, Items[i].First, Items[i].Last);
         // An anonymous method that does not fit keeps its own lines (owner rule
         // 2026-11-03: begin at its header's level, one statement per line);
-        // flattened, its whole body landed on the list's item line.
-        if (Length(Indent) + Length(Trim(Inner)) > AOpts.MaxLen) and RangeHasBlockBody(Items[i].First, Items[i].Last) then
+        // flattened, its whole body landed on the list's item line. An item with
+        // no line break of its own has no lines to keep (review 2026-11-04 L5).
+        if (Length(Indent) + Length(Trim(Inner)) > AOpts.MaxLen) and RangeHasBlockBody(Items[i].First, Items[i].Last)
+           and RangeHasLineBreak(Tokens, Items[i].First, Items[i].Last) then
           EmitTokenRange(Items[i].First, Items[i].Last)
         else if (Length(Indent) + Length(Trim(Inner)) > AOpts.MaxLen) then
         begin
@@ -10753,7 +10755,10 @@ var
         // A list holding an anonymous method that does not fit on the line keeps
         // the author's breaks, as a lone anonymous-method argument does (owner rule
         // 2026-11-03): rendered inline, its whole body landed on one item line.
-        else if (CurCol + InlineW > AOpts.MaxLen) and RangeHasBlockBody(Child.OpenIdx, Child.CloseIdx) then
+        // A list the author wrote on ONE line has no breaks to keep: it falls to
+        // the list layout below (review 2026-11-04 L5).
+        else if (CurCol + InlineW > AOpts.MaxLen) and RangeHasBlockBody(Child.OpenIdx, Child.CloseIdx)
+                and RangeHasLineBreak(Tokens, Child.OpenIdx, Child.CloseIdx) then
           WalkGroup(Child)
         // BreakLongExpressions ON: a list is decided where its line has its final
         // column and its operator breaks (BreakListsInLine, from BreakLongLines).

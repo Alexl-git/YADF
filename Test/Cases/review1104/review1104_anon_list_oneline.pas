@@ -1,0 +1,40 @@
+unit review1104_anon_list_oneline;
+// REVIEW-2026-11-04-corruption L5 (regression from 2f98392): a bracket list held
+// on ONE line whose anonymous-method item does not fit was kept verbatim -- the
+// rule "an anonymous method that does not fit keeps its own lines" read the
+// author's single line as its own lines. With no line break of its own the list
+// falls back to the comma-first layout; the multi-line twin keeps its breaks.
+
+interface
+
+uses
+  System.SysUtils;
+
+procedure RunAll(const A: array of TProc);
+procedure Go;
+
+implementation
+
+procedure RunAll(const A: array of TProc);
+var
+  P: TProc;
+begin
+  for P in A do
+    P();
+end;
+
+procedure Go;
+begin
+  RunAll([procedure begin Writeln('a0 padding the line out a little more'); end, procedure begin Writeln('a1 padding'); Writeln('a1b padding'); Writeln('a1c padding'); Writeln('a1d padding the line'); end]);
+  RunAll([
+    procedure
+    begin
+      Writeln('b0 padding the line out a little more');
+    end,
+    procedure
+    begin
+      Writeln('b1 padding'); Writeln('b1b padding'); Writeln('b1c padding'); Writeln('b1d padding the line');
+    end]);
+end;
+
+end.
