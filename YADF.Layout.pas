@@ -8843,7 +8843,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@fba9, cognitive-complexity@f829, method-too-long@e609 -- 368 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@25a1, cognitive-complexity@d458, method-too-long@bf33 -- 368 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -9884,7 +9884,7 @@ var
     ARec.Sep:= -1;
     ARec.SepIsIn:= False;
     SetLength(ARec.DeclLines, 0);
-    SetLength(ARec.Names    , 0);
+    ARec.Names  := [ATokens[Ni].Text]; // for CommitShadowed; the rewrite ignores it
     ARec.TypeStr:= '';
     Result:= True;
   end; // function
@@ -10128,10 +10128,16 @@ begin
             end
             else if AnonCount = 0 then
             begin
+              // The shadow check of an inline var applies to a const as well: a
+              // hoisted const would capture a field / global / `with` member of
+              // its name for the whole routine.
               if TryParseInlineConst(i, Rec, ConstDecl) then
               begin
-                Inlines.Add(i, Rec);
-                EnsureBodyConst(G.OpenIdx).Add(ConstDecl);
+                if not CommitShadowed(G.OpenIdx, i, Rec) then
+                begin
+                  Inlines.Add(i, Rec);
+                  EnsureBodyConst(G.OpenIdx).Add(ConstDecl);
+                end;
                 i:= Rec.SemiIdx + 1;
                 Continue;
               end;

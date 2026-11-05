@@ -1097,7 +1097,7 @@ end; // function
 // unit, or one routine header and the declaration part that follows it; a nested
 // routine is its own scope until its body ends. Bodies (begin / asm .. end) are
 // skipped for the count -- inline vars are block-scoped and may repeat -- but
-// AInline gets '<scope>/<name>' for every inline `var` / `for var` name a body
+// AInline gets '<scope>/<name>' for every inline `var` / `for var` / `const` name a body
 // declares outside an anonymous method (review 2026-11-03 M1: a name hoisted into
 // the section next to one left inline is E2004 too). Scope numbers follow the
 // header order, which the Delphi 10 transform never changes, so the source and
@@ -1163,8 +1163,8 @@ var
     Result:= j + 1;
   end; // function
 
-  // An inline `var Name[, Name]` / `for var Name` at AFrom (the `var`) in a
-  // body: its names go to AInline under the current scope.
+  // An inline `var Name[, Name]` / `for var Name` / `const Name` at AFrom (the
+  // `var` / `const`) in a body: its names go to AInline under the current scope.
   procedure NoteInline(AFrom: Integer);
   var
     Last: Integer;
@@ -1174,7 +1174,7 @@ var
     if (AFrom + 1 >= AList.Count) or (AList[AFrom + 1].Cls <> ccIdent) then
       Exit;
     Last:= NameListEnd(AList, AFrom + 1);
-    if (Last + 1 >= AList.Count) or not MatchStr(AList[Last + 1].Key, [':', ':=', 'in']) then
+    if (Last + 1 >= AList.Count) or not MatchStr(AList[Last + 1].Key, [':', ':=', 'in', '=']) then
       Exit;
     j:= AFrom + 1;
     while j <= Last do
@@ -1366,7 +1366,7 @@ var
       if (Body = 0) and (Stack.Count > 1) then
         Stack.Pop;
     end
-    else if (BKey = 'var') and not PendAnon and (Anon.Count = 0) then
+    else if MatchStr(BKey, ['var', 'const']) and not PendAnon and (Anon.Count = 0) then
       NoteInline(AIdx);
     Prev:= BKey;
   end; // procedure

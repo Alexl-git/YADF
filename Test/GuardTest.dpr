@@ -737,6 +737,17 @@ begin
   Check('D10 hoist of a block-local name used only in its block passes',
     GuardOk('procedure P; begin Use(G); if G > 0 then begin var Y: Integer:= 3; Use(Y); end; for var I: Integer:= 1 to 2 do Use(I); for var I: Integer:= 3 to 4 do Use(I); end;',
       'procedure P; var Y: Integer; I: Integer; begin Use(G); if G > 0 then begin Y:= 3; Use(Y); end; for I:= 1 to 2 do Use(I); for I:= 3 to 4 do Use(I); end;', gcD10, DEF_CASING));
+  // An inline const gets the same shadow check: hoisted over a global referenced
+  // outside its block, it captures those references.
+  Check('D10 inline const hoisted over a global referenced outside the block rejected',
+    not GuardOk('procedure P; begin if G > 0 then begin const G = 30; Use(G); end; Use(G); end;',
+      'procedure P; const G = 30; begin if G > 0 then begin Use(G); end; Use(G); end;', gcD10, DEF_CASING));
+  Check('D10 inline const hoisted out of a with body rejected',
+    not GuardOk('procedure P; var R: TRec; begin with R do begin const A = 99; Use(A); end; end;',
+      'procedure P; var R: TRec; const A = 99; begin with R do begin Use(A); end; end;', gcD10, DEF_CASING));
+  Check('D10 inline const of a block-local name hoisted passes',
+    GuardOk('procedure P; begin if G > 0 then begin const C = 4; Use(C); end; end;',
+      'procedure P; const C = 4; begin if G > 0 then begin Use(C); end; end;', gcD10, DEF_CASING));
   Check('D10 an anonymous-method inline var shadowing a hoisted name passes',
     GuardOk('procedure P; begin var A: Integer:= 1; Run(procedure begin var A: Integer:= 2; Use(A); end); Use(A); end;',
       'procedure P; var A: Integer; begin A:= 1; Run(procedure begin var A: Integer:= 2; Use(A); end); Use(A); end;', gcD10, DEF_CASING));
