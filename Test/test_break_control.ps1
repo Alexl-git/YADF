@@ -100,10 +100,13 @@ $beginOn  = FmtStr '  while HasNext do begin Inc(a); Inc(b); end;' '--break-loop
 $beginOff = FmtStr '  while HasNext do begin Inc(a); Inc(b); end;' '--no-break-loop'
 if ($beginOn -ne $beginOff) { Fail 'non-goal: begin-body loop must be untouched by --break-loop' }
 
-# NON-GOAL: a nested control-header body is left alone (flag on == flag off).
+# A nested control-header body moves to its own line and is laid out there
+# (review 2026-11-04 L2/L3 -- replaces the earlier "left alone" non-goal);
+# OFF it stays inline.
 $nestOn  = FmtStr '  while a > 0 do while b > 0 do Dec(b);' '--break-loop'
 $nestOff = FmtStr '  while a > 0 do while b > 0 do Dec(b);' '--no-break-loop'
-if ($nestOn -ne $nestOff) { Fail 'non-goal: nested-header loop must be untouched by --break-loop' }
+MustMatch $nestOn  '(?m)^  while a > 0 do\r?\n    while b > 0 do\r?\n      Dec\(b\);' 'loop on: nested loop body on its own lines'
+MustMatch $nestOff '(?m)while a > 0 do while b > 0 do Dec\(b\);' 'loop off: nested loop stays inline'
 
 # idempotency + content-preserving round-trip for each single flag.
 $idemSrc = Join-Path $tmpRoot 'bctl_idem.pas'

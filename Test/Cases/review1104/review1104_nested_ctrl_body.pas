@@ -1,0 +1,55 @@
+unit review1104_nested_ctrl_body;
+// REVIEW-2026-11-04-corruption L2 / L3: a loop or with body that is itself a
+// control statement (do if, do while, do with) stayed on the do line, so
+// an over-long one was cut by the expression breaker with lse inside a
+// continuation, and a then-body followed by lse // comment was not laid out.
+// Under BreakIfBody / BreakLoopBody / BreakWithBody the nested statement moves to
+// its own line one level deeper, exactly as if the author had written it there.
+
+interface
+
+uses
+  System.SysUtils,
+  System.Classes;
+
+procedure Go(L: TStringList; var P: TProc);
+
+implementation
+
+var
+  Other1: Integer;
+  Other2: Integer;
+  Other3: Integer;
+  Other4: Integer;
+  Other5: Integer;
+  Other6: Integer;
+  Other7: Integer;
+  Other8: Integer;
+  Other9: Integer;
+  Other10: Integer;
+  Other11: Integer;
+  Other12: Integer;
+  Other13: Integer;
+  Other14: Integer;
+
+procedure Go(L: TStringList; var P: TProc);
+var
+  Counter: Integer;
+  Flag: Boolean;
+begin
+  Counter := L.Count;
+  Flag := Counter > 2;
+  with L do if Count = 0 then P := procedure begin Writeln('with'); end;
+  while Counter > 0 do if Other1 > Other2 then Counter := Counter - Other1 - Other2 - Other3 - Other4 - Other5 - Other6 - Other7 - Other8 - Other9 - Other10 - Other11 - Other12 - Other13 - Other14 - Other1 - Other2 - Other3 - Other4 - Other5 - Other6 - Other7 - Other8 - Other9 - Other10 - Other11 - Other12 - Other13 - Other14 else Counter := Counter - 1;
+  for Counter := 0 to 3 do if Flag then Other1 := Other1 + Counter + Other1 + Other2 + Other3 + Other4 + Other5 + Other6 + Other7 + Other8 + Other9 + Other10 + Other11 + Other12 + Other13 + Other14 + Other1 + Other2 + Other3 + Other4 + Other5 + Other6 + Other7 + Other8 + Other9 + Other10 + Other11 + Other12 + Other13 + Other14 else Other1 := Other1 - Counter;
+  if Counter > 0 then Counter := Counter + Other1 + Other2 + Other3 + Other4 + Other5 + Other6 + Other7 + Other8 + Other9 + Other10 + Other11 + Other12 + Other13 + Other14 else // tail note
+    Counter := -1;
+  while Counter > 5 do if Flag then Counter := Counter - 2 else Counter := Counter - 1;
+  for Counter := 0 to 3 do while Other1 > 100 do Other1 := Other1 - 1;
+  with L do while Count > 3 do Delete(0);
+  for Counter := 0 to 3 do with L do if Count > 0 then Delete(0) else Add('x');
+  while Counter > 10 do if Flag then Dec(Counter);
+  Writeln('sibling');
+end;
+
+end.

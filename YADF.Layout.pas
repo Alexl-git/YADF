@@ -4149,19 +4149,26 @@ type
 /// and if `... then A else B;` (BreakIfBody). Structural mirror of
 /// CollapseShortBlocks. Content-neutral (inserts only CRLF + whitespace);
 /// ReindentByDepth (called by the pipeline right after) fixes the body depth.
-/// A begin block, a body starting with a nested control header, or a line with a
-/// top-level line comment / open block comment is left unchanged. Idempotent.</summary>
+/// A begin block, a body starting with a nested control header (except under
+/// AOnKinds, below), or a line with a top-level line comment / open block comment
+/// is left unchanged. Idempotent.</summary>
 /// <param name="S">CRLF text, multi-line atoms shielded.</param>
 /// <param name="ASplit">Kinds whose one-line bodies are always split.</param>
 /// <param name="ASplitShort">Kinds split only when the line is at most AMaxLen
 /// long (the canonical form JoinControlBodies re-joins; a longer line is left as
 /// the author wrote it -- ReflowLines OFF never wraps).</param>
+/// <param name="AOnKinds">Kinds whose Break*Body option is ON. Under one of these a
+/// loop / with body that is itself an if / for / while / with statement moves to
+/// its own line and is laid out there as if written there, and a line ending
+/// `else // note` is split like the fitting shape (review 2026-11-04 L2 / L3).</param>
 /// <param name="AMaxLen">Maximum line length, for ASplitShort.</param>
 /// <returns>S with the selected bodies on their own lines.</returns>
 /// <remarks>The case `else` part belongs to CaseArmOnLabelLine and is never split
 /// here (owner decision Q11). A `{ }` / `(* *)` comment right after then/do/else
-/// stays on the header line (Q18).</remarks>
-function BreakControlBodies(const S: string; ASplit, ASplitShort: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@e08d, cognitive-complexity@5743 -- one segment walk per line
+/// stays on the header line (Q18). A then-body that is itself a control statement
+/// stays on the `then` line: with an `else` on the line it could belong to either
+/// if, and splitting it is not needed by any layout rule.</remarks>
+function BreakControlBodies(const S: string; ASplit, ASplitShort, AOnKinds: TBodyKinds; AMaxLen: Integer): string;  // dl:ok deep-nesting@3eda, cyclomatic-complexity@e08d, cognitive-complexity@5743 -- one segment walk per line
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -4174,7 +4181,6 @@ var
   BefP  : TArray<Integer>;
   AftP  : TArray<Integer>;
   Disq  : Boolean        ;
-  M     : Integer        ;
   DoIx  : Integer        ;
   Header: string         ;
   Body  : string         ;
@@ -4184,7 +4190,6 @@ var
   Cursor: Integer        ;
   k     : Integer        ;
   Ok    : Boolean        ;
-  S2    : Integer        ;
   ArmL  : TArray<Boolean>;
   ElseL : TArray<Boolean>;
   Depths: TArray<Integer>;
@@ -4302,6 +4307,197 @@ var
     end;
   end;
 
+  procedure ProcessLine(const ALine: string; ANested: Boolean); forward;
+
+  // A loop / with body that is itself an if / for / while / with statement:
+  // under the outer kind's ON option it moves to its own line and is laid out
+  // there, exactly as if the author had written it on that line (review
+  // 2026-11-04 L2 / L3). Only ON kinds: an OFF kind is joined back by
+  // JoinControlBodies, which joins a simple body only, so splitting it here
+  // would change the author's layout under an OFF option.
+  function IsNestedCtlBody(AKind: TBodyKind; const ABody: string): Boolean;
+  begin
+    Result:= (AKind in AOnKinds) and (CtlStartsWord(ABody, 'if') or CtlStartsWord(ABody, 'for') or CtlStartsWord(ABody, 'while') or CtlStartsWord(ABody, 'with'));  // dl:ok boolean-expression-complexity -- four sibling keyword tests
+  end;
+
+  // One source line (or, ANested, the control statement split off a `do` line).
+  // A case-arm `else` line is ElseL[i] only for the line as read, not for a
+  // statement split off it.
+  procedure ProcessLine(const ALine: string; ANested: Boolean);
+  var
+    Kind   : TBodyKind;
+    TailCmt: string   ; // `// note` after a trailing `else` (L3), else ''
+    Cc     : Integer  ;
+    M      : Integer  ;
+    S2     : Integer  ;
+  begin
+    Cur:= ALine;
+    T:= TrimLeft(Cur);
+    Indent:= Copy(Cur, 1, Length(Cur) - Length(T));
+    // Loops / with: split after the first top-level `do`.
+    if (not Lock[i]) and ( ((CtlStartsWord(T, 'for') or CtlStartsWord(T, 'while')) and Wants(bkLoop)) or (CtlStartsWord(T, 'with') and Wants(bkWith)) ) then  // dl:ok boolean-expression-complexity@79e9
+    begin
+      Kind:= if CtlStartsWord(T, 'with') then bkWith else bkLoop;
+      ScanControlWords(Cur, W, BefP, AftP, Disq);
+      if not Disq then
+      begin
+        DoIx:= -1;
+        for M:= 0 to High(W) do if W[M] = 'do' then
+        begin
+          DoIx:= M;
+          Break;
+        end;
+        if DoIx >= 0 then
+        begin
+          Header:= TrimRight(Copy(Cur, 1, AftP[DoIx] - 1));
+          Body:= Trim(Copy(Cur, AftP[DoIx], Length(Cur)));
+          PeelLeadComment(Header, Body);
+          if IsSimpleControlBody(Body) then
+          begin
+            OutLine(Header);
+            OutBodySplit(Indent, Body);
+            Exit;
+          end;
+          if IsNestedCtlBody(Kind, Body) then
+          begin
+            OutLine(Header);
+            ProcessLine(Indent + Body, True);
+            Exit;
+          end;
+        end;
+      end; // if
+    end; // if
+    // if / else: split after `then`, before/after each top-level `else`;
+    // "else if ... then" stays glued as one header line.
+    // `end else X;` (task 6): the else part of an if whose then part is a
+    // block starts after the block's `end`; its body is split like any other
+    // (`end else` stays together, as the author wrote it). A case `else`
+    // after an arm's `end` is ElseL and left alone (Q11).
+    EndElse:= CtlStartsWord(T, 'end') and CtlStartsWord(Copy(T, Length('end') + 1, MaxInt), 'else');
+    IsElse := CtlStartsWord(T, 'else') or EndElse;
+    if (not Lock[i]) and Wants(bkIf) and (CtlStartsWord(T, 'if') or IsElse) and (ANested or not ElseL[i]) then
+    begin
+      // A line ending `else // note` (its body on the next line) is laid out
+      // like the fitting shape, the note staying on the `else` line (review
+      // 2026-11-04 L3). ON only, for the reason IsNestedCtlBody gives.
+      TailCmt:= '';
+      Cc     := TopLevelLineCommentCol(Cur);
+      if (Cc > 0) and (bkIf in AOnKinds) then
+      begin
+        TailCmt:= TrimRight(Copy(Cur, Cc, MaxInt));
+        Cur    := TrimRight(Copy(Cur, 1, Cc - 1));
+      end;
+      ScanControlWords(Cur, W, BefP, AftP, Disq);
+      if not Disq then
+      begin
+        Segs:= TStringList.Create;
+        try
+          Segs.LineBreak:= CRLF;
+          Ok    := True;
+          k     := 0; // set on every Ok:=True path below; init silences W1036 + defends the else
+          Cursor:= 0;
+          // Establish the first header segment + cursor.
+          if not IsElse then
+          begin
+            if (Length(W) = 0) or (W[0] <> 'then') then
+              Ok:= False
+            else
+            begin
+              Segs.Add(Trim(Copy(Cur, 1, AftP[0] - 1))); // "if COND then"
+              Cursor:= AftP[0];
+              k:= 1;
+            end;
+          end
+          else if (Length(W) >= 2) and (W[0] = 'else') and (W[1] = 'then') and ElseIfAt(0) then
+          begin
+            Segs.Add(Trim(Copy(Cur, 1, AftP[1] - 1))); // "else if COND then"
+            Cursor:= AftP[1];
+            k:= 2;
+          end
+          else if (Length(W) >= 1) and (W[0] = 'else') then
+          begin
+            if EndElse then
+              Segs.Add(Trim(Copy(Cur, 1, AftP[0] - 1))) // "end else"
+            else
+              Segs.Add(Copy(Cur, BefP[0], AftP[0] - BefP[0])); // preserve source `else` casing
+            Cursor:= AftP[0];
+            k:= 1;
+          end
+          else
+            Ok:= False;
+          // Walk the remaining else hits.
+          while Ok and (k <= High(W)) do
+          begin
+            if W[k] <> 'else' then  // stray then = nested if body
+            begin
+              Ok:= False;
+              Break;
+            end;
+            Body:= Trim(Copy(Cur, Cursor, BefP[k] - Cursor));
+            Header:= Segs[Segs.Count - 1];
+            PeelLeadComment(Header, Body);
+            Segs[Segs.Count - 1]:= Header;
+            if not IsSimpleControlBody(Body) then
+            begin
+              Ok:= False;
+              Break;
+            end;
+            Segs.Add(Body);
+            if (k + 1 <= High(W)) and (W[k + 1] = 'then') and ElseIfAt(k) then
+            begin
+              Segs.Add(Trim(Copy(Cur, BefP[k], AftP[k + 1] - BefP[k]))); // "else if COND then"
+              Cursor:= AftP[k + 1];
+              k:= k + 2;
+            end
+            else
+            begin
+              Segs.Add(Copy(Cur, BefP[k], AftP[k] - BefP[k])); // preserve source `else` casing
+              Cursor:= AftP[k];
+              k:= k + 1;
+            end;
+          end; // while
+          if Ok then
+          begin
+            Body:= Trim(Copy(Cur, Cursor, Length(Cur))); // trailing body
+            Header:= Segs[Segs.Count - 1];
+            if TailCmt <> '' then
+            begin
+              // Only `... else // note`: nothing after the else, at least one
+              // body before it; the body below stays where the author put it.
+              if (Body = '') and (Segs.Count >= 3) and CtlStartsWord(Header, 'else') and not CtlStartsWord(Header, 'else if') then
+              begin
+                Segs[Segs.Count - 1]:= Header + ' ' + TailCmt;
+                for S2:= 0 to Segs.Count - 1 do
+                  OutLine(Indent + Segs[S2]);
+                Exit;
+              end;
+              Ok:= False;
+            end
+            else
+            begin
+              PeelLeadComment(Header, Body);
+              Segs[Segs.Count - 1]:= Header;
+              if IsSimpleControlBody(Body) then
+                Segs.Add(Body)
+              else
+                Ok:= False;
+            end;
+          end;
+          if Ok and (Segs.Count >= 2) then
+          begin
+            for S2:= 0 to Segs.Count - 2 do
+              OutLine(Indent + Segs[S2]);
+            OutBodySplit(Indent, Segs[Segs.Count - 1]); // the trailing body
+            Exit; // line handled; skip fallthrough
+          end;
+        finally
+          Segs.Free;
+        end; // try
+      end; // if
+    end; // if
+    OutLine(ALine);
+  end; // procedure
+
 begin
   Lines:= TStringList.Create;
   try
@@ -4313,140 +4509,7 @@ begin
     OutVal:= TStringBuilder.Create;
     try
       for i:= 0 to Lines.Count - 1 do
-      begin
-        Cur:= Lines[i];
-        T:= TrimLeft(Cur);
-        Indent:= Copy(Cur, 1, Length(Cur) - Length(T));
-        // Loops / with: split after the first top-level `do`.
-        if (not Lock[i]) and ( ((CtlStartsWord(T, 'for') or CtlStartsWord(T, 'while')) and Wants(bkLoop)) or (CtlStartsWord(T, 'with') and Wants(bkWith)) ) then  // dl:ok boolean-expression-complexity@79e9
-        begin
-          ScanControlWords(Cur, W, BefP, AftP, Disq);
-          if not Disq then
-          begin
-            DoIx:= -1;
-            for M:= 0 to High(W) do if W[M] = 'do' then
-            begin
-              DoIx:= M;
-              Break;
-            end;
-            if DoIx >= 0 then
-            begin
-              Header:= TrimRight(Copy(Cur, 1, AftP[DoIx] - 1));
-              Body:= Trim(Copy(Cur, AftP[DoIx], Length(Cur)));
-              PeelLeadComment(Header, Body);
-              if IsSimpleControlBody(Body) then
-              begin
-                OutLine(Header);
-                OutBodySplit(Indent, Body);
-                Continue;
-              end;
-            end;
-          end; // if
-        end; // if
-        // if / else: split after `then`, before/after each top-level `else`;
-        // "else if ... then" stays glued as one header line.
-        // `end else X;` (task 6): the else part of an if whose then part is a
-        // block starts after the block's `end`; its body is split like any other
-        // (`end else` stays together, as the author wrote it). A case `else`
-        // after an arm's `end` is ElseL and left alone (Q11).
-        EndElse:= CtlStartsWord(T, 'end') and CtlStartsWord(Copy(T, Length('end') + 1, MaxInt), 'else');
-        IsElse := CtlStartsWord(T, 'else') or EndElse;
-        if (not Lock[i]) and Wants(bkIf) and (CtlStartsWord(T, 'if') or IsElse) and not ElseL[i] then
-        begin
-          ScanControlWords(Cur, W, BefP, AftP, Disq);
-          if not Disq then
-          begin
-            Segs:= TStringList.Create;
-            try
-              Segs.LineBreak:= CRLF;
-              Ok    := True;
-              k     := 0; // set on every Ok:=True path below; init silences W1036 + defends the else
-              Cursor:= 0;
-              // Establish the first header segment + cursor.
-              if not IsElse then
-              begin
-                if (Length(W) = 0) or (W[0] <> 'then') then
-                  Ok:= False
-                else
-                begin
-                  Segs.Add(Trim(Copy(Cur, 1, AftP[0] - 1))); // "if COND then"
-                  Cursor:= AftP[0];
-                  k:= 1;
-                end;
-              end
-              else if (Length(W) >= 2) and (W[0] = 'else') and (W[1] = 'then') and ElseIfAt(0) then
-              begin
-                Segs.Add(Trim(Copy(Cur, 1, AftP[1] - 1))); // "else if COND then"
-                Cursor:= AftP[1];
-                k:= 2;
-              end
-              else if (Length(W) >= 1) and (W[0] = 'else') then
-              begin
-                if EndElse then
-                  Segs.Add(Trim(Copy(Cur, 1, AftP[0] - 1))) // "end else"
-                else
-                  Segs.Add(Copy(Cur, BefP[0], AftP[0] - BefP[0])); // preserve source `else` casing
-                Cursor:= AftP[0];
-                k:= 1;
-              end
-              else
-                Ok:= False;
-              // Walk the remaining else hits.
-              while Ok and (k <= High(W)) do
-              begin
-                if W[k] <> 'else' then  // stray then = nested if body
-                begin
-                  Ok:= False;
-                  Break;
-                end;
-                Body:= Trim(Copy(Cur, Cursor, BefP[k] - Cursor));
-                Header:= Segs[Segs.Count - 1];
-                PeelLeadComment(Header, Body);
-                Segs[Segs.Count - 1]:= Header;
-                if not IsSimpleControlBody(Body) then
-                begin
-                  Ok:= False;
-                  Break;
-                end;
-                Segs.Add(Body);
-                if (k + 1 <= High(W)) and (W[k + 1] = 'then') and ElseIfAt(k) then
-                begin
-                  Segs.Add(Trim(Copy(Cur, BefP[k], AftP[k + 1] - BefP[k]))); // "else if COND then"
-                  Cursor:= AftP[k + 1];
-                  k:= k + 2;
-                end
-                else
-                begin
-                  Segs.Add(Copy(Cur, BefP[k], AftP[k] - BefP[k])); // preserve source `else` casing
-                  Cursor:= AftP[k];
-                  k:= k + 1;
-                end;
-              end; // while
-              if Ok then
-              begin
-                Body:= Trim(Copy(Cur, Cursor, Length(Cur))); // trailing body
-                Header:= Segs[Segs.Count - 1];
-                PeelLeadComment(Header, Body);
-                Segs[Segs.Count - 1]:= Header;
-                if IsSimpleControlBody(Body) then
-                  Segs.Add(Body)
-                else
-                  Ok:= False;
-              end;
-              if Ok and (Segs.Count >= 2) then
-              begin
-                for S2:= 0 to Segs.Count - 2 do
-                  OutLine(Indent + Segs[S2]);
-                OutBodySplit(Indent, Segs[Segs.Count - 1]); // the trailing body
-                Continue; // line handled; skip fallthrough
-              end;
-            finally
-              Segs.Free;
-            end; // try
-          end; // if
-        end; // if
-        OutLine(Cur);
-      end; // for
+        ProcessLine(Lines[i], False);
       Result:= OutVal.ToString;
     finally
       OutVal.Free;
@@ -10377,8 +10440,8 @@ begin
   if AOpts.BreakWithBody then
     Include(OnKinds, bkWith);
   OffKinds:= [bkIf, bkLoop, bkWith] - OnKinds;
-  Result:= if AOpts.ReflowLines then BreakControlBodies(S, OnKinds + OffKinds, [], AOpts.MaxLen)
-            else BreakControlBodies(S, OnKinds, OffKinds, AOpts.MaxLen);
+  Result:= if AOpts.ReflowLines then BreakControlBodies(S, OnKinds + OffKinds, [], OnKinds, AOpts.MaxLen)
+            else BreakControlBodies(S, OnKinds, OffKinds, OnKinds, AOpts.MaxLen);
   Result:= ReindentByDepth(Result, AOpts.Indent, AOpts.IndentComments);
   if OffKinds <> [] then
   begin
