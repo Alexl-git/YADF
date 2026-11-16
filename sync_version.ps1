@@ -5,6 +5,10 @@
 #                        MD5 of the UTF-8 text after line 1, CRLF -> LF)
 #   * YADFSample.RES     recompiled with brcc32 when it no longer embeds the
 #                        current Demo\Sample.pas bytes
+#   * YADF/YADFSetup/YADFOT.dproj  every VerInfo_MajorVer/MinorVer/Release/Build
+#                        and every FileVersion=/ProductVersion= key, in ALL
+#                        configs, so a Debug build (IDE or delphi-build) stamps
+#                        the same file version as build_all's Release build
 #
 # Usage:
 #   pwsh sync_version.ps1                  sync the files to build_all.bat's version
@@ -79,6 +83,37 @@ if (-not $embedded) {
   try { & $brcc YADFSample.rc | Out-Null; $rc = $LASTEXITCODE } finally { Pop-Location }
   if ($rc -ne 0) { throw "brcc32 YADFSample.rc failed ($rc)" }
   Write-Output 'sync_version: YADFSample.RES rebuilt'
+}
+
+# 4. .dproj version info. build_all passes the version on the msbuild command
+# line, but a Debug build reads the .dproj, whose per-config values had frozen
+# at 1.0.3.0 / 1.0.4.0. Rewrite every occurrence (Base and per-config
+# overrides), and make sure the Base group carries all four numbers so no
+# config falls back to the 1.0.0.0 default. Encoding (BOM or not) and CRLF
+# are kept as found.
+$tags = 'VerInfo_MajorVer', 'VerInfo_MinorVer', 'VerInfo_Release', 'VerInfo_Build'
+foreach ($name in 'YADF.dproj', 'YADFSetup.dproj', 'YADFOT.dproj') {
+  $path = Join-Path $root $name
+  $raw  = [IO.File]::ReadAllBytes($path)
+  $bom  = $raw.Length -ge 3 -and $raw[0] -eq 0xEF -and $raw[1] -eq 0xBB -and $raw[2] -eq 0xBF
+  $text = [IO.File]::ReadAllText($path)
+  $new  = $text
+  for ($i = 0; $i -lt 4; $i++) {
+    $new = [regex]::Replace($new, "<$($tags[$i])>\d+</$($tags[$i])>", "<$($tags[$i])>$($nums[$i])</$($tags[$i])>")
+  }
+  $new = [regex]::Replace($new, '(?<=[>;])(FileVersion|ProductVersion)=[\d.]+', "`$1=$ver")
+  $base = [regex]::Match($new, "(?m)^([ \t]*)<PropertyGroup Condition=""'\`$\(Base\)'!=''"">\r?\n([ \t]*)")
+  if (-not $base.Success) { throw "$name has no Base PropertyGroup" }
+  $groupEnd = $new.IndexOf('</PropertyGroup>', $base.Index)
+  $group = $new.Substring($base.Index, $groupEnd - $base.Index)
+  $missing = for ($i = 0; $i -lt 4; $i++) {
+    if ($group -notmatch "<$($tags[$i])>") { "$($base.Groups[2].Value)<$($tags[$i])>$($nums[$i])</$($tags[$i])>`r`n" }
+  }
+  if ($missing) { $new = $new.Insert($base.Index + $base.Length - $base.Groups[2].Length, ($missing -join '')) }
+  if ($new -ne $text) {
+    [IO.File]::WriteAllText($path, $new, [Text.UTF8Encoding]::new($bom))
+    Write-Output "sync_version: $name version info -> $ver"
+  }
 }
 Write-Output "sync_version: $ver in sync"
 exit 0
