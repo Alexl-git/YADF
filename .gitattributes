@@ -1,2 +1,6 @@
 # help-site pages and index are generated LF (gen_help_site.ps1); keep them LF on checkout
 docs/help-site/** text eol=lf
+
+# GitHub language bar: build/test scripts are tooling, not the product -- count Pascal only
+*.ps1 linguist-detectable=false
+*.bat linguist-detectable=false
