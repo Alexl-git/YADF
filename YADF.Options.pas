@@ -731,7 +731,7 @@ function LoadNativeFormatterFlag(const AProfilesIni: string): Boolean;
 /// <para>Calls: DirectoryExists, ExtractFilePath, ForceDirectories, IfThen</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
-procedure SaveNativeFormatterFlag(const AProfilesIni: string; AValue: Boolean);  // dl:ok doc-drift@9cef -- the exception is raised by TIniFile.WriteString (System.IniFiles, on a failed WritePrivateProfileString) and propagates uncaught; the rule sees only a direct raise
+procedure SaveNativeFormatterFlag(const AProfilesIni: string; AValue: Boolean);
 
 type
   /// <summary>Signature of the replace step SaveFile runs when the target already exists.</summary>
