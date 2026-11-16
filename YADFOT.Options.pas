@@ -44,7 +44,7 @@ procedure RegisterYADFOptions;
 /// so a second call is a safe no-op.</summary>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: initialization/finalization (YADFOT.Options.pas), YADFOT.Wizard.TYadfotMenuWizard.Destroyed (YADFOT.Wizard.pas)</para>
+/// <para>Called from: YADFOT.Options.finalization (YADFOT.Options.pas), YADFOT.Wizard.TYadfotMenuWizard.Destroyed (YADFOT.Wizard.pas)</para>
 /// <para>Calls: Supports</para>
 /// <para>Catches: Exception (empty)</para>
 /// <!-- drag-lint:auto END -->

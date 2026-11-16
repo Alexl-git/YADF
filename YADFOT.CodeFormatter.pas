@@ -37,18 +37,40 @@ uses
 /// <summary>True when this build can register an IDE code formatter (ToolsAPI declares
 /// IOTACodeFormatter, i.e. Delphi 13.2+, and YADF_NO_CODEFORMATTER is not defined).</summary>
 /// <returns>A compile-time constant; the Options page shows its switch only when True.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADFOT.Options.TYadfOptionsPage.FrameCreated (YADFOT.Options.pas)</para>
+/// <para>Returns: True</para>
+/// <para>Effect-free (proven)</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function CodeFormatterAvailable: Boolean;
 
 /// <summary>Registers YADF with IOTACodeFormatterServices when the build supports it AND the
 /// user enabled profiles.ini [IDE] NativeFormatter. Idempotent.</summary>
-/// <remarks>Call from the package Register procedure on the IDE main thread. A no-op on IDEs
-/// without IOTACodeFormatter and when the switch is off.</remarks>
+/// <remarks>
+/// Call from the package Register procedure on the IDE main thread. A no-op on IDEs
+/// without IOTACodeFormatter and when the switch is off.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADFOT.Wizard.Register (YADFOT.Wizard.pas)</para>
+/// <para>Calls: Supports, YADF.Options.LoadNativeFormatterFlag, YADF.Options.ProfilesIniPath</para>
+/// <seealso cref="YADF.Options.LoadNativeFormatterFlag"/>
+/// <seealso cref="YADF.Options.ProfilesIniPath"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 procedure RegisterYadfCodeFormatter;
 
 /// <summary>Hands the formatter back to the IDE. Idempotent; safe when the services are
 /// already gone (late IDE shutdown).</summary>
-/// <remarks>Call from the wizard's Destroyed (primary, before the BPL code segment is
-/// dropped) and from finalization (backstop).</remarks>
+/// <remarks>
+/// Call from the wizard's Destroyed (primary, before the BPL code segment is
+/// dropped) and from finalization (backstop).
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADFOT.CodeFormatter.finalization (YADFOT.CodeFormatter.pas), YADFOT.Wizard.TYadfotMenuWizard.Destroyed (YADFOT.Wizard.pas)</para>
+/// <para>Calls: Supports</para>
+/// <para>Catches: Exception (empty)</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 procedure UnregisterYadfCodeFormatter;
 
 implementation

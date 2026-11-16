@@ -90,7 +90,7 @@ type
   /// code stream must be a subsequence of the output's (task 10) -- the hoist adds
   /// declarations but never reorders code.
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Guard.pas), [YADF]YADF.Guard.CodeStreamReason (YADF.Guard.pas), [YADF]YADF.Guard.FormatPreservesContent/6 (YADF.Guard.pas), [YADF]YADF.Guard.FormatPreservesContent/7 (YADF.Guard.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas)</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Guard.pas), [YADF,YADFOT,YADFSetup]YADF.Guard.CodeStreamReason (YADF.Guard.pas), [YADF,YADFOT,YADFSetup]YADF.Guard.FormatPreservesContent/6 (YADF.Guard.pas), [YADF,YADFOT,YADFSetup]YADF.Guard.FormatPreservesContent/7 (YADF.Guard.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce (YADF.Layout.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TGuardCodeMode = (gcNone, gcStrict, gcSplit, gcD10);
@@ -131,7 +131,7 @@ type
 /// <remarks>
 /// Same purity/fail-closed contract as the other overloads.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: [YADF]YADF.Guard.FormatPreservesContent/5 (YADF.Guard.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Guard.FormatPreservesContent/5 (YADF.Guard.pas)</para>
 /// <para>Calls: YADF.Guard.FormatPreservesContent/7</para>
 /// <para>Returns: FormatPreservesContent(AOriginal, AFormatted, AAllowStringDuplication, AAllowLabelRemoval, ACodeMode, [gkAnyCase], AReason)</para>
 /// <para>Overload 2 of 4</para>
@@ -203,7 +203,7 @@ function FormatPreservesContent(const AOriginal, AFormatted: string; AAllowStrin
 /// <remarks>
 /// Same purity/fail-closed contract as the two-argument overload.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: [YADF]YADF.Guard.FormatPreservesContent/2 (YADF.Guard.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Guard.FormatPreservesContent/2 (YADF.Guard.pas)</para>
 /// <para>Calls: YADF.Guard.FormatPreservesContent/6</para>
 /// <para>Returns: FormatPreservesContent(AOriginal, AFormatted, AAllowStringDuplication, AAllowLabelRemoval, gcNone, AReason)</para>
 /// <para>Overload 4 of 4</para>
@@ -402,32 +402,36 @@ end;
 // comment and directive intact -- the other three streams cannot see it.
 procedure AddAsmLines(const ATokens: TTokenList; var AIdx: Integer; const AAsmLines: TList<string>);
 var
-  Line: string;
+  SB: TStringBuilder;
 
   procedure Flush;
   var
     S: string;
   begin
-    S:= Trim(Line);
+    S:= Trim(SB.ToString);
     while S.Contains('  ') do
       S:= StringReplace(S, '  ', ' ', [rfReplaceAll]);
     if S <> '' then
       AAsmLines.Add(S);
-    Line:= '';
+    SB.Clear;
   end;
 
 begin
-  Line:= '';
-  Inc(AIdx); // past `asm`
-  while (AIdx < ATokens.Count) and not IsAsmBlockEnd(ATokens, AIdx) do
-  begin
-    if ATokens[AIdx].Kind in [ptCRLF, ptCRLFCo] then
-      Flush
-    else
-      Line:= Line + StringReplace(ATokens[AIdx].Text, #9, ' ', [rfReplaceAll]);
-    Inc(AIdx);
+  SB:= TStringBuilder.Create;
+  try
+    Inc(AIdx); // past `asm`
+    while (AIdx < ATokens.Count) and not IsAsmBlockEnd(ATokens, AIdx) do
+    begin
+      if ATokens[AIdx].Kind in [ptCRLF, ptCRLFCo] then
+        Flush
+      else
+        SB.Append(StringReplace(ATokens[AIdx].Text, #9, ' ', [rfReplaceAll]));
+      Inc(AIdx);
+    end;
+    Flush;
+  finally
+    SB.Free;
   end;
-  Flush;
   Dec(AIdx); // the caller's loop steps onto the closing `end`
 end; // procedure
 
@@ -1489,7 +1493,7 @@ begin
       N:= 0;
       OrigCounts.TryGetValue(Pair.Key, N);
       if (Pair.Value > 1) and (Pair.Value > N) then
-        Exit('declaration duplicated in one routine by the Delphi 10 transform: ' + Names[Pair.Key]);
+        Exit('declaration duplicated in one routine by the Delphi 10 transform: ' + Names[Pair.Key]);  // dl:ok dictionary-get-without-check@4a51 -- the key comes from OutCounts, and CountScopeDecls always writes ACounts and ANames together
       if OutInline.ContainsKey(Pair.Key) and not ((N > 0) and OrigInline.ContainsKey(Pair.Key)) then
         Exit('declaration hoisted next to the same name left inline by the Delphi 10 transform: ' + Names[Pair.Key]);
       if (Pair.Value > N) and OrigShadow.ContainsKey(Pair.Key) then

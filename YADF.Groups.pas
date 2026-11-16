@@ -25,15 +25,15 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Groups.pas), [YADF]YADF.Debug.KindName (YADF.Debug.pas), [YADF]YADF.Groups.TGroup.Create (YADF.Groups.pas)</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Groups.pas), [YADF,YADFSetup]YADF.Debug.KindName (YADF.Debug.pas), [YADF,YADFOT,YADFSetup]YADF.Groups.TGroup.Create (YADF.Groups.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TGroupKind = ( gkRoot, gkParens, gkBrackets, gkBlock, gkUses );
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Debug.pas), [YADF]declaration (YADF.Groups.pas), [YADF]YADF.Debug.RenderGroupTree (YADF.Debug.pas) ?, [YADF]YADF.Debug.WalkGroup (YADF.Debug.pas), [YADF]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), [YADF]YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), [YADF]YADF.Groups.IsVariantPartCase (YADF.Groups.pas), [YADF]YADF.Groups.ParseGroups (YADF.Groups.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.EndLineTailIsMultiline (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.TrailingCommentIdx (YADF.Layout.pas), [YADF]YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas) ?, [YADF]YADF.Layout.FormatSourceOnce.BreakListsInLine (YADF.Layout.pas) ?, [YADF]YADF.Layout.FormatSourceOnce.FindChildGroupAt (YADF.Layout.pas) ?,
-  /// [YADF]YADF.Layout.FormatSourceOnce.ParensContentInlineWidth (YADF.Layout.pas) ?, [YADF]YADF.Layout.FormatSourceOnce.RenderParensBroken (YADF.Layout.pas) ?, [YADF]YADF.Layout.FormatSourceOnce.WalkGroup (YADF.Layout.pas) ?, [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YadfMain.DebugTree (YadfMain.pas)</para>
+  /// <para>Used by: [YADF,YADFSetup]declaration (YADF.Debug.pas), [YADF,YADFOT,YADFSetup]declaration (YADF.Groups.pas), [YADF,YADFSetup]YADF.Debug.RenderGroupTree (YADF.Debug.pas) ?, [YADF,YADFSetup]YADF.Debug.WalkGroup (YADF.Debug.pas), [YADF,YADFOT,YADFSetup]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), [YADF,YADFOT,YADFSetup]YADF.Groups.CollectBlockLabelComments.Visit (YADF.Groups.pas), [YADF,YADFOT,YADFSetup]YADF.Groups.IsVariantPartCase (YADF.Groups.pas), [YADF,YADFOT,YADFSetup]YADF.Groups.ParseGroups (YADF.Groups.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.ApplyBlockEndLabels.EndLineTailIsMultiline (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.ApplyBlockEndLabels.TrailingCommentIdx (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.ApplyBlockEndLabels.Visit (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas),
+  /// [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce (YADF.Layout.pas) ?, [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce.BreakListsInLine (YADF.Layout.pas) ?, [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce.FindChildGroupAt (YADF.Layout.pas) ?, [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce.ParensContentInlineWidth (YADF.Layout.pas) ?, [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce.RenderParensBroken (YADF.Layout.pas) ?, [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce.WalkGroup (YADF.Layout.pas) ?, [YADF,YADFOT,YADFSetup]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF]YadfMain.DebugTree (YadfMain.pas)</para>
   /// <para>Used in units: YADF.Debug, YADF.Groups, YADF.Layout, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -51,7 +51,7 @@ type
     /// <param name="AParent"><!-- drag-lint:auto type -->TGroup</param>
     /// <remarks>
     /// <!-- drag-lint:auto BEGIN -->
-    /// <para>Called from: [YADF]YADF.Groups.ParseGroups (YADF.Groups.pas)</para>
+    /// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Groups.ParseGroups (YADF.Groups.pas)</para>
     /// <para>constructor</para>
     /// <para>Writes: Kind, OpenIdx, CloseIdx, OpenerKind, ForceClosed, Parent, Children</para>
     /// <seealso cref="YADF.Groups.TGroup.Destroy"/>
@@ -72,7 +72,7 @@ type
 /// <returns>Observed: Root.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: [YADF]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce.BreakListsInLine (YADF.Layout.pas), [YADF]YadfMain.DebugTree (YadfMain.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Groups.CollectBlockLabelComments (YADF.Groups.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce.BreakListsInLine (YADF.Layout.pas), [YADF]YadfMain.DebugTree (YadfMain.pas)</para>
 /// <para>Calls: YADF.Groups.IsRecordConstraint, YADF.Groups.IsVariantPartCase, YADF.Groups.PrevSignificantIdx, YADF.Groups.TGroup.Create</para>
 /// <para>Returns: Root</para>
 /// <para>Complexity: 23 (cyclomatic, outer body), 58 lines (full implementation)</para>

@@ -90,7 +90,6 @@ uses
 /// <returns>Observed: FormatSource(ASource, AOpts, Reason).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Reformat (YADF.OptionsFrame.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
 /// <para>Calls: YADF.Layout.FormatSource/3</para>
 /// <para>Returns: FormatSource(ASource, AOpts, Reason)</para>
 /// <para>Overload 1 of 2</para>
@@ -121,7 +120,7 @@ function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 /// ON a bracketed list is decided after the line shape settles (BreakListsInLine), so no second run
 /// is needed (task 10 removed the task-5a re-run) -- except FormatSourceSettled, above.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Layout.FormatSource/2 (YADF.Layout.pas), YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.FormatToStdout (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)</para>
+/// <para>Called from: [YADFOT]YADF.FormatBridge.EngineFormat (YADF.FormatBridge.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSource/2 (YADF.Layout.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Reformat (YADF.OptionsFrame.pas), [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.FormatToStdout (YadfMain.pas), [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADFOT]YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), [YADFOT]YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
 /// <para>Calls: CharInSet, Copy, YADF.Layout.FormatSourceSettled, YADF.Layout.OffsetAfterFinalEnd, YADF.Layout.TextHasNonComment</para>
 /// <para>Overload 2 of 2</para>
 /// <para>Directives: overload</para>
@@ -478,7 +477,7 @@ begin
           j:= i + 1;
           while (j <= High(Src)) and (Src[j].Kind = ptSpace) do
             Inc(j);
-          if (k >= 0) and (j <= High(Src)) and (Src[j].Kind = ptIntegerConst) and (Outp[k].Kind in [ptFloat, ptIntegerConst]) and (Length(Outp[k].Text) > 0)  // dl:ok boolean-expression-complexity@9419
+          if (k >= 0) and (j <= High(Src)) and (Src[j].Kind = ptIntegerConst) and (Outp[k].Kind in [ptFloat, ptIntegerConst]) and (Outp[k].Text <> '')  // dl:ok boolean-expression-complexity@4415
             and CharInSet(Outp[k].Text[1], ['0'..'9']) and CharInSet(Outp[k].Text[Length(Outp[k].Text)], ['E', 'e']) then
           begin
             while Outp.Count - 1 > k do Outp.Delete(Outp.Count - 1); // drop stray spaces
@@ -9348,13 +9347,15 @@ var
     n        : Integer       ;
     Ty       : string        ;
     Names    : TArray<string>;
+    NameCount: Integer       ;
   begin
     Result:= False;
     FirstName:= NextSig(AVar + 1);
     if (FirstName >= ATokens.Count) or (ATokens[FirstName].Kind <> ptIdentifier) then
       Exit;
-    SetLength(Names, 1);
+    SetLength(Names, ATokens.Count - FirstName); // upper bound; trimmed to NameCount below
     Names[0]:= ATokens[FirstName].Text;
+    NameCount:= 1;
     // Collect any comma-separated additional names (`var A, B: T;`).
     p:= NextSig(FirstName + 1);
     while (p < ATokens.Count) and (ATokens[p].Kind = ptComma) do
@@ -9362,10 +9363,11 @@ var
       p:= NextSig(p + 1);
       if (p >= ATokens.Count) or (ATokens[p].Kind <> ptIdentifier) then
         Exit;
-      SetLength(Names, Length(Names) + 1);
-      Names[High(Names)]:= ATokens[p].Text;
+      Names[NameCount]:= ATokens[p].Text;
+      Inc(NameCount);
       p:= NextSig(p + 1);
     end;
+    SetLength(Names, NameCount);
     Ci:= p;
     if (Ci >= ATokens.Count) or (ATokens[Ci].Kind <> ptColon) then Exit; // inferred types: later
     Semi:= FindStmtEnd(Ci + 1, Ao);
@@ -9867,6 +9869,7 @@ var
     M       : Integer       ;
     Collide : Boolean       ;
     Keep    : TArray<string>;
+    KeepCount: Integer      ;
     Nm      : string        ;
     OrigLine: string        ;
     Cname   : string        ;
@@ -9882,7 +9885,8 @@ var
     if ((ARec.Kind in [ikExplicitInit, ikExplicitNoInit]) and AlreadyFlagged(ARec.SemiIdx)) or CommitPoisoned(AVarIdx, ARec) then
       Exit;
     Collide:= False;
-    SetLength(Keep, 0);
+    SetLength(Keep, Length(ARec.Names)); // upper bound; trimmed to KeepCount after the loop
+    KeepCount:= 0;
     for M:= 0 to High(ARec.Names) do
     begin
       Nm:= ARec.Names[M];
@@ -9901,10 +9905,11 @@ var
       else
       begin
         RNames.Add(Nm, ARec.TypeStr);
-        SetLength(Keep, Length(Keep) + 1);
-        Keep[High(Keep)]:= ARec.DeclLines[M];
+        Keep[KeepCount]:= ARec.DeclLines[M];
+        Inc(KeepCount);
       end;
     end; // for
+    SetLength(Keep, KeepCount);
     if Collide and (ARec.Kind in [ikExplicitInit, ikExplicitNoInit]) then
     begin
       // Flagged by a previous run (an inferred `var X:= TFoo.Create;` reaches
@@ -11844,26 +11849,30 @@ var
   Cut : Integer;
   Head: string ;
 begin
-  // The compiler ignores everything after the final `end.`; so does the
-  // formatter (REVIEW-2026-11-02 corruption L1: reflow joined such a tail and
-  // the guard declined the whole file). The tail is appended verbatim.
-  // The rest of the `end.` line (a block-end label, a comment) stays with the
-  // code: the tail starts at the line break.
-  Cut:= OffsetAfterFinalEnd(ASource);
-  while (Cut > 0) and (Cut <= Length(ASource)) and not CharInSet(ASource[Cut], [#10, #13]) do
-    Inc(Cut);
-  // Only a tail holding text other than comments needs it: comments (YADF's own
-  // MarkUnclosed flags included) keep going through the pipeline as before.
-  if (Cut = 0) or not TextHasNonComment(Copy(ASource, Cut, MaxInt)) then
-    Exit(FormatSourceSettled(ASource, AOpts, ADeclineReason));
-  Head  := Copy(ASource, 1, Cut - 1);
-  Result:= FormatSourceSettled(Head, AOpts, ADeclineReason);
-  if ADeclineReason <> '' then
-    Exit(ASource);
-  // The formatter ends its text with a line break the head did not have.
-  if Result.EndsWith(CRLF) then
-    SetLength(Result, Length(Result) - Length(CRLF));
-  Result:= Result + Copy(ASource, Cut, MaxInt);
+  try
+    // The compiler ignores everything after the final `end.`; so does the
+    // formatter (REVIEW-2026-11-02 corruption L1: reflow joined such a tail and
+    // the guard declined the whole file). The tail is appended verbatim.
+    // The rest of the `end.` line (a block-end label, a comment) stays with the
+    // code: the tail starts at the line break.
+    Cut:= OffsetAfterFinalEnd(ASource);
+    while (Cut > 0) and (Cut <= Length(ASource)) and not CharInSet(ASource[Cut], [#10, #13]) do
+      Inc(Cut);
+    // Only a tail holding text other than comments needs it: comments (YADF's own
+    // MarkUnclosed flags included) keep going through the pipeline as before.
+    if (Cut = 0) or not TextHasNonComment(Copy(ASource, Cut, MaxInt)) then
+      Exit(FormatSourceSettled(ASource, AOpts, ADeclineReason));
+    Head  := Copy(ASource, 1, Cut - 1);
+    Result:= FormatSourceSettled(Head, AOpts, ADeclineReason);
+    if ADeclineReason <> '' then
+      Exit(ASource);
+    // The formatter ends its text with a line break the head did not have.
+    if Result.EndsWith(CRLF) then
+      SetLength(Result, Length(Result) - Length(CRLF));
+    Result:= Result + Copy(ASource, Cut, MaxInt);
+  finally
+    GShieldPrefix:= ''; // managed threadvar: never leave a string behind on the thread
+  end;
 end;
 function FormatSource(const ASource: string; const AOpts: TYadfOptions): string;
 var

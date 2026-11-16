@@ -27,17 +27,18 @@ uses
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.EncodingOf (YADF.Options.pas), [YADF]YADF.Options.EncodingToStr (YADF.Options.pas), [YADF]YADF.Options.ParseEncoding (YADF.Options.pas), [YADF]YadfMain.EncName (YadfMain.pas)</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.EncodingOf (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.EncodingToStr (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ParseEncoding (YADF.Options.pas), [YADF]YadfMain.EncName (YadfMain.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TYadfEncoding = (encANSI, encUTF8BOM, encUTF16BOM);
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Layout.pas), [YADF]declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), [YADF]declaration (YadfMain.pas), [YADF]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParams (YADF.Layout.pas), [YADF]YADF.Layout.BreakRoutineParamsAndSplit (YADF.Layout.pas), [YADF]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF]YADF.Layout.EnforceBlankLines (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/2 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF]YADF.Layout.FormatSourceSettled (YADF.Layout.pas), [YADF]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF]YADF.Layout.LayoutControlBodies (YADF.Layout.pas), [YADF]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF]YADF.Layout.RenderUsesGroup (YADF.Layout.pas),
-  /// [YADF]YADF.Options.ApplyPackPreset (YADF.Options.pas), [YADF]YADF.Options.ClampOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.PackConflictText (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.ResolveOptions (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.CheckDir (YadfMain.pas), [YADF]YadfMain.CheckFile (YadfMain.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ExpandFileSpec (YadfMain.pas), [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.FormatToStdout (YadfMain.pas), [YADF]YadfMain.LoadFile (YadfMain.pas), [YADF]YadfMain.LoadIniDefaults (YadfMain.pas), [YADF]YadfMain.LogStartup (YadfMain.pas),
-  /// [YADF]YadfMain.ParseDprojUnits (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.ParseFlags (YadfMain.pas), [YADF]YadfMain.ProcessFiles (YadfMain.pas), [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADF]YadfMain.RunYadf (YadfMain.pas), [YADF]YadfMain.ShowUsage (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
-  /// <para>Used in units: [YADF]YADF.Layout, [YADF]YADF.Options, [YADF]YadfMain, YADFOT.Wizard</para>
+  /// <para>Used by: [YADFOT]declaration (YADF.FormatBridge.pas), [YADF,YADFOT,YADFSetup]declaration (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]declaration (YADF.Options.pas), [YADFOT,YADFSetup]declaration (YADF.OptionsFrame.pas), [YADF]declaration (YadfMain.pas), [YADFOT]YADF.FormatBridge.EngineFormat (YADF.FormatBridge.pas), [YADFOT]YADF.FormatBridge.FormatUtf8Content (YADF.FormatBridge.pas), [YADFOT]YADF.FormatBridge.ResolveFProfileOptions (YADF.FormatBridge.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.ApplyBlockEndLabels (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.ApplyCapitalization (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.BreakRoutineParams (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.BreakRoutineParamsAndSplit (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.DowngradeInlineVars (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.EnforceBlankLines (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSource/2 (YADF.Layout.pas),
+  /// [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSource/3 (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceOnce (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.FormatSourceSettled (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.JoinRoutineHeaders (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.LayoutControlBodies (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.NormalizeAssignSpacing (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Layout.RenderUsesGroup (YADF.Layout.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ApplyPackPreset (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ClampOptions (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.DefaultOptions (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.OptionTable (YADF.Options.pas),
+  /// [YADF,YADFOT,YADFSetup]YADF.Options.PackConflictText (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ResolveOptions (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Reformat (YADF.OptionsFrame.pas), [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.CheckDir (YadfMain.pas), [YADF]YadfMain.CheckFile (YadfMain.pas), [YADF]YadfMain.DebugTree (YadfMain.pas), [YADF]YadfMain.ExpandFileSpec (YadfMain.pas), [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.FormatToStdout (YadfMain.pas), [YADF]YadfMain.LoadFile/2 (YadfMain.pas), [YADF]YadfMain.LoadFile/4 (YadfMain.pas), [YADF]YadfMain.LoadIniDefaults (YadfMain.pas), [YADF]YadfMain.LogStartup (YadfMain.pas), [YADF]YadfMain.ParseDprojUnits (YadfMain.pas), [YADF]YadfMain.ParseDprUnits (YadfMain.pas), [YADF]YadfMain.ParseFlags (YadfMain.pas),
+  /// [YADF]YadfMain.ProcessFiles (YadfMain.pas), [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADF]YadfMain.RunYadf (YadfMain.pas), [YADF]YadfMain.ShowUsage (YadfMain.pas), [YADFOT]YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), [YADFOT]YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas), [YADFOT]YADFOT.Wizard.FormatFormUnitViaReload (YADFOT.Wizard.pas), [YADFOT]YADFOT.Wizard.LoadIniDefaults (YADFOT.Wizard.pas), [YADFOT]YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas)</para>
+  /// <para>Used in units: [YADFOT]YADF.FormatBridge, [YADF,YADFOT,YADFSetup]YADF.Layout, [YADF,YADFOT,YADFSetup]YADF.Options, [YADFOT,YADFSetup]YADF.OptionsFrame, [YADF]YadfMain, [YADFOT]YADFOT.Wizard</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
 
@@ -99,7 +100,7 @@ type
   /// authority ----</summary>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.MakeOpt (YADF.Options.pas)</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.MakeOpt (YADF.Options.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TOptKind = (okBool, okInt, okString, okEnum);
@@ -108,7 +109,7 @@ type
   /// <returns><!-- drag-lint:auto type -->Variant</returns>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.MakeOpt (YADF.Options.pas)</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.MakeOpt (YADF.Options.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TOptGetter = reference to function(const O: TYadfOptions): Variant;
@@ -116,15 +117,16 @@ type
   /// <param name="V"><!-- drag-lint:auto type -->const Variant</param>
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.MakeOpt (YADF.Options.pas)</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.MakeOpt (YADF.Options.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TOptSetter = reference to procedure(var O: TYadfOptions; const V: Variant);
 
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Options.pas), [YADF]YADF.Options.ClampOptions (YADF.Options.pas), [YADF]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF]YADF.Options.MakeOpt (YADF.Options.pas), [YADF]YADF.Options.OptionHelpId (YADF.Options.pas), [YADF]YADF.Options.OptionHint (YADF.Options.pas), [YADF]YADF.Options.OptionsHelpText (YADF.Options.pas), [YADF]YADF.Options.OptionTable (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)</para>
-  /// <para>Used in units: YADF.Options</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ClampOptions (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.MakeOpt (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.OptionHelpId (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.OptionHint (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.OptionsHelpText (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.OptionTable (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.BuildControls (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions (YADF.OptionsFrame.pas),
+  /// [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.OptionChanged (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.SyncDependentControls (YADF.OptionsFrame.pas)</para>
+  /// <para>Used in units: [YADF,YADFOT,YADFSetup]YADF.Options, [YADFOT,YADFSetup]YADF.OptionsFrame</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TOptInfo = record
@@ -148,7 +150,7 @@ type
 /// then CLI) and then puts back every one of the four rules that layer set
 /// explicitly; the Options page applies it when Pack is checked.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.ResolveOptions (YADF.Options.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Options.ResolveOptions (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.OptionChanged (YADF.OptionsFrame.pas)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
 procedure ApplyPackPreset(var AOpts: TYadfOptions);
@@ -162,6 +164,7 @@ procedure ApplyPackPreset(var AOpts: TYadfOptions);
 /// <remarks>
 /// Pure; unit-tested in Test\OptionsTest.dpr (TestPackConflictText).
 /// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.SyncDependentControls (YADF.OptionsFrame.pas)</para>
 /// <para>Returns: ''; Lines.Text.TrimRight</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -170,7 +173,7 @@ function PackConflictText(const AOpts: TYadfOptions): string;
 /// <returns><!-- drag-lint:auto type -->TYadfOptions</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.DefaultValueStr (YADF.Options.pas), YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YadfMain.RunYadf (YadfMain.pas)</para>
+/// <para>Called from: [YADFOT]YADF.FormatBridge.ResolveFProfileOptions (YADF.FormatBridge.pas), [YADF,YADFOT,YADFSetup]YADF.Options.DefaultValueStr (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.ResetToDefaults (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), [YADF]YadfMain.RunYadf (YadfMain.pas), [YADFOT]YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
 /// <para>Effect-free (proven)</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -182,7 +185,7 @@ function DefaultOptions: TYadfOptions;
 /// <returns>Observed: O.MaxLen end,; O.Indent end,; O.TabWidth end,; O.ReflowLines end,; O.TrimTrailing end,; O.MaxBlankLines end,.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: [YADF]YADF.Options.ClampOptions (YADF.Options.pas), [YADF]YADF.Options.OptionsHelpText (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF]YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Options.ClampOptions (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.OptionsHelpText (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ReadOptionsFromIni (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.WriteDefaultIniTemplate (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.BuildControls (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.ControlsToOptions (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.OptionChanged (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.OptionsToControls (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.SyncDependentControls (YADF.OptionsFrame.pas)</para>
 /// <para>Calls: VarToStr, YADF.Options.EncodingToStr, YADF.Options.MakeOpt, YADF.Options.ParseEncoding</para>
 /// <para>Returns: GOptTable</para>
 /// <seealso cref="YADF.Options.EncodingToStr"/>
@@ -224,7 +227,7 @@ function EncodingToStr(const E: TYadfEncoding): string;
 /// <returns>Observed: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YadfMain.LoadFile (YadfMain.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
+/// <para>Called from: [YADF]YadfMain.LoadFile/4 (YadfMain.pas), [YADFOT]YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
 /// <para>Returns: TEncoding.UTF8; TEncoding.Unicode; TEncoding.ANSI</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -248,7 +251,7 @@ function EncodingOf(const E: TYadfEncoding): TEncoding;
 /// <param name="APreambleLen"><!-- drag-lint:auto type -->out Integer</param>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YadfMain.LoadFile (YadfMain.pas), YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
+/// <para>Called from: [YADF]YadfMain.LoadFile/4 (YadfMain.pas), [YADFOT]YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
 /// <para>Calls: YADF.Options.LooksLikeUtf8</para>
 /// <para>Complexity: 11 (cyclomatic, outer body), 22 lines (full implementation)</para>
 /// <para>Mutates: AEnc (out), APreambleLen (out)</para>
@@ -268,7 +271,7 @@ procedure DetectSourceEncoding(const ABytes: TBytes; out AEnc: TEncoding; out AP
 /// <returns>Observed: ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: [YADF]YADF.Options.LoadNativeFormatterFlag (YADF.Options.pas), [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Options.LoadNativeFormatterFlag (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ReadOptionsFromIni (YADF.Options.pas)</para>
 /// <para>Calls: LowerCase, YADF.Options.StripIniComment</para>
 /// <para>Returns: ADefault</para>
 /// <seealso cref="YADF.Options.StripIniComment"/>
@@ -293,7 +296,7 @@ function ReadBoolIni(AIni: TIniFile; const ASection, AIdent: string; ADefault: B
 /// <returns>Observed: ADefault.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: [YADF]YADF.Options.ReadOptionsFromIni (YADF.Options.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Options.ReadOptionsFromIni (YADF.Options.pas)</para>
 /// <para>Calls: Pos, Trim, TryStrToInt</para>
 /// <para>Returns: ADefault</para>
 /// <!-- drag-lint:auto END -->
@@ -334,6 +337,7 @@ const
 /// <remarks>
 /// Must stay identical to Get-Kebab in Test\gen_help_site.ps1 (test_help_site + OptionsTest guard it).
 /// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.BuildControls (YADF.OptionsFrame.pas)</para>
 /// <para>Calls: CharInSet, LowerCase</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -349,6 +353,7 @@ var
 /// <returns>YadfHelpBaseUrl + AHelpId + '/'.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.OptionsFrame.TYadfHelpButton.Click (YADF.OptionsFrame.pas)</para>
 /// <para>Returns: YadfHelpBaseUrl + AHelpId + '/'</para>
 /// <para>Effect-free (proven)</para>
 /// <!-- drag-lint:auto END -->
@@ -390,7 +395,7 @@ function LooksLikeUtf8(const ABytes: TBytes): Boolean;
 /// <returns>Observed: DefaultOptions.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.LoadIniDefaults (YadfMain.pas), YADFOT.Wizard.LoadIniDefaults (YADFOT.Wizard.pas)</para>
+/// <para>Called from: [YADFOT]YADF.FormatBridge.ResolveFProfileOptions (YADF.FormatBridge.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.LoadOptionsFromFile (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), [YADF]YadfMain.LoadIniDefaults (YadfMain.pas), [YADFOT]YADFOT.Wizard.LoadIniDefaults (YADFOT.Wizard.pas)</para>
 /// <para>Calls: Default, YADF.Options.DefaultOptions, YADF.Options.ReadOptionsFromIni, YADF.Options.ResolveOptions</para>
 /// <para>Returns: DefaultOptions</para>
 /// <seealso cref="YADF.Options.DefaultOptions"/>
@@ -413,7 +418,7 @@ function LoadOptionsFromIni(const APath: string): TYadfOptions;
 /// CLI after its flags. Before 2026-10-14 nothing was checked: Indent=-3 with
 /// MaxLen=0 produced zero-indented output with every operator on its own line.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: [YADF]YADF.Options.ResolveOptions (YADF.Options.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Options.ResolveOptions (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Reformat (YADF.OptionsFrame.pas)</para>
 /// <para>Calls: EnsureRange, Format, SameText, StringReplace, YADF.Options.OptionTable</para>
 /// <para>Returns: StringReplace(Changes.DelimitedText, ',', ', ', [rfReplaceAll])</para>
 /// <seealso cref="YADF.Options.OptionTable"/>
@@ -429,6 +434,7 @@ function ClampOptions(var AOpts: TYadfOptions): string;
 /// <returns>False when AIdent has no range rule (AMin = 0, AMax = MaxInt).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.BuildControls (YADF.OptionsFrame.pas)</para>
 /// <para>Calls: SameText</para>
 /// <para>Returns: True; False</para>
 /// <para>Mutates: AMin (out), AMax (out)</para>
@@ -463,7 +469,7 @@ type
   /// --pack-bodies beats an INI rule key, while inside a layer an explicit rule
   /// beats that layer's preset. Order inside a layer never matters.
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: declaration (YADF.Options.pas) ?, YADF.Options.LoadOptionsFromIni (YADF.Options.pas), YADF.Options.ReadOptionsFromIni (YADF.Options.pas) ?, YADF.Options.ResolveOptions (YADF.Options.pas) ?, YadfMain.ParseFlags (YadfMain.pas) ?, YadfMain.RunYadf (YadfMain.pas)</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Options.pas) ?, [YADF,YADFOT,YADFSetup]YADF.Options.LoadOptionsFromIni (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ReadOptionsFromIni (YADF.Options.pas) ?, [YADF,YADFOT,YADFSetup]YADF.Options.ResolveOptions (YADF.Options.pas) ?, [YADF]YadfMain.ParseFlags (YadfMain.pas) ?, [YADF]YadfMain.RunYadf (YadfMain.pas)</para>
   /// <para>Used in units: YADF.Options, YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
@@ -559,7 +565,7 @@ function OptionsHelpText: string;
 /// <returns>Observed: TPath.Combine(.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.ProfilesDir (YADF.Options.pas), YadfMain.DefaultIniPath (YadfMain.pas)</para>
+/// <para>Called from: [YADFOT]YADF.FormatBridge.ResolveFProfileOptions (YADF.FormatBridge.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ProfilesDir (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), [YADF]YadfMain.DefaultIniPath (YadfMain.pas)</para>
 /// <para>Returns: TPath.Combine( TPath.Combine(TPath.GetHomePath, 'YADF'), 'yadf.ini')</para>
 /// <para>Touches: file system</para>
 /// <!-- drag-lint:auto END -->
@@ -592,7 +598,7 @@ procedure WriteDefaultIniTemplate(const APath: string);
 /// <returns>Observed: False; True.</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.SaveOptionsToIni (YADF.Options.pas), YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas), YadfMain.RunYadf (YadfMain.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas)</para>
+/// <para>Called from: [YADFOT]YADF.FormatBridge.ResolveFProfileOptions (YADF.FormatBridge.pas), [YADF,YADFOT,YADFSetup]YADF.Options.SaveOptionsToIni (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), [YADF]YadfMain.DefaultIniPath (YadfMain.pas), [YADF]YadfMain.RunYadf (YadfMain.pas)</para>
 /// <para>Calls: FileExists, YADF.Options.WriteDefaultIniTemplate</para>
 /// <para>Returns: False; True</para>
 /// <para>Catches: Exception (swallowed)</para>
@@ -610,8 +616,8 @@ function EnsureIniExists(const APath: string): Boolean;
 type
   /// <remarks>
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: [YADF]declaration (YADF.Options.pas), declaration (YADF.OptionsFrame.pas), [YADF]YADF.Options.LoadProfiles (YADF.Options.pas), [YADF]YADF.Options.SaveProfiles (YADF.Options.pas), [YADF]YadfMain.DefaultIniPath (YadfMain.pas)</para>
-  /// <para>Used in units: [YADF]YADF.Options, [YADF]YadfMain</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Options.pas), [YADFOT,YADFSetup]declaration (YADF.OptionsFrame.pas), [YADF,YADFOT,YADFSetup]YADF.Options.LoadProfiles (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.SaveProfiles (YADF.Options.pas), [YADF]YadfMain.DefaultIniPath (YadfMain.pas)</para>
+  /// <para>Used in units: [YADF,YADFOT,YADFSetup]YADF.Options, [YADFOT,YADFSetup]YADF.OptionsFrame, [YADF]YadfMain</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
 
@@ -626,7 +632,7 @@ type
 /// <returns>Observed: ExtractFilePath(SharedAppDataIniPath).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.ProfilesIniPath (YADF.Options.pas), YADF.Options.ResolveProfileIniPath (YADF.Options.pas), YADF.Options.SaveProfiles (YADF.Options.pas), YadfMain.LogFilePath (YadfMain.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Options.ProfilesIniPath (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.ResolveProfileIniPath (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.SaveProfiles (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.LoadSample (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.RefreshProfileList (YADF.OptionsFrame.pas), [YADF]YadfMain.LogFilePath (YadfMain.pas)</para>
 /// <para>Calls: ExtractFilePath, YADF.Options.SharedAppDataIniPath</para>
 /// <para>Returns: ExtractFilePath(SharedAppDataIniPath)</para>
 /// <seealso cref="YADF.Options.SharedAppDataIniPath"/>
@@ -640,7 +646,7 @@ function ProfilesDir: string;
 /// <returns>Observed: TPath.Combine(ProfilesDir, 'profiles.ini').</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.Options.LoadProfiles (YADF.Options.pas), YADF.Options.SaveProfiles (YADF.Options.pas)</para>
+/// <para>Called from: [YADF,YADFOT,YADFSetup]YADF.Options.LoadProfiles (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.SaveProfiles (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.ShowNativeFormatterOption (YADF.OptionsFrame.pas), [YADFOT]YADFOT.CodeFormatter.RegisterYadfCodeFormatter (YADFOT.CodeFormatter.pas)</para>
 /// <para>Calls: YADF.Options.ProfilesDir</para>
 /// <para>Returns: TPath.Combine(ProfilesDir, 'profiles.ini')</para>
 /// <para>Touches: file system</para>
@@ -656,7 +662,7 @@ function ProfilesIniPath: string;
 /// <returns><!-- drag-lint:auto type -->TYadfProfiles</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YadfMain.DefaultIniPath (YadfMain.pas)</para>
+/// <para>Called from: [YADFOT]YADF.FormatBridge.ResolveFProfileOptions (YADF.FormatBridge.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), [YADF]YadfMain.DefaultIniPath (YadfMain.pas), [YADFOT]YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
 /// <para>Calls: FileExists, Trim, YADF.Options.ProfilesIniPath</para>
 /// <seealso cref="YADF.Options.ProfilesIniPath"/>
 /// <!-- drag-lint:auto END -->
@@ -687,7 +693,7 @@ procedure SaveProfiles(const AProfiles: TYadfProfiles);
 /// <returns>Observed: AFileName; TPath.Combine(ProfilesDir, AFileName).</returns>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), YadfMain.DefaultIniPath (YadfMain.pas), YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas)</para>
+/// <para>Called from: [YADFOT]YADF.FormatBridge.ResolveFProfileOptions (YADF.FormatBridge.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.Load (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.MirrorFProfile (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.NewProfileClick (YADF.OptionsFrame.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.SwitchEditTo (YADF.OptionsFrame.pas), [YADF]YadfMain.DefaultIniPath (YadfMain.pas), [YADFOT]YADFOT.Wizard.DoFormatCurrentBuffer (YADFOT.Wizard.pas)</para>
 /// <para>Calls: Trim, YADF.Options.ProfilesDir</para>
 /// <para>Returns: if TPath.IsPathRooted(AFileName) then AFileName</para>
 /// <para>Touches: file system</para>
@@ -706,6 +712,7 @@ function ResolveProfileIniPath(const AFileName: string): string;
 /// Accepts 1/0/true/false/yes/no/on/off like every other YADF boolean. The CLI and
 /// the formatting engine never read this key.
 /// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.ShowNativeFormatterOption (YADF.OptionsFrame.pas), [YADFOT]YADFOT.CodeFormatter.RegisterYadfCodeFormatter (YADFOT.CodeFormatter.pas)</para>
 /// <para>Calls: FileExists, YADF.Options.ReadBoolIni</para>
 /// <para>Returns: False; ReadBoolIni(Ini, 'IDE', 'NativeFormatter', False)</para>
 /// <seealso cref="YADF.Options.ReadBoolIni"/>
@@ -720,6 +727,7 @@ function LoadNativeFormatterFlag(const AProfilesIni: string): Boolean;
 /// <exception cref="EIniFileException">Propagated from TIniFile.WriteString when the file cannot be written.</exception>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.Commit (YADF.OptionsFrame.pas)</para>
 /// <para>Calls: DirectoryExists, ExtractFilePath, ForceDirectories, IfThen</para>
 /// <!-- drag-lint:auto END -->
 /// </remarks>
@@ -765,7 +773,7 @@ function EncodeForSave(const AContent: string; AEnc: TEncoding; AWithBOM: Boolea
 /// <remarks>
 /// Shared by the CLI and the wizard so both hosts write identical bytes. Not thread-safe per target file.
 /// <!-- drag-lint:auto BEGIN -->
-/// <para>Called from: YadfMain.BatchFormat (YadfMain.pas), YadfMain.FormatToFile (YadfMain.pas), YadfMain.ProcessOneFile (YadfMain.pas)</para>
+/// <para>Called from: [YADF]YadfMain.BatchFormat (YadfMain.pas), [YADF]YadfMain.FormatToFile (YadfMain.pas), [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADFOT]YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
 /// <para>Calls: CloseHandle, CreateFileW, DeleteFileW, FlushFileBuffers, GetSystemTimeAsFileTime, gSaveReplaceHook, MoveFileExW, PWideChar, RaiseLastOSError, ReplaceFileW, SetFileTime, SHChangeNotify, YADF.Options.EncodeForSave, YADF.Options.SaveFile.BumpModifiedTime, YADF.Options.SaveFile.WriteAllBytesFlushed</para>
 /// <para>Catches: Exception (re-raise)</para>
 /// <para>Touches: file system</para>
@@ -786,7 +794,7 @@ type
   /// as Sample.pas.bak (replacing an older .bak), then replaced -- only when the
   /// user's Backup option is on; with it off such a copy is replaced (ssReseed).
   /// <!-- drag-lint:auto BEGIN -->
-  /// <para>Used by: declaration (YADF.Options.pas), YADF.Options.DecideSampleSeed (YADF.Options.pas), YADF.Options.SyncSampleFile (YADF.Options.pas)</para>
+  /// <para>Used by: [YADF,YADFOT,YADFSetup]declaration (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.DecideSampleSeed (YADF.Options.pas), [YADF,YADFOT,YADFSetup]YADF.Options.SyncSampleFile (YADF.Options.pas), [YADFOT,YADFSetup]YADF.OptionsFrame.TYadfOptionsFrame.LoadSample (YADF.OptionsFrame.pas)</para>
   /// <!-- drag-lint:auto END -->
   /// </remarks>
   TSampleSeedAction = (ssKeep, ssSeed, ssReseed, ssBackupAndReseed);
@@ -868,6 +876,7 @@ function DecideSampleSeed(AExists: Boolean; const AUserText, AEmbeddedText: stri
 /// files are decoded as UTF-8 (a BOM is ignored); an undecodable copy hashes
 /// differently and so is backed up, never lost. Not thread-safe per file.
 /// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.OptionsFrame.TYadfOptionsFrame.LoadSample (YADF.OptionsFrame.pas)</para>
 /// <para>Calls: ExtractFilePath, ForceDirectories, YADF.Options.DecideSampleSeed, YADF.Options.SampleText</para>
 /// <para>Returns: DecideSampleSeed(Exists, UserText, SampleText(AEmbedded)); ssReseed</para>
 /// <para>Touches: file system</para>

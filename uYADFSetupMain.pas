@@ -100,6 +100,7 @@ type
       /// <param name="AText"><!-- drag-lint:auto type -->const string</param>
       /// <remarks>
       /// <!-- drag-lint:auto BEGIN -->
+      /// <para>Called from: uYADFSetupMain.TfrmMain.FormCreate (uYADFSetupMain.pas)</para>
       /// <para>Reads: lblIniPath</para>
       /// <seealso cref="uYADFSetupMain.TfrmMain.btnLoadSettingsClick"/>
       /// <seealso cref="uYADFSetupMain.TfrmMain.btnResetClick"/>

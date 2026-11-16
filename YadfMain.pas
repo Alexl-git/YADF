@@ -165,7 +165,7 @@ type
   /// </remarks>
   EYadfUsage = class(Exception);
 
-/// <exception cref="EYadfUsage"><!-- drag-lint:auto exc -->via YadfMain.ExpandFileSpec: Directory not found:; via YadfMain.ExtractIniPath: --ini and --no-ini cannot be combined; via YadfMain.ParseFlags (+4 more)</exception>
+/// <exception cref="EYadfUsage"><!-- drag-lint:auto exc -->via YadfMain.ExpandFileSpec: Directory not found:; via YadfMain.ExtractIniPath: --ini and --no-ini cannot be combined; via YadfMain.ParseFlags (+5 more)</exception>
 /// <remarks>
 /// <!-- drag-lint:auto BEGIN -->
 /// <para>Called from: main block (YADF.dpr)</para>

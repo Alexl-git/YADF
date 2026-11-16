@@ -32,21 +32,46 @@ type
   /// <param name="AOpts">Resolved options.</param>
   /// <param name="ADeclineReason">'' on success, else why the content guard declined.</param>
   /// <returns>The formatted text (only meaningful when ADeclineReason is '').</returns>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// <para>Used by: declaration (YADF.FormatBridge.pas), YADF.FormatBridge.FormatUtf8Content (YADF.FormatBridge.pas)</para>
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TYadfFormatFunc = function(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string): string;
 
 /// <summary>True when AFileName has an extension YADF can format (.pas .dpr .dpk .inc).</summary>
 /// <param name="AFileName">Any path or bare file name; case-insensitive.</param>
 /// <returns>False for form streams (.dfm/.fmx), resources, scratch buffers and ''.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADFOT.CodeFormatter.TYadfCodeFormatter.HandleFile (YADFOT.CodeFormatter.pas), YADFOT.Wizard.IsCodeBufferExt (YADFOT.Wizard.pas)</para>
+/// <para>Calls: ExtractFileExt, LowerCase</para>
+/// <para>Returns: (Ext = '.pas') or (Ext = '.dpr') or (Ext = '.dpk') or (Ext = '.inc')</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function IsPascalSourceFile(const AFileName: string): Boolean;
 
 /// <summary>Decodes IDE UTF-8 content to a Delphi string without touching a BOM.</summary>
 /// <param name="AContent">UTF-8 bytes as the IDE passes them.</param>
 /// <returns>The decoded text; '' for empty input.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.FormatBridge.FormatUtf8Content (YADF.FormatBridge.pas)</para>
+/// <para>Calls: BytesOf</para>
+/// <para>Returns: TEncoding.UTF8.GetString(BytesOf(AContent))</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function Utf8ToText(const AContent: UTF8String): string;  // dl:ok unused-public-symbol@8568 -- public for FormatBridgeTest
 
 /// <summary>Encodes text to UTF-8 bytes (surrogate pairs preserved), never adding a BOM.</summary>
 /// <param name="AText">Delphi string.</param>
 /// <returns>The UTF-8 bytes; empty for empty input.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.FormatBridge.FormatUtf8Content (YADF.FormatBridge.pas)</para>
+/// <para>Calls: Move</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function TextToUtf8(const AText: string): UTF8String;  // dl:ok unused-public-symbol@e2b7 -- public for FormatBridgeTest
 
 /// <summary>Formats IDE content with the YADF engine, all-or-nothing.</summary>
@@ -56,9 +81,20 @@ function TextToUtf8(const AText: string): UTF8String;  // dl:ok unused-public-sy
 /// <param name="ADeclined">'' on True; else the guard decline reason or 'ClassName: message' of an engine exception.</param>
 /// <param name="AFormat">Test seam; nil (default) uses the real YADF.Layout.FormatSource.</param>
 /// <returns>True only when the engine ran and the content guard accepted its result.</returns>
-/// <remarks>Never raises. A decline or exception can therefore never hand the IDE partial or
+/// <remarks>
+/// Never raises. A decline or exception can therefore never hand the IDE partial or
 /// corrupt text: the original bytes come back and the reason is reported. Not thread-safe
-/// (the engine keeps unit-level state); call from the IDE main thread.</remarks>
+/// (the engine keeps unit-level state); call from the IDE main thread.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADFOT.CodeFormatter.TYadfCodeFormatter.FormatFile (YADFOT.CodeFormatter.pas)</para>
+/// <para>Calls: Fmt, YADF.FormatBridge.TextToUtf8, YADF.FormatBridge.Utf8ToText</para>
+/// <para>Returns: False; True</para>
+/// <para>Catches: Exception (swallowed)</para>
+/// <para>Mutates: AFormatted (out), ADeclined (out)</para>
+/// <seealso cref="YADF.FormatBridge.TextToUtf8"/>
+/// <seealso cref="YADF.FormatBridge.Utf8ToText"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function FormatUtf8Content(const AContent: UTF8String; const AOpts: TYadfOptions; out AFormatted: UTF8String;
   out ADeclined: string; AFormat: TYadfFormatFunc = nil): Boolean;
 
@@ -69,7 +105,15 @@ function FormatUtf8Content(const AContent: UTF8String; const AOpts: TYadfOptions
 /// <param name="ALineStart">Byte offset of the first covered line's first byte.</param>
 /// <param name="ALineEnd">Byte offset just past the last covered line's line break (or the content length).</param>
 /// <returns>False when the range is invalid (negative, or reaching past the content).</returns>
-/// <remarks>A selection that ends exactly at the start of a line does not include that line.</remarks>
+/// <remarks>
+/// A selection that ends exactly at the start of a line does not include that line.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADF.FormatBridge.SelectionCoversWholeContent (YADF.FormatBridge.pas)</para>
+/// <para>Returns: True</para>
+/// <para>Complexity: 11 (cyclomatic, outer body), 16 lines (full implementation)</para>
+/// <para>Mutates: ALineStart (out), ALineEnd (out)</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function ExpandToWholeLines(const AContent: UTF8String; AOffset, ALen: Integer; out ALineStart, ALineEnd: Integer): Boolean;  // dl:ok unused-public-symbol@cf4d -- public for FormatBridgeTest
 
 /// <summary>True when the selection, expanded to whole lines, is the entire non-empty content
@@ -78,6 +122,14 @@ function ExpandToWholeLines(const AContent: UTF8String; AOffset, ALen: Integer; 
 /// <param name="AOffset">0-based byte offset of the selection start.</param>
 /// <param name="ALen">Selection length in bytes.</param>
 /// <returns>False for an invalid range, empty content or a partial selection.</returns>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADFOT.CodeFormatter.TYadfCodeFormatter.FormatSelected (YADFOT.CodeFormatter.pas)</para>
+/// <para>Calls: YADF.FormatBridge.ExpandToWholeLines</para>
+/// <para>Returns: (AContent &lt;&gt; '') and ExpandToWholeLines(AContent, AOffset, ALen, S, E) and (S = 0) and (E = Length(AContent))</para>
+/// <seealso cref="YADF.FormatBridge.ExpandToWholeLines"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function SelectionCoversWholeContent(const AContent: UTF8String; AOffset, ALen: Integer): Boolean;
 
 /// <summary>Maps a caret byte offset from the original to the formatted text by (line, column).</summary>
@@ -86,15 +138,34 @@ function SelectionCoversWholeContent(const AContent: UTF8String; AOffset, ALen: 
 /// <param name="AOffset">0-based caret byte offset in AOriginal (clamped into range).</param>
 /// <returns>A byte offset in AFormatted on the same line index and column, each clamped to what
 /// exists, never inside a multi-byte UTF-8 character; 0 for empty AFormatted.</returns>
-/// <remarks>Formatting can change line counts, so this is a best-effort caret restore, not offset
-/// remapping (the adapter reports SupportsOffsetRemapping = False).</remarks>
+/// <remarks>
+/// Formatting can change line counts, so this is a best-effort caret restore, not offset
+/// remapping (the adapter reports SupportsOffsetRemapping = False).
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADFOT.CodeFormatter.TYadfCodeFormatter.FormatFile (YADFOT.CodeFormatter.pas)</para>
+/// <para>Calls: Byte</para>
+/// <para>Complexity: 18 (cyclomatic, outer body), 38 lines (full implementation)</para>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function RemapCursorOffset(const AOriginal, AFormatted: UTF8String; AOffset: Integer): Integer;
 
 /// <summary>Options of the F profile, resolved exactly as the Ctrl+Shift+Alt+F command does.</summary>
 /// <returns>%APPDATA%\YADF\profiles.ini [Profiles]F (default yadf.ini), materialised with the
 /// commented template when absent, then loaded over DefaultOptions.</returns>
-/// <remarks>Does not raise on a missing or unreadable INI (defaults apply); only the template write of
-/// EnsureIniExists can fail, with the RTL stream error of the failed file create.</remarks>
+/// <remarks>
+/// Does not raise on a missing or unreadable INI (defaults apply); only the template write of
+/// EnsureIniExists can fail, with the RTL stream error of the failed file create.
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: YADFOT.CodeFormatter.TYadfCodeFormatter.FormatFile (YADFOT.CodeFormatter.pas), YADFOT.Wizard.ResolveOptions (YADFOT.Wizard.pas)</para>
+/// <para>Calls: FileExists, YADF.Options.DefaultOptions, YADF.Options.EnsureIniExists, YADF.Options.LoadOptionsFromIni, YADF.Options.LoadProfiles, YADF.Options.ResolveProfileIniPath, YADF.Options.SharedAppDataIniPath</para>
+/// <para>Returns: DefaultOptions; LoadOptionsFromIni(IniPath)</para>
+/// <seealso cref="YADF.Options.DefaultOptions"/>
+/// <seealso cref="YADF.Options.EnsureIniExists"/>
+/// <seealso cref="YADF.Options.LoadOptionsFromIni"/>
+/// <seealso cref="YADF.Options.LoadProfiles"/>
+/// <seealso cref="YADF.Options.ResolveProfileIniPath"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 function ResolveFProfileOptions: TYadfOptions;
 
 implementation

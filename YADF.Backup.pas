@@ -9,6 +9,12 @@ interface
 type
   /// <summary>Receives a human-readable warning (no trailing newline) when a
   /// backup step fails non-fatally, e.g. an old backup could not be deleted.</summary>
+  /// <param name="AMsg"><!-- drag-lint:auto type -->const string</param>
+  /// <remarks>
+  /// <!-- drag-lint:auto BEGIN -->
+  /// <para>Used by: declaration (YADF.Backup.pas), YADF.Backup.BackupOriginalFile (YADF.Backup.pas), YADF.Backup.PruneBackups (YADF.Backup.pas)</para>
+  /// <!-- drag-lint:auto END -->
+  /// </remarks>
   TBackupWarn = reference to procedure(const AMsg: string);
 
 /// <summary>Copies AFile to a new backup (sibling .BCKn, or name.folderhash.stamp.bak
@@ -17,6 +23,17 @@ type
 /// <param name="ABackupDir">Backup folder; empty = next to AFile.</param>
 /// <param name="AKeep">BackupKeep option; 0 keeps every backup.</param>
 /// <param name="AOnWarn">Optional sink for a prune failure message (see PruneBackups); nil = silent.</param>
+/// <remarks>
+/// <!-- drag-lint:auto BEGIN -->
+/// <para>Called from: [YADF]YadfMain.ProcessOneFile (YadfMain.pas), [YADFOT]YADFOT.Wizard.FormatFileOnDisk (YADFOT.Wizard.pas)</para>
+/// <para>Calls: Copy, ExtractFileName, FormatDateTime, IntToStr, Max, Pos, StrToIntDef, Trim, YADF.Backup.BackupSortKey, YADF.Backup.FolderBackupBase, YADF.Backup.NextSiblingBackupName, YADF.Backup.PruneBackups</para>
+/// <para>Touches: file system</para>
+/// <seealso cref="YADF.Backup.BackupSortKey"/>
+/// <seealso cref="YADF.Backup.FolderBackupBase"/>
+/// <seealso cref="YADF.Backup.NextSiblingBackupName"/>
+/// <seealso cref="YADF.Backup.PruneBackups"/>
+/// <!-- drag-lint:auto END -->
+/// </remarks>
 procedure BackupOriginalFile(const AFile: string; const ABackupDir: string; AKeep: Integer; const AOnWarn: TBackupWarn = nil);
 
 implementation
