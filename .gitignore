@@ -90,3 +90,9 @@ INBOX-*.md
 YADF.res
 YADFOT.res
 YADFSetup.res
+
+# Internal working notes -- never published (owner rule 2026-11-24: only build sources and manuals)
+docs/handoffs/
+docs/superpowers/
+recovery.txt
+Test/FormatBridgeTest.res
