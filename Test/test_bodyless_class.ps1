@@ -6,7 +6,7 @@
 # popped it only on `end`, so each bodyless declaration leaked one level and
 # every following sibling stepped one indent deeper -- a staircase.
 #
-# Reported 2026-09-10 against C:\Projects\DB\ORM3\COMMON\CommonExceptions.pas,
+# Reported 2026-09-10 against a real-world exceptions unit,
 # where nine sibling exception classes rendered as a nine-step ladder.
 #
 # The assertion is the unambiguous invariant, not a style choice: every type
