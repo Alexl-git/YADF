@@ -8,6 +8,22 @@ predate the scheme correction and keep their original `1.0.0.x` headings.
 
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.23.0] - 2026-11-24
+
+A maintenance release: no formatting change is intended. With default options the
+output is byte-identical to 1.0.22.0 on the 844 Delphi units compared.
+
+### Fixed
+
+- The formatter no longer leaves a string in a thread variable after it returns (it could leak when the host thread ended).
+
+### Changed
+
+- Debug and Release builds stamp the same file version.
+- The content guard builds asm lines with a string builder; several arrays are sized once instead of growing one element at a time; the Options page fills its combo boxes inside `BeginUpdate` / `EndUpdate`.
+- README: restored text that had been damaged by an encoding error and added a pointer to the online help.
+- The vendored drag-lint `ReviewMarker` unit is in step with drag-lint 1.54.0.
+- Internal: source comments and review markers refreshed for drag-lint 1.53.
 ## [1.0.22.0] - 2026-11-04
 
 This release adds the `BackupKeep` option, closes the 2026-11-03 and 2026-11-04
