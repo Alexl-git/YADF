@@ -148,7 +148,7 @@ end; // constructor
 destructor TGroup.Destroy;
 begin
   Children.Free;
-  inherited;  // dl:ok inherited-bare@246d
+  inherited;
 end;
 
 // Returns the keyword to use in the trailing `// keyword` comment
@@ -160,7 +160,7 @@ end;
 // initialization / finalization / a prior `end` which we treat as
 // "anonymous begin"). The Limit guard caps the backwards scan at 300
 // non-trivial tokens so pathological input can't pin the formatter.
-function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;  // dl:ok too-many-exit-points@a773
+function FindBlockLabel(const ATokens: TTokenList; AOpenIdx: Integer): string;  // dl:ok too-many-exit-points@c33f
 const
   MAX_LABEL_SCAN = 300;  // non-trivial tokens scanned backwards before giving up
 var

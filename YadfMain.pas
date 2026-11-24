@@ -395,15 +395,15 @@ begin
   Result:= 0;
 end;
 
-function CheckFile(const AFileName: string; const AOpts: TYadfOptions; out FirstDiff: Integer): Boolean;
+function CheckFile(const AFileName: string; const AOpts: TYadfOptions; out AFirstDiff: Integer): Boolean;
 var
   Output: string;
   Source: string;
 begin
   Source:= LoadFile(AFileName, AOpts);
   Output:= RoundTrip(Source);
-  FirstDiff:= FirstDiffIndex(Source, Output);
-  Result:= FirstDiff = 0;
+  AFirstDiff:= FirstDiffIndex(Source, Output);
+  Result:= AFirstDiff = 0;
 end;
 
 procedure FormatToStdout(const AFileName: string; const AOpts: TYadfOptions);
@@ -1111,7 +1111,7 @@ var
   end;
 
   // Every flag that only sets one option field: True when AArgs[i] was one.
-  function TableFlag: Boolean;  // dl:ok cyclomatic-complexity@e039 -- each "or" is one row of the flag table, not a decision; splitting it would only bring back the repetition
+  function TableFlag: Boolean;  // dl:ok cyclomatic-complexity@54b5 -- each "or" is one row of the flag table, not a decision; splitting it would only bring back the repetition
   begin
     Result:= IntFlag('--max-len', AOpts.MaxLen)  // dl:ok boolean-expression-complexity@89ee -- the expression IS the flag table, one row per line
       or IntFlag('--indent', AOpts.Indent)
@@ -1266,7 +1266,7 @@ begin
   end;
 end; // function
 
-procedure RunYadf;  // dl:ok too-many-exit-points@f480
+procedure RunYadf;  // dl:ok too-many-exit-points@5ca6
 var
   AllFiles  : TList<string> ;
   Args      : TArray<string>;

@@ -920,7 +920,7 @@ begin
   Result.AlignConstEquals     := True;
   Result.AlignTypeColon       := True;
   Result.AlignSmartAssign     := True;
-  Result.AlignMaxColumn       := 140;  // dl:ok large-magic-number@ee61
+  Result.AlignMaxColumn       := 140;
   Result.AlignMatchingShapes  := True;
   Result.AlignShapeMinAnchors := 3;
   Result.AlignCommentMaxShift := 7;
@@ -1010,7 +1010,7 @@ end;
 var
   GOptTable: TArray<TOptInfo>;
 
-function MakeOpt(  // dl:ok too-many-parameters@d966
+function MakeOpt(  // dl:ok too-many-parameters@ee08
   const AIdent, AGroup, ACaption, AHint: string; AKind: TOptKind; AAffects: Boolean; const AGet: TOptGetter; const ASet: TOptSetter; const AEnumValues: TArray<string> = nil
 ): TOptInfo;
 begin
@@ -1721,7 +1721,7 @@ begin
   Tmp:= AFileName + '.yadf-tmp';
   try
     WriteAllBytesFlushed(Tmp, All);
-  except  // dl:ok bare-except@98bb
+  except
     // Nothing replaced yet: the target is untouched, so dropping the partial temp is safe.
     DeleteFileW(PWideChar(Tmp));
     raise;

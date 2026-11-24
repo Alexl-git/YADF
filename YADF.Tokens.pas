@@ -267,7 +267,7 @@ begin
   Result:= CharInSet(C, ['A'..'Z', 'a'..'z']);
 end;
 
-function ShieldIncludeDirectives(const ASource: string): string;  // dl:ok deep-nesting@4396, cyclomatic-complexity@2620, cognitive-complexity@3538 -- one linear scanner over the source; every branch is a lexical state (string, comment, directive), splitting it would scatter the state machine
+function ShieldIncludeDirectives(const ASource: string): string;  // dl:ok deep-nesting@df37, cyclomatic-complexity@3307, cognitive-complexity@2ca7 -- one linear scanner over the source; every branch is a lexical state (string, comment, directive), splitting it would scatter the state machine
 var
   i      : Integer       ;
   n      : Integer       ;
@@ -496,7 +496,7 @@ begin
     finally
       Lex.Free;
     end; // try
-  except  // dl:ok bare-except@041e
+  except
     Result.Free;
     raise;
   end; // try

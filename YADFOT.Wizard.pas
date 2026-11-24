@@ -443,7 +443,7 @@ end;
 // escaping it (options I/O, OTA buffer write, module save/refresh -- not
 // just the formatter itself) would unwind through the IDE's own stack and
 // can destabilise it. Everything surfaces as a dialog instead.
-procedure DoFormatCurrentBuffer(AProfileR: Boolean = False);  // dl:ok too-many-exit-points@8e73
+procedure DoFormatCurrentBuffer(AProfileR: Boolean = False);  // dl:ok too-many-exit-points@dbb2
 var
   Editor   : IOTASourceEditor;
   Buffer   : IOTAEditBuffer;

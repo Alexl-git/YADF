@@ -49,7 +49,6 @@ uses
   , Vcl.Samples.Spin
   , Vcl.Clipbrd
   , YADF.Options  // dl:unit YADF.Options accepted -- the options UI shares the option model and help ids by design
-  , YADF.Layout
   ;
 
 type
@@ -678,6 +677,7 @@ uses
   Winapi.ShellAPI
   , System.Math
   , Vcl.Themes
+  , YADF.Layout
   ;
 
 type
@@ -877,7 +877,7 @@ begin
   Bar:= TPanel.Create(Self);
   Bar.Parent    := AHost;
   Bar.Align     := alTop;
-  Bar.Height    := 21;  // dl:ok large-magic-number@a75f
+  Bar.Height    := 21;
   Bar.BevelOuter:= bvNone;
   Bar.Top       := 0;
 
@@ -922,7 +922,7 @@ begin
   // Debounce timer: coalesces a burst of control changes into one reformat.
   FReformatTmr:= TTimer.Create(Self);
   FReformatTmr.Enabled := False;
-  FReformatTmr.Interval:= 200;  // dl:ok large-magic-number@c5ec
+  FReformatTmr.Interval:= 200;
   FReformatTmr.OnTimer := ReformatTimer;
 
   // The LEFT region is a host panel holding the Profiles panel (docked top, so
@@ -966,7 +966,7 @@ begin
     FPendingSave:= False;
     SaveCurrentProfile;
   end;
-  inherited;  // dl:ok inherited-bare@246d
+  inherited;
 end; // destructor
 
 procedure TYadfOptionsFrame.BuildProfilePanel(AHost: TWinControl);
@@ -979,7 +979,7 @@ var
   begin
     Result:= TButton.Create(Self);
     Result.Parent:= Bar;
-    Result.Left:= ALeft; Result.Top:= 1; Result.Width:= 62; Result.Height:= 23;  // dl:ok large-magic-number@caa7
+    Result.Left:= ALeft; Result.Top:= 1; Result.Width:= 62; Result.Height:= 23;
     Result.Caption:= ACap;
     Result.Hint:= AHint; Result.ShowHint:= True;
     Result.OnClick:= AOnClick;
@@ -994,7 +994,7 @@ begin
   Panel:= TPanel.Create(Self);
   Panel.Parent    := AHost;
   Panel.Align     := alTop;
-  Panel.Height    := 168;  // dl:ok large-magic-number@7b14
+  Panel.Height    := 168;
   Panel.BevelOuter:= bvNone;
 
   Lbl:= TLabel.Create(Self);
@@ -1006,7 +1006,7 @@ begin
   Bar:= TPanel.Create(Self);
   Bar.Parent    := Panel;
   Bar.Align     := alBottom;
-  Bar.Height    := 44;  // dl:ok large-magic-number@5f66
+  Bar.Height    := 44;
   Bar.BevelOuter:= bvNone;
   AddBtn( 2 , 'Set F'   , SetFClick      , 'Assign the selected profile to Ctrl+Shift+Alt+F (and the CLI default). Keyboard: F'    );
   AddBtn( 66, 'Set R'   , SetRClick      , 'Assign the selected profile to Ctrl+Shift+Alt+R. Keyboard: R'                          );  // dl:ok large-magic-number@4117
@@ -1015,7 +1015,7 @@ begin
 
   FEditingLbl:= TLabel.Create(Self);
   FEditingLbl.Parent:= Bar;
-  FEditingLbl.Left:= 4; FEditingLbl.Top:= 27;  // dl:ok large-magic-number@b7e5
+  FEditingLbl.Left:= 4; FEditingLbl.Top:= 27;
   FEditingLbl.Caption:= 'Editing:';
 
   // IDE-only switch (hidden until the host calls ShowNativeFormatterOption).
@@ -1171,7 +1171,7 @@ begin
         Lbl.Parent:= Parent; Lbl.Left:= 10; Lbl.Top:= YIn + 3;
         Lbl.Caption:= T[i].Caption;
         Cmb:= TComboBox.Create(Self);
-        Cmb.Parent:= Parent; Cmb.Left:= 200; Cmb.Top:= YIn; Cmb.Width:= 80;  // dl:ok large-magic-number@1c2d
+        Cmb.Parent:= Parent; Cmb.Left:= 200; Cmb.Top:= YIn; Cmb.Width:= 80;
         Cmb.Style:= csDropDownList;
         Cmb.Items.BeginUpdate;
         try
@@ -1217,25 +1217,25 @@ begin
   SrcPane:= TPanel.Create(Self);
   SrcPane.Parent    := Host;
   SrcPane.Align     := alLeft;
-  SrcPane.Width     := 260;  // dl:ok large-magic-number@2371
+  SrcPane.Width     := 260;
   SrcPane.BevelOuter:= bvNone;
 
   SrcBar:= TPanel.Create(Self);
   SrcBar.Parent    := SrcPane;
   SrcBar.Align     := alTop;
-  SrcBar.Height    := 26;  // dl:ok large-magic-number@6dcb
+  SrcBar.Height    := 26;
   SrcBar.BevelOuter:= bvNone;
 
   Btn:= TButton.Create(Self);
   Btn.Parent:= SrcBar;
-  Btn.Left:= 2; Btn.Top:= 1; Btn.Width:= 90; Btn.Height:= 23;  // dl:ok large-magic-number@0e62
+  Btn.Left:= 2; Btn.Top:= 1; Btn.Width:= 90; Btn.Height:= 23;
   Btn.Caption:= 'Load .pas...';
   Btn.Hint:= 'Load your own Pascal file into the preview'; Btn.ShowHint:= True;
   Btn.OnClick:= OpenSourceClick;
 
   FSourceName:= TLabel.Create(Self);
   FSourceName.Parent:= SrcBar;
-  FSourceName.Left:= 98; FSourceName.Top:= 5;  // dl:ok large-magic-number@cb79
+  FSourceName.Left:= 98; FSourceName.Top:= 5;
   FSourceName.Caption:= 'source';
 
   FSource:= TMemo.Create(Self);
@@ -1262,19 +1262,19 @@ begin
   ResBar:= TPanel.Create(Self);
   ResBar.Parent    := ResPane;
   ResBar.Align     := alTop;
-  ResBar.Height    := 26;  // dl:ok large-magic-number@96ca
+  ResBar.Height    := 26;
   ResBar.BevelOuter:= bvNone;
 
   Btn:= TButton.Create(Self);
   Btn.Parent:= ResBar;
-  Btn.Left:= 2; Btn.Top:= 1; Btn.Width:= 60; Btn.Height:= 23;  // dl:ok large-magic-number@16f4
+  Btn.Left:= 2; Btn.Top:= 1; Btn.Width:= 60; Btn.Height:= 23;
   Btn.Caption:= 'Copy';
   Btn.Hint:= 'Copy the formatted result to the clipboard'; Btn.ShowHint:= True;
   Btn.OnClick:= CopyResultClick;
 
   FResultStat:= TLabel.Create(Self);
   FResultStat.Parent:= ResBar;
-  FResultStat.Left:= 70; FResultStat.Top:= 5;  // dl:ok large-magic-number@9ebe
+  FResultStat.Left:= 70; FResultStat.Top:= 5;
   FResultStat.Caption:= 'result';
 
   FResult:= TMemo.Create(Self);

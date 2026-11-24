@@ -131,7 +131,7 @@ end;
 destructor TYadfOptionsPage.Destroy;
 begin
   FWatch.Free;
-  inherited;  // dl:ok inherited-bare@246d
+  inherited;
 end;
 
 function TYadfOptionsPage.GetArea: string;

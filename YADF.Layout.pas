@@ -382,7 +382,7 @@ end; // procedure
 // An operator at end-of-line is left untouched so multi-line RHS reflow still
 // works (mirrors NormalizeAssignSpacing). Rebuilds the token list so insert/
 // delete bookkeeping stays simple.
-procedure NormalizeOperatorSpacing(const ATokens: TTokenList);  // dl:ok deep-nesting@42f3
+procedure NormalizeOperatorSpacing(const ATokens: TTokenList);
 var
   Src     : TArray<TToken>;
   Outp    : TTokenList    ;
@@ -862,7 +862,7 @@ type
   end;
 
 // Lexes ALines into AScan.Toks plus the per-line comment / first / last tables.
-procedure LexCaseArmLines(ALines: TStringList; var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@41d8, cognitive-complexity@99fd -- one flat hand lexer
+procedure LexCaseArmLines(ALines: TStringList; var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@44fe, cognitive-complexity@92ae -- one flat hand lexer
 var
   n      : Integer;
   i      : Integer;
@@ -1002,7 +1002,7 @@ end; // procedure
 // Walks AScan.Toks with a block stack and records every arm of every case
 // statement in AScan.Arms. A `case` whose enclosing block is a record (or
 // that sits outside any block) is a variant part and is skipped.
-procedure ParseCaseArms(var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@48e8, cognitive-complexity@3673 -- one flat structure walk
+procedure ParseCaseArms(var AScan: TCaseArmScan);  // dl:ok cyclomatic-complexity@72d2, cognitive-complexity@98a2 -- one flat structure walk
 type
   TFrameKind = (fkCode, fkCase, fkRecord, fkRepeat);
   TCaseState = (csHeader, csLabel, csBody, csElse);
@@ -1361,7 +1361,7 @@ end;
 /// it stays on the label line); a `//` comment blocks a join across it, and a
 /// trailing `//` on the statement line rides along. A span holding a directive
 /// or a multi-line comment is left alone. Idempotent.</remarks>
-function LayoutCaseArms(const S: string; AJoinLabels: Boolean; ABodies: TCaseArmBodies; AIndent, AMaxLen: Integer): string;  // dl:ok deep-nesting@a3f5, cyclomatic-complexity@7637, cognitive-complexity@fd19 -- plan pass + emit pass over one line table
+function LayoutCaseArms(const S: string; AJoinLabels: Boolean; ABodies: TCaseArmBodies; AIndent, AMaxLen: Integer): string;  // dl:ok cyclomatic-complexity@7637, cognitive-complexity@ed02 -- plan pass + emit pass over one line table
 var
   Lines    : TStringList   ;
   Scan     : TCaseArmScan  ;
@@ -1542,7 +1542,7 @@ end;
 /// `//` comment, a { } / (* *) comment or directive, or a blank line, and only
 /// when the joined line fits AMaxLen. A line holding a { } / (* *) comment is
 /// never split. Idempotent.</remarks>
-function LayoutBeginPlacement(const S: string; AOnHeader: Boolean; AMaxLen: Integer): string;  // dl:ok cyclomatic-complexity@78f9 -- plan pass + emit pass over one line table, like LayoutCaseArms
+function LayoutBeginPlacement(const S: string; AOnHeader: Boolean; AMaxLen: Integer): string;  // dl:ok cyclomatic-complexity@725d -- plan pass + emit pass over one line table, like LayoutCaseArms
 var
   Lines    : TStringList    ;
   Scan     : TCaseArmScan   ;
@@ -1732,7 +1732,7 @@ end; // function
 // task 6) or is blank. The nested StartsKW helper ensures we match whole keywords
 // rather than identifier prefixes (so `endpoint` is not detected as
 // `end`).
-function StartsBlockBoundary(const ALine: string): Boolean;  // dl:ok too-many-exit-points@b0e6
+function StartsBlockBoundary(const ALine: string): Boolean;  // dl:ok too-many-exit-points@9142
 var
   T: string;
 
@@ -1871,8 +1871,8 @@ var
   Lead    : string        ;
   LeadLen : Integer       ;
   NextKind: TptTokenKind  ;
-  n       : Integer       ;  // dl:ok duplicate-code@52a8
-  PrevKind: TptTokenKind  ;
+  n       : Integer       ;
+  PrevKind: TptTokenKind  ;  // dl:ok duplicate-code@11de
   Sb      : TStringBuilder;
   T       : TToken        ;
   Tokens  : TTokenList    ;
@@ -2235,7 +2235,7 @@ begin
   Result:= True;
 end;
 
-function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@332f, cognitive-complexity@d73c, too-many-locals@8588 -- re-reviewed 2026-11-02 (cyclomatic 56 is the per-part case analysis of one declaration line; shape unchanged); one line walk over the parts of the line being split (26 locals: JoinedTo carries the multi-line name list join across iterations)
+function SplitMultiVarDeclarations(const S: string; ASplitDecls, ASplitCaseLabels: Boolean): string;  // dl:ok deep-nesting@e0ef, cyclomatic-complexity@0c1e, cognitive-complexity@5d0e, too-many-locals@60fe -- re-reviewed 2026-11-02 (cyclomatic 56 is the per-part case analysis of one declaration line; shape unchanged); one line walk over the parts of the line being split (26 locals: JoinedTo carries the multi-line name list join across iterations)
 var
   Lines     : TStringList    ;
   OutVal      : TStringBuilder ;
@@ -3032,7 +3032,7 @@ begin
   Result:= if c > 0 then Length(TrimRight(Copy(ALine, 1, c - 1))) else Length(ALine);
 end; // function
 
-function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@9ed8, cognitive-complexity@53ce
+function SmartAlignAssignments(const S: string; AMaxCol: Integer; AMatchShapes: Boolean; AMinAnchors, ACommentMaxShift: Integer): string;  // dl:ok deep-nesting@186a, cyclomatic-complexity@ad55, cognitive-complexity@1995
 var
   AnyOver  : Boolean                ;
   ColCols  : TArray<Integer>        ;
@@ -3618,7 +3618,7 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; AKeepComponentBreak
 // the line. The `else` case has one exception -- `else if ...` is
 // a chain we WANT to keep on one line, so an `else` is allowed to
 // merge if the next line starts with `if`.
-  function CurBlocksMerge(const ALine, ANext: string): Boolean;  // dl:ok too-many-exit-points@e3db, cyclomatic-complexity@ca06
+  function CurBlocksMerge(const ALine, ANext: string): Boolean;  // dl:ok too-many-exit-points@e784, cyclomatic-complexity@624c
   var
     R   : string;
     Code: string;
@@ -3725,7 +3725,7 @@ function ReflowLineBreaks(const S: string; AMaxLen: Integer; AKeepComponentBreak
 // predecessor. Mirrors CurBlocksMerge from the opposite direction:
 // structural keywords, line comments, directives, and section
 // openers all force a line break to be preserved.
-  function NextBlocksMerge(const ALine: string): Boolean;  // dl:ok too-many-exit-points@d239
+  function NextBlocksMerge(const ALine: string): Boolean;  // dl:ok too-many-exit-points@82a4
   const
     // Section openers, block closers and routine headers: a line STARTING
     // with any of these can never be merged onto its predecessor. Order is
@@ -3964,16 +3964,16 @@ end; // begin
 function TopLevelSepPositions(const AText: string; ASep: Char): TArray<Integer>; forward;
 
 /// <summary>True iff L, left-trimmed, starts with the whole word Wd (case-insensitive).</summary>
-function CtlStartsWord(const L, Wd: string): Boolean;
+function CtlStartsWord(const L, AWd: string): Boolean;
 var
   Tr: string;
 begin
   Tr:= TrimLeft(L);
-  if Length(Tr) < Length(Wd) then
+  if Length(Tr) < Length(AWd) then
     Exit(False);
-  if not SameText(Copy(Tr, 1, Length(Wd)), Wd) then
+  if not SameText(Copy(Tr, 1, Length(AWd)), AWd) then
     Exit(False);
-  Result:= if Length(Tr) > Length(Wd) then not CharInSet(Tr[Length(Wd) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) else True;
+  Result:= if Length(Tr) > Length(AWd) then not CharInSet(Tr[Length(AWd) + 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) else True;
 end;
 
 /// <summary>True iff B (one line) is a simple statement that a Break*Body option may
@@ -3998,7 +3998,7 @@ end;
 /// AW = the lower-cased words, ABef / AAft = their start column and the column
 /// after them. ADisq = the line holds a `//` comment or ends inside a block
 /// comment.</summary>
-procedure ScanControlWords(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@b83f -- one flat hand lexer
+procedure ScanControlWords(const L: string; out AW: TArray<string>; out ABef, AAft: TArray<Integer>; out ADisq: Boolean);  // dl:ok cyclomatic-complexity@cdba -- one flat hand lexer
 var
   p    : Integer;
   n    : Integer;
@@ -4011,9 +4011,9 @@ var
   Cnt  : Integer;
   Blk  : Integer; // begin/case/try/asm/record .. end nesting opened on this line
 
-  function IsIdent(ch: Char): Boolean;
+  function IsIdent(ACh: Char): Boolean;
   begin
-    Result:= CharInSet(ch, ['a'..'z', 'A'..'Z', '0'..'9', '_']);
+    Result:= CharInSet(ACh, ['a'..'z', 'A'..'Z', '0'..'9', '_']);
   end;
 
   procedure AddHit(const AWord: string; ABp, AAp: Integer);
@@ -4322,7 +4322,7 @@ var
   // One source line (or, ANested, the control statement split off a `do` line).
   // A case-arm `else` line is ElseL[i] only for the line as read, not for a
   // statement split off it.
-  procedure ProcessLine(const ALine: string; ANested: Boolean);  // dl:ok deep-nesting@c155, cyclomatic-complexity@0cb4, cognitive-complexity@fd91 -- the per-line segment walk BreakControlBodies always held, moved here to recurse on a nested body
+  procedure ProcessLine(const ALine: string; ANested: Boolean);  // dl:ok deep-nesting@893d, cyclomatic-complexity@0cb4, cognitive-complexity@fd91 -- the per-line segment walk BreakControlBodies always held, moved here to recurse on a nested body
   const
     MIN_ELSE_SEGS = 3; // if-header, body, else
   var
@@ -5066,16 +5066,16 @@ const
 // True iff position p in L starts the whole word Kw (ident boundary before AND
 // after) and the next non-space char after the word is '(' -- an inline routine
 // header keyword like `procedure(` / `function(`.
-  function KwParenAt(const L, Kw: string; p: Integer): Boolean;
+  function KwParenAt(const L, AKw: string; p: Integer): Boolean;
   var
     q: Integer;
   begin
     Result:= False;
-    if not SameText(Copy(L, p, Length(Kw)), Kw) then
+    if not SameText(Copy(L, p, Length(AKw)), AKw) then
       Exit;
     if (p > 1) and CharInSet(L[p - 1], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then
       Exit;
-    q:= p + Length(Kw);
+    q:= p + Length(AKw);
     if (q <= Length(L)) and CharInSet(L[q], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then
       Exit;
     while (q <= Length(L)) and (L[q] = ' ') do
@@ -5600,7 +5600,7 @@ begin
   end; // try
 end; // function
 
-function CollapseShortBlocks(const S: string; AMaxLen: Integer): string;  // dl:ok deep-nesting@6ce3
+function CollapseShortBlocks(const S: string; AMaxLen: Integer): string;
 var
   Lines : TStringList    ;
   Lock  : TArray<Boolean>;
@@ -7073,7 +7073,7 @@ end;
 // Within parens/brackets (ParensDepth > 0) and within a uses clause,
 // re-indentation is suppressed -- those constructs are rendered by
 // the structural walker, not the re-indenter.
-function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@19e2, cyclomatic-complexity@6fd2, cognitive-complexity@1988, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
+function ReindentByDepth(const ASrc: string; AIndent: Integer; AIndentComments: Boolean = True): string;  // dl:ok method-too-long@0389, cyclomatic-complexity@2e5a, cognitive-complexity@048a, deep-nesting@cf9e -- single-pass indent state machine; splitting would scatter shared mutable state
 const
   // Stack entry for a record's variant part (`case Tag: T of` at the record's
   // own paren level). `of` itself is never pushed, so the kind is free; the
@@ -8961,7 +8961,7 @@ end; // function
 // invalidate the group tree). Active only when AOpts.Delphi10Compat is set;
 // downgrades inline var/const and untyped `for var`, flagging any residual
 // construct it cannot rewrite with a TODO comment.  // dl:ok compiler-magic-comments@e3b0
-procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@25a1, cognitive-complexity@d458, method-too-long@bf33 -- 368 vs 250: one token-scan pass over shared state; split is not behaviour-safe
+procedure DowngradeInlineVars(const ATokens: TTokenList; const AOpts: TYadfOptions);  // dl:ok deep-nesting@0365, cyclomatic-complexity@25a1, cognitive-complexity@d458, method-too-long@2906 -- 368 vs 250: one token-scan pass over shared state; split is not behaviour-safe
 type
   TInlineKind = (ikExplicitInit, ikExplicitNoInit, ikForExplicit, ikFallbackTodo);
   TInlineRec  = record
@@ -9336,7 +9336,7 @@ var
   end; // function
 
 // Single-name, explicitly-typed inline var at ptVar index AVar.
-  function TryParseExplicit(AVar: Integer; out ARec: TInlineRec): Boolean;  // dl:ok too-many-exit-points@e017
+  function TryParseExplicit(AVar: Integer; out ARec: TInlineRec): Boolean;  // dl:ok too-many-exit-points@d2c8
   var
     FirstName: Integer       ;
     p        : Integer       ;
@@ -9525,7 +9525,7 @@ var
 // Literal-only type inference over an expression token span. Returns '' when
 // the type cannot be safely determined (-> fallback). Deliberately conservative:
 // no typecast inference (Ident(expr) is indistinguishable from a function call).
-  function InferLiteralType(AFrom, ATo: Integer): string;  // dl:ok too-many-exit-points@13cf
+  function InferLiteralType(AFrom, ATo: Integer): string;  // dl:ok too-many-exit-points@19a5
   var
     S     : Integer;
     e     : Integer;
@@ -10523,7 +10523,7 @@ end; // function
 // which can differ from the column the formatted line settles at; or
 // BreakLongLines broke an over-long line (A-L4: a nested group it split may fit
 // on the settled line).
-function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string; out AUnsettled: Boolean): string;  // dl:ok cyclomatic-complexity@e512, method-too-long@9c1e -- the stage list reads top to bottom as the pipeline diagram
+function FormatSourceOnce(const ASource: string; const AOpts: TYadfOptions; out ADeclineReason: string; out AUnsettled: Boolean): string;  // dl:ok cyclomatic-complexity@e512, method-too-long@fd5e -- the stage list reads top to bottom as the pipeline diagram
 var
   CurCol      : Integer       ;
   CurLine     : Integer       ;
@@ -10747,25 +10747,25 @@ var
 // AddIfWord calls never consult St.Depth); that is harmless for the
 // greedy breaker, which picks one position, but would shatter groups
 // under the break-at-every-boundary rule.
-  function FindComponentBoundaries(const Line: string; ADepth: Integer): TArray<Integer>;
+  function FindComponentBoundaries(const ALine: string; ADepth: Integer): TArray<Integer>;
   var
     Done     : Boolean       ;
     i        : Integer       ;
     Positions: TList<Integer>;
     St       : TLineScanState;
-    procedure AddIfWordAtDepth(Idx, Wlen: Integer; const W: string);
+    procedure AddIfWordAtDepth(AIdx, AWlen: Integer; const W: string);
     begin
       if St.Depth <> ADepth then
         Exit;
-      if (Idx + Wlen - 1 > Length(Line)) then
+      if (AIdx + AWlen - 1 > Length(ALine)) then
         Exit;
-      if not SameText(Copy(Line, Idx, Wlen), W) then
+      if not SameText(Copy(ALine, AIdx, AWlen), W) then
         Exit;
-      if (Idx > 1) and IsAlphaNum(Line[Idx - 1]) then
+      if (AIdx > 1) and IsAlphaNum(ALine[AIdx - 1]) then
         Exit;
-      if (Idx + Wlen <= Length(Line)) and IsAlphaNum(Line[Idx + Wlen]) then
+      if (AIdx + AWlen <= Length(ALine)) and IsAlphaNum(ALine[AIdx + AWlen]) then
         Exit;
-      Positions.Add(Idx);
+      Positions.Add(AIdx);
     end;
   begin
     Positions:= TList<Integer>.Create;
@@ -10774,18 +10774,18 @@ var
       Done:= False;
       i   := 1;
       while not Done do
-      case St.SkipNonCode(Line, i) of
+      case St.SkipNonCode(ALine, i) of
         seEndOfLine, seLineComment: Done:= True;
         seCode                    :
         begin
-          if CharInSet(Line[i], ['(', '[', ')', ']']) then
+          if CharInSet(ALine[i], ['(', '[', ')', ']']) then
           begin
-            St.StepCode(Line, i);
+            St.StepCode(ALine, i);
             Continue;
           end;
-          if (i > 1) and (Line[i - 1] = ' ') and (St.Depth = ADepth) then  // dl:ok duplicate-code@50d7 -- deliberate depth-filtering sibling of FindOperatorPositionsAtTopLevel (see the comment above FindComponentBoundaries); sharing the scanner would thread a depth flag through the hot path
+          if (i > 1) and (ALine[i - 1] = ' ') and (St.Depth = ADepth) then  // dl:ok duplicate-code@50d7 -- deliberate depth-filtering sibling of FindOperatorPositionsAtTopLevel (see the comment above FindComponentBoundaries); sharing the scanner would thread a depth flag through the hot path
           begin
-            if CharInSet(Line[i], ['+', '-']) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
+            if CharInSet(ALine[i], ['+', '-']) and (i + 1 <= Length(ALine)) and (ALine[i + 1] = ' ') then
             begin
               Positions.Add(i);
               Inc(i);
@@ -10815,14 +10815,14 @@ var
     end; // try
   end; // function
 
-  function LeadingIndent(const Line: string): string;
+  function LeadingIndent(const ALine: string): string;
   var
     i: Integer;
   begin
     i:= 1;
-    while (i <= Length(Line)) and ((Line[i] = ' ') or (Line[i] = #9)) do
+    while (i <= Length(ALine)) and ((ALine[i] = ' ') or (ALine[i] = #9)) do
       Inc(i);
-    Result:= Copy(Line, 1, i - 1);
+    Result:= Copy(ALine, 1, i - 1);
   end;
 
 // The structural emission walker. Recursively descends the TGroup
@@ -10943,24 +10943,24 @@ var
 // Returns positions are 1-based byte indices. String/brace/paren
 // comment interiors are skipped so we don't split a literal or a
 // documentation block.
-  function FindOperatorPositionsAtTopLevel(const Line: string): TArray<Integer>;
+  function FindOperatorPositionsAtTopLevel(const ALine: string): TArray<Integer>;
   var
     Positions: TList<Integer>;
     i        : Integer       ;
     St       : TLineScanState;
     Done     : Boolean       ;
     SqDepth  : Integer       ;
-    procedure AddIfWord(Idx, Wlen: Integer; const W: string);
+    procedure AddIfWord(AIdx, AWlen: Integer; const W: string);
     begin
-      if (Idx + Wlen - 1 > Length(Line)) then
+      if (AIdx + AWlen - 1 > Length(ALine)) then
         Exit;
-      if not SameText(Copy(Line, Idx, Wlen), W) then
+      if not SameText(Copy(ALine, AIdx, AWlen), W) then
         Exit;
-      if (Idx > 1) and IsAlphaNum(Line[Idx - 1]) then
+      if (AIdx > 1) and IsAlphaNum(ALine[AIdx - 1]) then
         Exit;
-      if (Idx + Wlen <= Length(Line)) and IsAlphaNum(Line[Idx + Wlen]) then
+      if (AIdx + AWlen <= Length(ALine)) and IsAlphaNum(ALine[AIdx + AWlen]) then
         Exit;
-      Positions.Add(Idx);
+      Positions.Add(AIdx);
     end;
   begin
     Positions:= TList<Integer>.Create;
@@ -10970,17 +10970,17 @@ var
       SqDepth:= 0;
       i      := 1;
       while not Done do
-      case St.SkipNonCode(Line, i) of
+      case St.SkipNonCode(ALine, i) of
         seEndOfLine, seLineComment: Done:= True;
         seCode                    :
         begin
-          if CharInSet(Line[i], ['(', '[', ')', ']']) then
+          if CharInSet(ALine[i], ['(', '[', ')', ']']) then
           begin
-            if Line[i] = '[' then
+            if ALine[i] = '[' then
               Inc(SqDepth)
-            else if (Line[i] = ']') and (SqDepth > 0) then
+            else if (ALine[i] = ']') and (SqDepth > 0) then
               Dec(SqDepth);
-            St.StepCode(Line, i);
+            St.StepCode(ALine, i);
             Continue;
           end;
           // An index / set group `[...]` is one component (REVIEW-2026-11-02 options H1):
@@ -10990,9 +10990,9 @@ var
             Inc(i);
             Continue;
           end;
-          if (i > 1) and (Line[i - 1] = ' ') then
+          if (i > 1) and (ALine[i - 1] = ' ') then
           begin
-            if CharInSet(Line[i], ['+', '-']) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
+            if CharInSet(ALine[i], ['+', '-']) and (i + 1 <= Length(ALine)) and (ALine[i + 1] = ' ') then
             begin
               Positions.Add(i);
               Inc(i);
@@ -11002,7 +11002,7 @@ var
             AddIfWord(i, Length('and'), 'and');
             AddIfWord(i, Length('xor'), 'xor');
           end; // if
-          if (Line[i] = ',') and (St.Depth > 0) and (i + 1 <= Length(Line)) and (Line[i + 1] = ' ') then
+          if (ALine[i] = ',') and (St.Depth > 0) and (i + 1 <= Length(ALine)) and (ALine[i + 1] = ' ') then
           begin
             Positions.Add(i + 2);
             Inc(i);
